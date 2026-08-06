@@ -35,7 +35,7 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
     public async Task SaveAsync(ProjectEditor editor, CancellationToken cancellationToken) =>
         await repository.SaveAsync(editor.Project, cancellationToken);
 
-    public async Task<ProjectEditor?> UpdateAsync(SongProject update, CancellationToken cancellationToken)
+    public async Task<ProjectEditor?> SyncAsync(SongProject update, CancellationToken cancellationToken)
     {
         var editor = await GetAsync(update.Id, cancellationToken);
         if (editor is null) return null;
@@ -48,6 +48,7 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         project.SetArtist(update.Artist);
         project.SetGenre(update.Genre);
         project.SetDescription(update.Description);
+        project.SetRawLyricDraft(update.RawLyricDraft);
         project.SetTempo(update.Tempo.BeatsPerMinute);
         project.SetTimeSignature(update.TimeSignature.Numerator, update.TimeSignature.Denominator);
         foreach (var updatedSection in update.Sections)
@@ -55,8 +56,15 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
             var section = project.FindSection(updatedSection.Id);
             section.SetLyricLines(updatedSection.LyricLines);
         }
+        project.Touch();
 
-        await repository.SaveAsync(project, cancellationToken);
+        return editor;
+    }
+
+    public async Task<ProjectEditor?> UpdateAsync(SongProject update, CancellationToken cancellationToken)
+    {
+        var editor = await SyncAsync(update, cancellationToken);
+        if (editor is not null) await repository.SaveAsync(editor.Project, cancellationToken);
         return editor;
     }
 }

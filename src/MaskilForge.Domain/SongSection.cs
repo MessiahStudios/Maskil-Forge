@@ -73,8 +73,11 @@ public sealed class SongSection
     public void SetLyricLines(IEnumerable<LyricLine> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);
+        var replacement = lines.ToList();
+        if (replacement.Select(line => line.Id).Distinct().Count() != replacement.Count)
+            throw new ArgumentException("Lyric line IDs must be unique.", nameof(lines));
         _lyricLines.Clear();
-        _lyricLines.AddRange(lines);
+        _lyricLines.AddRange(replacement);
     }
 
     public void EditLyricLine(Guid lineId, string text)

@@ -20,6 +20,8 @@ export interface SongProject {
   artist: string
   genre: SongGenre
   description: string
+  rawLyricDraft: string
+  lastModifiedUtc: string
   tempo: { beat: number; beatsPerMinute: number }
   timeSignature: { beat: number; numerator: number; denominator: number }
   sections: SongSection[]
@@ -32,8 +34,26 @@ export interface ProjectResponse {
   canRedo: boolean
 }
 
+export interface ProjectSummary {
+  id: string
+  title: string
+  artist: string
+  genre: SongGenre
+  lastModifiedUtc: string
+  sectionCount: number
+  hasRawLyrics: boolean
+}
+
+export interface TrashedProjectSummary {
+  id: string
+  title: string
+  artist: string
+  deletedAtUtc: string
+}
+
 export interface ProjectCommand {
   type: string
+  project?: SongProject
   sectionId?: string
   kind?: SectionKind
   title?: string
@@ -50,10 +70,15 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     const error = (await response.json().catch(() => null)) as { error?: string } | null
     throw new Error(error?.error ?? `Request failed with status ${response.status}.`)
   }
-  return response.json() as Promise<T>
+  return response.status === 204 ? undefined as T : response.json() as Promise<T>
 }
 
 export const projectsApi = {
+  list: () => request<ProjectSummary[]>('/api/projects'),
+  delete: (id: string) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
+  listTrash: () => request<TrashedProjectSummary[]>('/api/trash'),
+  restore: (id: string) => request<void>(`/api/trash/${id}/restore`, { method: 'POST' }),
+  permanentlyDelete: (id: string) => request<void>(`/api/trash/${id}`, { method: 'DELETE' }),
   create: (title: string) => request<ProjectResponse>('/api/projects', {
     method: 'POST', body: JSON.stringify({ title }),
   }),
@@ -61,9 +86,9 @@ export const projectsApi = {
   save: (project: SongProject) => request<ProjectResponse>(`/api/projects/${project.id}`, {
     method: 'PUT', body: JSON.stringify({ project }),
   }),
-  command: (id: string, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {
-    method: 'POST', body: JSON.stringify(command),
+  command: (id: string, project: SongProject, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {
+    method: 'POST', body: JSON.stringify({ ...command, project }),
   }),
-  undo: (id: string) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST' }),
-  redo: (id: string) => request<ProjectResponse>(`/api/projects/${id}/redo`, { method: 'POST' }),
+  undo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST', body: JSON.stringify({ project }) }),
+  redo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/redo`, { method: 'POST', body: JSON.stringify({ project }) }),
 }

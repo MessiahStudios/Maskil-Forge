@@ -7,12 +7,14 @@ This document specifies the planned foundation of Maskil Engine, the procedural 
 `SongProject` will be the aggregate root. It will own or reference:
 
 ```text
-CreativeIntent  Lyrics       Sections      Timeline
+CreativeIntent  RawLyrics    Sections      Timeline
 Harmony         Melody       Rhythm        Tracks
 Arrangement     Performances Automation    Rendering
 ```
 
 All entities use stable IDs such as `SectionId`, `PhraseId`, `TrackId`, `ClipId`, `NoteId`, and `InstrumentId`. Cross-domain relationships reference IDs rather than copying data.
+
+The raw lyric draft and structured lyric lines are separate representations. The draft preserves source material before the artist decides on song form; structured lines provide stable identities and section placement. Moving into structural editing must not destroy the raw source.
 
 Example relationship:
 

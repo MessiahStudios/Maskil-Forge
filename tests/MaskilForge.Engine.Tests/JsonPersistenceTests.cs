@@ -16,6 +16,7 @@ public sealed class JsonPersistenceTests
             project.SetArtist("Maskil Artist");
             project.SetGenre(SongGenre.Alternative);
             project.SetDescription("A persistence proof.");
+            project.SetRawLyricDraft("Unstructured source words that must remain intact.");
             project.SetTempo(84);
             project.SetTimeSignature(6, 8);
             var verse = project.AddSection(SectionKind.Verse);
@@ -39,8 +40,69 @@ public sealed class JsonPersistenceTests
             Assert.Equal("Maskil Artist", loaded.Artist);
             Assert.Equal(SongGenre.Alternative, loaded.Genre);
             Assert.Equal("A persistence proof.", loaded.Description);
+            Assert.Equal("Unstructured source words that must remain intact.", loaded.RawLyricDraft);
             Assert.Equal(84, loaded.Tempo.BeatsPerMinute);
             Assert.Equal((6, 8), (loaded.TimeSignature.Numerator, loaded.TimeSignature.Denominator));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task ListAsync_ReturnsProjectSummariesWithoutRequiringKnownIds()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var draft = SongProject.Create("Raw Draft");
+            draft.SetRawLyricDraft("A loose lyric idea");
+            var structured = SongProject.Create("Structured Song");
+            structured.AddSection(SectionKind.Verse);
+            await repository.SaveAsync(draft, CancellationToken.None);
+            await repository.SaveAsync(structured, CancellationToken.None);
+
+            var summaries = await repository.ListAsync(CancellationToken.None);
+
+            Assert.Equal(2, summaries.Count);
+            Assert.Contains(summaries, item => item.Id == draft.Id && item.HasRawLyrics && item.SectionCount == 0);
+            Assert.Contains(summaries, item => item.Id == structured.Id && !item.HasRawLyrics && item.SectionCount == 1);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task MoveToTrash_RemovesProjectFromLibraryWithoutDestroyingJson()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var project = SongProject.Create("Recoverable Song");
+            await repository.SaveAsync(project, CancellationToken.None);
+
+            Assert.True(await repository.MoveToTrashAsync(project.Id, CancellationToken.None));
+            Assert.Null(await repository.LoadAsync(project.Id, CancellationToken.None));
+            Assert.Empty(await repository.ListAsync(CancellationToken.None));
+            Assert.Single(Directory.EnumerateFiles(Path.Combine(directory, "trash"), "*.json"));
+
+            var trash = await repository.ListTrashAsync(CancellationToken.None);
+            Assert.Single(trash);
+            Assert.Equal(project.Id, trash[0].Id);
+
+            Assert.True(await repository.RestoreFromTrashAsync(project.Id, CancellationToken.None));
+            Assert.NotNull(await repository.LoadAsync(project.Id, CancellationToken.None));
+            Assert.Empty(await repository.ListTrashAsync(CancellationToken.None));
+
+            Assert.True(await repository.MoveToTrashAsync(project.Id, CancellationToken.None));
+            Assert.True(await repository.PermanentlyDeleteAsync(project.Id, CancellationToken.None));
+            Assert.Empty(await repository.ListTrashAsync(CancellationToken.None));
+            Assert.Empty(Directory.EnumerateFiles(Path.Combine(directory, "trash"), "*.json"));
         }
         finally
         {

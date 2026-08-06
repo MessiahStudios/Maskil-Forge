@@ -16,6 +16,40 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
 var app = builder.Build();
 app.UseCors();
 
+app.MapGet("/api/projects", async (IProjectRepository repository, CancellationToken cancellationToken) =>
+    Results.Ok(await repository.ListAsync(cancellationToken)));
+
+app.MapDelete("/api/projects/{id}", async (string id, IProjectRepository repository, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    return await repository.MoveToTrashAsync(projectId, cancellationToken)
+        ? Results.NoContent()
+        : Results.NotFound(new ApiError("Project not found."));
+});
+
+app.MapGet("/api/trash", async (IProjectRepository repository, CancellationToken cancellationToken) =>
+    Results.Ok(await repository.ListTrashAsync(cancellationToken)));
+
+app.MapPost("/api/trash/{id}/restore", async (string id, IProjectRepository repository, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    try
+    {
+        return await repository.RestoreFromTrashAsync(projectId, cancellationToken)
+            ? Results.NoContent()
+            : Results.NotFound(new ApiError("Trashed project not found."));
+    }
+    catch (InvalidOperationException exception) { return Results.Conflict(new ApiError(exception.Message)); }
+});
+
+app.MapDelete("/api/trash/{id}", async (string id, IProjectRepository repository, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    return await repository.PermanentlyDeleteAsync(projectId, cancellationToken)
+        ? Results.NoContent()
+        : Results.NotFound(new ApiError("Trashed project not found."));
+});
+
 app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     try
@@ -56,7 +90,11 @@ app.MapPut("/api/projects/{id}", async (string id, UpdateProjectRequest request,
 app.MapPost("/api/projects/{id}/commands", async (string id, ProjectCommandRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
-    var editor = await workspace.GetAsync(projectId, cancellationToken);
+    if (request.Project is not null && request.Project.Id != projectId)
+        return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    var editor = request.Project is null
+        ? await workspace.GetAsync(projectId, cancellationToken)
+        : await workspace.SyncAsync(request.Project, cancellationToken);
     if (editor is null) return Results.NotFound(new ApiError("Project not found."));
     try
     {
@@ -69,19 +107,21 @@ app.MapPost("/api/projects/{id}/commands", async (string id, ProjectCommandReque
     }
 });
 
-app.MapPost("/api/projects/{id}/undo", async (string id, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+app.MapPost("/api/projects/{id}/undo", async (string id, EditorStateRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
-    var editor = await workspace.GetAsync(projectId, cancellationToken);
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    var editor = await workspace.SyncAsync(request.Project, cancellationToken);
     if (editor is null) return Results.NotFound(new ApiError("Project not found."));
     if (!editor.Undo()) return Results.Conflict(new ApiError("Nothing to undo."));
     return Results.Ok(ProjectResponse.From(editor));
 });
 
-app.MapPost("/api/projects/{id}/redo", async (string id, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+app.MapPost("/api/projects/{id}/redo", async (string id, EditorStateRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
-    var editor = await workspace.GetAsync(projectId, cancellationToken);
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    var editor = await workspace.SyncAsync(request.Project, cancellationToken);
     if (editor is null) return Results.NotFound(new ApiError("Project not found."));
     if (!editor.Redo()) return Results.Conflict(new ApiError("Nothing to redo."));
     return Results.Ok(ProjectResponse.From(editor));
@@ -121,8 +161,10 @@ static IResult Validation(Exception exception) =>
 
 public sealed record CreateProjectRequest(string Title);
 public sealed record UpdateProjectRequest(SongProject Project);
+public sealed record EditorStateRequest(SongProject Project);
 public sealed record ProjectCommandRequest(
     string Type,
+    SongProject? Project = null,
     SectionId? SectionId = null,
     SectionKind? Kind = null,
     string? Title = null,

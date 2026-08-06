@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\src\MaskilForge.Domain\MaskilForge.Domain.csproj" />
     <ProjectReference Include="..\..\src\MaskilForge.Engine\MaskilForge.Engine.csproj" />
     <ProjectReference Include="..\..\src\MaskilForge.Infrastructure\MaskilForge.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\MaskilForge.Api\MaskilForge.Api.csproj" />
   </ItemGroup>
 
 </Project>

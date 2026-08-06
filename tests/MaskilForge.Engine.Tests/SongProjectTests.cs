@@ -83,4 +83,17 @@ public sealed class SongProjectTests
         Assert.Throws<ArgumentOutOfRangeException>(() => project.SetArtist(new string('a', 201)));
         Assert.Throws<ArgumentOutOfRangeException>(() => project.SetDescription(new string('d', 2_001)));
     }
+
+    [Fact]
+    public void RawLyricDraft_PreservesUnstructuredSourceMaterial()
+    {
+        var project = SongProject.Create("Early Idea");
+        var before = project.LastModifiedUtc;
+
+        project.SetRawLyricDraft("A phrase without a section yet");
+
+        Assert.Equal("A phrase without a section yet", project.RawLyricDraft);
+        Assert.True(project.LastModifiedUtc >= before);
+        Assert.Throws<ArgumentOutOfRangeException>(() => project.SetRawLyricDraft(new string('x', 100_001)));
+    }
 }

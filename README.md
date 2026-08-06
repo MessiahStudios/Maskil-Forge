@@ -61,7 +61,9 @@ Future C# code will use `MaskilForge` as its namespace root. The repository is n
 
 ## Current project status
 
-This repository contains the product definition, architectural principles, delivery roadmap, and an initial executable Song Graph foundation. The current vertical slice supports structured projects, ordered sections, lyric lines, JSON persistence, and reversible section operations. Maskil Forge remains early-stage: it is not a functional DAW or complete audio generator, and AI, MIDI, VST hosting, vocal analysis, procedural music generation, recording, and mixing have not been implemented.
+This repository contains the product definition, architectural principles, delivery roadmap, and an initial executable songwriting foundation. The current vertical slice supports a local song library, raw lyric drafts, structured projects, ordered sections, individually identified lyric lines, JSON persistence, reversible section operations, and a Trash workflow with restore and separately confirmed permanent deletion. Raw drafts remain separate from structured sections so an artist can capture words before deciding how the song is organized.
+
+Maskil Forge remains early-stage: it is not a functional DAW or complete audio generator. Automatic lyric analysis, AI direction, MIDI, VST hosting, vocal analysis, procedural music generation, recording, and mixing have not been implemented.
 
 ## Run the foundation locally
 

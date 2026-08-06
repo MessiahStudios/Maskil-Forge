@@ -18,6 +18,8 @@ Maskil Forge is intended primarily for aspiring and independent singer-songwrite
 
 The aim is not to hide music behind a prompt. It is to make musical structure understandable and controllable while helping an artist cross knowledge gaps.
 
+The product begins before formal structure. An artist may first capture fragments, prose, themes, or complete lyrics in a raw draft, then choose when to shape that material into Verse, Chorus, and other editable sections. Maskil Forge should never require the artist to understand song form before preserving an idea.
+
 ## What the product should become
 
 Maskil Forge should feel more like a game engine for songs than a one-click audio generator. It should offer high-level creative controls while preserving words, syllables, beats, notes, chords, tracks, automation, takes, locks, and decisions as editable project data.
@@ -82,4 +84,4 @@ The product vision is fulfilled when an artist can move from lyrics and intent t
 
 ## Current status
 
-The repository currently contains documentation establishing the product and architecture foundation. The workflows and capabilities described above are planned and have not yet been implemented.
+The repository contains the documentation foundation and an early executable songwriting foundation. Local project discovery, raw lyric capture, ordered sections, identified lyric lines, JSON persistence, and reversible section operations are implemented. Musical interpretation, prosody, composition, MIDI, audio, performance capture, and AI direction remain planned.
