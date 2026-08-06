@@ -32,7 +32,7 @@ app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectWorkspa
 app.MapGet("/api/projects/{id}", async (string id, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
-    var editor = await workspace.GetAsync(projectId, cancellationToken);
+    var editor = await workspace.LoadFromStorageAsync(projectId, cancellationToken);
     return editor is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(ProjectResponse.From(editor));
 });
 
@@ -61,7 +61,6 @@ app.MapPost("/api/projects/{id}/commands", async (string id, ProjectCommandReque
     try
     {
         ApplyRequest(editor, request);
-        await workspace.SaveAsync(editor, cancellationToken);
         return Results.Ok(ProjectResponse.From(editor));
     }
     catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
@@ -76,7 +75,6 @@ app.MapPost("/api/projects/{id}/undo", async (string id, ProjectWorkspace worksp
     var editor = await workspace.GetAsync(projectId, cancellationToken);
     if (editor is null) return Results.NotFound(new ApiError("Project not found."));
     if (!editor.Undo()) return Results.Conflict(new ApiError("Nothing to undo."));
-    await workspace.SaveAsync(editor, cancellationToken);
     return Results.Ok(ProjectResponse.From(editor));
 });
 
@@ -86,7 +84,6 @@ app.MapPost("/api/projects/{id}/redo", async (string id, ProjectWorkspace worksp
     var editor = await workspace.GetAsync(projectId, cancellationToken);
     if (editor is null) return Results.NotFound(new ApiError("Project not found."));
     if (!editor.Redo()) return Results.Conflict(new ApiError("Nothing to redo."));
-    await workspace.SaveAsync(editor, cancellationToken);
     return Results.Ok(ProjectResponse.From(editor));
 });
 

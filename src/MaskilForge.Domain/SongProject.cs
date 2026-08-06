@@ -2,6 +2,21 @@ using System.Text.Json.Serialization;
 
 namespace MaskilForge.Domain;
 
+public enum SongGenre
+{
+    Unspecified,
+    Pop,
+    Rock,
+    Folk,
+    Country,
+    RAndB,
+    HipHop,
+    Electronic,
+    Cinematic,
+    Alternative,
+    Other
+}
+
 public sealed class SongProject
 {
     private readonly List<SongSection> _sections;
@@ -15,13 +30,19 @@ public sealed class SongProject
         TempoEvent tempo,
         TimeSignatureEvent timeSignature,
         IReadOnlyList<SongSection>? sections = null,
-        IReadOnlyList<Track>? tracks = null)
+        IReadOnlyList<Track>? tracks = null,
+        string artist = "",
+        SongGenre genre = SongGenre.Unspecified,
+        string description = "")
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
         Id = id;
         SchemaVersion = schemaVersion;
         Rename(title);
+        SetArtist(artist);
+        SetGenre(genre);
+        SetDescription(description);
         Tempo = tempo ?? throw new ArgumentNullException(nameof(tempo));
         TimeSignature = timeSignature ?? throw new ArgumentNullException(nameof(timeSignature));
         _sections = sections?.ToList() ?? [];
@@ -32,6 +53,9 @@ public sealed class SongProject
     public ProjectId Id { get; }
     public SchemaVersion SchemaVersion { get; }
     public string Title { get; private set; } = string.Empty;
+    public string Artist { get; private set; } = string.Empty;
+    public SongGenre Genre { get; private set; }
+    public string Description { get; private set; } = string.Empty;
     public TempoEvent Tempo { get; private set; }
     public TimeSignatureEvent TimeSignature { get; private set; }
     public IReadOnlyList<SongSection> Sections => _sections;
@@ -49,6 +73,26 @@ public sealed class SongProject
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Project title is required.", nameof(title));
         if (title.Trim().Length > 200) throw new ArgumentOutOfRangeException(nameof(title), "Project title cannot exceed 200 characters.");
         Title = title.Trim();
+    }
+
+    public void SetArtist(string artist)
+    {
+        ArgumentNullException.ThrowIfNull(artist);
+        if (artist.Trim().Length > 200) throw new ArgumentOutOfRangeException(nameof(artist), "Artist cannot exceed 200 characters.");
+        Artist = artist.Trim();
+    }
+
+    public void SetGenre(SongGenre genre)
+    {
+        if (!Enum.IsDefined(genre)) throw new ArgumentOutOfRangeException(nameof(genre), "Genre is invalid.");
+        Genre = genre;
+    }
+
+    public void SetDescription(string description)
+    {
+        ArgumentNullException.ThrowIfNull(description);
+        if (description.Length > 2_000) throw new ArgumentOutOfRangeException(nameof(description), "Description cannot exceed 2,000 characters.");
+        Description = description.Trim();
     }
 
     public void SetTempo(decimal beatsPerMinute) => Tempo = new TempoEvent(0, beatsPerMinute);

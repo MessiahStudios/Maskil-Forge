@@ -19,7 +19,14 @@ main { width: min(1120px, calc(100% - 2rem)); margin: 0 auto; padding: 3rem 0 5r
 .button-row { display: flex; gap: .55rem; flex-wrap: wrap; }
 .status { margin: 1rem 0 2rem; color: #c6a96c; min-height: 1.4rem; }
 .workspace { display: grid; gap: 2rem; }
-.project-controls { display: grid; grid-template-columns: minmax(260px, 2fr) minmax(110px, .6fr) minmax(140px, .8fr) auto; gap: 1rem; align-items: end; padding: 1.25rem; background: #1a1d19; border: 1px solid #373c34; border-radius: .55rem; }
+.project-controls { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 1rem; align-items: end; padding: 1.25rem; background: #1a1d19; border: 1px solid #373c34; border-radius: .55rem; }
+.metadata-grid > label:nth-child(1) { grid-column: span 4; }
+.metadata-grid > label:nth-child(2) { grid-column: span 3; }
+.metadata-grid > label:nth-child(3) { grid-column: span 2; }
+.metadata-grid > label:nth-child(4) { grid-column: span 1; }
+.metadata-grid > label:nth-child(5) { grid-column: span 2; }
+.description-field { grid-column: span 8; }
+.metadata-grid .actions { grid-column: span 4; }
 .actions { justify-content: end; }
 .section-toolbar { display: flex; gap: .55rem; align-items: center; flex-wrap: wrap; }
 .section-toolbar span { margin-right: .5rem; color: #a39f94; text-transform: uppercase; letter-spacing: .12em; font-size: .7rem; }
@@ -31,4 +38,12 @@ main { width: min(1120px, calc(100% - 2rem)); margin: 0 auto; padding: 3rem 0 5r
 .section-identity span { color: #d8ba78; font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; }
 .section-actions { display: flex; gap: .4rem; }
 .section-card small { color: #666c61; }
-@media (max-width: 800px) { .hero { align-items: stretch; flex-direction: column; } .load-panel { width: 100%; } .project-controls { grid-template-columns: 1fr 1fr; } .actions { justify-content: start; } .section-heading { grid-template-columns: auto 1fr; } .section-actions { grid-column: 2; } .section-identity { grid-template-columns: 1fr; } }
+.lyrics-editor { display: grid; gap: .65rem; }
+.lyrics-heading { display: flex; justify-content: space-between; align-items: center; color: #bdb8aa; font-size: .83rem; letter-spacing: .04em; }
+.lyrics-heading button { padding: .42rem .65rem; }
+.lyrics-empty { margin: 0; padding: 1rem; color: #777d70; border: 1px dashed #383d35; text-align: center; }
+.lyric-line { display: grid; grid-template-columns: 28px 1fr auto; gap: .55rem; align-items: center; }
+.lyric-line > span { color: #747a6e; text-align: right; font: .78rem ui-monospace, Consolas, monospace; }
+.lyric-line small { grid-column: 2 / -1; font-size: .67rem; }
+.lyric-delete { color: #f1b1a6 !important; border-color: #79443e !important; }
+@media (max-width: 800px) { .hero { align-items: stretch; flex-direction: column; } .load-panel { width: 100%; } .metadata-grid > label, .description-field, .metadata-grid .actions { grid-column: span 12 !important; } .actions { justify-content: start; } .section-heading { grid-template-columns: auto 1fr; } .section-actions { grid-column: 2; } .section-identity { grid-template-columns: 1fr; } .lyric-line { grid-template-columns: 24px 1fr; } .lyric-delete { grid-column: 2; justify-self: start; } }

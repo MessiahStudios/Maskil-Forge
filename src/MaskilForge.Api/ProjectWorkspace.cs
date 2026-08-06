@@ -15,6 +15,15 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         return project is null ? null : _editors.GetOrAdd(id, new ProjectEditor(project));
     }
 
+    public async Task<ProjectEditor?> LoadFromStorageAsync(ProjectId id, CancellationToken cancellationToken)
+    {
+        var project = await repository.LoadAsync(id, cancellationToken);
+        if (project is null) return null;
+        var editor = new ProjectEditor(project);
+        _editors[id] = editor;
+        return editor;
+    }
+
     public async Task<ProjectEditor> CreateAsync(string title, CancellationToken cancellationToken)
     {
         var editor = new ProjectEditor(SongProject.Create(title));
@@ -36,6 +45,9 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
             throw new ArgumentException("Section structure must be changed through section commands.");
 
         project.Rename(update.Title);
+        project.SetArtist(update.Artist);
+        project.SetGenre(update.Genre);
+        project.SetDescription(update.Description);
         project.SetTempo(update.Tempo.BeatsPerMinute);
         project.SetTimeSignature(update.TimeSignature.Numerator, update.TimeSignature.Denominator);
         foreach (var updatedSection in update.Sections)

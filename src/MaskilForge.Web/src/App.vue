@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { projectsApi, type ProjectResponse, type SectionKind, type SongProject } from './api'
+import { projectsApi, type ProjectResponse, type SectionKind, type SongGenre, type SongProject } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -9,6 +9,7 @@ const status = ref('Create a project or load one by ID.')
 const busy = ref(false)
 const project = computed(() => response.value?.project ?? null)
 const meters = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8']
+const genres: SongGenre[] = ['Unspecified', 'Pop', 'Rock', 'Folk', 'Country', 'RAndB', 'HipHop', 'Electronic', 'Cinematic', 'Alternative', 'Other']
 
 function accept(next: ProjectResponse, message: string) {
   response.value = next
@@ -34,7 +35,7 @@ async function run(action: () => Promise<ProjectResponse>, message: string, logA
 function createProject() { return run(() => projectsApi.create('Untitled Song'), 'Project created and saved.', 'project.create') }
 function loadProject() {
   if (!projectId.value.trim()) { status.value = 'Enter a project ID to load.'; activityLog.write('warning', 'project.load', status.value); return }
-  return run(() => projectsApi.load(projectId.value.trim()), 'Project loaded from JSON.', 'project.load', { projectId: projectId.value.trim() })
+  return run(() => projectsApi.load(projectId.value.trim()), 'Saved JSON reloaded; unsaved changes were discarded.', 'project.load', { projectId: projectId.value.trim() })
 }
 function saveProject() {
   if (!project.value) return
@@ -56,13 +57,19 @@ function removeSection(sectionId: string) {
   if (!project.value) return
   return run(() => projectsApi.command(project.value!.id, { type: 'remove-section', sectionId }), 'Section removed.', 'section.remove', { sectionId })
 }
-function updateLyrics(index: number, text: string) {
+function addLyricLine(sectionIndex: number) {
   if (!project.value) return
-  project.value.sections[index].lyricLines = text.split('\n').map((line, lineIndex) => ({
-    id: project.value!.sections[index].lyricLines[lineIndex]?.id ?? crypto.randomUUID(), text: line,
-  }))
+  const section = project.value.sections[sectionIndex]
+  const line = { id: crypto.randomUUID(), text: '' }
+  section.lyricLines.push(line)
+  activityLog.write('info', 'lyrics.line.add', 'Lyric line added locally. Save to persist it.', { sectionId: section.id, lineId: line.id })
 }
-function lyricText(index: number) { return project.value?.sections[index].lyricLines.map(line => line.text).join('\n') ?? '' }
+function removeLyricLine(sectionIndex: number, lineIndex: number) {
+  if (!project.value) return
+  const section = project.value.sections[sectionIndex]
+  const [line] = section.lyricLines.splice(lineIndex, 1)
+  activityLog.write('info', 'lyrics.line.remove', 'Lyric line removed locally. Save to persist the change.', { sectionId: section.id, lineId: line.id })
+}
 function setMeter(value: string) {
   if (!project.value) return
   const [numerator, denominator] = value.split('/').map(Number)
@@ -95,10 +102,13 @@ onMounted(() => { if (projectId.value) void loadProject() })
     <p class="status" role="status">{{ status }}</p>
 
     <section v-if="project" class="workspace">
-      <div class="project-controls">
+      <div class="project-controls metadata-grid">
         <label>Project title<input v-model="project.title" maxlength="200" /></label>
+        <label>Artist<input v-model="project.artist" maxlength="200" placeholder="Artist or songwriter" /></label>
+        <label>Genre<select v-model="project.genre"><option v-for="genre in genres" :key="genre" :value="genre">{{ genre === 'RAndB' ? 'R&B' : genre }}</option></select></label>
         <label>Tempo<input v-model.number="project.tempo.beatsPerMinute" type="number" min="20" max="300" /></label>
         <label>Time signature<select :value="meterValue(project)" @change="setMeter(($event.target as HTMLSelectElement).value)"><option v-for="meter in meters" :key="meter">{{ meter }}</option></select></label>
+        <label class="description-field">Description<textarea v-model="project.description" maxlength="2000" rows="2" placeholder="Song concept or creative context" /></label>
         <div class="button-row actions"><button :disabled="busy || !response?.canUndo" @click="undo">Undo</button><button :disabled="busy || !response?.canRedo" @click="redo">Redo</button><button :disabled="busy" @click="saveProject">Save</button></div>
       </div>
 
@@ -114,7 +124,16 @@ onMounted(() => { if (projectId.value) void loadProject() })
             <div class="section-identity"><span>{{ label(section.kind) }}</span><input :value="section.title" maxlength="100" @change="renameSection(section.id, ($event.target as HTMLInputElement).value)" /></div>
             <div class="section-actions"><button :disabled="busy || index === 0" title="Move up" @click="moveSection(section.id, index - 1)">↑</button><button :disabled="busy || index === project.sections.length - 1" title="Move down" @click="moveSection(section.id, index + 1)">↓</button><button class="danger" :disabled="busy" title="Delete section" @click="removeSection(section.id)">Delete</button></div>
           </div>
-          <label>Lyrics<textarea :value="lyricText(index)" rows="5" placeholder="One lyric line per row" @input="updateLyrics(index, ($event.target as HTMLTextAreaElement).value)" /></label>
+          <div class="lyrics-editor">
+            <div class="lyrics-heading"><span>Lyric lines</span><button class="secondary" :disabled="busy" @click="addLyricLine(index)">+ Add line</button></div>
+            <p v-if="section.lyricLines.length === 0" class="lyrics-empty">No lyric lines yet.</p>
+            <div v-for="(line, lineIndex) in section.lyricLines" :key="line.id" class="lyric-line">
+              <span>{{ lineIndex + 1 }}</span>
+              <input v-model="line.text" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Enter lyric text" />
+              <button class="secondary lyric-delete" :disabled="busy" @click="removeLyricLine(index, lineIndex)">Delete</button>
+              <small>Line ID: {{ line.id }}</small>
+            </div>
+          </div>
           <small>Section ID: {{ section.id }}</small>
         </li>
       </ol>

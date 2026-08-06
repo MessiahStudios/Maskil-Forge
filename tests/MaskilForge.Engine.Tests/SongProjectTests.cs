@@ -67,4 +67,20 @@ public sealed class SongProjectTests
         Assert.Equal([verse.Id, chorus.Id], project.Sections.Select(section => section.Id));
         Assert.NotEqual(verse.Id, chorus.Id);
     }
+
+    [Fact]
+    public void Metadata_ValidatesAndStoresCreativeContext()
+    {
+        var project = SongProject.Create("Metadata Test");
+
+        project.SetArtist("Independent Artist");
+        project.SetGenre(SongGenre.Folk);
+        project.SetDescription("An intimate acoustic song.");
+
+        Assert.Equal("Independent Artist", project.Artist);
+        Assert.Equal(SongGenre.Folk, project.Genre);
+        Assert.Equal("An intimate acoustic song.", project.Description);
+        Assert.Throws<ArgumentOutOfRangeException>(() => project.SetArtist(new string('a', 201)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => project.SetDescription(new string('d', 2_001)));
+    }
 }

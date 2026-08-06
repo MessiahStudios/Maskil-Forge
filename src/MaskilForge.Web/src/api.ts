@@ -1,4 +1,5 @@
 export type SectionKind = 'Verse' | 'Chorus' | 'PreChorus' | 'Bridge' | 'Outro'
+export type SongGenre = 'Unspecified' | 'Pop' | 'Rock' | 'Folk' | 'Country' | 'RAndB' | 'HipHop' | 'Electronic' | 'Cinematic' | 'Alternative' | 'Other'
 
 export interface LyricLine {
   id: string
@@ -16,6 +17,9 @@ export interface SongProject {
   id: string
   schemaVersion: { value: number }
   title: string
+  artist: string
+  genre: SongGenre
+  description: string
   tempo: { beat: number; beatsPerMinute: number }
   timeSignature: { beat: number; numerator: number; denominator: number }
   sections: SongSection[]
