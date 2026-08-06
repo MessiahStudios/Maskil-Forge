@@ -35,6 +35,7 @@ public sealed class SongProject
         SongGenre genre = SongGenre.Unspecified,
         string description = "",
         string rawLyricDraft = "",
+        DateTimeOffset createdUtc = default,
         DateTimeOffset lastModifiedUtc = default)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
@@ -51,7 +52,8 @@ public sealed class SongProject
         _sections = sections?.ToList() ?? [];
         _tracks = tracks?.ToList() ?? [];
         EnsureUniqueIds();
-        LastModifiedUtc = lastModifiedUtc == default ? DateTimeOffset.UtcNow : lastModifiedUtc;
+        CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
+        LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
 
     public ProjectId Id { get; }
@@ -61,6 +63,7 @@ public sealed class SongProject
     public SongGenre Genre { get; private set; }
     public string Description { get; private set; } = string.Empty;
     public string RawLyricDraft { get; private set; } = string.Empty;
+    public DateTimeOffset CreatedUtc { get; private set; }
     public DateTimeOffset LastModifiedUtc { get; private set; }
     public TempoEvent Tempo { get; private set; }
     public TimeSignatureEvent TimeSignature { get; private set; }

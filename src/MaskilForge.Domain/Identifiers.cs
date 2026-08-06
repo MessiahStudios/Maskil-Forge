@@ -37,9 +37,26 @@ public readonly record struct ClipId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
     public static SchemaVersion Current => new(1);
+}
+
+internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
+{
+    public override SchemaVersion Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Number) return new SchemaVersion(reader.GetInt32());
+        if (reader.TokenType != JsonTokenType.StartObject) throw new JsonException("Schema version must be a number.");
+        using var document = JsonDocument.ParseValue(ref reader);
+        if (!document.RootElement.TryGetProperty("value", out var value) || !value.TryGetInt32(out var version))
+            throw new JsonException("Schema version object must contain a numeric value.");
+        return new SchemaVersion(version);
+    }
+
+    public override void Write(Utf8JsonWriter writer, SchemaVersion value, JsonSerializerOptions options) =>
+        writer.WriteNumberValue(value.Value);
 }
 
 internal abstract class GuidIdJsonConverter<T> : JsonConverter<T>

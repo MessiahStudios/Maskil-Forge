@@ -22,6 +22,10 @@ The current foundation implements the local project summary list, raw lyric draf
 
 **Deliverable:** an artist can begin with words rather than a predefined song form, close the application, find the project again, and continue with the raw draft and structured sections intact.
 
+### Next durability slice
+
+After the foundation is merged, use a focused `feature/project-durability` branch for schema migrations beyond v1, corrupted-project recovery, failed-save recovery, stale-session handling, and crash recovery. Session-only undo is an explicit current decision; a persistent command journal should not be added casually.
+
 ## Milestone 2 — Lyrics and prosody
 
 Build the lyric document, token/syllable/stress annotations, beat mapping, breath analysis, rhythm candidates, scoring, locks, and a basic lyric/timeline UI.

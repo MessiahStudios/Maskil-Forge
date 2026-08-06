@@ -47,6 +47,18 @@ Every meaningful edit is a command, for example:
 
 A command should record its inputs, resulting changes, provenance, and random seed where relevant. This will support undo, redo, reproducibility, and AI explanations.
 
+### Current undo-history decision
+
+Undo and redo history is session-only in the current foundation. The active application session retains reversible section commands, but closing or reloading a project clears that history. Persisting a command journal is a future durability concern and is not implied by project JSON persistence.
+
+## Project schema v1
+
+Project JSON is a durable creative file format rather than a disposable API payload. Schema v1 writes a numeric `schemaVersion`, string `id`, title, creation and modification timestamps, raw lyric draft, sections, tracks, tempo, meter, and metadata. Strongly typed project, section, track, and clip identifiers serialize as strings.
+
+The schema-v1 reader also accepts the original object-shaped schema version (`{ "value": 1 }`) and supplies defaults for raw lyrics and timestamps when loading files created before those fields existed. Future schema changes require explicit migration tests before changing `SchemaVersion.Current`.
+
+Current projects store their complete project tree in one JSON file. Permanent deletion therefore removes that complete current tree. Future external assets such as audio recordings must join the same lifecycle contract before they are introduced.
+
 ## Events
 
 Events announce completed changes; they do not secretly own business logic. Examples include `TempoChanged`, `ProsodyUpdated`, `ArrangementRegenerated`, and `PerformanceCaptured`.

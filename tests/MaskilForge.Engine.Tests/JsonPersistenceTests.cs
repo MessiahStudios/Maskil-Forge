@@ -1,5 +1,6 @@
 using MaskilForge.Domain;
 using MaskilForge.Infrastructure;
+using System.Text.Json;
 
 namespace MaskilForge.Engine.Tests;
 
@@ -84,6 +85,8 @@ public sealed class JsonPersistenceTests
         {
             var repository = new JsonFileProjectRepository(directory);
             var project = SongProject.Create("Recoverable Song");
+            var section = project.AddSection(SectionKind.Verse);
+            var lyric = section.AddLyricLine("Identity must survive recovery");
             await repository.SaveAsync(project, CancellationToken.None);
 
             Assert.True(await repository.MoveToTrashAsync(project.Id, CancellationToken.None));
@@ -96,13 +99,83 @@ public sealed class JsonPersistenceTests
             Assert.Equal(project.Id, trash[0].Id);
 
             Assert.True(await repository.RestoreFromTrashAsync(project.Id, CancellationToken.None));
-            Assert.NotNull(await repository.LoadAsync(project.Id, CancellationToken.None));
+            var restored = await repository.LoadAsync(project.Id, CancellationToken.None);
+            Assert.NotNull(restored);
+            Assert.Equal(project.Id, restored.Id);
+            Assert.Equal(section.Id, restored.Sections[0].Id);
+            Assert.Equal(lyric.Id, restored.Sections[0].LyricLines[0].Id);
             Assert.Empty(await repository.ListTrashAsync(CancellationToken.None));
 
             Assert.True(await repository.MoveToTrashAsync(project.Id, CancellationToken.None));
             Assert.True(await repository.PermanentlyDeleteAsync(project.Id, CancellationToken.None));
             Assert.Empty(await repository.ListTrashAsync(CancellationToken.None));
             Assert.Empty(Directory.EnumerateFiles(Path.Combine(directory, "trash"), "*.json"));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task SchemaV1_WritesStableTopLevelContract()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var project = SongProject.Create("Schema Contract");
+            await repository.SaveAsync(project, CancellationToken.None);
+
+            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
+            var root = document.RootElement;
+            Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
+            Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
+            Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
+            Assert.Equal(JsonValueKind.String, root.GetProperty("lastModifiedUtc").ValueKind);
+            Assert.Equal(JsonValueKind.Array, root.GetProperty("sections").ValueKind);
+            Assert.Equal(JsonValueKind.Array, root.GetProperty("tracks").ValueKind);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_ReadsOriginalSchemaV1FilesMissingNewFields()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var id = ProjectId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var originalV1 = $$"""
+            {
+              "id": "{{id}}",
+              "schemaVersion": { "value": 1 },
+              "title": "Original V1 Song",
+              "artist": "",
+              "genre": "Unspecified",
+              "description": "",
+              "tempo": { "beat": 0, "beatsPerMinute": 120 },
+              "timeSignature": { "beat": 0, "numerator": 4, "denominator": 4 },
+              "sections": [],
+              "tracks": []
+            }
+            """;
+            await File.WriteAllTextAsync(Path.Combine(directory, $"{id}.json"), originalV1);
+
+            var loaded = await new JsonFileProjectRepository(directory).LoadAsync(id, CancellationToken.None);
+
+            Assert.NotNull(loaded);
+            Assert.Equal(id, loaded.Id);
+            Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
+            Assert.Equal("Original V1 Song", loaded.Title);
+            Assert.Equal(string.Empty, loaded.RawLyricDraft);
+            Assert.NotEqual(default, loaded.CreatedUtc);
+            Assert.Equal(loaded.CreatedUtc, loaded.LastModifiedUtc);
         }
         finally
         {

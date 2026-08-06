@@ -65,6 +65,8 @@ This repository contains the product definition, architectural principles, deliv
 
 Maskil Forge remains early-stage: it is not a functional DAW or complete audio generator. Automatic lyric analysis, AI direction, MIDI, VST hosting, vocal analysis, procedural music generation, recording, and mixing have not been implemented.
 
+Undo and redo history is currently session-only. Saved project content survives closing and reopening, but the command history itself does not.
+
 ## Run the foundation locally
 
 Prerequisites:
