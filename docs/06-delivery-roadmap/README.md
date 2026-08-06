@@ -14,6 +14,18 @@ Build the Song Graph, sections, timeline, tempo/meter, tracks, clips, markers, c
 
 **Deliverable:** a reliable non-audio song editor.
 
+### Milestone 1.6 â€” Project library and lyric capture
+
+Provide a deliberate welcome screen, discover locally saved projects without requiring a known identifier, capture and save an unstructured lyric draft, and let the artist move between raw writing and direct section editing without destroying either representation. Track last-modified time and protect unsaved work when switching projects.
+
+The current foundation implements the local project summary list, raw lyric draft, direct transition into Song Graph editing, unsaved-work prompts, confirmed recoverable deletion, Trash browsing and restoration, and separately confirmed permanent deletion. Duplication, import/export, automatic structural suggestions, and lyric analysis remain future work.
+
+**Deliverable:** an artist can begin with words rather than a predefined song form, close the application, find the project again, and continue with the raw draft and structured sections intact.
+
+### Next durability slice
+
+After the foundation is merged, use a focused `feature/project-durability` branch for schema migrations beyond v1, corrupted-project recovery, failed-save recovery, stale-session handling, and crash recovery. Session-only undo is an explicit current decision; a persistent command journal should not be added casually.
+
 ## Milestone 2 — Lyrics and prosody
 
 Build the lyric document, token/syllable/stress annotations, beat mapping, breath analysis, rhythm candidates, scoring, locks, and a basic lyric/timeline UI.

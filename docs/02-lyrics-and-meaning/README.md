@@ -2,6 +2,12 @@
 
 This planned Maskil Engine layer will turn text and creative intent into annotated material that later generators can use. Speech and vocal prosody are treated as core musical inputs, not optional decoration.
 
+## Capture before structure
+
+Maskil Forge allows an artist to preserve an unstructured lyric draft before assigning words to Verse, Chorus, or other Song Graph sections. The raw draft may contain finished lyrics, fragments, prose, images, themes, or notes. It remains editable source material and is not destructively replaced when structured lyric-line objects are created.
+
+The current foundation stores this source as `RawLyricDraft` and stores section lyrics as individually identified `LyricLine` objects. Automatic interpretation, syllable analysis, stress analysis, and suggested section boundaries remain planned capabilities rather than implemented behavior.
+
 ## Processing order
 
 1. Parse raw lyrics into sections, lines, phrases, words, and syllables.

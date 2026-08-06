@@ -1,0 +1,28 @@
+# .NET
+bin/
+obj/
+TestResults/
+*.user
+*.suo
+
+# Frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local persistence and configuration
+App_Data/
+src/MaskilForge.Api/App_Data/
+.env
+.env.*
+!.env.example
+
+# Editors and operating systems
+.vs/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local archives and media
+*.zip
