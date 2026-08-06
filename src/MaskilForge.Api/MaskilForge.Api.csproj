@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\MaskilForge.Domain\MaskilForge.Domain.csproj" />
+    <ProjectReference Include="..\MaskilForge.Engine\MaskilForge.Engine.csproj" />
+    <ProjectReference Include="..\MaskilForge.Infrastructure\MaskilForge.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

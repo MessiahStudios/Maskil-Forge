@@ -1,0 +1,143 @@
+using System.Text.Json.Serialization;
+using MaskilForge.Api;
+using MaskilForge.Domain;
+using MaskilForge.Engine;
+using MaskilForge.Infrastructure;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.AddSingleton<IProjectRepository>(_ =>
+    new JsonFileProjectRepository(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "projects")));
+builder.Services.AddSingleton<ProjectWorkspace>();
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
+    policy.WithOrigins("http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));
+
+var app = builder.Build();
+app.UseCors();
+
+app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        var editor = await workspace.CreateAsync(request.Title, cancellationToken);
+        return Results.Created($"/api/projects/{editor.Project.Id}", ProjectResponse.From(editor));
+    }
+    catch (ArgumentException exception)
+    {
+        return Validation(exception);
+    }
+});
+
+app.MapGet("/api/projects/{id}", async (string id, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    var editor = await workspace.GetAsync(projectId, cancellationToken);
+    return editor is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(ProjectResponse.From(editor));
+});
+
+app.MapPut("/api/projects/{id}", async (string id, UpdateProjectRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId) || projectId != request.Project.Id)
+        return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var editor = await workspace.UpdateAsync(request.Project, cancellationToken);
+        return editor is null
+            ? Results.NotFound(new ApiError("Project not found."))
+            : Results.Ok(ProjectResponse.From(editor));
+    }
+    catch (ArgumentException exception)
+    {
+        return Validation(exception);
+    }
+});
+
+app.MapPost("/api/projects/{id}/commands", async (string id, ProjectCommandRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    var editor = await workspace.GetAsync(projectId, cancellationToken);
+    if (editor is null) return Results.NotFound(new ApiError("Project not found."));
+    try
+    {
+        ApplyRequest(editor, request);
+        await workspace.SaveAsync(editor, cancellationToken);
+        return Results.Ok(ProjectResponse.From(editor));
+    }
+    catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
+app.MapPost("/api/projects/{id}/undo", async (string id, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    var editor = await workspace.GetAsync(projectId, cancellationToken);
+    if (editor is null) return Results.NotFound(new ApiError("Project not found."));
+    if (!editor.Undo()) return Results.Conflict(new ApiError("Nothing to undo."));
+    await workspace.SaveAsync(editor, cancellationToken);
+    return Results.Ok(ProjectResponse.From(editor));
+});
+
+app.MapPost("/api/projects/{id}/redo", async (string id, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    var editor = await workspace.GetAsync(projectId, cancellationToken);
+    if (editor is null) return Results.NotFound(new ApiError("Project not found."));
+    if (!editor.Redo()) return Results.Conflict(new ApiError("Nothing to redo."));
+    await workspace.SaveAsync(editor, cancellationToken);
+    return Results.Ok(ProjectResponse.From(editor));
+});
+
+app.Run();
+
+static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
+{
+    var project = editor.Project;
+    switch (request.Type.Trim().ToLowerInvariant())
+    {
+        case "rename-project": project.Rename(Required(request.Title, "title")); break;
+        case "set-tempo": project.SetTempo(request.Tempo ?? throw new ArgumentException("Tempo is required.")); break;
+        case "set-time-signature": project.SetTimeSignature(
+            request.Numerator ?? throw new ArgumentException("Numerator is required."),
+            request.Denominator ?? throw new ArgumentException("Denominator is required.")); break;
+        case "add-section": editor.Execute(new AddSectionCommand(
+            request.Kind ?? throw new ArgumentException("Section kind is required."), request.Title)); break;
+        case "rename-section": editor.Execute(new RenameSectionCommand(RequiredSectionId(request), Required(request.Title, "title"))); break;
+        case "move-section": editor.Execute(new MoveSectionCommand(RequiredSectionId(request), request.TargetIndex ?? throw new ArgumentException("Target index is required."))); break;
+        case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
+        case "set-lyrics":
+            var section = project.FindSection(RequiredSectionId(request));
+            section.SetLyricLines((request.Lyrics ?? []).Select(LyricLine.Create));
+            break;
+        default: throw new ArgumentException($"Unknown command type '{request.Type}'.");
+    }
+}
+
+static SectionId RequiredSectionId(ProjectCommandRequest request) =>
+    request.SectionId ?? throw new ArgumentException("Section ID is required.");
+static string Required(string? value, string name) =>
+    string.IsNullOrWhiteSpace(value) ? throw new ArgumentException($"{name} is required.") : value;
+static IResult Validation(Exception exception) =>
+    Results.BadRequest(new ApiError(exception.Message));
+
+public sealed record CreateProjectRequest(string Title);
+public sealed record UpdateProjectRequest(SongProject Project);
+public sealed record ProjectCommandRequest(
+    string Type,
+    SectionId? SectionId = null,
+    SectionKind? Kind = null,
+    string? Title = null,
+    decimal? Tempo = null,
+    int? Numerator = null,
+    int? Denominator = null,
+    int? TargetIndex = null,
+    IReadOnlyList<string>? Lyrics = null);
+public sealed record ApiError(string Error);
+public sealed record ProjectResponse(SongProject Project, bool CanUndo, bool CanRedo)
+{
+    public static ProjectResponse From(ProjectEditor editor) => new(editor.Project, editor.CanUndo, editor.CanRedo);
+}
+
+public partial class Program;

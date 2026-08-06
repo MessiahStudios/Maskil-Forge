@@ -61,7 +61,38 @@ Future C# code will use `MaskilForge` as its namespace root. The repository is n
 
 ## Current project status
 
-This repository currently contains the product definition, architectural principles, and delivery roadmap. Maskil Forge is early-stage: it is not yet a functional DAW or complete audio generator, and the planned AI, MIDI, VST hosting, vocal analysis, procedural generation, recording, and mixing capabilities have not yet been implemented here.
+This repository contains the product definition, architectural principles, delivery roadmap, and an initial executable Song Graph foundation. The current vertical slice supports structured projects, ordered sections, lyric lines, JSON persistence, and reversible section operations. Maskil Forge remains early-stage: it is not a functional DAW or complete audio generator, and AI, MIDI, VST hosting, vocal analysis, procedural music generation, recording, and mixing have not been implemented.
+
+## Run the foundation locally
+
+Prerequisites:
+
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- Node.js 22 or later with npm
+
+From the repository root, restore and run the API:
+
+```powershell
+dotnet restore MaskilForge.sln
+dotnet run --project src/MaskilForge.Api --urls http://localhost:5072
+```
+
+In a second terminal, install the web dependencies and run the Vue development server:
+
+```powershell
+cd src/MaskilForge.Web
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. Project JSON files are written to the API's ignored `App_Data/projects` directory. To verify production builds and tests:
+
+```powershell
+dotnet build MaskilForge.sln
+dotnet test MaskilForge.sln
+cd src/MaskilForge.Web
+npm run build
+```
 
 ## Documentation
 
