@@ -2,6 +2,10 @@
 
 This document specifies the planned foundation of Maskil Engine, the procedural framework inside Maskil Forge. Everything else depends on this layer. Intelligent generation should not begin until the project can represent, change, save, and reload a song reliably.
 
+Architecture decisions:
+
+- [ADR-0001 — Human Creative Authority](ADR-0001-human-creative-authority.md)
+
 ## Canonical Song Graph
 
 `SongProject` will be the aggregate root. It will own or reference:
