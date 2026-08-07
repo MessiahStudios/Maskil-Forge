@@ -61,7 +61,11 @@ Project JSON is a durable creative file format rather than a disposable API payl
 
 The schema-v1 reader also accepts the original object-shaped schema version (`{ "value": 1 }`) and supplies defaults for raw lyrics and timestamps when loading files created before those fields existed. Future schema changes require explicit migration tests before changing `SchemaVersion.Current`.
 
-Current projects store their complete project tree in one JSON file. Permanent deletion therefore removes that complete current tree. Future external assets such as audio recordings must join the same lifecycle contract before they are introduced.
+All reads now pass through a version-aware migration pipeline before domain deserialization. A file from a future schema is rejected without modifying it. Malformed JSON, mismatched project identity, and invalid duplicate lyric or clip identifiers are rejected when loaded directly; one content-addressed copy of the original bytes is retained in the ignored `recovery` directory. Library and Trash listing isolate damaged files so healthy projects remain accessible.
+
+Saving uses a temporary file that is flushed and read back through the same validation boundary before it can replace the active project. Before an existing project is promoted to the ignored `backups` directory, it must pass that validation boundary. A damaged active file is retained for recovery without overwriting an existing known-good backup. These artifacts are implementation safeguards, not a user-facing version-history system or a substitute for future crash-recovery snapshots.
+
+Current projects store their complete project tree in one JSON file. Confirmed permanent deletion removes its Trash file and any matching backup and recovery artifacts. Future external assets such as audio recordings must join the same lifecycle contract before they are introduced.
 
 ## Events
 
@@ -84,5 +88,5 @@ This future gate will be met when:
 - A project with sections, lyrics, tempo, meter, tracks, and clips can round-trip without data loss.
 - Commands undo and redo deterministically.
 - IDs and references remain valid after editing.
-- Project migrations are versioned.
+- Project migrations remain versioned as the schema evolves beyond v1.
 - Timeline calculations have automated tests.

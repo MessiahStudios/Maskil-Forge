@@ -67,8 +67,14 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...init?.headers },
   })
   if (!response.ok) {
-    const error = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new Error(error?.error ?? `Request failed with status ${response.status}.`)
+    const error = (await response.json().catch(() => null)) as {
+      error?: string
+      recoveryCopyFileName?: string
+    } | null
+    const recoveryDetail = error?.recoveryCopyFileName
+      ? ` Recovery file: ${error.recoveryCopyFileName}`
+      : ''
+    throw new Error(`${error?.error ?? `Request failed with status ${response.status}.`}${recoveryDetail}`)
   }
   return response.status === 204 ? undefined as T : response.json() as Promise<T>
 }

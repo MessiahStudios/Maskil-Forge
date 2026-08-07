@@ -24,7 +24,9 @@ The current foundation implements the local project summary list, raw lyric draf
 
 ### Next durability slice
 
-After the foundation is merged, use a focused `feature/project-durability` branch for schema migrations beyond v1, corrupted-project recovery, failed-save recovery, stale-session handling, and crash recovery. Session-only undo is an explicit current decision; a persistent command journal should not be added casually.
+The focused `feature/project-durability` slice now provides the migration boundary for schema evolution, compatibility with early schema-v1 files, explicit future-version rejection, validated temporary saves, known-good-file backups, content-addressed corrupt-file recovery copies, per-project failure isolation during library listing, and structured API errors. Confirmed permanent deletion includes these durability artifacts. Session-only undo remains an explicit current decision; a persistent command journal should not be added casually.
+
+Still planned for later durability work are automatic crash snapshots, recovery-session UI, stale concurrent-session detection, and migrations that transform a real schema version beyond v1. The migration mechanism exists now, but no fictional v2 migration is included before a v2 schema is defined.
 
 ## Milestone 2 — Lyrics and prosody
 

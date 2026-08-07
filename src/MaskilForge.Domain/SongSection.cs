@@ -46,6 +46,8 @@ public sealed class SongSection
         Kind = kind;
         Rename(title);
         _lyricLines = lyricLines?.ToList() ?? [];
+        if (_lyricLines.Select(line => line.Id).Distinct().Count() != _lyricLines.Count)
+            throw new ArgumentException("Lyric line IDs must be unique.", nameof(lyricLines));
     }
 
     public SectionId Id { get; }

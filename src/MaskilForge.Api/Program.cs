@@ -14,6 +14,19 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.WithOrigins("http://localhost:5173").AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
+app.Use(async (context, next) =>
+{
+    try { await next(); }
+    catch (ProjectPersistenceException exception)
+    {
+        context.Response.StatusCode = exception is ProjectSaveException
+            ? StatusCodes.Status503ServiceUnavailable
+            : StatusCodes.Status422UnprocessableEntity;
+        await context.Response.WriteAsJsonAsync(
+            new ApiError(exception.Message, exception.Code, exception.RecoveryCopyFileName),
+            context.RequestAborted);
+    }
+});
 app.UseCors();
 
 app.MapGet("/api/projects", async (IProjectRepository repository, CancellationToken cancellationToken) =>
@@ -173,7 +186,7 @@ public sealed record ProjectCommandRequest(
     int? Denominator = null,
     int? TargetIndex = null,
     IReadOnlyList<string>? Lyrics = null);
-public sealed record ApiError(string Error);
+public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
 public sealed record ProjectResponse(SongProject Project, bool CanUndo, bool CanRedo)
 {
     public static ProjectResponse From(ProjectEditor editor) => new(editor.Project, editor.CanUndo, editor.CanRedo);

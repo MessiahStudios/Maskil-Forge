@@ -32,7 +32,10 @@ public sealed class Track
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Track name is required.", nameof(name));
         Id = id;
         Name = name.Trim();
-        Clips = clips?.ToList() ?? [];
+        var materializedClips = clips?.ToList() ?? [];
+        if (materializedClips.Select(clip => clip.Id).Distinct().Count() != materializedClips.Count)
+            throw new ArgumentException("Clip IDs must be unique within a track.", nameof(clips));
+        Clips = materializedClips;
     }
 
     public TrackId Id { get; }
