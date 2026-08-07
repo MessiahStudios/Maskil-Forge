@@ -109,6 +109,79 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         }
     }
 
+    public async Task<IReadOnlyList<ProjectRecoverySummary>> ListRecoverySnapshotsAsync(CancellationToken cancellationToken = default)
+    {
+        var recoveryDirectory = GetSessionRecoveryDirectory();
+        if (!Directory.Exists(recoveryDirectory)) return [];
+        var summaries = new List<ProjectRecoverySummary>();
+        foreach (var path in Directory.EnumerateFiles(recoveryDirectory, "*.json"))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                var snapshot = await ReadRecoverySnapshotAsync(path, cancellationToken);
+                summaries.Add(new ProjectRecoverySummary(
+                    snapshot.Project.Id,
+                    snapshot.Project.Title,
+                    snapshot.Project.Artist,
+                    snapshot.CapturedAtUtc));
+            }
+            catch (ProjectPersistenceException) { }
+        }
+        return summaries.OrderByDescending(item => item.CapturedAtUtc).ToList();
+    }
+
+    public async Task<ProjectRecoverySnapshot?> LoadRecoverySnapshotAsync(ProjectId id, CancellationToken cancellationToken = default)
+    {
+        var path = GetSessionRecoveryPath(id);
+        return File.Exists(path) ? await ReadRecoverySnapshotAsync(path, cancellationToken) : null;
+    }
+
+    public async Task SaveRecoverySnapshotAsync(ProjectRecoverySnapshot snapshot, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(snapshot.Project);
+        if (string.IsNullOrWhiteSpace(snapshot.SessionId)) throw new ArgumentException("A recovery session ID is required.", nameof(snapshot));
+        var saved = await LoadAsync(snapshot.Project.Id, cancellationToken)
+            ?? throw new InvalidProjectDataException("The saved project for this recovery snapshot was not found.");
+        if (saved.LastModifiedUtc != snapshot.BaseProjectLastModifiedUtc)
+            throw new StaleProjectSessionException();
+
+        var directory = GetSessionRecoveryDirectory();
+        Directory.CreateDirectory(directory);
+        var path = GetSessionRecoveryPath(snapshot.Project.Id);
+        var temporaryPath = path + ".tmp";
+        try
+        {
+            await using (var stream = File.Create(temporaryPath))
+            {
+                await JsonSerializer.SerializeAsync(stream, snapshot, JsonOptions, cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+            }
+            _ = await ReadRecoverySnapshotAsync(temporaryPath, cancellationToken);
+            File.Move(temporaryPath, path, true);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (StaleProjectSessionException) { throw; }
+        catch (Exception exception)
+        {
+            throw new ProjectSaveException("The recovery snapshot could not be saved.", exception);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
+    }
+
+    public Task<bool> DeleteRecoverySnapshotAsync(ProjectId id, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var path = GetSessionRecoveryPath(id);
+        if (!File.Exists(path)) return Task.FromResult(false);
+        File.Delete(path);
+        return Task.FromResult(true);
+    }
+
     public Task<bool> MoveToTrashAsync(ProjectId id, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -118,6 +191,8 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         Directory.CreateDirectory(trashDirectory);
         var destination = Path.Combine(trashDirectory, $"{id}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.json");
         File.Move(source, destination);
+        var sessionRecoveryPath = GetSessionRecoveryPath(id);
+        if (File.Exists(sessionRecoveryPath)) File.Delete(sessionRecoveryPath);
         return Task.FromResult(true);
     }
 
@@ -152,7 +227,9 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
     private string GetTrashDirectory() => Path.Combine(_directory, "trash");
     private string GetBackupDirectory() => Path.Combine(_directory, "backups");
     private string GetRecoveryDirectory() => Path.Combine(_directory, "recovery");
+    private string GetSessionRecoveryDirectory() => Path.Combine(_directory, "sessions");
     private string GetBackupPath(ProjectId id) => Path.Combine(GetBackupDirectory(), $"{id}.json");
+    private string GetSessionRecoveryPath(ProjectId id) => Path.Combine(GetSessionRecoveryDirectory(), $"{id}.json");
     private string? FindTrashPath(ProjectId id) => Directory.Exists(GetTrashDirectory())
         ? Directory.EnumerateFiles(GetTrashDirectory(), $"{id}-*.json").OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault()
         : null;
@@ -201,6 +278,27 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
                 recovery is null ? "The project data is invalid." : "The project data is invalid. A recovery copy was created.",
                 recovery,
                 exception);
+        }
+    }
+
+    private async Task<ProjectRecoverySnapshot> ReadRecoverySnapshotAsync(string path, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var stream = File.OpenRead(path);
+            var snapshot = await JsonSerializer.DeserializeAsync<ProjectRecoverySnapshot>(stream, JsonOptions, cancellationToken)
+                ?? throw new InvalidProjectDataException("The recovery snapshot contains no project data.");
+            if (snapshot.Project.SchemaVersion.Value > SchemaVersion.Current.Value)
+                throw new UnsupportedProjectSchemaException(snapshot.Project.SchemaVersion.Value, SchemaVersion.Current.Value);
+            if (snapshot.CapturedAtUtc == default || snapshot.BaseProjectLastModifiedUtc == default || string.IsNullOrWhiteSpace(snapshot.SessionId))
+                throw new InvalidProjectDataException("The recovery snapshot metadata is invalid.");
+            return snapshot;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (ProjectPersistenceException) { throw; }
+        catch (Exception exception) when (exception is JsonException or ArgumentException or InvalidOperationException)
+        {
+            throw new InvalidProjectDataException("The recovery snapshot is invalid.", null, exception);
         }
     }
 

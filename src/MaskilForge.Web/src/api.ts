@@ -51,6 +51,19 @@ export interface TrashedProjectSummary {
   deletedAtUtc: string
 }
 
+export interface RecoverySummary {
+  id: string
+  title: string
+  artist: string
+  capturedAtUtc: string
+}
+
+export interface RecoveryProjectResponse {
+  project: SongProject
+  capturedAtUtc: string
+  baseProjectLastModifiedUtc: string
+}
+
 export interface ProjectCommand {
   type: string
   project?: SongProject
@@ -81,6 +94,13 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
 
 export const projectsApi = {
   list: () => request<ProjectSummary[]>('/api/projects'),
+  listRecovery: () => request<RecoverySummary[]>('/api/recovery'),
+  loadRecovery: (id: string) => request<RecoveryProjectResponse>(`/api/recovery/${id}`),
+  saveRecovery: (project: SongProject, baseProjectLastModifiedUtc: string, sessionId: string) =>
+    request<void>(`/api/projects/${project.id}/recovery`, {
+      method: 'PUT', body: JSON.stringify({ project, baseProjectLastModifiedUtc, sessionId }),
+    }),
+  discardRecovery: (id: string) => request<void>(`/api/recovery/${id}`, { method: 'DELETE' }),
   delete: (id: string) => request<void>(`/api/projects/${id}`, { method: 'DELETE' }),
   listTrash: () => request<TrashedProjectSummary[]>('/api/trash'),
   restore: (id: string) => request<void>(`/api/trash/${id}/restore`, { method: 'POST' }),
@@ -89,8 +109,8 @@ export const projectsApi = {
     method: 'POST', body: JSON.stringify({ title }),
   }),
   load: (id: string) => request<ProjectResponse>(`/api/projects/${id}`),
-  save: (project: SongProject) => request<ProjectResponse>(`/api/projects/${project.id}`, {
-    method: 'PUT', body: JSON.stringify({ project }),
+  save: (project: SongProject, baseProjectLastModifiedUtc: string) => request<ProjectResponse>(`/api/projects/${project.id}`, {
+    method: 'PUT', body: JSON.stringify({ project, baseProjectLastModifiedUtc }),
   }),
   command: (id: string, project: SongProject, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {
     method: 'POST', body: JSON.stringify({ ...command, project }),

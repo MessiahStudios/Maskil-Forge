@@ -6,6 +6,7 @@ button { min-height: 44px; border: 1px solid #c6a96c; color: #161711; background
 button.secondary { color: #f1eadc; background: #242821; border-color: #747b69; }
 button.quiet { min-height: 40px; color: #e8e1d3; background: transparent; border-color: #62695a; font-weight: 650; }
 button.danger { color: #fff1ed; background: #612f2a; border-color: #b9665b; }
+button.recovery-button { color: #15170f; background: #e3c878; border-color: #f2db91; }
 button:disabled { cursor: not-allowed; color: #9d9d94; background: #292b27; border-color: #4a4d46; opacity: 1; }
 button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, a:focus-visible { outline: 3px solid #f1cf86; outline-offset: 3px; }
 input, select, textarea { width: 100%; color: #f7f1e4; background: #181b17; border: 1px solid #555b50; border-radius: .4rem; padding: .72rem; }
@@ -68,6 +69,8 @@ main.has-project { padding-top: 1rem; }
 .trash-heading h1 { margin: .25rem 0 .5rem; font: 3.2rem Georgia, serif; }
 .trash-heading > p:last-child { color: #bdb7aa; }
 .trash-card { border-color: #67433e; }
+.recovery-view { width: min(900px, 100%); }
+.recovery-card { border-color: #8e7844; background: #211f18; }
 .song-canvas { display: grid; gap: 1.25rem; }
 .canvas-heading { display: flex; justify-content: space-between; gap: 1.5rem; align-items: end; }
 .canvas-heading h1 { margin: .2rem 0 0; font: 2.3rem Georgia, serif; }

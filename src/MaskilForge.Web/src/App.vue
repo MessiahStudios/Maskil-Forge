@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { projectsApi, type ProjectResponse, type ProjectSummary, type SectionKind, type SongGenre, type SongProject, type TrashedProjectSummary } from './api'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { projectsApi, type ProjectResponse, type ProjectSummary, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
-const view = ref<'home' | 'trash' | 'capture' | 'structure'>('home')
+const view = ref<'home' | 'recovery' | 'trash' | 'capture' | 'structure'>('home')
 const projects = ref<ProjectSummary[]>([])
+const recoverySnapshots = ref<RecoverySummary[]>([])
 const trashedProjects = ref<TrashedProjectSummary[]>([])
 const libraryBusy = ref(true)
 const status = ref('Begin a new song or open an existing project.')
@@ -19,6 +20,9 @@ const deleteTarget = ref<{ id: string; title: string } | null>(null)
 const permanentDeleteTarget = ref<{ id: string; title: string } | null>(null)
 const pendingAction = ref<'load' | 'new' | 'home'>('load')
 const pendingLoadId = ref('')
+const sessionId = crypto.randomUUID()
+const persistedRevision = ref('')
+let recoveryTimer: ReturnType<typeof setTimeout> | undefined
 const project = computed(() => response.value?.project ?? null)
 const serializedProject = computed(() => project.value ? JSON.stringify(project.value) : '')
 const isDirty = computed(() => Boolean(project.value) && serializedProject.value !== savedSnapshot.value)
@@ -33,6 +37,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
   status.value = message
   if (markPersisted) {
     savedSnapshot.value = JSON.stringify(next.project)
+    persistedRevision.value = next.project.lastModifiedUtc
     cleanLabel.value = message.includes('saved') ? 'saved' : 'clean'
   }
 }
@@ -93,17 +98,20 @@ async function continuePendingAction() {
 async function saveBeforeContinuing() {
   if (await saveProject()) await continuePendingAction()
 }
-function discardAndContinue() {
+async function discardAndContinue() {
   activityLog.write('warning', `project.${pendingAction.value}`, 'Unsaved editor changes discarded by user.')
-  return continuePendingAction()
+  if (project.value) await projectsApi.discardRecovery(project.value.id).catch(() => undefined)
+  return await continuePendingAction()
 }
 function cancelConfirmation() {
   confirmationOpen.value = false
   status.value = 'Cancelled. Your unsaved changes remain in the editor.'
 }
-function saveProject() {
-  if (!project.value) return
-  return run(() => projectsApi.save(project.value!), 'Song saved.', 'project.save', { projectId: project.value.id, sectionCount: project.value.sections.length }, true)
+async function saveProject() {
+  if (!project.value || !persistedRevision.value) return
+  const succeeded = await run(() => projectsApi.save(project.value!, persistedRevision.value), 'Song saved.', 'project.save', { projectId: project.value.id, sectionCount: project.value.sections.length }, true)
+  if (succeeded) await refreshRecovery()
+  return succeeded
 }
 async function saveDraft() {
   const succeeded = await saveProject()
@@ -117,7 +125,7 @@ async function beginStructuring() {
 }
 function returnToDraft() { view.value = 'capture'; status.value = 'Raw lyric draft.' }
 function requestHome() { if (isDirty.value) return openConfirmation('home'); return goHome() }
-async function goHome() { confirmationOpen.value = false; view.value = 'home'; await refreshLibrary() }
+async function goHome() { confirmationOpen.value = false; view.value = 'home'; await Promise.all([refreshLibrary(), refreshRecovery()]) }
 function openSummary(id: string) { projectId.value = id; return requestLoad() }
 function requestDelete(id: string, title: string) {
   deleteTarget.value = { id, title }
@@ -145,7 +153,7 @@ async function confirmDelete() {
       view.value = 'home'
     }
     status.value = `“${target.title}” was moved to Trash.`
-    await refreshLibrary()
+    await Promise.all([refreshLibrary(), refreshRecovery()])
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'The song could not be deleted.'
     activityLog.write('error', 'project.delete', status.value, { projectId: target.id })
@@ -157,6 +165,41 @@ async function openTrash() {
   try { trashedProjects.value = await projectsApi.listTrash() }
   catch (error) { status.value = error instanceof Error ? error.message : 'Could not load Trash.' }
   finally { libraryBusy.value = false }
+}
+async function refreshRecovery() {
+  try { recoverySnapshots.value = await projectsApi.listRecovery() }
+  catch (error) { status.value = error instanceof Error ? error.message : 'Could not check recovery snapshots.' }
+}
+async function openRecovery() {
+  view.value = 'recovery'
+  await refreshRecovery()
+}
+async function restoreRecovery(id: string) {
+  busy.value = true
+  try {
+    const recovered = await projectsApi.loadRecovery(id)
+    response.value = { project: recovered.project, canUndo: false, canRedo: false }
+    projectId.value = recovered.project.id
+    localStorage.setItem('maskilForge.projectId', recovered.project.id)
+    persistedRevision.value = recovered.baseProjectLastModifiedUtc
+    savedSnapshot.value = ''
+    view.value = recovered.project.sections.length ? 'structure' : 'capture'
+    status.value = 'Recovered unsaved work. Save the song when you are ready.'
+    activityLog.write('success', 'recovery.restore', 'Unsaved work restored.', { projectId: id })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The recovery snapshot could not be restored.'
+  } finally { busy.value = false }
+}
+async function discardRecovery(id: string) {
+  busy.value = true
+  try {
+    await projectsApi.discardRecovery(id)
+    activityLog.write('info', 'recovery.discard', 'Recovery snapshot discarded.', { projectId: id })
+    await refreshRecovery()
+    if (recoverySnapshots.value.length === 0) await goHome()
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The recovery snapshot could not be discarded.'
+  } finally { busy.value = false }
 }
 async function restoreSong(id: string, title: string) {
   busy.value = true
@@ -256,11 +299,34 @@ function undo() { if (project.value) return run(() => projectsApi.undo(project.v
 function redo() { if (project.value) return run(() => projectsApi.redo(project.value!.id, project.value!), 'Section operation restored.', 'history.redo') }
 function warnBeforeClose(event: BeforeUnloadEvent) { if (isDirty.value) event.preventDefault() }
 
-onMounted(() => {
-  window.addEventListener('beforeunload', warnBeforeClose)
-  void refreshLibrary()
+async function saveRecoverySnapshot() {
+  if (!project.value || !isDirty.value || !persistedRevision.value || busy.value) return
+  try {
+    await projectsApi.saveRecovery(project.value, persistedRevision.value, sessionId)
+    activityLog.write('info', 'recovery.snapshot', 'Unsaved work protected.', { projectId: project.value.id })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'Unsaved recovery snapshot failed.'
+    activityLog.write('error', 'recovery.snapshot', status.value, { projectId: project.value.id })
+  }
+}
+
+watch(serializedProject, () => {
+  if (recoveryTimer) clearTimeout(recoveryTimer)
+  if (isDirty.value) recoveryTimer = setTimeout(() => void saveRecoverySnapshot(), 1_000)
 })
-onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeClose))
+
+onMounted(async () => {
+  window.addEventListener('beforeunload', warnBeforeClose)
+  await Promise.all([refreshLibrary(), refreshRecovery()])
+  if (recoverySnapshots.value.length > 0) {
+    view.value = 'recovery'
+    status.value = `${recoverySnapshots.value.length} protected editor snapshot${recoverySnapshots.value.length === 1 ? '' : 's'} found.`
+  }
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', warnBeforeClose)
+  if (recoveryTimer) clearTimeout(recoveryTimer)
+})
 </script>
 
 <template>
@@ -278,7 +344,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeClose
         </details>
       </div>
       <section class="project-library" aria-labelledby="library-title">
-        <div class="library-heading"><div><p class="eyebrow">Song library</p><h2 id="library-title">Continue your work</h2></div><div class="library-actions"><button class="quiet" @click="openTrash">Trash</button><button class="quiet" :disabled="libraryBusy" @click="refreshLibrary">Refresh</button></div></div>
+        <div class="library-heading"><div><p class="eyebrow">Song library</p><h2 id="library-title">Continue your work</h2></div><div class="library-actions"><button v-if="recoverySnapshots.length" class="recovery-button" @click="openRecovery">Recovery ({{ recoverySnapshots.length }})</button><button class="quiet" @click="openTrash">Trash</button><button class="quiet" :disabled="libraryBusy" @click="refreshLibrary">Refresh</button></div></div>
         <p v-if="libraryBusy" class="library-message">Finding your saved songs…</p>
         <p v-else-if="projects.length === 0" class="library-message">No saved songs yet. Begin with any idea, even if it has no structure.</p>
         <div v-else class="project-grid">
@@ -290,6 +356,20 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeClose
         </div>
       </section>
     </header>
+
+    <section v-else-if="view === 'recovery'" class="trash-view recovery-view" aria-labelledby="recovery-title">
+      <button class="quiet" @click="goHome">← Song library</button>
+      <div class="trash-heading"><p class="eyebrow">Protected work</p><h1 id="recovery-title">Recover unsaved songs</h1><p>Maskil Forge found editor snapshots newer than an explicit save. Restore one to inspect it, or discard it without changing the saved song.</p></div>
+      <p class="status" role="status">{{ status }}</p>
+      <p v-if="recoverySnapshots.length === 0" class="library-message">No unsaved recovery snapshots remain.</p>
+      <div v-else class="project-grid">
+        <article v-for="summary in recoverySnapshots" :key="summary.id" class="project-card recovery-card">
+          <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
+          <dl><div><dt>Protected</dt><dd>{{ formatModified(summary.capturedAtUtc) }}</dd></div></dl>
+          <div class="card-actions"><button :disabled="busy" @click="restoreRecovery(summary.id)">Restore unsaved work</button><button class="danger" :disabled="busy" @click="discardRecovery(summary.id)">Discard snapshot</button></div>
+        </article>
+      </div>
+    </section>
 
     <section v-else-if="view === 'trash'" class="trash-view" aria-labelledby="trash-title">
       <button class="quiet" @click="goHome">← Song library</button>

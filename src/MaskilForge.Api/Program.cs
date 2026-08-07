@@ -19,9 +19,12 @@ app.Use(async (context, next) =>
     try { await next(); }
     catch (ProjectPersistenceException exception)
     {
-        context.Response.StatusCode = exception is ProjectSaveException
-            ? StatusCodes.Status503ServiceUnavailable
-            : StatusCodes.Status422UnprocessableEntity;
+        context.Response.StatusCode = exception switch
+        {
+            StaleProjectSessionException => StatusCodes.Status409Conflict,
+            ProjectSaveException => StatusCodes.Status503ServiceUnavailable,
+            _ => StatusCodes.Status422UnprocessableEntity
+        };
         await context.Response.WriteAsJsonAsync(
             new ApiError(exception.Message, exception.Code, exception.RecoveryCopyFileName),
             context.RequestAborted);
@@ -31,6 +34,47 @@ app.UseCors();
 
 app.MapGet("/api/projects", async (IProjectRepository repository, CancellationToken cancellationToken) =>
     Results.Ok(await repository.ListAsync(cancellationToken)));
+
+app.MapGet("/api/recovery", async (IProjectRepository repository, CancellationToken cancellationToken) =>
+    Results.Ok(await repository.ListRecoverySnapshotsAsync(cancellationToken)));
+
+app.MapGet("/api/recovery/{id}", async (string id, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    var snapshot = await workspace.LoadRecoveryAsync(projectId, cancellationToken);
+    return snapshot is null
+        ? Results.NotFound(new ApiError("Recovery snapshot not found."))
+        : Results.Ok(new RecoveryProjectResponse(
+            snapshot.Project,
+            snapshot.CapturedAtUtc,
+            snapshot.BaseProjectLastModifiedUtc));
+});
+
+app.MapPut("/api/projects/{id}/recovery", async (
+    string id,
+    RecoverySnapshotRequest request,
+    IProjectRepository repository,
+    CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId) || projectId != request.Project.Id)
+        return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    if (string.IsNullOrWhiteSpace(request.SessionId))
+        return Results.BadRequest(new ApiError("A recovery session ID is required."));
+    await repository.SaveRecoverySnapshotAsync(new ProjectRecoverySnapshot(
+        request.Project,
+        DateTimeOffset.UtcNow,
+        request.BaseProjectLastModifiedUtc,
+        request.SessionId), cancellationToken);
+    return Results.NoContent();
+});
+
+app.MapDelete("/api/recovery/{id}", async (string id, IProjectRepository repository, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    return await repository.DeleteRecoverySnapshotAsync(projectId, cancellationToken)
+        ? Results.NoContent()
+        : Results.NotFound(new ApiError("Recovery snapshot not found."));
+});
 
 app.MapDelete("/api/projects/{id}", async (string id, IProjectRepository repository, CancellationToken cancellationToken) =>
 {
@@ -89,7 +133,7 @@ app.MapPut("/api/projects/{id}", async (string id, UpdateProjectRequest request,
         return Results.BadRequest(new ApiError("Route and project IDs must match."));
     try
     {
-        var editor = await workspace.UpdateAsync(request.Project, cancellationToken);
+        var editor = await workspace.UpdateAsync(request.Project, request.BaseProjectLastModifiedUtc, cancellationToken);
         return editor is null
             ? Results.NotFound(new ApiError("Project not found."))
             : Results.Ok(ProjectResponse.From(editor));
@@ -173,7 +217,8 @@ static IResult Validation(Exception exception) =>
     Results.BadRequest(new ApiError(exception.Message));
 
 public sealed record CreateProjectRequest(string Title);
-public sealed record UpdateProjectRequest(SongProject Project);
+public sealed record UpdateProjectRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc);
+public sealed record RecoverySnapshotRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc, string SessionId);
 public sealed record EditorStateRequest(SongProject Project);
 public sealed record ProjectCommandRequest(
     string Type,
@@ -191,5 +236,9 @@ public sealed record ProjectResponse(SongProject Project, bool CanUndo, bool Can
 {
     public static ProjectResponse From(ProjectEditor editor) => new(editor.Project, editor.CanUndo, editor.CanRedo);
 }
+public sealed record RecoveryProjectResponse(
+    SongProject Project,
+    DateTimeOffset CapturedAtUtc,
+    DateTimeOffset BaseProjectLastModifiedUtc);
 
 public partial class Program;
