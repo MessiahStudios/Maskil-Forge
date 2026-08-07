@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MaskilForge.Domain;
@@ -25,7 +26,9 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         foreach (var path in Directory.EnumerateFiles(_directory, "*.json"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var project = await ReadProjectAsync(path, null, true, cancellationToken);
+            SongProject? project;
+            try { project = await ReadProjectAsync(path, null, true, cancellationToken); }
+            catch (ProjectPersistenceException) { continue; }
             if (project is not null)
                 summaries.Add(new ProjectSummary(project.Id, project.Title, project.Artist, project.Genre, project.LastModifiedUtc, project.Sections.Count, !string.IsNullOrWhiteSpace(project.RawLyricDraft)));
         }
@@ -40,7 +43,9 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         foreach (var path in Directory.EnumerateFiles(trashDirectory, "*.json"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var project = await ReadProjectAsync(path, null, true, cancellationToken);
+            SongProject? project;
+            try { project = await ReadProjectAsync(path, null, true, cancellationToken); }
+            catch (ProjectPersistenceException) { continue; }
             if (project is not null)
                 summaries.Add(new TrashedProjectSummary(project.Id, project.Title, project.Artist, File.GetLastWriteTimeUtc(path)));
         }
@@ -73,8 +78,22 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
 
             if (File.Exists(path))
             {
-                Directory.CreateDirectory(GetBackupDirectory());
-                File.Copy(path, GetBackupPath(project.Id), true);
+                try
+                {
+                    _ = await ReadProjectAsync(path, project.Id, true, cancellationToken);
+                    Directory.CreateDirectory(GetBackupDirectory());
+                    File.Copy(path, GetBackupPath(project.Id), true);
+                }
+                catch (UnsupportedProjectSchemaException exception)
+                {
+                    throw new ProjectSaveException(
+                        "The existing project was created by a newer version and was not replaced.", exception);
+                }
+                catch (ProjectPersistenceException)
+                {
+                    // ReadProjectAsync has preserved the invalid active file for recovery.
+                    // Keep any existing known-good backup and continue with the validated save.
+                }
             }
             File.Move(temporaryPath, path, true);
         }
@@ -120,6 +139,13 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         var path = FindTrashPath(id);
         if (path is null) return Task.FromResult(false);
         File.Delete(path);
+        var backupPath = GetBackupPath(id);
+        if (File.Exists(backupPath)) File.Delete(backupPath);
+        if (Directory.Exists(GetRecoveryDirectory()))
+        {
+            foreach (var recoveryPath in Directory.EnumerateFiles(GetRecoveryDirectory(), $"{id}-*.json"))
+                File.Delete(recoveryPath);
+        }
         return Task.FromResult(true);
     }
 
@@ -183,8 +209,11 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         try
         {
             Directory.CreateDirectory(GetRecoveryDirectory());
-            var fileName = $"{Path.GetFileNameWithoutExtension(source)}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.json";
-            File.Copy(source, Path.Combine(GetRecoveryDirectory(), fileName), true);
+            using var stream = File.OpenRead(source);
+            var fingerprint = Convert.ToHexString(SHA256.HashData(stream))[..16].ToLowerInvariant();
+            var fileName = $"{Path.GetFileNameWithoutExtension(source)}-{fingerprint}.json";
+            var destination = Path.Combine(GetRecoveryDirectory(), fileName);
+            if (!File.Exists(destination)) File.Copy(source, destination);
             return fileName;
         }
         catch (IOException) { return null; }

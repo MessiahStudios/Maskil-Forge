@@ -209,6 +209,89 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
+    public async Task SaveAsync_CorruptActiveFileDoesNotReplaceLastGoodBackup()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var project = SongProject.Create("Known Good Backup");
+            await repository.SaveAsync(project, CancellationToken.None);
+            project.Rename("Current Active Save");
+            await repository.SaveAsync(project, CancellationToken.None);
+            var backupPath = Path.Combine(directory, "backups", $"{project.Id}.json");
+            var knownGoodBackup = await File.ReadAllTextAsync(backupPath);
+
+            await File.WriteAllTextAsync(Path.Combine(directory, $"{project.Id}.json"), "{ damaged active file");
+            project.Rename("Recovered In-Memory Save");
+            await repository.SaveAsync(project, CancellationToken.None);
+
+            Assert.Equal(knownGoodBackup, await File.ReadAllTextAsync(backupPath));
+            Assert.Equal("Recovered In-Memory Save", (await repository.LoadAsync(project.Id, CancellationToken.None))!.Title);
+            Assert.Single(Directory.EnumerateFiles(Path.Combine(directory, "recovery"), $"{project.Id}-*.json"));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task ListAsync_SkipsCorruptProjectAndCreatesOnlyOneRecoveryCopy()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var corruptId = ProjectId.New();
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var healthy = SongProject.Create("Healthy Song");
+            await repository.SaveAsync(healthy, CancellationToken.None);
+            await File.WriteAllTextAsync(Path.Combine(directory, $"{corruptId}.json"), "{ damaged");
+
+            var firstList = await repository.ListAsync(CancellationToken.None);
+            var secondList = await repository.ListAsync(CancellationToken.None);
+
+            Assert.Single(firstList);
+            Assert.Equal(healthy.Id, firstList[0].Id);
+            Assert.Single(secondList);
+            Assert.Single(Directory.EnumerateFiles(Path.Combine(directory, "recovery"), $"{corruptId}-*.json"));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task PermanentlyDelete_RemovesTrashBackupAndRecoveryArtifacts()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var project = SongProject.Create("Erase Every Copy");
+            await repository.SaveAsync(project, CancellationToken.None);
+            project.Rename("Second Save");
+            await repository.SaveAsync(project, CancellationToken.None);
+            var activePath = Path.Combine(directory, $"{project.Id}.json");
+            await File.WriteAllTextAsync(activePath, "{ damaged before deletion");
+            await Assert.ThrowsAsync<CorruptProjectException>(() =>
+                repository.LoadAsync(project.Id, CancellationToken.None));
+
+            Assert.True(await repository.MoveToTrashAsync(project.Id, CancellationToken.None));
+            Assert.True(await repository.PermanentlyDeleteAsync(project.Id, CancellationToken.None));
+
+            Assert.False(File.Exists(Path.Combine(directory, "backups", $"{project.Id}.json")));
+            Assert.Empty(Directory.EnumerateFiles(Path.Combine(directory, "recovery"), $"{project.Id}-*.json"));
+            Assert.Empty(Directory.EnumerateFiles(Path.Combine(directory, "trash"), $"{project.Id}-*.json"));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
     public async Task LoadAsync_MalformedJsonCreatesRecoveryCopyAndUsefulError()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
@@ -326,6 +409,72 @@ public sealed class JsonPersistenceTests
             Assert.Equal("invalid_project_data", exception.Code);
             Assert.NotNull(exception.RecoveryCopyFileName);
             Assert.True(File.Exists(Path.Combine(directory, "recovery", exception.RecoveryCopyFileName!)));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_DuplicateClipIdentifiersAreRejectedAndPreservedForRecovery()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var projectId = ProjectId.New();
+        var trackId = TrackId.New();
+        var clipId = ClipId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var json = $$"""
+            {
+              "id": "{{projectId}}",
+              "schemaVersion": 1,
+              "title": "Duplicate Clips",
+              "tempo": { "beat": 0, "beatsPerMinute": 120 },
+              "timeSignature": { "beat": 0, "numerator": 4, "denominator": 4 },
+              "tracks": [{
+                "id": "{{trackId}}",
+                "name": "Guide",
+                "clips": [
+                  { "id": "{{clipId}}", "name": "First", "startBeat": 0, "lengthInBeats": 4 },
+                  { "id": "{{clipId}}", "name": "Duplicate", "startBeat": 4, "lengthInBeats": 4 }
+                ]
+              }]
+            }
+            """;
+            await File.WriteAllTextAsync(Path.Combine(directory, $"{projectId}.json"), json);
+
+            var exception = await Assert.ThrowsAsync<InvalidProjectDataException>(() =>
+                new JsonFileProjectRepository(directory).LoadAsync(projectId, CancellationToken.None));
+
+            Assert.NotNull(exception.RecoveryCopyFileName);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{ \"schemaVersion\": 0 }")]
+    [InlineData("{ \"schemaVersion\": -1 }")]
+    [InlineData("{ \"schemaVersion\": \"one\" }")]
+    public async Task LoadAsync_InvalidSchemaDeclarationIsRejected(string json)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var projectId = ProjectId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            await File.WriteAllTextAsync(Path.Combine(directory, $"{projectId}.json"), json);
+
+            var exception = await Assert.ThrowsAsync<InvalidProjectDataException>(() =>
+                new JsonFileProjectRepository(directory).LoadAsync(projectId, CancellationToken.None));
+
+            Assert.Equal("invalid_project_data", exception.Code);
+            Assert.NotNull(exception.RecoveryCopyFileName);
         }
         finally
         {
