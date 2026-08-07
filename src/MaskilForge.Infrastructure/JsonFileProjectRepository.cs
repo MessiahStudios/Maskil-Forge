@@ -7,6 +7,7 @@ namespace MaskilForge.Infrastructure;
 
 public sealed class JsonFileProjectRepository(string directory) : IProjectRepository
 {
+    private static readonly ProjectMigrationPipeline MigrationPipeline = new();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,
@@ -24,8 +25,7 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         foreach (var path in Directory.EnumerateFiles(_directory, "*.json"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await using var stream = File.OpenRead(path);
-            var project = await JsonSerializer.DeserializeAsync<SongProject>(stream, JsonOptions, cancellationToken);
+            var project = await ReadProjectAsync(path, null, true, cancellationToken);
             if (project is not null)
                 summaries.Add(new ProjectSummary(project.Id, project.Title, project.Artist, project.Genre, project.LastModifiedUtc, project.Sections.Count, !string.IsNullOrWhiteSpace(project.RawLyricDraft)));
         }
@@ -40,8 +40,7 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         foreach (var path in Directory.EnumerateFiles(trashDirectory, "*.json"))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            await using var stream = File.OpenRead(path);
-            var project = await JsonSerializer.DeserializeAsync<SongProject>(stream, JsonOptions, cancellationToken);
+            var project = await ReadProjectAsync(path, null, true, cancellationToken);
             if (project is not null)
                 summaries.Add(new TrashedProjectSummary(project.Id, project.Title, project.Artist, File.GetLastWriteTimeUtc(path)));
         }
@@ -52,8 +51,7 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
     {
         var path = GetPath(id);
         if (!File.Exists(path)) return null;
-        await using var stream = File.OpenRead(path);
-        return await JsonSerializer.DeserializeAsync<SongProject>(stream, JsonOptions, cancellationToken);
+        return await ReadProjectAsync(path, id, true, cancellationToken);
     }
 
     public async Task SaveAsync(SongProject project, CancellationToken cancellationToken = default)
@@ -62,11 +60,34 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         Directory.CreateDirectory(_directory);
         var path = GetPath(project.Id);
         var temporaryPath = path + ".tmp";
-        await using (var stream = File.Create(temporaryPath))
+        try
         {
-            await JsonSerializer.SerializeAsync(stream, project, JsonOptions, cancellationToken);
+            await using (var stream = File.Create(temporaryPath))
+            {
+                await JsonSerializer.SerializeAsync(stream, project, JsonOptions, cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+            }
+
+            _ = await ReadProjectAsync(temporaryPath, project.Id, false, cancellationToken)
+                ?? throw new ProjectSaveException("The temporary project file could not be validated.");
+
+            if (File.Exists(path))
+            {
+                Directory.CreateDirectory(GetBackupDirectory());
+                File.Copy(path, GetBackupPath(project.Id), true);
+            }
+            File.Move(temporaryPath, path, true);
         }
-        File.Move(temporaryPath, path, true);
+        catch (OperationCanceledException) { throw; }
+        catch (ProjectSaveException) { throw; }
+        catch (Exception exception)
+        {
+            throw new ProjectSaveException("The project could not be saved. The previous project file was left in place.", exception);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
     }
 
     public Task<bool> MoveToTrashAsync(ProjectId id, CancellationToken cancellationToken = default)
@@ -103,9 +124,70 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
     }
 
     private string GetTrashDirectory() => Path.Combine(_directory, "trash");
+    private string GetBackupDirectory() => Path.Combine(_directory, "backups");
+    private string GetRecoveryDirectory() => Path.Combine(_directory, "recovery");
+    private string GetBackupPath(ProjectId id) => Path.Combine(GetBackupDirectory(), $"{id}.json");
     private string? FindTrashPath(ProjectId id) => Directory.Exists(GetTrashDirectory())
         ? Directory.EnumerateFiles(GetTrashDirectory(), $"{id}-*.json").OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault()
         : null;
 
     private string GetPath(ProjectId id) => Path.Combine(_directory, $"{id}.json");
+
+    private async Task<SongProject?> ReadProjectAsync(
+        string path,
+        ProjectId? expectedId,
+        bool createRecoveryCopy,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path)) return null;
+        try
+        {
+            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var normalized = MigrationPipeline.Normalize(ProjectMigrationPipeline.Parse(json));
+            var project = normalized.Deserialize<SongProject>(JsonOptions)
+                ?? throw new InvalidProjectDataException("The project file contains no project data.");
+            if (expectedId is not null && project.Id != expectedId.Value)
+                throw new InvalidProjectDataException("The project ID does not match its requested identity.");
+            return project;
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (UnsupportedProjectSchemaException) { throw; }
+        catch (CorruptProjectException exception)
+        {
+            var recovery = createRecoveryCopy ? CreateRecoveryCopy(path) : null;
+            throw new CorruptProjectException(
+                recovery is null ? exception.Message : $"{exception.Message} A recovery copy was created.",
+                recovery,
+                exception);
+        }
+        catch (ProjectPersistenceException exception)
+        {
+            var recovery = createRecoveryCopy ? CreateRecoveryCopy(path) : null;
+            throw new InvalidProjectDataException(
+                recovery is null ? exception.Message : $"{exception.Message} A recovery copy was created.",
+                recovery,
+                exception);
+        }
+        catch (Exception exception) when (exception is JsonException or ArgumentException or InvalidOperationException)
+        {
+            var recovery = createRecoveryCopy ? CreateRecoveryCopy(path) : null;
+            throw new InvalidProjectDataException(
+                recovery is null ? "The project data is invalid." : "The project data is invalid. A recovery copy was created.",
+                recovery,
+                exception);
+        }
+    }
+
+    private string? CreateRecoveryCopy(string source)
+    {
+        try
+        {
+            Directory.CreateDirectory(GetRecoveryDirectory());
+            var fileName = $"{Path.GetFileNameWithoutExtension(source)}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.json";
+            File.Copy(source, Path.Combine(GetRecoveryDirectory(), fileName), true);
+            return fileName;
+        }
+        catch (IOException) { return null; }
+        catch (UnauthorizedAccessException) { return null; }
+    }
 }

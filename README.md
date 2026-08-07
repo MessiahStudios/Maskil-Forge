@@ -67,6 +67,8 @@ Maskil Forge remains early-stage: it is not a functional DAW or complete audio g
 
 Undo and redo history is currently session-only. Saved project content survives closing and reopening, but the command history itself does not.
 
+Project persistence validates a temporary JSON file before replacing the active copy and retains the previous valid save as an ignored local backup. Invalid or malformed project files are not silently rewritten: the API reports a useful error and preserves a recovery copy. Automatic crash recovery and user-facing version history are not implemented yet.
+
 ## Run the foundation locally
 
 Prerequisites:

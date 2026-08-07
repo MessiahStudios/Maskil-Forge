@@ -61,6 +61,10 @@ Project JSON is a durable creative file format rather than a disposable API payl
 
 The schema-v1 reader also accepts the original object-shaped schema version (`{ "value": 1 }`) and supplies defaults for raw lyrics and timestamps when loading files created before those fields existed. Future schema changes require explicit migration tests before changing `SchemaVersion.Current`.
 
+All reads now pass through a version-aware migration pipeline before domain deserialization. A file from a future schema is rejected without modifying it. Malformed JSON, mismatched project identity, and invalid duplicate lyric or clip identifiers are rejected with a user-facing persistence error; the original bytes are copied into the ignored `recovery` directory for diagnosis or manual recovery.
+
+Saving uses a temporary file that is flushed and read back through the same validation boundary before it can replace the active project. When an existing project is replaced, its previous valid JSON is retained in the ignored `backups` directory. These backups and recovery copies are implementation safeguards, not a user-facing version-history system or a substitute for future crash-recovery snapshots.
+
 Current projects store their complete project tree in one JSON file. Permanent deletion therefore removes that complete current tree. Future external assets such as audio recordings must join the same lifecycle contract before they are introduced.
 
 ## Events
@@ -84,5 +88,5 @@ This future gate will be met when:
 - A project with sections, lyrics, tempo, meter, tracks, and clips can round-trip without data loss.
 - Commands undo and redo deterministically.
 - IDs and references remain valid after editing.
-- Project migrations are versioned.
+- Project migrations remain versioned as the schema evolves beyond v1.
 - Timeline calculations have automated tests.
