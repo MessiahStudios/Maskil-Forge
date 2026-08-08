@@ -312,6 +312,7 @@ public sealed class LyricLine
     private readonly List<LyricWord> _words = [];
     private readonly List<LyricPunctuation> _punctuation = [];
     private readonly List<LyricPhrase> _phrases = [];
+    private readonly List<SyllablePlacement> _syllablePlacements = [];
 
     [JsonConstructor]
     public LyricLine(
@@ -319,12 +320,14 @@ public sealed class LyricLine
         string text,
         IReadOnlyList<LyricWord>? words = null,
         IReadOnlyList<LyricPunctuation>? punctuation = null,
-        IReadOnlyList<LyricPhrase>? phrases = null)
+        IReadOnlyList<LyricPhrase>? phrases = null,
+        IReadOnlyList<SyllablePlacement>? syllablePlacements = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A lyric line ID is required.", nameof(id));
         ValidateSerializedPhraseCoverage(words ?? [], phrases ?? []);
+        ValidateSerializedPlacements(words ?? [], syllablePlacements ?? []);
         Id = id;
-        SetText(text, words ?? [], punctuation ?? [], phrases ?? []);
+        SetText(text, words ?? [], punctuation ?? [], phrases ?? [], syllablePlacements ?? []);
     }
 
     public LyricLineId Id { get; }
@@ -332,6 +335,7 @@ public sealed class LyricLine
     public IReadOnlyList<LyricWord> Words => _words;
     public IReadOnlyList<LyricPunctuation> Punctuation => _punctuation;
     public IReadOnlyList<LyricPhrase> Phrases => _phrases;
+    public IReadOnlyList<SyllablePlacement> SyllablePlacements => _syllablePlacements;
 
     public static LyricLine Create(string text = "") => new(LyricLineId.New(), text);
 
@@ -353,7 +357,12 @@ public sealed class LyricLine
             .ToList();
     }
 
-    public void SetText(string text) => SetText(text, _words.ToList(), _punctuation.ToList(), _phrases.ToList());
+    public void SetText(string text) => SetText(
+        text,
+        _words.ToList(),
+        _punctuation.ToList(),
+        _phrases.ToList(),
+        _syllablePlacements.ToList());
 
     public void SetSyllables(
         LyricWordId wordId,
@@ -364,6 +373,7 @@ public sealed class LyricLine
             ?? throw new KeyNotFoundException($"Lyric word '{wordId}' was not found.");
         word.SetSyllables(syllables, source);
         ReconcileAllPhraseProsody();
+        ReconcileSyllablePlacements(_syllablePlacements.ToList());
     }
 
     public void SetStress(
@@ -431,6 +441,52 @@ public sealed class LyricLine
         ValidatePhraseCoverage();
     }
 
+    public void SetSyllablePlacement(
+        SyllableId syllableId,
+        BeatPosition? position,
+        PlacementProvenance provenance = PlacementProvenance.Manual)
+    {
+        if (!Enum.IsDefined(provenance))
+            throw new ArgumentOutOfRangeException(nameof(provenance), "Placement provenance is invalid.");
+        var orderedSyllableIds = OrderedSyllableIds();
+        if (!orderedSyllableIds.Contains(syllableId))
+            throw new KeyNotFoundException($"Syllable '{syllableId}' was not found in lyric line '{Id}'.");
+
+        var placements = _syllablePlacements.ToList();
+        var existingIndex = placements.FindIndex(item => item.SyllableId == syllableId);
+        if (position is null)
+        {
+            if (existingIndex >= 0) placements.RemoveAt(existingIndex);
+        }
+        else if (existingIndex >= 0)
+        {
+            var existing = placements[existingIndex];
+            placements[existingIndex] = new SyllablePlacement(
+                existing.Id,
+                syllableId,
+                position.Value,
+                provenance);
+        }
+        else
+        {
+            placements.Add(new SyllablePlacement(
+                SyllablePlacementId.New(),
+                syllableId,
+                position.Value,
+                provenance));
+        }
+
+        RestoreSyllablePlacements(BuildPlacements(placements, orderedSyllableIds));
+    }
+
+    public void RestoreSyllablePlacements(IReadOnlyList<SyllablePlacement> placements)
+    {
+        ArgumentNullException.ThrowIfNull(placements);
+        ValidateSerializedPlacements(_words, placements);
+        _syllablePlacements.Clear();
+        _syllablePlacements.AddRange(placements.Select(ClonePlacement));
+    }
+
     public void SplitPhraseAfter(LyricWordId wordId)
     {
         var phraseIndex = _phrases.FindIndex(item => item.WordIds.Contains(wordId));
@@ -490,7 +546,8 @@ public sealed class LyricLine
         string text,
         IReadOnlyList<LyricWord> existingWords,
         IReadOnlyList<LyricPunctuation> existingPunctuation,
-        IReadOnlyList<LyricPhrase> existingPhrases)
+        IReadOnlyList<LyricPhrase> existingPhrases,
+        IReadOnlyList<SyllablePlacement> existingPlacements)
     {
         ArgumentNullException.ThrowIfNull(text);
         if (text.Length > 2_000) throw new ArgumentOutOfRangeException(nameof(text), "A lyric line cannot exceed 2,000 characters.");
@@ -519,6 +576,7 @@ public sealed class LyricLine
             _punctuation.Add(new LyricPunctuation(id, token.Text, token.Start, token.Length));
         }
         ReconcilePhrases(existingPhrases);
+        ReconcileSyllablePlacements(existingPlacements);
         Text = text;
     }
 
@@ -709,6 +767,52 @@ public sealed class LyricLine
             if (!referenced.SequenceEqual(syllableIds.Where(referencedSet.Contains)))
                 throw new ArgumentException("Prosodic units must reference syllables from their phrase once and in order.");
         }
+    }
+
+    private IReadOnlyList<SyllableId> OrderedSyllableIds() =>
+        _words.SelectMany(word => word.Syllables).Select(syllable => syllable.Id).ToList();
+
+    private void ReconcileSyllablePlacements(IReadOnlyList<SyllablePlacement> existingPlacements)
+    {
+        var reconciled = BuildPlacements(existingPlacements, OrderedSyllableIds());
+        _syllablePlacements.Clear();
+        _syllablePlacements.AddRange(reconciled);
+    }
+
+    private static IReadOnlyList<SyllablePlacement> BuildPlacements(
+        IEnumerable<SyllablePlacement> placements,
+        IReadOnlyList<SyllableId> orderedSyllableIds)
+    {
+        var placementBySyllable = placements.ToDictionary(item => item.SyllableId);
+        return orderedSyllableIds
+            .Where(placementBySyllable.ContainsKey)
+            .Select(syllableId => ClonePlacement(placementBySyllable[syllableId]))
+            .ToList();
+    }
+
+    private static SyllablePlacement ClonePlacement(SyllablePlacement placement) => new(
+        placement.Id,
+        placement.SyllableId,
+        placement.Position,
+        placement.Provenance);
+
+    private static void ValidateSerializedPlacements(
+        IReadOnlyList<LyricWord> words,
+        IReadOnlyList<SyllablePlacement> placements)
+    {
+        if (placements.Select(item => item.Id).Distinct().Count() != placements.Count)
+            throw new ArgumentException("Syllable placement IDs must be unique within a lyric line.", nameof(placements));
+        if (placements.Select(item => item.SyllableId).Distinct().Count() != placements.Count)
+            throw new ArgumentException("A syllable can have only one placement within a lyric line.", nameof(placements));
+
+        var orderedSyllableIds = words.SelectMany(word => word.Syllables).Select(syllable => syllable.Id).ToList();
+        var referenced = placements.Select(item => item.SyllableId).ToList();
+        var referencedSet = referenced.ToHashSet();
+        if (!referenced.SequenceEqual(orderedSyllableIds.Where(referencedSet.Contains)))
+            throw new ArgumentException("Syllable placements must reference existing syllables once and in lyric order.", nameof(placements));
+        for (var index = 1; index < placements.Count; index++)
+            if (placements[index - 1].Position.CompareTo(placements[index].Position) >= 0)
+                throw new ArgumentException("Placed syllables must advance through musical time in lyric order.", nameof(placements));
     }
 
     private static Dictionary<int, LyricWord> MatchExistingWords(

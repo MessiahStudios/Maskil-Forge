@@ -12,7 +12,7 @@ Editing a line reconciles the previous and next word sequences so unchanged word
 
 `LyricSyllable` and `SyllableId` now provide an ordered, provenance-aware representation. Each syllable stores its stable ID, text, zero-based position within the word, and source: `Manual`, `Analyzer`, or `Imported`. Matching syllable IDs survive nearby boundary insertions, and an artist correction replaces provenance with `Manual` without allowing a future analyzer to silently become authoritative. The editor accepts boundaries separated by `|` and clearly identifies manual data.
 
-Empty syllable collections mean “not analyzed,” not “zero syllables.” The current slice does not guess pronunciation: analyzer and imported provenance are domain capabilities for later typed integrations, not claims that an analyzer or importer already exists. Automatic syllable extraction, automatic stress detection, rhyme, breath analysis, suggested structure, rhythm candidates, and musical placement remain planned rather than implemented.
+Empty syllable collections mean “not analyzed,” not “zero syllables.” The current slice does not guess pronunciation: analyzer and imported provenance are domain capabilities for later typed integrations, not claims that an analyzer or importer already exists. Automatic syllable extraction, automatic stress detection, rhyme, breath analysis, suggested structure, rhythm candidates, and automatic musical placement remain planned rather than implemented.
 
 `StressMark` is an optional annotation on an existing syllable identity. Its level is `None`, `Secondary`, `Primary`, or `Emphasized`, and its provenance is `Manual`, `Analyzer`, or `Imported`. No mark means the artist has not made a decision; `None` means the artist explicitly intends no stress. The editor writes `Manual` marks only, preserves them on surviving syllables, and includes the change in session undo/redo. Analyzer and imported provenance are representation capabilities, not implemented analysis features.
 
@@ -20,11 +20,15 @@ Empty syllable collections mean “not analyzed,” not “zero syllables.” Th
 
 A pattern may describe only some syllables. An unmapped syllable means “undecided,” not `Neutral`. Manual edits, compatible lyric edits, phrase split/join, save/load, and session undo/redo preserve surviving unit identities and provenance. Splitting partitions existing units; joining recombines them in syllable order. Neither operation invents weights. Analyzer and imported provenance remain representation capabilities only—no prosody analyzer is implemented.
 
+`SyllablePlacement` is the first explicit bridge from language to musical time. It has a stable `SyllablePlacementId`, references one existing syllable ID, and stores a section-relative `BeatPosition` as bar, beat, and tick plus provenance. The placement itself is the prosodic anchor; a second parallel anchor entity would duplicate identity without adding meaning. Section-relative coordinates allow a Verse or Chorus to move in the Song Graph while its internal lyric timing moves with it. The existing section timeline resolves the relative coordinate to an absolute song position.
+
+Placement is artist-authored and partial. Unplaced means undecided. Existing placements must remain within the section and current meter, advance through musical time in lyric order, and survive compatible lyric, boundary, section-reorder, save/load, and undo/redo operations with the same identity. Removing a syllable removes its now-invalid placement. The engine does not infer placements from stress or prosodic weight, and it does not generate rhythm.
+
 `LyricPunctuation` preserves punctuation groups as identified tokens with exact source offsets while apostrophes and internal hyphens remain part of their words. `LyricPhrase` stores a stable ID, zero-based position, provenance, and an ordered list of existing word IDs. Every word belongs to exactly one contiguous phrase. A new or migrated line begins as one `Default` phrase; split and join operations are explicit artist actions and produce `Manual` provenance. Nearby word edits retain surviving phrase and punctuation IDs without copying or rewriting lyric text.
 
 ## Processing order
 
-1. Parse raw lyrics into sections, lines, phrases, words, and syllables. Word tokenization, punctuation identity, artist-controlled syllable boundaries, manual phrase structure, artist-authored syllable stress, and phrase-relative prosodic weight are now foundational; automatic analysis remains planned.
+1. Parse raw lyrics into sections, lines, phrases, words, and syllables. Word tokenization, punctuation identity, artist-controlled syllable boundaries, manual phrase structure, artist-authored syllable stress, phrase-relative prosodic weight, and manual beat anchors are now foundational; automatic analysis remains planned.
 2. Analyze rhyme, repeated language, important words, and breath opportunities without replacing artist-authored stress decisions.
 3. Describe narrative roles and emotional transitions.
 4. Generate multiple rhythmic/prosody candidates.
@@ -33,7 +37,7 @@ A pattern may describe only some syllables. An unmapped syllable means “undeci
 
 ## Future timed prosody model
 
-The current foundation records phrase-relative weight only. A later candidate model will map syllables to musical time and store:
+The current foundation records phrase-relative weight and optional point anchors in musical time. A later candidate model will extend those anchors with durations and alternatives, and store:
 
 - Onset, duration, stress, and melisma
 - Breath points and phrase boundaries

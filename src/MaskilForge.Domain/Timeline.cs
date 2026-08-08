@@ -25,6 +25,69 @@ public readonly record struct MusicalPosition
     public int Tick { get; }
 }
 
+/// <summary>
+/// A musical coordinate relative to the beginning of its owning song section.
+/// </summary>
+public readonly record struct BeatPosition : IComparable<BeatPosition>
+{
+    [JsonConstructor]
+    public BeatPosition(int bar, int beat, int tick)
+    {
+        if (bar < 1) throw new ArgumentOutOfRangeException(nameof(bar), "Section-relative bar numbers begin at 1.");
+        if (beat < 1) throw new ArgumentOutOfRangeException(nameof(beat), "Beat numbers begin at 1.");
+        if (tick < 0) throw new ArgumentOutOfRangeException(nameof(tick), "Tick cannot be negative.");
+        Bar = bar;
+        Beat = beat;
+        Tick = tick;
+    }
+
+    public int Bar { get; }
+    public int Beat { get; }
+    public int Tick { get; }
+
+    public int CompareTo(BeatPosition other)
+    {
+        var barComparison = Bar.CompareTo(other.Bar);
+        if (barComparison != 0) return barComparison;
+        var beatComparison = Beat.CompareTo(other.Beat);
+        return beatComparison != 0 ? beatComparison : Tick.CompareTo(other.Tick);
+    }
+}
+
+public enum PlacementProvenance
+{
+    Manual,
+    Analyzer,
+    Imported
+}
+
+/// <summary>
+/// An artist-authoritative anchor connecting one stable syllable to section-relative musical time.
+/// </summary>
+public sealed class SyllablePlacement
+{
+    [JsonConstructor]
+    public SyllablePlacement(
+        SyllablePlacementId id,
+        SyllableId syllableId,
+        BeatPosition position,
+        PlacementProvenance provenance)
+    {
+        if (id.Value == Guid.Empty) throw new ArgumentException("A syllable placement ID is required.", nameof(id));
+        if (syllableId.Value == Guid.Empty) throw new ArgumentException("A syllable ID is required.", nameof(syllableId));
+        if (!Enum.IsDefined(provenance)) throw new ArgumentOutOfRangeException(nameof(provenance), "Placement provenance is invalid.");
+        Id = id;
+        SyllableId = syllableId;
+        Position = position;
+        Provenance = provenance;
+    }
+
+    public SyllablePlacementId Id { get; }
+    public SyllableId SyllableId { get; }
+    public BeatPosition Position { get; }
+    public PlacementProvenance Provenance { get; }
+}
+
 public sealed record TempoEvent
 {
     public TempoEvent(int beat, decimal beatsPerMinute)

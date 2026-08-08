@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { projectsApi, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { projectsApi, type BeatPosition, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -29,6 +29,7 @@ const isDirty = computed(() => Boolean(project.value) && serializedProject.value
 const editorState = computed(() => isDirty.value ? 'Unsaved changes' : cleanLabel.value === 'saved' ? 'Saved' : 'No changes')
 const meters = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8']
 const genres: SongGenre[] = ['Unspecified', 'Pop', 'Rock', 'Folk', 'Country', 'RAndB', 'HipHop', 'Electronic', 'Cinematic', 'Alternative', 'Other']
+const placementDrafts = reactive<Record<string, BeatPosition>>({})
 
 function accept(next: ProjectResponse, message: string, markPersisted = false) {
   response.value = next
@@ -312,6 +313,30 @@ function phraseSyllables(line: LyricLine, phrase: LyricPhrase) {
 function prosodicUnitFor(phrase: LyricPhrase, syllableId: string) {
   return phrase.prosody?.units.find(unit => unit.syllableId === syllableId)
 }
+function syllablePlacementFor(line: LyricLine, syllableId: string) {
+  return line.syllablePlacements.find(item => item.syllableId === syllableId)
+}
+function placementDraft(line: LyricLine, syllableId: string) {
+  if (!placementDrafts[syllableId]) {
+    const existing = syllablePlacementFor(line, syllableId)?.position
+    placementDrafts[syllableId] = existing ? { ...existing } : { bar: 1, beat: 1, tick: 0 }
+  }
+  return placementDrafts[syllableId]
+}
+function resolvedPlacement(sectionId: string, position: BeatPosition) {
+  const sectionStart = placementFor(sectionId)?.start.bar ?? 1
+  return `Song bar ${sectionStart + position.bar - 1}, beat ${position.beat}, tick ${position.tick}`
+}
+function setSyllablePlacement(sectionId: string, lineId: string, syllableId: string, beatPosition: BeatPosition | null) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'set-syllable-placement', sectionId, lineId, syllableId, beatPosition,
+    }),
+    beatPosition ? 'Syllable placed in musical time.' : 'Syllable placement cleared.',
+    'lyrics.beat-map.manual',
+    { sectionId, lineId, syllableId, bar: beatPosition?.bar ?? null, beat: beatPosition?.beat ?? null, tick: beatPosition?.tick ?? null })
+}
 function setProsodicWeight(sectionId: string, lineId: string, phraseId: string, syllableId: string, value: string) {
   if (!project.value) return
   const prosodicWeight = value ? value as ProsodicWeight : null
@@ -346,7 +371,7 @@ function joinLyricPhrase(sectionId: string, lineId: string, phraseId: string) {
 async function addLyricLine(sectionIndex: number, focus = false) {
   if (!project.value) return
   const section = project.value.sections[sectionIndex]
-  const line = { id: crypto.randomUUID(), text: '', words: [], punctuation: [], phrases: [] }
+  const line = { id: crypto.randomUUID(), text: '', words: [], punctuation: [], phrases: [], syllablePlacements: [] }
   section.lyricLines.push(line)
   activityLog.write('info', 'lyrics.line.add', 'Lyric line added locally.', { sectionId: section.id, lineId: line.id })
   if (focus) {
@@ -357,7 +382,7 @@ async function addLyricLine(sectionIndex: number, focus = false) {
 async function addLineAfter(sectionIndex: number, lineIndex: number) {
   if (!project.value) return
   const section = project.value.sections[sectionIndex]
-  const line = { id: crypto.randomUUID(), text: '', words: [], punctuation: [], phrases: [] }
+  const line = { id: crypto.randomUUID(), text: '', words: [], punctuation: [], phrases: [], syllablePlacements: [] }
   section.lyricLines.splice(lineIndex + 1, 0, line)
   await nextTick()
   document.querySelector<HTMLInputElement>(`[data-line-id="${line.id}"]`)?.focus()
@@ -378,8 +403,13 @@ async function handleLineBackspace(sectionIndex: number, lineIndex: number, line
 function setMeter(value: string) {
   if (!project.value) return
   const [numerator, denominator] = value.split('/').map(Number)
-  project.value.timeline.timeSignatureMap.events[0].numerator = numerator
-  project.value.timeline.timeSignatureMap.events[0].denominator = denominator
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'set-time-signature', numerator, denominator,
+    }),
+    'Time signature updated.',
+    'timeline.meter',
+    { numerator, denominator })
 }
 function meterValue(value: SongProject) { return `${value.timeline.timeSignatureMap.events[0].numerator}/${value.timeline.timeSignatureMap.events[0].denominator}` }
 function placementFor(sectionId: string) { return project.value?.timeline.sectionPlacements.find(item => item.sectionId === sectionId) }
@@ -590,8 +620,8 @@ onBeforeUnmount(() => {
                       </template>
                     </div>
                     <div v-if="phraseSyllables(line, phrase).length" class="prosody-editor">
-                      <div class="prosody-heading"><strong>Phrase weight</strong><small>Describe the relative pulse of the words without assigning beats.</small></div>
-                      <label v-for="entry in phraseSyllables(line, phrase)" :key="entry.syllable.id" class="prosodic-unit">
+                      <div class="prosody-heading"><strong>Phrase weight and placement</strong><small>Describe relative weight, then anchor chosen syllables in the section timeline.</small></div>
+                      <div v-for="entry in phraseSyllables(line, phrase)" :key="entry.syllable.id" class="prosodic-unit">
                         <span>{{ entry.syllable.text }} <small>{{ entry.word.text }}</small></span>
                         <select
                           :value="prosodicUnitFor(phrase, entry.syllable.id)?.weight ?? ''"
@@ -604,14 +634,24 @@ onBeforeUnmount(() => {
                           <option value="Strong">Strong</option>
                         </select>
                         <small>{{ prosodicUnitFor(phrase, entry.syllable.id)?.provenance ?? 'Not mapped' }}</small>
-                      </label>
+                        <form class="beat-map-form" @submit.prevent="setSyllablePlacement(section.id, line.id, entry.syllable.id, { ...placementDraft(line, entry.syllable.id) })">
+                          <strong>Musical placement</strong>
+                          <label>Bar<input v-model.number="placementDraft(line, entry.syllable.id).bar" type="number" min="1" :max="placementFor(section.id)?.durationBars ?? 1" :aria-label="`Section-relative bar for syllable ${entry.syllable.text}`" :disabled="busy" /></label>
+                          <label>Beat<input v-model.number="placementDraft(line, entry.syllable.id).beat" type="number" min="1" :max="project.timeline.timeSignatureMap.events[0].numerator" :aria-label="`Beat for syllable ${entry.syllable.text}`" :disabled="busy" /></label>
+                          <label>Tick<input v-model.number="placementDraft(line, entry.syllable.id).tick" type="number" min="0" :max="project.timeline.ticksPerQuarterNote * 4 / project.timeline.timeSignatureMap.events[0].denominator - 1" :aria-label="`Tick for syllable ${entry.syllable.text}`" :disabled="busy" /></label>
+                          <button type="submit" :disabled="busy">Place</button>
+                          <button v-if="syllablePlacementFor(line, entry.syllable.id)" type="button" class="quiet clear-placement" :disabled="busy" @click="setSyllablePlacement(section.id, line.id, entry.syllable.id, null)">Clear</button>
+                          <small v-if="syllablePlacementFor(line, entry.syllable.id)" class="placement-summary">Section bar {{ syllablePlacementFor(line, entry.syllable.id)!.position.bar }}, beat {{ syllablePlacementFor(line, entry.syllable.id)!.position.beat }}, tick {{ syllablePlacementFor(line, entry.syllable.id)!.position.tick }} · {{ resolvedPlacement(section.id, syllablePlacementFor(line, entry.syllable.id)!.position) }} · {{ syllablePlacementFor(line, entry.syllable.id)!.provenance }}</small>
+                          <small v-else class="placement-summary">Not placed in musical time</small>
+                        </form>
+                      </div>
                     </div>
                     <small v-else class="prosody-empty">Add syllable boundaries above before describing phrase weight.</small>
                   </article>
                 </div>
               </div>
             </div>
-            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }} · Stress: {{ syllable.stress ? `${syllable.stress.level} (${syllable.stress.provenance})` : 'Unmarked' }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><template v-for="phrase in line.phrases" :key="phrase.id"><small>Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small><small v-if="phrase.prosody">Prosodic Pattern ID: {{ phrase.prosody.id }}</small><small v-for="unit in phrase.prosody?.units ?? []" :key="unit.id">Prosodic Unit ID: {{ unit.id }} · {{ unit.position }} · {{ unit.syllableId }} · {{ unit.weight }} · {{ unit.provenance }}</small></template></template></details>
+            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }} · Stress: {{ syllable.stress ? `${syllable.stress.level} (${syllable.stress.provenance})` : 'Unmarked' }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><template v-for="phrase in line.phrases" :key="phrase.id"><small>Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small><small v-if="phrase.prosody">Prosodic Pattern ID: {{ phrase.prosody.id }}</small><small v-for="unit in phrase.prosody?.units ?? []" :key="unit.id">Prosodic Unit ID: {{ unit.id }} · {{ unit.position }} · {{ unit.syllableId }} · {{ unit.weight }} · {{ unit.provenance }}</small></template><small v-for="placement in line.syllablePlacements" :key="placement.id">Syllable Placement ID: {{ placement.id }} · {{ placement.syllableId }} · {{ placement.position.bar }}:{{ placement.position.beat }}:{{ placement.position.tick }} · {{ placement.provenance }}</small></template></details>
           </li>
         </ol>
       </section>

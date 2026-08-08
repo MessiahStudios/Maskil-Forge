@@ -266,3 +266,53 @@ public sealed class SetProsodicWeightCommand(
 
     private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
 }
+
+public sealed class SetSyllablePlacementCommand(
+    SectionId sectionId,
+    LyricLineId lineId,
+    SyllableId syllableId,
+    BeatPosition? position) : IProjectCommand
+{
+    private IReadOnlyList<SyllablePlacement>? _before;
+    private IReadOnlyList<SyllablePlacement>? _after;
+
+    public void Execute(SongProject project)
+    {
+        var line = FindLine(project);
+        if (_after is null)
+        {
+            _before = PlacementSnapshots.Create(line.SyllablePlacements);
+            project.SetSyllablePlacement(
+                sectionId,
+                lineId,
+                syllableId,
+                position,
+                PlacementProvenance.Manual);
+            _after = PlacementSnapshots.Create(line.SyllablePlacements);
+        }
+        else
+        {
+            line.RestoreSyllablePlacements(_after);
+            project.Touch();
+        }
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_before is null) throw new InvalidOperationException("Command has not been executed.");
+        FindLine(project).RestoreSyllablePlacements(_before);
+        project.Touch();
+    }
+
+    private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+}
+
+internal static class PlacementSnapshots
+{
+    public static IReadOnlyList<SyllablePlacement> Create(IEnumerable<SyllablePlacement> placements) =>
+        placements.Select(item => new SyllablePlacement(
+            item.Id,
+            item.SyllableId,
+            item.Position,
+            item.Provenance)).ToList();
+}
