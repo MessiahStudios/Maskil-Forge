@@ -158,6 +158,17 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .candidate-actions { display: flex; gap: .45rem; flex-wrap: wrap; }
 .candidate-actions button { flex: 1; min-width: 8rem; }
 .candidate-actions .danger { color: #fff1ed; background: #612f2a; border-color: #b9665b; }
+.prosody-score-panel { display: grid; gap: .55rem; padding: .7rem; background: #1a1d17; border: 1px solid #4a4638; border-radius: .4rem; }
+.prosody-score-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .7rem; align-items: end; }
+.prosody-score-heading > div { display: grid; gap: .2rem; color: #ead6a5; }
+.prosody-score-heading small { color: #a9a395; line-height: 1.45; }
+.prosody-score-card { display: grid; gap: .45rem; }
+.prosody-score-card.nested-score { margin-top: .2rem; padding-top: .55rem; border-top: 1px solid #454235; }
+.score-summary { margin: 0; color: #f2e3c0; }
+.score-summary strong { font-size: 1.15rem; color: #f0d28a; }
+.score-findings { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
+.score-findings li { display: grid; gap: .15rem; padding: .45rem .55rem; background: #141711; border: 1px solid #5a5545; border-radius: .3rem; color: #d9d0bc; font-size: .82rem; line-height: 1.4; }
+.finding-kind { color: #e0c07a; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
 .lyric-delete { color: #efb7ad !important; border-color: #7a4b44 !important; }
 .developer-details { padding-top: .45rem; border-top: 1px solid #30342e; }
 .developer-details summary { color: #858b7e; font-size: .72rem; }

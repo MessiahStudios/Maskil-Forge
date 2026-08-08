@@ -164,6 +164,33 @@ app.MapPost("/api/projects/{id}/commands", async (string id, ProjectCommandReque
     }
 });
 
+app.MapPost("/api/projects/{id}/prosody-score", async (string id, ProsodyScoreRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    var editor = await workspace.SyncAsync(request.Project, cancellationToken);
+    if (editor is null) return Results.NotFound(new ApiError("Project not found."));
+    try
+    {
+        var score = request.RhythmCandidateId is null
+            ? ProsodyScorer.ScoreActivePhrase(
+                editor.Project,
+                request.SectionId,
+                request.LineId,
+                request.PhraseId)
+            : ProsodyScorer.ScoreRhythmCandidate(
+                editor.Project,
+                request.SectionId,
+                request.LineId,
+                request.RhythmCandidateId.Value);
+        return Results.Ok(score);
+    }
+    catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/undo", async (string id, EditorStateRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -306,6 +333,12 @@ public sealed record CreateProjectRequest(string Title);
 public sealed record UpdateProjectRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc);
 public sealed record RecoverySnapshotRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc, string SessionId);
 public sealed record EditorStateRequest(SongProject Project);
+public sealed record ProsodyScoreRequest(
+    SongProject Project,
+    SectionId SectionId,
+    LyricLineId LineId,
+    LyricPhraseId PhraseId,
+    RhythmCandidateId? RhythmCandidateId = null);
 public sealed record ProjectCommandRequest(
     string Type,
     SongProject? Project = null,
