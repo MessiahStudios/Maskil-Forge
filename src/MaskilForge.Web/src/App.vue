@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { projectsApi, type ProjectResponse, type ProjectSummary, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type TrashedProjectSummary } from './api'
+import { projectsApi, type LyricWord, type ProjectResponse, type ProjectSummary, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -271,6 +271,25 @@ function editLyricLine(sectionId: string, lineId: string, text: string) {
     'lyrics.line.edit',
     { sectionId, lineId, wordCount: text.trim() ? text.trim().split(/\s+/u).length : 0 })
 }
+function syllableText(word: LyricWord) {
+  return word.syllables.map(syllable => syllable.text).join(' | ')
+}
+function setWordSyllables(sectionId: string, lineId: string, wordId: string, event: Event) {
+  if (!project.value) return
+  const form = event.currentTarget as HTMLFormElement
+  const input = form.elements.namedItem('syllables') as HTMLInputElement
+  const value = input.value
+  const syllables = value.trim()
+    ? value.split(/\s*[|·]\s*/u).map(part => part.trim()).filter(Boolean)
+    : []
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'set-word-syllables', sectionId, lineId, wordId, syllables,
+    }),
+    syllables.length ? 'Manual syllable boundaries saved.' : 'Manual syllable boundaries cleared.',
+    'lyrics.syllables.manual',
+    { sectionId, lineId, wordId, syllableCount: syllables.length })
+}
 async function addLyricLine(sectionIndex: number, focus = false) {
   if (!project.value) return
   const section = project.value.sections[sectionIndex]
@@ -470,13 +489,25 @@ onBeforeUnmount(() => {
                 <span>{{ lineIndex + 1 }}</span>
                 <input v-model="line.text" :data-line-id="line.id" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Write a lyric line…" @change="editLyricLine(section.id, line.id, line.text)" @keydown.enter.prevent="addLineAfter(index, lineIndex)" @keydown.backspace="handleLineBackspace(index, lineIndex, line.text)" />
                 <button class="quiet lyric-delete" :disabled="busy" @click="removeLyricLine(index, lineIndex)">Remove line</button>
-                <div v-if="line.words.length" class="lyric-words" :aria-label="`Addressable words for lyric line ${lineIndex + 1}`">
-                  <span v-for="word in line.words" :key="word.id" class="word-token">{{ word.text }}</span>
-                  <small>Syllables not analyzed</small>
+                <div v-if="line.words.length" class="lyric-words" :aria-label="`Artist-controlled syllables for lyric line ${lineIndex + 1}`">
+                  <form v-for="word in line.words" :key="word.id" class="syllable-word" @submit.prevent="setWordSyllables(section.id, line.id, word.id, $event)">
+                    <label :for="`syllables-${word.id}`" class="word-token">{{ word.text }}</label>
+                    <input
+                      :id="`syllables-${word.id}`"
+                      name="syllables"
+                      class="syllable-input"
+                      :value="syllableText(word)"
+                      :placeholder="word.text"
+                      :aria-label="`Syllables for ${word.text}; separate boundaries with a vertical bar`"
+                      :disabled="busy" />
+                    <button class="quiet syllable-apply" type="submit" :disabled="busy">Apply</button>
+                    <small v-if="word.syllables.length">{{ word.syllables[0].source }}</small>
+                  </form>
+                  <small class="syllable-help">Separate syllables with |. Your correction is authoritative.</small>
                 </div>
               </div>
             </div>
-            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><small v-for="word in line.words" :key="word.id">Word ID: {{ word.id }} · {{ word.text }}</small></template></details>
+            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }}</small></template></template></details>
           </li>
         </ol>
       </section>

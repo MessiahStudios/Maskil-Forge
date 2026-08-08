@@ -43,6 +43,44 @@ public sealed class LyricDocumentTests
         var retained = line.Words.Single(word => word.Text == "Amazing");
         Assert.Equal(["A", "maz", "ing"], retained.Syllables.Select(item => item.Text));
         Assert.Equal(syllableIds, retained.Syllables.Select(item => item.Id));
+        Assert.Equal([0, 1, 2], retained.Syllables.Select(item => item.Position));
+        Assert.All(retained.Syllables, item => Assert.Equal(SyllableSource.Manual, item.Source));
+    }
+
+    [Fact]
+    public void ManualSyllableCorrection_PreservesMatchingIdentifiersWhenPositionsShift()
+    {
+        var line = LyricLine.Create("Amazing");
+        var word = line.Words[0];
+        line.SetSyllables(word.Id, ["A", "maz", "ing"], SyllableSource.Analyzer);
+        var originalIds = word.Syllables.ToDictionary(item => item.Text, item => item.Id);
+
+        line.SetSyllables(word.Id, ["uh", "A", "maz", "ing"]);
+
+        Assert.Equal(["uh", "A", "maz", "ing"], word.Syllables.Select(item => item.Text));
+        Assert.Equal([0, 1, 2, 3], word.Syllables.Select(item => item.Position));
+        Assert.NotEqual(originalIds["A"], word.Syllables[0].Id);
+        Assert.Equal(originalIds["A"], word.Syllables[1].Id);
+        Assert.Equal(originalIds["maz"], word.Syllables[2].Id);
+        Assert.Equal(originalIds["ing"], word.Syllables[3].Id);
+        Assert.All(word.Syllables, item => Assert.Equal(SyllableSource.Manual, item.Source));
+    }
+
+    [Fact]
+    public void SyllableSource_RecordsAnalyzerImportedAndManualOrigins()
+    {
+        var line = LyricLine.Create("fire");
+        var word = line.Words[0];
+
+        line.SetSyllables(word.Id, ["fi", "re"], SyllableSource.Analyzer);
+        Assert.All(word.Syllables, item => Assert.Equal(SyllableSource.Analyzer, item.Source));
+
+        line.SetSyllables(word.Id, ["fire"], SyllableSource.Imported);
+        Assert.Single(word.Syllables);
+        Assert.Equal(SyllableSource.Imported, word.Syllables[0].Source);
+
+        line.SetSyllables(word.Id, ["fire"]);
+        Assert.Equal(SyllableSource.Manual, word.Syllables[0].Source);
     }
 
     [Fact]
@@ -70,6 +108,19 @@ public sealed class LyricDocumentTests
         Assert.Throws<ArgumentException>(() => line.SetSyllables(line.Words[0].Id, [""]));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             line.SetSyllables(line.Words[0].Id, Enumerable.Repeat("a", 33)));
+    }
+
+    [Fact]
+    public void LyricWord_RejectsUnorderedSyllablePositions()
+    {
+        var syllables = new[]
+        {
+            new LyricSyllable(SyllableId.New(), "a", 0, SyllableSource.Manual),
+            new LyricSyllable(SyllableId.New(), "maz", 2, SyllableSource.Manual)
+        };
+
+        Assert.Throws<ArgumentException>(() =>
+            new LyricWord(LyricWordId.New(), "amaz", 0, 4, syllables));
     }
 
     [Fact]

@@ -50,6 +50,14 @@ Phrase modeling, automatic syllable extraction, stress, rhyme, breath points, rh
 
 **Deliverable:** Maskil Forge can identify and preserve the individual words that later lyric intelligence will analyze.
 
+### Milestone 2.2 — Syllable foundation
+
+The current slice makes syllables ordered entities with stable identifiers and explicit `Manual`, `Analyzer`, or `Imported` provenance. The editor lets the artist enter and correct boundaries with a visible separator, treats those corrections as authoritative, and retains matching IDs when surrounding boundaries shift. Schema-v3 songs and recovery snapshots migrate in memory to schema v4 without changing existing syllable IDs.
+
+No automatic pronunciation or syllabification service is implemented yet. Stress, punctuation entities, phrases, breath points, beat placement, melisma, scoring, and AI assistance remain later focused slices.
+
+**Deliverable:** an artist can define how each word is intended to be sung, save it, reload it, and retain the same ordered syllable identities and provenance.
+
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 
 ## Milestone 3 — Theory and harmony

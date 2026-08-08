@@ -146,3 +146,42 @@ internal sealed class V2ToV3ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V3ToV4ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 3;
+    public int ToVersion => 4;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["sections"] is JsonArray sections)
+        {
+            foreach (var section in sections.OfType<JsonObject>())
+            {
+                if (section["lyricLines"] is not JsonArray lines) continue;
+                foreach (var line in lines.OfType<JsonObject>())
+                {
+                    if (line["words"] is not JsonArray words) continue;
+                    foreach (var word in words.OfType<JsonObject>())
+                    {
+                        if (word["syllables"] is not JsonArray syllables)
+                        {
+                            word["syllables"] = new JsonArray();
+                            continue;
+                        }
+
+                        var position = 0;
+                        foreach (var syllable in syllables.OfType<JsonObject>())
+                        {
+                            syllable["position"] = position++;
+                            syllable["source"] = nameof(SyllableSource.Manual);
+                        }
+                    }
+                }
+            }
+        }
+
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

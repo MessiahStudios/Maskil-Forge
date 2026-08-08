@@ -5,20 +5,33 @@ using System.Text.RegularExpressions;
 
 namespace MaskilForge.Domain;
 
+public enum SyllableSource
+{
+    Manual,
+    Analyzer,
+    Imported
+}
+
 public sealed class LyricSyllable
 {
     [JsonConstructor]
-    public LyricSyllable(SyllableId id, string text)
+    public LyricSyllable(SyllableId id, string text, int position, SyllableSource source)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A syllable ID is required.", nameof(id));
         if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException("Syllable text is required.", nameof(text));
         if (text.Length > 100) throw new ArgumentOutOfRangeException(nameof(text), "Syllable text cannot exceed 100 characters.");
+        if (position < 0) throw new ArgumentOutOfRangeException(nameof(position), "Syllable position cannot be negative.");
+        if (!Enum.IsDefined(source)) throw new ArgumentOutOfRangeException(nameof(source), "Syllable source is invalid.");
         Id = id;
         Text = text;
+        Position = position;
+        Source = source;
     }
 
     public SyllableId Id { get; }
     public string Text { get; }
+    public int Position { get; }
+    public SyllableSource Source { get; }
 }
 
 public sealed class LyricWord
@@ -42,8 +55,12 @@ public sealed class LyricWord
         Start = start;
         Length = length;
         _syllables = syllables?.ToList() ?? [];
+        if (_syllables.Count > 32)
+            throw new ArgumentOutOfRangeException(nameof(syllables), "A word cannot contain more than 32 syllables.");
         if (_syllables.Select(item => item.Id).Distinct().Count() != _syllables.Count)
             throw new ArgumentException("Syllable IDs must be unique within a word.", nameof(syllables));
+        if (_syllables.Where((item, index) => item.Position != index).Any())
+            throw new ArgumentException("Syllable positions must be contiguous and ordered from zero.", nameof(syllables));
     }
 
     public LyricWordId Id { get; }
@@ -52,18 +69,48 @@ public sealed class LyricWord
     public int Length { get; }
     public IReadOnlyList<LyricSyllable> Syllables => _syllables;
 
-    public void SetSyllables(IEnumerable<string> syllables)
+    public void SetSyllables(IEnumerable<string> syllables, SyllableSource source = SyllableSource.Manual)
     {
         ArgumentNullException.ThrowIfNull(syllables);
+        if (!Enum.IsDefined(source)) throw new ArgumentOutOfRangeException(nameof(source), "Syllable source is invalid.");
         var values = syllables.ToList();
         if (values.Count > 32) throw new ArgumentOutOfRangeException(nameof(syllables), "A word cannot contain more than 32 syllables.");
-        var replacements = values.Select((text, index) =>
+        var matches = MatchExistingSyllables(_syllables, values);
+        var replacements = values.Select((text, position) =>
         {
-            var existing = index < _syllables.Count && _syllables[index].Text == text ? _syllables[index] : null;
-            return existing ?? new LyricSyllable(SyllableId.New(), text);
+            var id = matches.TryGetValue(position, out var existing) ? existing.Id : SyllableId.New();
+            return new LyricSyllable(id, text, position, source);
         }).ToList();
         _syllables.Clear();
         _syllables.AddRange(replacements);
+    }
+
+    private static Dictionary<int, LyricSyllable> MatchExistingSyllables(
+        IReadOnlyList<LyricSyllable> existing,
+        IReadOnlyList<string> replacements)
+    {
+        var lengths = new int[existing.Count + 1, replacements.Count + 1];
+        for (var oldIndex = existing.Count - 1; oldIndex >= 0; oldIndex--)
+        for (var newIndex = replacements.Count - 1; newIndex >= 0; newIndex--)
+            lengths[oldIndex, newIndex] = existing[oldIndex].Text == replacements[newIndex]
+                ? lengths[oldIndex + 1, newIndex + 1] + 1
+                : Math.Max(lengths[oldIndex + 1, newIndex], lengths[oldIndex, newIndex + 1]);
+
+        var matches = new Dictionary<int, LyricSyllable>();
+        var oldCursor = 0;
+        var newCursor = 0;
+        while (oldCursor < existing.Count && newCursor < replacements.Count)
+        {
+            if (existing[oldCursor].Text == replacements[newCursor])
+            {
+                matches[newCursor] = existing[oldCursor];
+                oldCursor++;
+                newCursor++;
+            }
+            else if (lengths[oldCursor + 1, newCursor] >= lengths[oldCursor, newCursor + 1]) oldCursor++;
+            else newCursor++;
+        }
+        return matches;
     }
 }
 
@@ -98,11 +145,14 @@ public sealed class LyricLine
 
     public void SetText(string text) => SetText(text, _words);
 
-    public void SetSyllables(LyricWordId wordId, IEnumerable<string> syllables)
+    public void SetSyllables(
+        LyricWordId wordId,
+        IEnumerable<string> syllables,
+        SyllableSource source = SyllableSource.Manual)
     {
         var word = _words.SingleOrDefault(item => item.Id == wordId)
             ?? throw new KeyNotFoundException($"Lyric word '{wordId}' was not found.");
-        word.SetSyllables(syllables);
+        word.SetSyllables(syllables, source);
     }
 
     private void SetText(string text, IReadOnlyList<LyricWord> existingWords)

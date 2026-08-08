@@ -61,7 +61,7 @@ public readonly record struct SyllableId(Guid Value)
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(3);
+    public static SchemaVersion Current => new(4);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
