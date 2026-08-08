@@ -344,6 +344,10 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             editor.Execute(new UnlockCreativeLockCommand(
                 request.CreativeLockId ?? throw new ArgumentException("Creative lock ID is required.")));
             break;
+        case "set-key":
+            editor.Execute(new SetKeyCommand(
+                request.Key ?? throw new ArgumentException("Musical key is required.")));
+            break;
         case "split-lyric-phrase":
             editor.Execute(new SplitLyricPhraseCommand(
                 RequiredSectionId(request),
@@ -403,6 +407,7 @@ public sealed record ProjectCommandRequest(
     string? CandidateLabel = null,
     bool? BreathPresent = null,
     CreativeLockId? CreativeLockId = null,
+    MusicalKey? Key = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

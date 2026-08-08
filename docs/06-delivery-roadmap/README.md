@@ -136,6 +136,14 @@ No duration, melisma, timed breath coordinates, transport, playback, MIDI, gener
 
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 
+### Milestone 3.1 — Theory primitives foundation
+
+The current slice adds deterministic music-theory primitives: pitch class, note spelling, intervals, major/natural-minor scales, a small chord vocabulary (major, minor, diminished, augmented, dominant seventh), transposition helpers, and an editable song `MusicalKey`. Schema v12 stores the song key (default C major). Setting the key participates in session undo/redo. Schema-v11 projects and recovery snapshots migrate in memory to schema v12 with C major when no key is present.
+
+No chord progressions, Roman-numeral analysis, voice leading, range checks against instruments, harmony candidates, audition, MIDI, transport, playback, or audio is included.
+
+**Deliverable:** Maskil Forge can name and transpose tonal materials and record the song's key as durable creative state.
+
 ## Milestone 3 — Theory and harmony
 
 Build music primitives, keys/scales/chords, progressions, transposition, voice leading, range checks, harmony candidates, and simple chord audition.

@@ -387,3 +387,21 @@ internal sealed class V10ToV11ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V11ToV12ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 11;
+    public int ToVersion => 12;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        project["key"] = new JsonObject
+        {
+            ["tonic"] = "C",
+            ["accidental"] = "Natural",
+            ["mode"] = "Major"
+        };
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

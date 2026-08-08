@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type BeatPosition, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
+import { projectsApi, type Accidental, type BeatPosition, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -30,6 +30,9 @@ const isDirty = computed(() => Boolean(project.value) && serializedProject.value
 const editorState = computed(() => isDirty.value ? 'Unsaved changes' : cleanLabel.value === 'saved' ? 'Saved' : 'No changes')
 const meters = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8']
 const genres: SongGenre[] = ['Unspecified', 'Pop', 'Rock', 'Folk', 'Country', 'RAndB', 'HipHop', 'Electronic', 'Cinematic', 'Alternative', 'Other']
+const noteLetters: NoteLetter[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
+const accidentals: Accidental[] = ['Natural', 'Sharp', 'Flat']
+const scaleModes: ScaleMode[] = ['Major', 'NaturalMinor']
 const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
@@ -640,6 +643,24 @@ function setMeter(value: string) {
     'timeline.meter',
     { numerator, denominator })
 }
+function setKey(partial: Partial<MusicalKey>) {
+  if (!project.value) return
+  const key: MusicalKey = {
+    tonic: partial.tonic ?? project.value.key.tonic,
+    accidental: partial.accidental ?? project.value.key.accidental,
+    mode: partial.mode ?? project.value.key.mode,
+  }
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-key', key }),
+    `Key set to ${formatKey(key)}.`,
+    'theory.key',
+    { tonic: key.tonic, accidental: key.accidental, mode: key.mode })
+}
+function formatKey(key: MusicalKey) {
+  const accidental = key.accidental === 'Sharp' ? '#' : key.accidental === 'Flat' ? 'b' : ''
+  const mode = key.mode === 'Major' ? 'major' : 'natural minor'
+  return `${key.tonic}${accidental} ${mode}`
+}
 function meterValue(value: SongProject) { return `${value.timeline.timeSignatureMap.events[0].numerator}/${value.timeline.timeSignatureMap.events[0].denominator}` }
 function placementFor(sectionId: string) { return project.value?.timeline.sectionPlacements.find(item => item.sectionId === sectionId) }
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
@@ -1072,6 +1093,9 @@ onBeforeUnmount(() => {
           <label>Genre<select v-model="project.genre"><option v-for="genre in genres" :key="genre" :value="genre">{{ genre === 'RAndB' ? 'R&B' : genre }}</option></select></label>
           <label>Tempo<input v-model.number="project.timeline.tempoMap.events[0].beatsPerMinute" type="number" min="20" max="300" /></label>
           <label>Time signature<select :value="meterValue(project)" @change="setMeter(($event.target as HTMLSelectElement).value)"><option v-for="meter in meters" :key="meter">{{ meter }}</option></select></label>
+          <label>Key tonic<select :value="project.key.tonic" :disabled="busy" @change="setKey({ tonic: ($event.target as HTMLSelectElement).value as NoteLetter })"><option v-for="letter in noteLetters" :key="letter" :value="letter">{{ letter }}</option></select></label>
+          <label>Accidental<select :value="project.key.accidental" :disabled="busy" @change="setKey({ accidental: ($event.target as HTMLSelectElement).value as Accidental })"><option v-for="accidental in accidentals" :key="accidental" :value="accidental">{{ accidental }}</option></select></label>
+          <label>Mode<select :value="project.key.mode" :disabled="busy" @change="setKey({ mode: ($event.target as HTMLSelectElement).value as ScaleMode })"><option v-for="mode in scaleModes" :key="mode" :value="mode">{{ mode === 'NaturalMinor' ? 'Natural minor' : mode }}</option></select></label>
           <label class="description-field">Description<textarea v-model="project.description" maxlength="2000" rows="3" placeholder="Song concept or creative context" /></label>
         </div>
       </details>
