@@ -223,6 +223,18 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
                     request.Syllables ?? throw new ArgumentException("Syllables are required."));
             project.Touch();
             break;
+        case "split-lyric-phrase":
+            project.FindSection(RequiredSectionId(request))
+                .FindLyricLine(request.LineId ?? throw new ArgumentException("Lyric line ID is required."))
+                .SplitPhraseAfter(request.WordId ?? throw new ArgumentException("Lyric word ID is required."));
+            project.Touch();
+            break;
+        case "join-lyric-phrase":
+            project.FindSection(RequiredSectionId(request))
+                .FindLyricLine(request.LineId ?? throw new ArgumentException("Lyric line ID is required."))
+                .JoinPhraseWithPrevious(request.PhraseId ?? throw new ArgumentException("Lyric phrase ID is required."));
+            project.Touch();
+            break;
         default: throw new ArgumentException($"Unknown command type '{request.Type}'.");
     }
 }
@@ -252,6 +264,7 @@ public sealed record ProjectCommandRequest(
     IReadOnlyList<string>? Lyrics = null,
     LyricLineId? LineId = null,
     LyricWordId? WordId = null,
+    LyricPhraseId? PhraseId = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

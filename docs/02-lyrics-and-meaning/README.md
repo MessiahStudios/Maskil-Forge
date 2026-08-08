@@ -12,11 +12,13 @@ Editing a line reconciles the previous and next word sequences so unchanged word
 
 `LyricSyllable` and `SyllableId` now provide an ordered, provenance-aware representation. Each syllable stores its stable ID, text, zero-based position within the word, and source: `Manual`, `Analyzer`, or `Imported`. Matching syllable IDs survive nearby boundary insertions, and an artist correction replaces provenance with `Manual` without allowing a future analyzer to silently become authoritative. The editor accepts boundaries separated by `|` and clearly identifies manual data.
 
-Empty syllable collections mean “not analyzed,” not “zero syllables.” The current slice does not guess pronunciation: analyzer and imported provenance are domain capabilities for later typed integrations, not claims that an analyzer or importer already exists. Automatic syllable extraction, phrase boundaries, stress, rhyme, breath analysis, suggested structure, rhythm candidates, and musical placement remain planned rather than implemented.
+Empty syllable collections mean “not analyzed,” not “zero syllables.” The current slice does not guess pronunciation: analyzer and imported provenance are domain capabilities for later typed integrations, not claims that an analyzer or importer already exists. Automatic syllable extraction, stress, rhyme, breath analysis, suggested structure, rhythm candidates, and musical placement remain planned rather than implemented.
+
+`LyricPunctuation` preserves punctuation groups as identified tokens with exact source offsets while apostrophes and internal hyphens remain part of their words. `LyricPhrase` stores a stable ID, zero-based position, provenance, and an ordered list of existing word IDs. Every word belongs to exactly one contiguous phrase. A new or migrated line begins as one `Default` phrase; split and join operations are explicit artist actions and produce `Manual` provenance. Nearby word edits retain surviving phrase and punctuation IDs without copying or rewriting lyric text.
 
 ## Processing order
 
-1. Parse raw lyrics into sections, lines, phrases, words, and syllables. Word tokenization and artist-controlled syllable boundaries are now foundational; phrase modeling and automatic analysis remain planned.
+1. Parse raw lyrics into sections, lines, phrases, words, and syllables. Word tokenization, punctuation identity, artist-controlled syllable boundaries, and manual phrase structure are now foundational; automatic analysis remains planned.
 2. Annotate stress, rhyme, repeated language, important words, and breath opportunities.
 3. Describe narrative roles and emotional transitions.
 4. Generate multiple rhythmic/prosody candidates.

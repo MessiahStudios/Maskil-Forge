@@ -58,10 +58,24 @@ public readonly record struct SyllableId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(LyricPhraseIdJsonConverter))]
+public readonly record struct LyricPhraseId(Guid Value)
+{
+    public static LyricPhraseId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
+[JsonConverter(typeof(PunctuationIdJsonConverter))]
+public readonly record struct PunctuationId(Guid Value)
+{
+    public static PunctuationId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(4);
+    public static SchemaVersion Current => new(5);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -140,4 +154,16 @@ internal sealed class SyllableIdJsonConverter : GuidIdJsonConverter<SyllableId>
 {
     protected override SyllableId Create(Guid value) => new(value);
     protected override Guid GetValue(SyllableId value) => value.Value;
+}
+
+internal sealed class LyricPhraseIdJsonConverter : GuidIdJsonConverter<LyricPhraseId>
+{
+    protected override LyricPhraseId Create(Guid value) => new(value);
+    protected override Guid GetValue(LyricPhraseId value) => value.Value;
+}
+
+internal sealed class PunctuationIdJsonConverter : GuidIdJsonConverter<PunctuationId>
+{
+    protected override PunctuationId Create(Guid value) => new(value);
+    protected override Guid GetValue(PunctuationId value) => value.Value;
 }

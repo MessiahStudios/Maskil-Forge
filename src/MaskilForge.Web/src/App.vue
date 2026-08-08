@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { projectsApi, type LyricWord, type ProjectResponse, type ProjectSummary, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type TrashedProjectSummary } from './api'
+import { projectsApi, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -290,10 +290,34 @@ function setWordSyllables(sectionId: string, lineId: string, wordId: string, eve
     'lyrics.syllables.manual',
     { sectionId, lineId, wordId, syllableCount: syllables.length })
 }
+function phraseWords(line: LyricLine, phrase: LyricPhrase) {
+  const wordById = new Map(line.words.map(word => [word.id, word]))
+  return phrase.wordIds.map(id => wordById.get(id)).filter((word): word is LyricWord => Boolean(word))
+}
+function splitLyricPhrase(sectionId: string, lineId: string, wordId: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'split-lyric-phrase', sectionId, lineId, wordId,
+    }),
+    'Phrase boundary added.',
+    'lyrics.phrase.split',
+    { sectionId, lineId, wordId })
+}
+function joinLyricPhrase(sectionId: string, lineId: string, phraseId: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'join-lyric-phrase', sectionId, lineId, phraseId,
+    }),
+    'Phrases joined.',
+    'lyrics.phrase.join',
+    { sectionId, lineId, phraseId })
+}
 async function addLyricLine(sectionIndex: number, focus = false) {
   if (!project.value) return
   const section = project.value.sections[sectionIndex]
-  const line = { id: crypto.randomUUID(), text: '', words: [] }
+  const line = { id: crypto.randomUUID(), text: '', words: [], punctuation: [], phrases: [] }
   section.lyricLines.push(line)
   activityLog.write('info', 'lyrics.line.add', 'Lyric line added locally.', { sectionId: section.id, lineId: line.id })
   if (focus) {
@@ -304,7 +328,7 @@ async function addLyricLine(sectionIndex: number, focus = false) {
 async function addLineAfter(sectionIndex: number, lineIndex: number) {
   if (!project.value) return
   const section = project.value.sections[sectionIndex]
-  const line = { id: crypto.randomUUID(), text: '', words: [] }
+  const line = { id: crypto.randomUUID(), text: '', words: [], punctuation: [], phrases: [] }
   section.lyricLines.splice(lineIndex + 1, 0, line)
   await nextTick()
   document.querySelector<HTMLInputElement>(`[data-line-id="${line.id}"]`)?.focus()
@@ -505,9 +529,24 @@ onBeforeUnmount(() => {
                   </form>
                   <small class="syllable-help">Separate syllables with |. Your correction is authoritative.</small>
                 </div>
+                <div v-if="line.punctuation.length" class="punctuation-row" :aria-label="`Punctuation preserved for lyric line ${lineIndex + 1}`">
+                  <small>Punctuation</small><span v-for="mark in line.punctuation" :key="mark.id" class="punctuation-token">{{ mark.text }}</span>
+                </div>
+                <div v-if="line.phrases.length" class="phrase-editor" :aria-label="`Phrase boundaries for lyric line ${lineIndex + 1}`">
+                  <div class="phrase-heading"><strong>Phrases</strong><small>Break or join ideas without changing the lyric.</small></div>
+                  <article v-for="phrase in line.phrases" :key="phrase.id" class="phrase-card">
+                    <header><span>Phrase {{ phrase.position + 1 }}</span><small>{{ phrase.source }}</small><button v-if="phrase.position > 0" class="quiet phrase-join" :disabled="busy" @click="joinLyricPhrase(section.id, line.id, phrase.id)">Join with previous</button></header>
+                    <div class="phrase-words">
+                      <template v-for="(word, phraseWordIndex) in phraseWords(line, phrase)" :key="word.id">
+                        <span class="phrase-word">{{ word.text }}</span>
+                        <button v-if="phraseWordIndex < phrase.wordIds.length - 1" class="quiet phrase-break" :aria-label="`Break phrase after ${word.text}`" :disabled="busy" @click="splitLyricPhrase(section.id, line.id, word.id)">| Break</button>
+                      </template>
+                    </div>
+                  </article>
+                </div>
               </div>
             </div>
-            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }}</small></template></template></details>
+            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><small v-for="phrase in line.phrases" :key="phrase.id">Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small></template></details>
           </li>
         </ol>
       </section>

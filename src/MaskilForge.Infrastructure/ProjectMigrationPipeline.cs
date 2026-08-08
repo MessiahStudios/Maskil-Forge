@@ -185,3 +185,70 @@ internal sealed class V3ToV4ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V4ToV5ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 4;
+    public int ToVersion => 5;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["sections"] is JsonArray sections)
+        {
+            foreach (var section in sections.OfType<JsonObject>())
+            {
+                if (section["lyricLines"] is not JsonArray lines) continue;
+                foreach (var line in lines.OfType<JsonObject>())
+                {
+                    var idText = line["id"]?.GetValue<string>();
+                    if (!Guid.TryParse(idText, out var id))
+                        throw new InvalidProjectDataException("Schema-v4 lyric line is missing a valid ID.");
+                    var lineId = new LyricLineId(id);
+                    var text = line["text"]?.GetValue<string>() ?? string.Empty;
+                    var punctuation = new JsonArray();
+                    var punctuationTokens = LyricLine.TokenizePunctuation(text);
+                    for (var index = 0; index < punctuationTokens.Count; index++)
+                    {
+                        var token = punctuationTokens[index];
+                        punctuation.Add(new JsonObject
+                        {
+                            ["id"] = LyricLine.CreateMigratedPunctuationId(lineId, index, token.Text).ToString(),
+                            ["text"] = token.Text,
+                            ["start"] = token.Start,
+                            ["length"] = token.Length
+                        });
+                    }
+                    line["punctuation"] = punctuation;
+
+                    var wordIds = new JsonArray();
+                    if (line["words"] is JsonArray words)
+                    {
+                        foreach (var word in words.OfType<JsonObject>())
+                        {
+                            var wordId = word["id"]?.GetValue<string>();
+                            if (!Guid.TryParse(wordId, out _))
+                                throw new InvalidProjectDataException("Schema-v4 lyric word is missing a valid ID.");
+                            wordIds.Add(wordId);
+                        }
+                    }
+
+                    var phrases = new JsonArray();
+                    if (wordIds.Count > 0)
+                    {
+                        phrases.Add(new JsonObject
+                        {
+                            ["id"] = LyricLine.CreateMigratedPhraseId(lineId, 0).ToString(),
+                            ["position"] = 0,
+                            ["wordIds"] = wordIds,
+                            ["source"] = nameof(PhraseSource.Default)
+                        });
+                    }
+                    line["phrases"] = phrases;
+                }
+            }
+        }
+
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

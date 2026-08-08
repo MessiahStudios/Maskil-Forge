@@ -1,11 +1,14 @@
 export type SectionKind = 'Verse' | 'Chorus' | 'PreChorus' | 'Bridge' | 'Outro'
 export type SongGenre = 'Unspecified' | 'Pop' | 'Rock' | 'Folk' | 'Country' | 'RAndB' | 'HipHop' | 'Electronic' | 'Cinematic' | 'Alternative' | 'Other'
 export type SyllableSource = 'Manual' | 'Analyzer' | 'Imported'
+export type PhraseSource = 'Default' | 'Manual' | 'Analyzer' | 'Imported'
 
 export interface LyricLine {
   id: string
   text: string
   words: LyricWord[]
+  punctuation: LyricPunctuation[]
+  phrases: LyricPhrase[]
 }
 
 export interface LyricWord {
@@ -21,6 +24,20 @@ export interface LyricSyllable {
   text: string
   position: number
   source: SyllableSource
+}
+
+export interface LyricPunctuation {
+  id: string
+  text: string
+  start: number
+  length: number
+}
+
+export interface LyricPhrase {
+  id: string
+  position: number
+  wordIds: string[]
+  source: PhraseSource
 }
 
 export interface SongSection {
@@ -100,6 +117,7 @@ export interface ProjectCommand {
   lyrics?: string[]
   lineId?: string
   wordId?: string
+  phraseId?: string
   text?: string
   syllables?: string[]
 }

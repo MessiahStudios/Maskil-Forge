@@ -102,6 +102,18 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .syllable-apply:hover:not(:disabled) { border-color: #d6b86d !important; background: #373222 !important; }
 .syllable-word small { margin: 0; color: #b9ad91; text-transform: uppercase; letter-spacing: .05em; }
 .syllable-help { flex-basis: 100%; margin: .15rem 0 0 !important; color: #aaa596 !important; }
+.punctuation-row { grid-column: 2; display: flex; gap: .35rem; align-items: center; color: #aaa596; }
+.punctuation-token { min-width: 1.7rem; padding: .18rem .4rem; text-align: center; color: #f2dfaf; background: #24251f; border: 1px solid #56594e; border-radius: .3rem; font: .78rem ui-monospace, Consolas, monospace; }
+.phrase-editor { grid-column: 2; display: grid; gap: .5rem; margin: .2rem 0 .55rem; }
+.phrase-heading { display: flex; gap: .6rem; align-items: baseline; color: #d8d0bf; }
+.phrase-heading small { color: #92988a; }
+.phrase-card { padding: .65rem .75rem; background: #151713; border: 1px solid #3f443b; border-left: 3px solid #9e8247; border-radius: .4rem; }
+.phrase-card header { display: flex; gap: .55rem; align-items: center; margin-bottom: .55rem; color: #d8c28c; }
+.phrase-card header small { color: #aaa596; text-transform: uppercase; letter-spacing: .05em; }
+.phrase-join { margin-left: auto; color: #f1dec0 !important; border-color: #71684f !important; }
+.phrase-words { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+.phrase-word { padding: .28rem .5rem; color: #fff7e7; background: #252820; border-radius: .3rem; }
+.phrase-break { min-height: 1.9rem; padding: .28rem .45rem !important; color: #d9c793 !important; border-color: #5d5949 !important; font-size: .72rem !important; }
 .lyric-delete { color: #efb7ad !important; border-color: #7a4b44 !important; }
 .developer-details { padding-top: .45rem; border-top: 1px solid #30342e; }
 .developer-details summary { color: #858b7e; font-size: .72rem; }
