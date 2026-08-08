@@ -102,6 +102,13 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .syllable-apply:hover:not(:disabled) { border-color: #d6b86d !important; background: #373222 !important; }
 .syllable-word small { margin: 0; color: #b9ad91; text-transform: uppercase; letter-spacing: .05em; }
 .syllable-help { flex-basis: 100%; margin: .15rem 0 0 !important; color: #aaa596 !important; }
+.stress-controls { display: grid; gap: .4rem; min-width: 10.5rem; margin: .2rem 0 0; padding: .55rem; border: 1px solid #4b4d43; border-radius: .35rem; }
+.stress-controls legend { padding: 0 .25rem; color: #d5c49b; font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; }
+.stress-syllable { display: grid; grid-template-columns: minmax(3.5rem, auto) 1fr; gap: .3rem .45rem; align-items: center; color: #f3e6ca; font-size: .75rem; }
+.stress-syllable > span { overflow-wrap: anywhere; }
+.stress-syllable select { min-width: 7.5rem; padding: .38rem .45rem; color: #fff7e7; background: #111410; border-color: #70684f; }
+.stress-syllable select:focus { border-color: #d6b86d; outline: 2px solid rgba(214, 184, 109, .25); outline-offset: 1px; }
+.stress-syllable small { grid-column: 2; margin: 0 !important; color: #aaa596 !important; }
 .punctuation-row { grid-column: 2; display: flex; gap: .35rem; align-items: center; color: #aaa596; }
 .punctuation-token { min-width: 1.7rem; padding: .18rem .4rem; text-align: center; color: #f2dfaf; background: #24251f; border: 1px solid #56594e; border-radius: .3rem; font: .78rem ui-monospace, Consolas, monospace; }
 .phrase-editor { grid-column: 2; display: grid; gap: .5rem; margin: .2rem 0 .55rem; }

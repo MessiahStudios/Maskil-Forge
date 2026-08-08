@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { projectsApi, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type TrashedProjectSummary } from './api'
+import { projectsApi, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -290,6 +290,17 @@ function setWordSyllables(sectionId: string, lineId: string, wordId: string, eve
     'lyrics.syllables.manual',
     { sectionId, lineId, wordId, syllableCount: syllables.length })
 }
+function setSyllableStress(sectionId: string, lineId: string, wordId: string, syllableId: string, value: string) {
+  if (!project.value) return
+  const stressLevel = value ? value as StressLevel : null
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'set-syllable-stress', sectionId, lineId, wordId, syllableId, stressLevel,
+    }),
+    stressLevel ? `${stressLevel} stress saved as an artist decision.` : 'Stress mark cleared.',
+    'lyrics.stress.manual',
+    { sectionId, lineId, wordId, syllableId, stressLevel })
+}
 function phraseWords(line: LyricLine, phrase: LyricPhrase) {
   const wordById = new Map(line.words.map(word => [word.id, word]))
   return phrase.wordIds.map(id => wordById.get(id)).filter((word): word is LyricWord => Boolean(word))
@@ -526,8 +537,26 @@ onBeforeUnmount(() => {
                       :disabled="busy" />
                     <button class="quiet syllable-apply" type="submit" :disabled="busy">Apply</button>
                     <small v-if="word.syllables.length">{{ word.syllables[0].source }}</small>
+                    <fieldset v-if="word.syllables.length" class="stress-controls">
+                      <legend>Stress</legend>
+                      <label v-for="syllable in word.syllables" :key="syllable.id" class="stress-syllable">
+                        <span>{{ syllable.text }}</span>
+                        <select
+                          :value="syllable.stress?.level ?? ''"
+                          :aria-label="`Stress for syllable ${syllable.text} in ${word.text}`"
+                          :disabled="busy"
+                          @change="setSyllableStress(section.id, line.id, word.id, syllable.id, ($event.target as HTMLSelectElement).value)">
+                          <option value="">Unmarked</option>
+                          <option value="None">No stress</option>
+                          <option value="Secondary">Secondary</option>
+                          <option value="Primary">Primary</option>
+                          <option value="Emphasized">Emphasized</option>
+                        </select>
+                        <small>{{ syllable.stress?.provenance ?? 'Not marked' }}</small>
+                      </label>
+                    </fieldset>
                   </form>
-                  <small class="syllable-help">Separate syllables with |. Your correction is authoritative.</small>
+                  <small class="syllable-help">Separate syllables with |, then mark the weight you intend to sing. Your corrections are authoritative.</small>
                 </div>
                 <div v-if="line.punctuation.length" class="punctuation-row" :aria-label="`Punctuation preserved for lyric line ${lineIndex + 1}`">
                   <small>Punctuation</small><span v-for="mark in line.punctuation" :key="mark.id" class="punctuation-token">{{ mark.text }}</span>
@@ -546,7 +575,7 @@ onBeforeUnmount(() => {
                 </div>
               </div>
             </div>
-            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><small v-for="phrase in line.phrases" :key="phrase.id">Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small></template></details>
+            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }} · Stress: {{ syllable.stress ? `${syllable.stress.level} (${syllable.stress.provenance})` : 'Unmarked' }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><small v-for="phrase in line.phrases" :key="phrase.id">Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small></template></details>
           </li>
         </ol>
       </section>

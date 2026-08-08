@@ -117,4 +117,54 @@ public sealed class CommandHistoryTests
         Assert.Equal(joinedId, redone.Id);
         Assert.Equal(line.Words.Select(word => word.Id), redone.WordIds);
     }
+
+    [Fact]
+    public void UndoAndRedo_SyllableStress_RestoresExactLevelAndProvenance()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("through pain");
+        var word = line.Words[1];
+        line.SetSyllables(word.Id, ["pain"]);
+        var syllableId = word.Syllables[0].Id;
+        line.SetStress(word.Id, syllableId, StressLevel.Secondary, StressProvenance.Analyzer);
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetSyllableStressCommand(
+            section.Id,
+            line.Id,
+            word.Id,
+            syllableId,
+            StressLevel.Emphasized));
+        Assert.Equal(StressLevel.Emphasized, word.Syllables[0].Stress?.Level);
+        Assert.Equal(StressProvenance.Manual, word.Syllables[0].Stress?.Provenance);
+
+        Assert.True(editor.Undo());
+        Assert.Equal(StressLevel.Secondary, word.Syllables[0].Stress?.Level);
+        Assert.Equal(StressProvenance.Analyzer, word.Syllables[0].Stress?.Provenance);
+
+        Assert.True(editor.Redo());
+        Assert.Equal(StressLevel.Emphasized, word.Syllables[0].Stress?.Level);
+        Assert.Equal(StressProvenance.Manual, word.Syllables[0].Stress?.Provenance);
+    }
+
+    [Fact]
+    public void Undo_ClearSyllableStress_RestoresTheArtistMark()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("home");
+        var word = line.Words[0];
+        line.SetSyllables(word.Id, ["home"]);
+        var syllableId = word.Syllables[0].Id;
+        line.SetStress(word.Id, syllableId, StressLevel.Primary);
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetSyllableStressCommand(section.Id, line.Id, word.Id, syllableId, null));
+        Assert.Null(word.Syllables[0].Stress);
+
+        Assert.True(editor.Undo());
+        Assert.Equal(StressLevel.Primary, word.Syllables[0].Stress?.Level);
+        Assert.Equal(StressProvenance.Manual, word.Syllables[0].Stress?.Provenance);
+    }
 }
