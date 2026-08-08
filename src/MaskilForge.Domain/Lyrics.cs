@@ -201,6 +201,73 @@ public sealed class LyricPunctuation
     public int Length { get; }
 }
 
+public enum ProsodicWeight
+{
+    Weak,
+    Neutral,
+    Strong
+}
+
+public enum ProsodyProvenance
+{
+    Manual,
+    Analyzer,
+    Imported
+}
+
+public sealed class ProsodicUnit
+{
+    [JsonConstructor]
+    public ProsodicUnit(
+        ProsodicUnitId id,
+        SyllableId syllableId,
+        int position,
+        ProsodicWeight weight,
+        ProsodyProvenance provenance)
+    {
+        if (id.Value == Guid.Empty) throw new ArgumentException("A prosodic unit ID is required.", nameof(id));
+        if (syllableId.Value == Guid.Empty) throw new ArgumentException("A syllable ID is required.", nameof(syllableId));
+        if (position < 0) throw new ArgumentOutOfRangeException(nameof(position), "Prosodic unit position cannot be negative.");
+        if (!Enum.IsDefined(weight)) throw new ArgumentOutOfRangeException(nameof(weight), "Prosodic weight is invalid.");
+        if (!Enum.IsDefined(provenance)) throw new ArgumentOutOfRangeException(nameof(provenance), "Prosody provenance is invalid.");
+        Id = id;
+        SyllableId = syllableId;
+        Position = position;
+        Weight = weight;
+        Provenance = provenance;
+    }
+
+    public ProsodicUnitId Id { get; }
+    public SyllableId SyllableId { get; }
+    public int Position { get; }
+    public ProsodicWeight Weight { get; }
+    public ProsodyProvenance Provenance { get; }
+}
+
+public sealed class ProsodicPattern
+{
+    private readonly List<ProsodicUnit> _units;
+
+    [JsonConstructor]
+    public ProsodicPattern(ProsodicPatternId id, IReadOnlyList<ProsodicUnit> units)
+    {
+        if (id.Value == Guid.Empty) throw new ArgumentException("A prosodic pattern ID is required.", nameof(id));
+        ArgumentNullException.ThrowIfNull(units);
+        if (units.Count == 0) throw new ArgumentException("A prosodic pattern must contain at least one unit.", nameof(units));
+        if (units.Select(item => item.Id).Distinct().Count() != units.Count)
+            throw new ArgumentException("Prosodic unit IDs must be unique within a pattern.", nameof(units));
+        if (units.Select(item => item.SyllableId).Distinct().Count() != units.Count)
+            throw new ArgumentException("A syllable can appear only once within a prosodic pattern.", nameof(units));
+        if (units.Where((item, index) => item.Position != index).Any())
+            throw new ArgumentException("Prosodic unit positions must be contiguous and ordered from zero.", nameof(units));
+        Id = id;
+        _units = units.ToList();
+    }
+
+    public ProsodicPatternId Id { get; }
+    public IReadOnlyList<ProsodicUnit> Units => _units;
+}
+
 public sealed class LyricPhrase
 {
     private readonly List<LyricWordId> _wordIds;
@@ -210,7 +277,8 @@ public sealed class LyricPhrase
         LyricPhraseId id,
         int position,
         IReadOnlyList<LyricWordId> wordIds,
-        PhraseSource source)
+        PhraseSource source,
+        ProsodicPattern? prosody = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A lyric phrase ID is required.", nameof(id));
         if (position < 0) throw new ArgumentOutOfRangeException(nameof(position), "Phrase position cannot be negative.");
@@ -223,12 +291,14 @@ public sealed class LyricPhrase
         Position = position;
         _wordIds = wordIds.ToList();
         Source = source;
+        Prosody = prosody;
     }
 
     public LyricPhraseId Id { get; }
     public int Position { get; }
     public IReadOnlyList<LyricWordId> WordIds => _wordIds;
     public PhraseSource Source { get; }
+    public ProsodicPattern? Prosody { get; }
 }
 
 public sealed class LyricLine
@@ -293,6 +363,7 @@ public sealed class LyricLine
         var word = _words.SingleOrDefault(item => item.Id == wordId)
             ?? throw new KeyNotFoundException($"Lyric word '{wordId}' was not found.");
         word.SetSyllables(syllables, source);
+        ReconcileAllPhraseProsody();
     }
 
     public void SetStress(
@@ -306,6 +377,60 @@ public sealed class LyricLine
         word.SetStress(syllableId, level, provenance);
     }
 
+    public void SetProsodicWeight(
+        LyricPhraseId phraseId,
+        SyllableId syllableId,
+        ProsodicWeight? weight,
+        ProsodyProvenance provenance = ProsodyProvenance.Manual)
+    {
+        if (weight is not null && !Enum.IsDefined(weight.Value))
+            throw new ArgumentOutOfRangeException(nameof(weight), "Prosodic weight is invalid.");
+        if (!Enum.IsDefined(provenance))
+            throw new ArgumentOutOfRangeException(nameof(provenance), "Prosody provenance is invalid.");
+        var phraseIndex = _phrases.FindIndex(item => item.Id == phraseId);
+        if (phraseIndex < 0) throw new KeyNotFoundException($"Lyric phrase '{phraseId}' was not found.");
+        var phrase = _phrases[phraseIndex];
+        var orderedSyllableIds = SyllableIdsForWords(phrase.WordIds);
+        if (!orderedSyllableIds.Contains(syllableId))
+            throw new InvalidOperationException($"Syllable '{syllableId}' does not belong to phrase '{phraseId}'.");
+
+        var units = phrase.Prosody?.Units.ToList() ?? [];
+        var existingIndex = units.FindIndex(item => item.SyllableId == syllableId);
+        if (weight is null)
+        {
+            if (existingIndex >= 0) units.RemoveAt(existingIndex);
+        }
+        else if (existingIndex >= 0)
+        {
+            var existing = units[existingIndex];
+            units[existingIndex] = new ProsodicUnit(
+                existing.Id,
+                syllableId,
+                existing.Position,
+                weight.Value,
+                provenance);
+        }
+        else
+        {
+            units.Add(new ProsodicUnit(
+                ProsodicUnitId.New(),
+                syllableId,
+                units.Count,
+                weight.Value,
+                provenance));
+        }
+
+        var prosodyId = phrase.Prosody?.Id ?? ProsodicPatternId.New();
+        var prosody = BuildProsody(prosodyId, units, orderedSyllableIds);
+        _phrases[phraseIndex] = new LyricPhrase(
+            phrase.Id,
+            phrase.Position,
+            phrase.WordIds,
+            phrase.Source,
+            prosody);
+        ValidatePhraseCoverage();
+    }
+
     public void SplitPhraseAfter(LyricWordId wordId)
     {
         var phraseIndex = _phrases.FindIndex(item => item.WordIds.Contains(wordId));
@@ -317,8 +442,18 @@ public sealed class LyricLine
 
         var left = phrase.WordIds.Take(splitIndex + 1).ToList();
         var right = phrase.WordIds.Skip(splitIndex + 1).ToList();
-        _phrases[phraseIndex] = new LyricPhrase(phrase.Id, phraseIndex, left, PhraseSource.Manual);
-        _phrases.Insert(phraseIndex + 1, new LyricPhrase(LyricPhraseId.New(), phraseIndex + 1, right, PhraseSource.Manual));
+        var leftProsody = FilterProsody(phrase.Prosody, left);
+        var rightProsody = FilterProsody(
+            phrase.Prosody,
+            right,
+            leftProsody is null ? phrase.Prosody?.Id : ProsodicPatternId.New());
+        _phrases[phraseIndex] = new LyricPhrase(phrase.Id, phraseIndex, left, PhraseSource.Manual, leftProsody);
+        _phrases.Insert(phraseIndex + 1, new LyricPhrase(
+            LyricPhraseId.New(),
+            phraseIndex + 1,
+            right,
+            PhraseSource.Manual,
+            rightProsody));
         NormalizePhrasePositions();
     }
 
@@ -329,11 +464,14 @@ public sealed class LyricLine
         if (phraseIndex == 0) throw new InvalidOperationException("The first phrase has no previous phrase to join.");
         var previous = _phrases[phraseIndex - 1];
         var current = _phrases[phraseIndex];
+        var joinedWordIds = previous.WordIds.Concat(current.WordIds).ToList();
+        var joinedProsody = CombineProsody(previous.Prosody, current.Prosody, joinedWordIds);
         _phrases[phraseIndex - 1] = new LyricPhrase(
             previous.Id,
             phraseIndex - 1,
-            previous.WordIds.Concat(current.WordIds).ToList(),
-            PhraseSource.Manual);
+            joinedWordIds,
+            PhraseSource.Manual,
+            joinedProsody);
         _phrases.RemoveAt(phraseIndex);
         NormalizePhrasePositions();
     }
@@ -393,7 +531,12 @@ public sealed class LyricLine
         {
             var surviving = existing.WordIds.Where(currentWordIds.Contains).ToList();
             if (surviving.Count > 0)
-                _phrases.Add(new LyricPhrase(existing.Id, _phrases.Count, surviving, existing.Source));
+                _phrases.Add(new LyricPhrase(
+                    existing.Id,
+                    _phrases.Count,
+                    surviving,
+                    existing.Source,
+                    FilterProsody(existing.Prosody, surviving)));
         }
 
         if (_phrases.Count == 0)
@@ -427,7 +570,12 @@ public sealed class LyricLine
         foreach (var phrase in existingPhrases.Where(item => rebuilt.ContainsKey(item.Id)))
         {
             var ordered = rebuilt[phrase.Id].OrderBy(id => wordOrder[id]).ToList();
-            _phrases.Add(new LyricPhrase(phrase.Id, _phrases.Count, ordered, phrase.Source));
+            _phrases.Add(new LyricPhrase(
+                phrase.Id,
+                _phrases.Count,
+                ordered,
+                phrase.Source,
+                FilterProsody(phrase.Prosody, ordered)));
         }
         ValidatePhraseCoverage();
     }
@@ -435,7 +583,12 @@ public sealed class LyricLine
     private void NormalizePhrasePositions()
     {
         var normalized = _phrases
-            .Select((phrase, position) => new LyricPhrase(phrase.Id, position, phrase.WordIds, phrase.Source))
+            .Select((phrase, position) => new LyricPhrase(
+                phrase.Id,
+                position,
+                phrase.WordIds,
+                phrase.Source,
+                CloneProsody(phrase.Prosody)))
             .ToList();
         _phrases.Clear();
         _phrases.AddRange(normalized);
@@ -443,7 +596,7 @@ public sealed class LyricLine
     }
 
     private static LyricPhrase ClonePhrase(LyricPhrase phrase) =>
-        new(phrase.Id, phrase.Position, phrase.WordIds.ToList(), phrase.Source);
+        new(phrase.Id, phrase.Position, phrase.WordIds.ToList(), phrase.Source, CloneProsody(phrase.Prosody));
 
     private void ValidatePhraseCoverage()
     {
@@ -454,6 +607,7 @@ public sealed class LyricLine
         var phraseWords = _phrases.SelectMany(item => item.WordIds).ToList();
         if (!phraseWords.SequenceEqual(_words.Select(item => item.Id)))
             throw new ArgumentException("Phrases must contain every lyric word exactly once and in line order.");
+        ValidateProsodyReferences(_words, _phrases);
     }
 
     private static void ValidateSerializedPhraseCoverage(
@@ -467,6 +621,94 @@ public sealed class LyricLine
             throw new ArgumentException("Phrase positions must be contiguous and ordered from zero.", nameof(phrases));
         if (!phrases.SelectMany(item => item.WordIds).SequenceEqual(words.Select(item => item.Id)))
             throw new ArgumentException("Serialized phrases must reference every lyric word exactly once and in line order.", nameof(phrases));
+        ValidateProsodyReferences(words, phrases);
+    }
+
+    private void ReconcileAllPhraseProsody()
+    {
+        var reconciled = _phrases.Select(phrase => new LyricPhrase(
+            phrase.Id,
+            phrase.Position,
+            phrase.WordIds,
+            phrase.Source,
+            FilterProsody(phrase.Prosody, phrase.WordIds))).ToList();
+        _phrases.Clear();
+        _phrases.AddRange(reconciled);
+        ValidatePhraseCoverage();
+    }
+
+    private IReadOnlyList<SyllableId> SyllableIdsForWords(IEnumerable<LyricWordId> wordIds)
+    {
+        var wordById = _words.ToDictionary(item => item.Id);
+        return wordIds
+            .SelectMany(wordId => wordById[wordId].Syllables)
+            .Select(syllable => syllable.Id)
+            .ToList();
+    }
+
+    private ProsodicPattern? FilterProsody(
+        ProsodicPattern? pattern,
+        IReadOnlyList<LyricWordId> wordIds,
+        ProsodicPatternId? patternId = null) =>
+        pattern is null
+            ? null
+            : BuildProsody(patternId ?? pattern.Id, pattern.Units, SyllableIdsForWords(wordIds));
+
+    private ProsodicPattern? CombineProsody(
+        ProsodicPattern? previous,
+        ProsodicPattern? current,
+        IReadOnlyList<LyricWordId> wordIds)
+    {
+        if (previous is null && current is null) return null;
+        var patternId = previous?.Id ?? current!.Id;
+        var units = (previous?.Units ?? []).Concat(current?.Units ?? []).ToList();
+        return BuildProsody(patternId, units, SyllableIdsForWords(wordIds));
+    }
+
+    private static ProsodicPattern? BuildProsody(
+        ProsodicPatternId patternId,
+        IEnumerable<ProsodicUnit> units,
+        IReadOnlyList<SyllableId> orderedSyllableIds)
+    {
+        var unitBySyllable = units.ToDictionary(item => item.SyllableId);
+        var normalized = orderedSyllableIds
+            .Where(unitBySyllable.ContainsKey)
+            .Select((syllableId, position) =>
+            {
+                var unit = unitBySyllable[syllableId];
+                return new ProsodicUnit(unit.Id, syllableId, position, unit.Weight, unit.Provenance);
+            })
+            .ToList();
+        return normalized.Count == 0 ? null : new ProsodicPattern(patternId, normalized);
+    }
+
+    private static ProsodicPattern? CloneProsody(ProsodicPattern? pattern) => pattern is null
+        ? null
+        : new ProsodicPattern(
+            pattern.Id,
+            pattern.Units.Select(unit => new ProsodicUnit(
+                unit.Id,
+                unit.SyllableId,
+                unit.Position,
+                unit.Weight,
+                unit.Provenance)).ToList());
+
+    private static void ValidateProsodyReferences(
+        IReadOnlyList<LyricWord> words,
+        IReadOnlyList<LyricPhrase> phrases)
+    {
+        var wordById = words.ToDictionary(item => item.Id);
+        foreach (var phrase in phrases.Where(item => item.Prosody is not null))
+        {
+            var syllableIds = phrase.WordIds
+                .SelectMany(wordId => wordById[wordId].Syllables)
+                .Select(syllable => syllable.Id)
+                .ToList();
+            var referenced = phrase.Prosody!.Units.Select(item => item.SyllableId).ToList();
+            var referencedSet = referenced.ToHashSet();
+            if (!referenced.SequenceEqual(syllableIds.Where(referencedSet.Contains)))
+                throw new ArgumentException("Prosodic units must reference syllables from their phrase once and in order.");
+        }
     }
 
     private static Dictionary<int, LyricWord> MatchExistingWords(

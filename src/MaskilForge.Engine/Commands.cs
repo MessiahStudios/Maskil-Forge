@@ -114,9 +114,9 @@ public sealed class SplitLyricPhraseCommand(
         var line = FindLine(project);
         if (_after is null)
         {
-            _before = Snapshot(line.Phrases);
+            _before = PhraseSnapshots.Create(line.Phrases);
             line.SplitPhraseAfter(wordId);
-            _after = Snapshot(line.Phrases);
+            _after = PhraseSnapshots.Create(line.Phrases);
         }
         else
         {
@@ -133,8 +133,26 @@ public sealed class SplitLyricPhraseCommand(
     }
 
     private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
-    private static IReadOnlyList<LyricPhrase> Snapshot(IEnumerable<LyricPhrase> phrases) =>
-        phrases.Select(phrase => new LyricPhrase(phrase.Id, phrase.Position, phrase.WordIds.ToList(), phrase.Source)).ToList();
+}
+
+internal static class PhraseSnapshots
+{
+    public static IReadOnlyList<LyricPhrase> Create(IEnumerable<LyricPhrase> phrases) =>
+        phrases.Select(ClonePhrase).ToList();
+
+    private static LyricPhrase ClonePhrase(LyricPhrase phrase) => new(
+        phrase.Id,
+        phrase.Position,
+        phrase.WordIds.ToList(),
+        phrase.Source,
+        phrase.Prosody is null ? null : new ProsodicPattern(
+            phrase.Prosody.Id,
+            phrase.Prosody.Units.Select(unit => new ProsodicUnit(
+                unit.Id,
+                unit.SyllableId,
+                unit.Position,
+                unit.Weight,
+                unit.Provenance)).ToList()));
 }
 
 public sealed class JoinLyricPhraseCommand(
@@ -150,9 +168,9 @@ public sealed class JoinLyricPhraseCommand(
         var line = FindLine(project);
         if (_after is null)
         {
-            _before = Snapshot(line.Phrases);
+            _before = PhraseSnapshots.Create(line.Phrases);
             line.JoinPhraseWithPrevious(phraseId);
-            _after = Snapshot(line.Phrases);
+            _after = PhraseSnapshots.Create(line.Phrases);
         }
         else
         {
@@ -169,8 +187,6 @@ public sealed class JoinLyricPhraseCommand(
     }
 
     private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
-    private static IReadOnlyList<LyricPhrase> Snapshot(IEnumerable<LyricPhrase> phrases) =>
-        phrases.Select(phrase => new LyricPhrase(phrase.Id, phrase.Position, phrase.WordIds.ToList(), phrase.Source)).ToList();
 }
 
 public sealed class SetSyllableStressCommand(
@@ -213,4 +229,40 @@ public sealed class SetSyllableStressCommand(
     private LyricSyllable FindSyllable(LyricLine line) =>
         line.Words.SingleOrDefault(item => item.Id == wordId)?.Syllables.SingleOrDefault(item => item.Id == syllableId)
         ?? throw new KeyNotFoundException($"Syllable '{syllableId}' was not found in lyric word '{wordId}'.");
+}
+
+public sealed class SetProsodicWeightCommand(
+    SectionId sectionId,
+    LyricLineId lineId,
+    LyricPhraseId phraseId,
+    SyllableId syllableId,
+    ProsodicWeight? weight) : IProjectCommand
+{
+    private IReadOnlyList<LyricPhrase>? _before;
+    private IReadOnlyList<LyricPhrase>? _after;
+
+    public void Execute(SongProject project)
+    {
+        var line = FindLine(project);
+        if (_after is null)
+        {
+            _before = PhraseSnapshots.Create(line.Phrases);
+            line.SetProsodicWeight(phraseId, syllableId, weight, ProsodyProvenance.Manual);
+            _after = PhraseSnapshots.Create(line.Phrases);
+        }
+        else
+        {
+            line.RestorePhrases(_after);
+        }
+        project.Touch();
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_before is null) throw new InvalidOperationException("Command has not been executed.");
+        FindLine(project).RestorePhrases(_before);
+        project.Touch();
+    }
+
+    private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
 }

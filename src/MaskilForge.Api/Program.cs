@@ -231,6 +231,14 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
                 request.SyllableId ?? throw new ArgumentException("Syllable ID is required."),
                 request.StressLevel));
             break;
+        case "set-prosodic-weight":
+            editor.Execute(new SetProsodicWeightCommand(
+                RequiredSectionId(request),
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.PhraseId ?? throw new ArgumentException("Lyric phrase ID is required."),
+                request.SyllableId ?? throw new ArgumentException("Syllable ID is required."),
+                request.ProsodicWeight));
+            break;
         case "split-lyric-phrase":
             editor.Execute(new SplitLyricPhraseCommand(
                 RequiredSectionId(request),
@@ -275,6 +283,7 @@ public sealed record ProjectCommandRequest(
     SyllableId? SyllableId = null,
     LyricPhraseId? PhraseId = null,
     StressLevel? StressLevel = null,
+    ProsodicWeight? ProsodicWeight = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

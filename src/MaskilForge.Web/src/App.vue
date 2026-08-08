@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { projectsApi, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
+import { projectsApi, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -305,6 +305,24 @@ function phraseWords(line: LyricLine, phrase: LyricPhrase) {
   const wordById = new Map(line.words.map(word => [word.id, word]))
   return phrase.wordIds.map(id => wordById.get(id)).filter((word): word is LyricWord => Boolean(word))
 }
+function phraseSyllables(line: LyricLine, phrase: LyricPhrase) {
+  return phraseWords(line, phrase).flatMap(word =>
+    word.syllables.map(syllable => ({ word, syllable })))
+}
+function prosodicUnitFor(phrase: LyricPhrase, syllableId: string) {
+  return phrase.prosody?.units.find(unit => unit.syllableId === syllableId)
+}
+function setProsodicWeight(sectionId: string, lineId: string, phraseId: string, syllableId: string, value: string) {
+  if (!project.value) return
+  const prosodicWeight = value ? value as ProsodicWeight : null
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'set-prosodic-weight', sectionId, lineId, phraseId, syllableId, prosodicWeight,
+    }),
+    prosodicWeight ? `${prosodicWeight} phrase weight saved as an artist decision.` : 'Phrase weight cleared.',
+    'lyrics.prosody.manual',
+    { sectionId, lineId, phraseId, syllableId, prosodicWeight })
+}
 function splitLyricPhrase(sectionId: string, lineId: string, wordId: string) {
   if (!project.value) return
   return run(
@@ -571,11 +589,29 @@ onBeforeUnmount(() => {
                         <button v-if="phraseWordIndex < phrase.wordIds.length - 1" class="quiet phrase-break" :aria-label="`Break phrase after ${word.text}`" :disabled="busy" @click="splitLyricPhrase(section.id, line.id, word.id)">| Break</button>
                       </template>
                     </div>
+                    <div v-if="phraseSyllables(line, phrase).length" class="prosody-editor">
+                      <div class="prosody-heading"><strong>Phrase weight</strong><small>Describe the relative pulse of the words without assigning beats.</small></div>
+                      <label v-for="entry in phraseSyllables(line, phrase)" :key="entry.syllable.id" class="prosodic-unit">
+                        <span>{{ entry.syllable.text }} <small>{{ entry.word.text }}</small></span>
+                        <select
+                          :value="prosodicUnitFor(phrase, entry.syllable.id)?.weight ?? ''"
+                          :aria-label="`Phrase weight for syllable ${entry.syllable.text} in ${entry.word.text}`"
+                          :disabled="busy"
+                          @change="setProsodicWeight(section.id, line.id, phrase.id, entry.syllable.id, ($event.target as HTMLSelectElement).value)">
+                          <option value="">Unmapped</option>
+                          <option value="Weak">Weak</option>
+                          <option value="Neutral">Neutral</option>
+                          <option value="Strong">Strong</option>
+                        </select>
+                        <small>{{ prosodicUnitFor(phrase, entry.syllable.id)?.provenance ?? 'Not mapped' }}</small>
+                      </label>
+                    </div>
+                    <small v-else class="prosody-empty">Add syllable boundaries above before describing phrase weight.</small>
                   </article>
                 </div>
               </div>
             </div>
-            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }} · Stress: {{ syllable.stress ? `${syllable.stress.level} (${syllable.stress.provenance})` : 'Unmarked' }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><small v-for="phrase in line.phrases" :key="phrase.id">Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small></template></details>
+            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }} · Stress: {{ syllable.stress ? `${syllable.stress.level} (${syllable.stress.provenance})` : 'Unmarked' }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><template v-for="phrase in line.phrases" :key="phrase.id"><small>Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small><small v-if="phrase.prosody">Prosodic Pattern ID: {{ phrase.prosody.id }}</small><small v-for="unit in phrase.prosody?.units ?? []" :key="unit.id">Prosodic Unit ID: {{ unit.id }} · {{ unit.position }} · {{ unit.syllableId }} · {{ unit.weight }} · {{ unit.provenance }}</small></template></template></details>
           </li>
         </ol>
       </section>

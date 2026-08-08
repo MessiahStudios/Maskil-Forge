@@ -4,6 +4,8 @@ export type SyllableSource = 'Manual' | 'Analyzer' | 'Imported'
 export type PhraseSource = 'Default' | 'Manual' | 'Analyzer' | 'Imported'
 export type StressLevel = 'None' | 'Secondary' | 'Primary' | 'Emphasized'
 export type StressProvenance = 'Manual' | 'Analyzer' | 'Imported'
+export type ProsodicWeight = 'Weak' | 'Neutral' | 'Strong'
+export type ProsodyProvenance = 'Manual' | 'Analyzer' | 'Imported'
 
 export interface LyricLine {
   id: string
@@ -46,6 +48,20 @@ export interface LyricPhrase {
   position: number
   wordIds: string[]
   source: PhraseSource
+  prosody: ProsodicPattern | null
+}
+
+export interface ProsodicPattern {
+  id: string
+  units: ProsodicUnit[]
+}
+
+export interface ProsodicUnit {
+  id: string
+  syllableId: string
+  position: number
+  weight: ProsodicWeight
+  provenance: ProsodyProvenance
 }
 
 export interface SongSection {
@@ -128,6 +144,7 @@ export interface ProjectCommand {
   syllableId?: string
   phraseId?: string
   stressLevel?: StressLevel | null
+  prosodicWeight?: ProsodicWeight | null
   text?: string
   syllables?: string[]
 }
