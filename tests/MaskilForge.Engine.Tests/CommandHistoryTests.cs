@@ -313,4 +313,101 @@ public sealed class CommandHistoryTests
         Assert.Equal(position, placement.Position);
         Assert.Equal(provenance, placement.Provenance);
     }
+
+    [Fact]
+    public void UndoAndRedo_CapturedRhythmCandidate_RestoresExactIdentifiers()
+    {
+        var (project, section, line, phrase, _) = CreateRhythmHistoryProject();
+        var editor = new ProjectEditor(project);
+        var command = new CaptureRhythmCandidateCommand(section.Id, line.Id, phrase.Id, "Option A");
+
+        editor.Execute(command);
+        var candidate = Assert.Single(line.RhythmCandidates);
+        var candidateId = candidate.Id;
+        var eventIds = candidate.Events.Select(item => item.Id).ToList();
+
+        Assert.True(editor.Undo());
+        Assert.Empty(line.RhythmCandidates);
+
+        Assert.True(editor.Redo());
+        var restored = Assert.Single(line.RhythmCandidates);
+        Assert.Equal(candidateId, restored.Id);
+        Assert.Equal(eventIds, restored.Events.Select(item => item.Id));
+    }
+
+    [Fact]
+    public void UndoAndRedo_ApplyRhythmCandidate_RestoresExactPlacementSnapshots()
+    {
+        var (project, section, line, phrase, syllables) = CreateRhythmHistoryProject();
+        var option = project.CaptureRhythmCandidate(section.Id, line.Id, phrase.Id, "Option A");
+        project.SetSyllablePlacement(section.Id, line.Id, syllables[1], new BeatPosition(2, 3, 0));
+        project.SetSyllablePlacement(section.Id, line.Id, syllables[0], new BeatPosition(2, 1, 0));
+        var beforeIds = line.SyllablePlacements.Select(item => item.Id).ToList();
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new ApplyRhythmCandidateCommand(section.Id, line.Id, option.Id));
+        var appliedIds = line.SyllablePlacements.Select(item => item.Id).ToList();
+        Assert.Equal(option.Events.Select(item => item.BeatPosition), line.SyllablePlacements.Select(item => item.Position));
+
+        Assert.True(editor.Undo());
+        Assert.Equal(beforeIds, line.SyllablePlacements.Select(item => item.Id));
+        Assert.Equal([new BeatPosition(2, 1, 0), new BeatPosition(2, 3, 0)], line.SyllablePlacements.Select(item => item.Position));
+
+        Assert.True(editor.Redo());
+        Assert.Equal(appliedIds, line.SyllablePlacements.Select(item => item.Id));
+        Assert.Equal(option.Events.Select(item => item.BeatPosition), line.SyllablePlacements.Select(item => item.Position));
+    }
+
+    [Fact]
+    public void UndoAndRedo_PhraseSplit_RestoresExactRhythmCandidateStructure()
+    {
+        var (project, section, line, phrase, _) = CreateRhythmHistoryProject();
+        var candidate = project.CaptureRhythmCandidate(section.Id, line.Id, phrase.Id, "Option A");
+        var originalEventIds = candidate.Events.Select(item => item.Id).ToList();
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SplitLyricPhraseCommand(section.Id, line.Id, line.Words[0].Id));
+        var splitCandidateIds = line.RhythmCandidates.Select(item => item.Id).ToList();
+        Assert.Equal(2, splitCandidateIds.Count);
+
+        Assert.True(editor.Undo());
+        var restored = Assert.Single(line.RhythmCandidates);
+        Assert.Equal(candidate.Id, restored.Id);
+        Assert.Equal(originalEventIds, restored.Events.Select(item => item.Id));
+
+        Assert.True(editor.Redo());
+        Assert.Equal(splitCandidateIds, line.RhythmCandidates.Select(item => item.Id));
+        Assert.Equal(originalEventIds, line.RhythmCandidates.SelectMany(item => item.Events).Select(item => item.Id));
+    }
+
+    [Fact]
+    public void RenameAndRemoveRhythmCandidate_AreReversible()
+    {
+        var (project, section, line, phrase, _) = CreateRhythmHistoryProject();
+        var candidate = project.CaptureRhythmCandidate(section.Id, line.Id, phrase.Id, "Option A");
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new RenameRhythmCandidateCommand(section.Id, line.Id, candidate.Id, "Verse push"));
+        Assert.Equal("Verse push", line.RhythmCandidates[0].Label);
+        Assert.True(editor.Undo());
+        Assert.Equal("Option A", line.RhythmCandidates[0].Label);
+
+        editor.Execute(new RemoveRhythmCandidateCommand(section.Id, line.Id, candidate.Id));
+        Assert.Empty(line.RhythmCandidates);
+        Assert.True(editor.Undo());
+        Assert.Equal(candidate.Id, Assert.Single(line.RhythmCandidates).Id);
+    }
+
+    private static (SongProject Project, SongSection Section, LyricLine Line, LyricPhrase Phrase, IReadOnlyList<SyllableId> Syllables)
+        CreateRhythmHistoryProject()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("one two");
+        foreach (var word in line.Words) line.SetSyllables(word.Id, [word.Text]);
+        var syllables = line.Words.SelectMany(item => item.Syllables).Select(item => item.Id).ToList();
+        project.SetSyllablePlacement(section.Id, line.Id, syllables[0], new BeatPosition(1, 1, 0));
+        project.SetSyllablePlacement(section.Id, line.Id, syllables[1], new BeatPosition(1, 3, 0));
+        return (project, section, line, line.Phrases[0], syllables);
+    }
 }

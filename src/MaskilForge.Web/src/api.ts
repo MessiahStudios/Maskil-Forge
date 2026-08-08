@@ -7,6 +7,7 @@ export type StressProvenance = 'Manual' | 'Analyzer' | 'Imported'
 export type ProsodicWeight = 'Weak' | 'Neutral' | 'Strong'
 export type ProsodyProvenance = 'Manual' | 'Analyzer' | 'Imported'
 export type PlacementProvenance = 'Manual' | 'Analyzer' | 'Imported'
+export type RhythmCandidateProvenance = 'Manual' | 'Analyzer' | 'Imported'
 
 export interface LyricLine {
   id: string
@@ -15,6 +16,7 @@ export interface LyricLine {
   punctuation: LyricPunctuation[]
   phrases: LyricPhrase[]
   syllablePlacements: SyllablePlacement[]
+  rhythmCandidates: RhythmCandidate[]
 }
 
 export interface LyricWord {
@@ -77,6 +79,21 @@ export interface SyllablePlacement {
   syllableId: string
   position: BeatPosition
   provenance: PlacementProvenance
+}
+
+export interface RhythmCandidateEvent {
+  id: string
+  syllableId: string
+  position: number
+  beatPosition: BeatPosition
+}
+
+export interface RhythmCandidate {
+  id: string
+  phraseId: string
+  label: string
+  provenance: RhythmCandidateProvenance
+  events: RhythmCandidateEvent[]
 }
 
 export interface SongSection {
@@ -163,6 +180,8 @@ export interface ProjectCommand {
   stressLevel?: StressLevel | null
   prosodicWeight?: ProsodicWeight | null
   beatPosition?: BeatPosition | null
+  rhythmCandidateId?: string
+  candidateLabel?: string
   text?: string
   syllables?: string[]
 }

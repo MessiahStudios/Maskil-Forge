@@ -93,10 +93,24 @@ public readonly record struct SyllablePlacementId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(RhythmCandidateIdJsonConverter))]
+public readonly record struct RhythmCandidateId(Guid Value)
+{
+    public static RhythmCandidateId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
+[JsonConverter(typeof(RhythmCandidateEventIdJsonConverter))]
+public readonly record struct RhythmCandidateEventId(Guid Value)
+{
+    public static RhythmCandidateEventId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(8);
+    public static SchemaVersion Current => new(9);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -205,4 +219,16 @@ internal sealed class SyllablePlacementIdJsonConverter : GuidIdJsonConverter<Syl
 {
     protected override SyllablePlacementId Create(Guid value) => new(value);
     protected override Guid GetValue(SyllablePlacementId value) => value.Value;
+}
+
+internal sealed class RhythmCandidateIdJsonConverter : GuidIdJsonConverter<RhythmCandidateId>
+{
+    protected override RhythmCandidateId Create(Guid value) => new(value);
+    protected override Guid GetValue(RhythmCandidateId value) => value.Value;
+}
+
+internal sealed class RhythmCandidateEventIdJsonConverter : GuidIdJsonConverter<RhythmCandidateEventId>
+{
+    protected override RhythmCandidateEventId Create(Guid value) => new(value);
+    protected override Guid GetValue(RhythmCandidateEventId value) => value.Value;
 }

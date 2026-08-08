@@ -313,6 +313,7 @@ public sealed class LyricLine
     private readonly List<LyricPunctuation> _punctuation = [];
     private readonly List<LyricPhrase> _phrases = [];
     private readonly List<SyllablePlacement> _syllablePlacements = [];
+    private readonly List<RhythmCandidate> _rhythmCandidates = [];
 
     [JsonConstructor]
     public LyricLine(
@@ -321,13 +322,15 @@ public sealed class LyricLine
         IReadOnlyList<LyricWord>? words = null,
         IReadOnlyList<LyricPunctuation>? punctuation = null,
         IReadOnlyList<LyricPhrase>? phrases = null,
-        IReadOnlyList<SyllablePlacement>? syllablePlacements = null)
+        IReadOnlyList<SyllablePlacement>? syllablePlacements = null,
+        IReadOnlyList<RhythmCandidate>? rhythmCandidates = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A lyric line ID is required.", nameof(id));
         ValidateSerializedPhraseCoverage(words ?? [], phrases ?? []);
         ValidateSerializedPlacements(words ?? [], syllablePlacements ?? []);
+        ValidateSerializedRhythmCandidates(words ?? [], phrases ?? [], rhythmCandidates ?? []);
         Id = id;
-        SetText(text, words ?? [], punctuation ?? [], phrases ?? [], syllablePlacements ?? []);
+        SetText(text, words ?? [], punctuation ?? [], phrases ?? [], syllablePlacements ?? [], rhythmCandidates ?? []);
     }
 
     public LyricLineId Id { get; }
@@ -336,6 +339,7 @@ public sealed class LyricLine
     public IReadOnlyList<LyricPunctuation> Punctuation => _punctuation;
     public IReadOnlyList<LyricPhrase> Phrases => _phrases;
     public IReadOnlyList<SyllablePlacement> SyllablePlacements => _syllablePlacements;
+    public IReadOnlyList<RhythmCandidate> RhythmCandidates => _rhythmCandidates;
 
     public static LyricLine Create(string text = "") => new(LyricLineId.New(), text);
 
@@ -362,18 +366,21 @@ public sealed class LyricLine
         _words.ToList(),
         _punctuation.ToList(),
         _phrases.ToList(),
-        _syllablePlacements.ToList());
+        _syllablePlacements.ToList(),
+        _rhythmCandidates.ToList());
 
     public void SetSyllables(
         LyricWordId wordId,
         IEnumerable<string> syllables,
         SyllableSource source = SyllableSource.Manual)
     {
+        var existingCandidates = _rhythmCandidates.ToList();
         var word = _words.SingleOrDefault(item => item.Id == wordId)
             ?? throw new KeyNotFoundException($"Lyric word '{wordId}' was not found.");
         word.SetSyllables(syllables, source);
         ReconcileAllPhraseProsody();
         ReconcileSyllablePlacements(_syllablePlacements.ToList());
+        ReconcileRhythmCandidates(existingCandidates);
     }
 
     public void SetStress(
@@ -487,8 +494,100 @@ public sealed class LyricLine
         _syllablePlacements.AddRange(placements.Select(ClonePlacement));
     }
 
+    public RhythmCandidate CaptureRhythmCandidate(
+        LyricPhraseId phraseId,
+        string label,
+        RhythmCandidateProvenance provenance = RhythmCandidateProvenance.Manual)
+    {
+        if (!Enum.IsDefined(provenance))
+            throw new ArgumentOutOfRangeException(nameof(provenance), "Rhythm candidate provenance is invalid.");
+        var phrase = _phrases.SingleOrDefault(item => item.Id == phraseId)
+            ?? throw new KeyNotFoundException($"Lyric phrase '{phraseId}' was not found.");
+        var phraseSyllableIds = SyllableIdsForWords(phrase.WordIds);
+        var placementBySyllable = _syllablePlacements.ToDictionary(item => item.SyllableId);
+        var events = phraseSyllableIds
+            .Where(placementBySyllable.ContainsKey)
+            .Select((syllableId, position) => new RhythmCandidateEvent(
+                RhythmCandidateEventId.New(),
+                syllableId,
+                position,
+                placementBySyllable[syllableId].Position))
+            .ToList();
+        if (events.Count == 0)
+            throw new InvalidOperationException("Place at least one syllable in this phrase before saving a rhythm option.");
+
+        var candidate = new RhythmCandidate(
+            RhythmCandidateId.New(),
+            phraseId,
+            label,
+            provenance,
+            events);
+        _rhythmCandidates.Add(candidate);
+        ValidateRhythmCandidateReferences();
+        return candidate;
+    }
+
+    public void InsertRhythmCandidate(int index, RhythmCandidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        if (index < 0 || index > _rhythmCandidates.Count) throw new ArgumentOutOfRangeException(nameof(index));
+        if (_rhythmCandidates.Any(item => item.Id == candidate.Id))
+            throw new InvalidOperationException($"Rhythm candidate '{candidate.Id}' already exists.");
+        _rhythmCandidates.Insert(index, CloneRhythmCandidate(candidate));
+        ValidateRhythmCandidateReferences();
+    }
+
+    public (RhythmCandidate Candidate, int Index) RemoveRhythmCandidate(RhythmCandidateId candidateId)
+    {
+        var index = _rhythmCandidates.FindIndex(item => item.Id == candidateId);
+        if (index < 0) throw new KeyNotFoundException($"Rhythm candidate '{candidateId}' was not found.");
+        var candidate = _rhythmCandidates[index];
+        _rhythmCandidates.RemoveAt(index);
+        return (candidate, index);
+    }
+
+    public void RenameRhythmCandidate(RhythmCandidateId candidateId, string label)
+    {
+        var index = _rhythmCandidates.FindIndex(item => item.Id == candidateId);
+        if (index < 0) throw new KeyNotFoundException($"Rhythm candidate '{candidateId}' was not found.");
+        var candidate = _rhythmCandidates[index];
+        _rhythmCandidates[index] = new RhythmCandidate(
+            candidate.Id,
+            candidate.PhraseId,
+            label,
+            candidate.Provenance,
+            candidate.Events);
+    }
+
+    public void ApplyRhythmCandidate(RhythmCandidateId candidateId)
+    {
+        var candidate = _rhythmCandidates.SingleOrDefault(item => item.Id == candidateId)
+            ?? throw new KeyNotFoundException($"Rhythm candidate '{candidateId}' was not found.");
+        var phrase = _phrases.Single(item => item.Id == candidate.PhraseId);
+        var phraseSyllableIds = SyllableIdsForWords(phrase.WordIds).ToHashSet();
+        var existingBySyllable = _syllablePlacements.ToDictionary(item => item.SyllableId);
+        var retained = _syllablePlacements.Where(item => !phraseSyllableIds.Contains(item.SyllableId)).ToList();
+        retained.AddRange(candidate.Events.Select(item => new SyllablePlacement(
+            existingBySyllable.TryGetValue(item.SyllableId, out var existing)
+                ? existing.Id
+                : SyllablePlacementId.New(),
+            item.SyllableId,
+            item.BeatPosition,
+            PlacementProvenance.Manual)));
+        RestoreSyllablePlacements(BuildPlacements(retained, OrderedSyllableIds()));
+    }
+
+    public void RestoreRhythmCandidates(IReadOnlyList<RhythmCandidate> candidates)
+    {
+        ArgumentNullException.ThrowIfNull(candidates);
+        ValidateSerializedRhythmCandidates(_words, _phrases, candidates);
+        _rhythmCandidates.Clear();
+        _rhythmCandidates.AddRange(candidates.Select(CloneRhythmCandidate));
+    }
+
     public void SplitPhraseAfter(LyricWordId wordId)
     {
+        var existingCandidates = _rhythmCandidates.ToList();
         var phraseIndex = _phrases.FindIndex(item => item.WordIds.Contains(wordId));
         if (phraseIndex < 0) throw new KeyNotFoundException($"Lyric word '{wordId}' does not belong to a phrase.");
         var phrase = _phrases[phraseIndex];
@@ -511,10 +610,12 @@ public sealed class LyricLine
             PhraseSource.Manual,
             rightProsody));
         NormalizePhrasePositions();
+        ReconcileRhythmCandidates(existingCandidates);
     }
 
     public void JoinPhraseWithPrevious(LyricPhraseId phraseId)
     {
+        var existingCandidates = _rhythmCandidates.ToList();
         var phraseIndex = _phrases.FindIndex(item => item.Id == phraseId);
         if (phraseIndex < 0) throw new KeyNotFoundException($"Lyric phrase '{phraseId}' was not found.");
         if (phraseIndex == 0) throw new InvalidOperationException("The first phrase has no previous phrase to join.");
@@ -530,6 +631,7 @@ public sealed class LyricLine
             joinedProsody);
         _phrases.RemoveAt(phraseIndex);
         NormalizePhrasePositions();
+        ReconcileRhythmCandidates(existingCandidates);
     }
 
     public void RestorePhrases(IReadOnlyList<LyricPhrase> phrases)
@@ -540,6 +642,7 @@ public sealed class LyricLine
         ValidateSerializedPhraseCoverage(_words, phrases);
         _phrases.Clear();
         _phrases.AddRange(phrases.Select(ClonePhrase));
+        ReconcileRhythmCandidates(_rhythmCandidates.ToList());
     }
 
     private void SetText(
@@ -547,7 +650,8 @@ public sealed class LyricLine
         IReadOnlyList<LyricWord> existingWords,
         IReadOnlyList<LyricPunctuation> existingPunctuation,
         IReadOnlyList<LyricPhrase> existingPhrases,
-        IReadOnlyList<SyllablePlacement> existingPlacements)
+        IReadOnlyList<SyllablePlacement> existingPlacements,
+        IReadOnlyList<RhythmCandidate> existingCandidates)
     {
         ArgumentNullException.ThrowIfNull(text);
         if (text.Length > 2_000) throw new ArgumentOutOfRangeException(nameof(text), "A lyric line cannot exceed 2,000 characters.");
@@ -577,6 +681,7 @@ public sealed class LyricLine
         }
         ReconcilePhrases(existingPhrases);
         ReconcileSyllablePlacements(existingPlacements);
+        ReconcileRhythmCandidates(existingCandidates);
         Text = text;
     }
 
@@ -795,6 +900,85 @@ public sealed class LyricLine
         placement.SyllableId,
         placement.Position,
         placement.Provenance);
+
+    private void ReconcileRhythmCandidates(IReadOnlyList<RhythmCandidate> existingCandidates)
+    {
+        var syllableToPhrase = _phrases
+            .SelectMany(phrase => SyllableIdsForWords(phrase.WordIds).Select(syllableId => (syllableId, phrase.Id)))
+            .ToDictionary(item => item.syllableId, item => item.Id);
+        var reconciled = new List<RhythmCandidate>();
+        foreach (var candidate in existingCandidates)
+        {
+            var surviving = candidate.Events
+                .Where(item => syllableToPhrase.ContainsKey(item.SyllableId))
+                .ToList();
+            var groups = surviving
+                .GroupBy(item => syllableToPhrase[item.SyllableId])
+                .ToList();
+            for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
+            {
+                var events = groups[groupIndex]
+                    .Select((item, position) => new RhythmCandidateEvent(
+                        item.Id,
+                        item.SyllableId,
+                        position,
+                        item.BeatPosition))
+                    .ToList();
+                reconciled.Add(new RhythmCandidate(
+                    groupIndex == 0 ? candidate.Id : RhythmCandidateId.New(),
+                    groups[groupIndex].Key,
+                    candidate.Label,
+                    candidate.Provenance,
+                    events));
+            }
+        }
+
+        _rhythmCandidates.Clear();
+        _rhythmCandidates.AddRange(reconciled);
+        ValidateRhythmCandidateReferences();
+    }
+
+    private static RhythmCandidate CloneRhythmCandidate(RhythmCandidate candidate) => new(
+        candidate.Id,
+        candidate.PhraseId,
+        candidate.Label,
+        candidate.Provenance,
+        candidate.Events.Select(item => new RhythmCandidateEvent(
+            item.Id,
+            item.SyllableId,
+            item.Position,
+            item.BeatPosition)).ToList());
+
+    private void ValidateRhythmCandidateReferences() =>
+        ValidateSerializedRhythmCandidates(_words, _phrases, _rhythmCandidates);
+
+    private static void ValidateSerializedRhythmCandidates(
+        IReadOnlyList<LyricWord> words,
+        IReadOnlyList<LyricPhrase> phrases,
+        IReadOnlyList<RhythmCandidate> candidates)
+    {
+        if (candidates.Select(item => item.Id).Distinct().Count() != candidates.Count)
+            throw new ArgumentException("Rhythm candidate IDs must be unique within a lyric line.", nameof(candidates));
+        var allEvents = candidates.SelectMany(item => item.Events).ToList();
+        if (allEvents.Select(item => item.Id).Distinct().Count() != allEvents.Count)
+            throw new ArgumentException("Rhythm candidate event IDs must be unique within a lyric line.", nameof(candidates));
+
+        var wordById = words.ToDictionary(item => item.Id);
+        var phraseById = phrases.ToDictionary(item => item.Id);
+        foreach (var candidate in candidates)
+        {
+            if (!phraseById.TryGetValue(candidate.PhraseId, out var phrase))
+                throw new ArgumentException($"Rhythm candidate '{candidate.Id}' references a phrase that does not exist.", nameof(candidates));
+            var orderedSyllableIds = phrase.WordIds
+                .SelectMany(wordId => wordById[wordId].Syllables)
+                .Select(item => item.Id)
+                .ToList();
+            var referenced = candidate.Events.Select(item => item.SyllableId).ToList();
+            var referencedSet = referenced.ToHashSet();
+            if (!referenced.SequenceEqual(orderedSyllableIds.Where(referencedSet.Contains)))
+                throw new ArgumentException("Rhythm candidate events must reference syllables from their phrase once and in lyric order.", nameof(candidates));
+        }
+    }
 
     private static void ValidateSerializedPlacements(
         IReadOnlyList<LyricWord> words,
