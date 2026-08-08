@@ -46,7 +46,7 @@ Build the lyric document, token/syllable/stress annotations, beat mapping, breat
 
 The current slice gives lyric lines, words, and syllables strongly typed identifiers; tokenizes structured lines with exact source offsets; preserves unchanged word identities across edits; and exposes addressable word tokens in the editor. Schema-v2 songs and recovery snapshots migrate deterministically to schema v3. Syllable collections are explicitly editable data but remain empty until a future analyzer or artist supplies boundaries.
 
-Phrase modeling, automatic syllable extraction, stress, rhyme, breath points, rhythm candidates, locks, scoring, and beat mapping remain future Milestone 2 slices.
+Automatic syllable extraction, stress, rhyme, breath points, rhythm candidates, locks, scoring, and beat mapping remain future Milestone 2 slices.
 
 **Deliverable:** Maskil Forge can identify and preserve the individual words that later lyric intelligence will analyze.
 
@@ -54,9 +54,17 @@ Phrase modeling, automatic syllable extraction, stress, rhyme, breath points, rh
 
 The current slice makes syllables ordered entities with stable identifiers and explicit `Manual`, `Analyzer`, or `Imported` provenance. The editor lets the artist enter and correct boundaries with a visible separator, treats those corrections as authoritative, and retains matching IDs when surrounding boundaries shift. Schema-v3 songs and recovery snapshots migrate in memory to schema v4 without changing existing syllable IDs.
 
-No automatic pronunciation or syllabification service is implemented yet. Stress, punctuation entities, phrases, breath points, beat placement, melisma, scoring, and AI assistance remain later focused slices.
+No automatic pronunciation or syllabification service is implemented yet. Stress, breath points, beat placement, melisma, scoring, and AI assistance remain later focused slices.
 
 **Deliverable:** an artist can define how each word is intended to be sung, save it, reload it, and retain the same ordered syllable identities and provenance.
+
+### Milestone 2.3 — Phrase foundation
+
+The current slice identifies punctuation without removing it from the original lyric text and represents each phrase as an ordered reference to existing word IDs. New and schema-v4 lines begin as one default phrase. Artists can add phrase breaks or join adjacent phrases with explicit, readable controls; these decisions receive `Manual` provenance. Phrase and punctuation identities survive save/load and compatible nearby text edits. Schema-v4 songs and recovery snapshots migrate deterministically to schema v5.
+
+Punctuation does not automatically imply a breath or phrase break. Phrase meaning, emphasis, stress, breath recommendations, automatic boundary suggestions, rhythm candidates, and beat mapping remain future work.
+
+**Deliverable:** an artist can group a lyric line into meaningful sung ideas without changing its words, and those groupings remain stable, editable project data.
 
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 

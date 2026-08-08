@@ -16,6 +16,17 @@ public sealed class LyricDocumentTests
     }
 
     [Fact]
+    public void PunctuationTokens_PreserveMarksWithoutSplittingInternalWordPunctuation()
+    {
+        const string text = "Don't stop, mother-in-law—listen!";
+
+        var tokens = LyricLine.TokenizePunctuation(text);
+
+        Assert.Equal([",", "—", "!"], tokens.Select(item => item.Text));
+        Assert.All(tokens, token => Assert.Equal(token.Text, text.Substring(token.Start, token.Length)));
+    }
+
+    [Fact]
     public void EditLine_PreservesUnchangedWordIdentifiersAcrossInsertions()
     {
         var line = LyricLine.Create("grace how sweet");
@@ -84,6 +95,58 @@ public sealed class LyricDocumentTests
     }
 
     [Fact]
+    public void NewLyricLine_StartsAsOneDefaultPhraseCoveringEveryWord()
+    {
+        var line = LyricLine.Create("I thought the way out");
+
+        var phrase = Assert.Single(line.Phrases);
+        Assert.Equal(0, phrase.Position);
+        Assert.Equal(PhraseSource.Default, phrase.Source);
+        Assert.Equal(line.Words.Select(item => item.Id), phrase.WordIds);
+    }
+
+    [Fact]
+    public void ManualPhraseSplitAndJoin_PreserveTheOriginalPhraseIdentity()
+    {
+        var line = LyricLine.Create("I thought the way out was through pain");
+        var originalPhraseId = line.Phrases[0].Id;
+        var splitWord = line.Words.Single(item => item.Text == "out");
+
+        line.SplitPhraseAfter(splitWord.Id);
+
+        Assert.Equal(2, line.Phrases.Count);
+        Assert.Equal(originalPhraseId, line.Phrases[0].Id);
+        Assert.Equal(["I", "thought", "the", "way", "out"],
+            line.Phrases[0].WordIds.Select(id => line.Words.Single(word => word.Id == id).Text));
+        Assert.Equal(["was", "through", "pain"],
+            line.Phrases[1].WordIds.Select(id => line.Words.Single(word => word.Id == id).Text));
+        Assert.All(line.Phrases, item => Assert.Equal(PhraseSource.Manual, item.Source));
+
+        line.JoinPhraseWithPrevious(line.Phrases[1].Id);
+
+        var joined = Assert.Single(line.Phrases);
+        Assert.Equal(originalPhraseId, joined.Id);
+        Assert.Equal(PhraseSource.Manual, joined.Source);
+        Assert.Equal(line.Words.Select(item => item.Id), joined.WordIds);
+    }
+
+    [Fact]
+    public void LineEdit_PreservesPhraseAndPunctuationIdentitiesAroundInsertedWords()
+    {
+        var line = LyricLine.Create("I thought the way out, was through pain.");
+        line.SplitPhraseAfter(line.Words.Single(item => item.Text == "out").Id);
+        var phraseIds = line.Phrases.Select(item => item.Id).ToList();
+        var punctuationIds = line.Punctuation.Select(item => item.Id).ToList();
+
+        line.SetText("Tonight I thought the way out, was through pain.");
+
+        Assert.Equal(phraseIds, line.Phrases.Select(item => item.Id));
+        Assert.Equal(punctuationIds, line.Punctuation.Select(item => item.Id));
+        Assert.Contains(line.Words.Single(item => item.Text == "Tonight").Id, line.Phrases[0].WordIds);
+        Assert.Equal(line.Words.Select(item => item.Id), line.Phrases.SelectMany(item => item.WordIds));
+    }
+
+    [Fact]
     public void LyricDocument_ProjectsRawDraftAndOrderedStructuredLines()
     {
         var project = SongProject.Create("Words");
@@ -121,6 +184,24 @@ public sealed class LyricDocumentTests
 
         Assert.Throws<ArgumentException>(() =>
             new LyricWord(LyricWordId.New(), "amaz", 0, 4, syllables));
+    }
+
+    [Fact]
+    public void LyricLine_RejectsPhraseReferencesThatDoNotCoverWordsInOrder()
+    {
+        var source = LyricLine.Create("one two");
+        var invalidPhrase = new LyricPhrase(
+            LyricPhraseId.New(),
+            0,
+            [source.Words[1].Id],
+            PhraseSource.Imported);
+
+        Assert.Throws<ArgumentException>(() => new LyricLine(
+            LyricLineId.New(),
+            source.Text,
+            source.Words,
+            source.Punctuation,
+            [invalidPhrase]));
     }
 
     [Fact]
