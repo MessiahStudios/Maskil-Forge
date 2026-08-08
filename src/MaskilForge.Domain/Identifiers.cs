@@ -72,10 +72,24 @@ public readonly record struct PunctuationId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(ProsodicPatternIdJsonConverter))]
+public readonly record struct ProsodicPatternId(Guid Value)
+{
+    public static ProsodicPatternId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
+[JsonConverter(typeof(ProsodicUnitIdJsonConverter))]
+public readonly record struct ProsodicUnitId(Guid Value)
+{
+    public static ProsodicUnitId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(6);
+    public static SchemaVersion Current => new(7);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -166,4 +180,16 @@ internal sealed class PunctuationIdJsonConverter : GuidIdJsonConverter<Punctuati
 {
     protected override PunctuationId Create(Guid value) => new(value);
     protected override Guid GetValue(PunctuationId value) => value.Value;
+}
+
+internal sealed class ProsodicPatternIdJsonConverter : GuidIdJsonConverter<ProsodicPatternId>
+{
+    protected override ProsodicPatternId Create(Guid value) => new(value);
+    protected override Guid GetValue(ProsodicPatternId value) => value.Value;
+}
+
+internal sealed class ProsodicUnitIdJsonConverter : GuidIdJsonConverter<ProsodicUnitId>
+{
+    protected override ProsodicUnitId Create(Guid value) => new(value);
+    protected override Guid GetValue(ProsodicUnitId value) => value.Value;
 }

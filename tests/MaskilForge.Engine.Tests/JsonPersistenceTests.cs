@@ -29,10 +29,16 @@ public sealed class JsonPersistenceTests
                 verseLine.Words[2].Syllables[0].Id,
                 StressLevel.Primary);
             verseLine.SplitPhraseAfter(verseLine.Words[1].Id);
+            verseLine.SetProsodicWeight(
+                verseLine.Phrases[1].Id,
+                verseLine.Words[2].Syllables[0].Id,
+                ProsodicWeight.Strong);
             var verseWordIds = verseLine.Words.Select(word => word.Id).ToList();
             var syllableId = verseLine.Words[2].Syllables[0].Id;
             var punctuationId = verseLine.Punctuation[0].Id;
             var phraseIds = verseLine.Phrases.Select(item => item.Id).ToList();
+            var prosodicPatternId = verseLine.Phrases[1].Prosody!.Id;
+            var prosodicUnitId = verseLine.Phrases[1].Prosody!.Units[0].Id;
             var chorus = project.AddSection(SectionKind.Chorus);
             var chorusLine = chorus.AddLyricLine("You brought me home");
             project.SetSectionDuration(verse.Id, 12);
@@ -57,6 +63,13 @@ public sealed class JsonPersistenceTests
             Assert.Equal(punctuationId, loaded.Sections[0].LyricLines[0].Punctuation[0].Id);
             Assert.Equal(phraseIds, loaded.Sections[0].LyricLines[0].Phrases.Select(item => item.Id));
             Assert.All(loaded.Sections[0].LyricLines[0].Phrases, item => Assert.Equal(PhraseSource.Manual, item.Source));
+            var loadedProsody = Assert.IsType<ProsodicPattern>(loaded.Sections[0].LyricLines[0].Phrases[1].Prosody);
+            var loadedUnit = Assert.Single(loadedProsody.Units);
+            Assert.Equal(prosodicPatternId, loadedProsody.Id);
+            Assert.Equal(prosodicUnitId, loadedUnit.Id);
+            Assert.Equal(syllableId, loadedUnit.SyllableId);
+            Assert.Equal(ProsodicWeight.Strong, loadedUnit.Weight);
+            Assert.Equal(ProsodyProvenance.Manual, loadedUnit.Provenance);
             Assert.Equal(chorusLine.Id, loaded.Sections[1].LyricLines[0].Id);
             Assert.Equal("You brought me home", loaded.Sections[1].LyricLines[0].Text);
             Assert.Equal("Maskil Artist", loaded.Artist);
@@ -142,7 +155,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV6_WritesStableTimelineLyricSyllablePhraseAndStressContract()
+    public async Task SchemaV7_WritesStableTimelineLyricSyllablePhraseStressAndProsodyContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -153,11 +166,15 @@ public sealed class JsonPersistenceTests
             line.SetSyllables(line.Words[1].Id, ["be", "come"]);
             line.SetStress(line.Words[1].Id, line.Words[1].Syllables[1].Id, StressLevel.Emphasized);
             line.SplitPhraseAfter(line.Words[1].Id);
+            line.SetProsodicWeight(
+                line.Phrases[0].Id,
+                line.Words[1].Syllables[1].Id,
+                ProsodicWeight.Strong);
             await repository.SaveAsync(project, CancellationToken.None);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(6, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(7, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -193,6 +210,15 @@ public sealed class JsonPersistenceTests
                 Assert.Equal("Manual", phrase.GetProperty("source").GetString());
                 Assert.Equal(JsonValueKind.Array, phrase.GetProperty("wordIds").ValueKind);
             });
+            var prosody = savedLine.GetProperty("phrases")[0].GetProperty("prosody");
+            Assert.Equal(JsonValueKind.String, prosody.GetProperty("id").ValueKind);
+            var unit = Assert.Single(prosody.GetProperty("units").EnumerateArray());
+            Assert.Equal(JsonValueKind.String, unit.GetProperty("id").ValueKind);
+            Assert.Equal(line.Words[1].Syllables[1].Id.ToString(), unit.GetProperty("syllableId").GetString());
+            Assert.Equal(0, unit.GetProperty("position").GetInt32());
+            Assert.Equal("Strong", unit.GetProperty("weight").GetString());
+            Assert.Equal("Manual", unit.GetProperty("provenance").GetString());
+            Assert.Equal(JsonValueKind.Null, savedLine.GetProperty("phrases")[1].GetProperty("prosody").ValueKind);
         }
         finally
         {
@@ -552,6 +578,88 @@ public sealed class JsonPersistenceTests
             Assert.Equal(syllableId, syllable.Id);
             Assert.Null(syllable.Stress);
             Assert.Equal(originalV5, await File.ReadAllTextAsync(path));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_MigratesSchemaV6PhrasesToUndecidedProsody()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var projectId = ProjectId.New();
+        var sectionId = SectionId.New();
+        var lineId = LyricLineId.New();
+        var wordId = LyricWordId.New();
+        var syllableId = SyllableId.New();
+        var phraseId = LyricPhraseId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var originalV6 = $$"""
+            {
+              "id": "{{projectId}}",
+              "schemaVersion": 6,
+              "title": "Prosody Migration",
+              "timeline": {
+                "ticksPerQuarterNote": 480,
+                "tempoMap": { "events": [{ "beat": 0, "beatsPerMinute": 120 }] },
+                "timeSignatureMap": { "events": [{ "beat": 0, "numerator": 4, "denominator": 4 }] },
+                "sectionPlacements": [{
+                  "sectionId": "{{sectionId}}",
+                  "start": { "bar": 1, "beat": 1, "tick": 0 },
+                  "durationBars": 8
+                }]
+              },
+              "sections": [{
+                "id": "{{sectionId}}",
+                "kind": "Verse",
+                "title": "Verse",
+                "lyricLines": [{
+                  "id": "{{lineId}}",
+                  "text": "pain",
+                  "words": [{
+                    "id": "{{wordId}}",
+                    "text": "pain",
+                    "start": 0,
+                    "length": 4,
+                    "syllables": [{
+                      "id": "{{syllableId}}",
+                      "text": "pain",
+                      "position": 0,
+                      "source": "Manual",
+                      "stress": { "level": "Primary", "provenance": "Manual" }
+                    }]
+                  }],
+                  "punctuation": [],
+                  "phrases": [{
+                    "id": "{{phraseId}}",
+                    "position": 0,
+                    "wordIds": ["{{wordId}}"],
+                    "source": "Manual"
+                  }]
+                }]
+              }],
+              "tracks": []
+            }
+            """;
+            var path = Path.Combine(directory, $"{projectId}.json");
+            await File.WriteAllTextAsync(path, originalV6);
+
+            var loaded = await new JsonFileProjectRepository(directory).LoadAsync(projectId, CancellationToken.None);
+
+            Assert.NotNull(loaded);
+            Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
+            var line = loaded.Sections[0].LyricLines[0];
+            var syllable = Assert.Single(line.Words[0].Syllables);
+            Assert.Equal(syllableId, syllable.Id);
+            Assert.Equal(StressLevel.Primary, syllable.Stress?.Level);
+            var phrase = Assert.Single(line.Phrases);
+            Assert.Equal(phraseId, phrase.Id);
+            Assert.Null(phrase.Prosody);
+            Assert.Equal(originalV6, await File.ReadAllTextAsync(path));
         }
         finally
         {

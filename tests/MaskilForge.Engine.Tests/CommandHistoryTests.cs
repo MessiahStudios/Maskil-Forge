@@ -167,4 +167,81 @@ public sealed class CommandHistoryTests
         Assert.Equal(StressLevel.Primary, word.Syllables[0].Stress?.Level);
         Assert.Equal(StressProvenance.Manual, word.Syllables[0].Stress?.Provenance);
     }
+
+    [Fact]
+    public void UndoAndRedo_ProsodicWeight_RestoresExactPatternIdentityAndProvenance()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("through pain");
+        var word = line.Words[1];
+        line.SetSyllables(word.Id, ["pain"]);
+        var phraseId = line.Phrases[0].Id;
+        var syllableId = word.Syllables[0].Id;
+        line.SetProsodicWeight(
+            phraseId,
+            syllableId,
+            ProsodicWeight.Weak,
+            ProsodyProvenance.Imported);
+        var patternId = line.Phrases[0].Prosody!.Id;
+        var unitId = line.Phrases[0].Prosody!.Units[0].Id;
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetProsodicWeightCommand(
+            section.Id,
+            line.Id,
+            phraseId,
+            syllableId,
+            ProsodicWeight.Strong));
+        AssertProsody(line, patternId, unitId, ProsodicWeight.Strong, ProsodyProvenance.Manual);
+
+        Assert.True(editor.Undo());
+        AssertProsody(line, patternId, unitId, ProsodicWeight.Weak, ProsodyProvenance.Imported);
+
+        Assert.True(editor.Redo());
+        AssertProsody(line, patternId, unitId, ProsodicWeight.Strong, ProsodyProvenance.Manual);
+    }
+
+    [Fact]
+    public void UndoAndRedo_NewProsodicWeight_ReusesGeneratedIdentifiers()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("home");
+        var word = line.Words[0];
+        line.SetSyllables(word.Id, ["home"]);
+        var phraseId = line.Phrases[0].Id;
+        var syllableId = word.Syllables[0].Id;
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetProsodicWeightCommand(
+            section.Id,
+            line.Id,
+            phraseId,
+            syllableId,
+            ProsodicWeight.Neutral));
+        var patternId = line.Phrases[0].Prosody!.Id;
+        var unitId = line.Phrases[0].Prosody!.Units[0].Id;
+
+        Assert.True(editor.Undo());
+        Assert.Null(line.Phrases[0].Prosody);
+
+        Assert.True(editor.Redo());
+        AssertProsody(line, patternId, unitId, ProsodicWeight.Neutral, ProsodyProvenance.Manual);
+    }
+
+    private static void AssertProsody(
+        LyricLine line,
+        ProsodicPatternId patternId,
+        ProsodicUnitId unitId,
+        ProsodicWeight weight,
+        ProsodyProvenance provenance)
+    {
+        var pattern = Assert.IsType<ProsodicPattern>(line.Phrases[0].Prosody);
+        var unit = Assert.Single(pattern.Units);
+        Assert.Equal(patternId, pattern.Id);
+        Assert.Equal(unitId, unit.Id);
+        Assert.Equal(weight, unit.Weight);
+        Assert.Equal(provenance, unit.Provenance);
+    }
 }

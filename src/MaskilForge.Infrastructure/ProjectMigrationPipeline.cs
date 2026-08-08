@@ -282,3 +282,29 @@ internal sealed class V5ToV6ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V6ToV7ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 6;
+    public int ToVersion => 7;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["sections"] is JsonArray sections)
+        {
+            foreach (var section in sections.OfType<JsonObject>())
+            {
+                if (section["lyricLines"] is not JsonArray lines) continue;
+                foreach (var line in lines.OfType<JsonObject>())
+                {
+                    if (line["phrases"] is not JsonArray phrases) continue;
+                    foreach (var phrase in phrases.OfType<JsonObject>())
+                        phrase["prosody"] = null;
+                }
+            }
+        }
+
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

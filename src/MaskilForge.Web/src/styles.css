@@ -121,6 +121,16 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .phrase-words { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
 .phrase-word { padding: .28rem .5rem; color: #fff7e7; background: #252820; border-radius: .3rem; }
 .phrase-break { min-height: 1.9rem; padding: .28rem .45rem !important; color: #d9c793 !important; border-color: #5d5949 !important; font-size: .72rem !important; }
+.prosody-editor { display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: .55rem; margin-top: .7rem; padding-top: .65rem; border-top: 1px solid #353930; }
+.prosody-heading { grid-column: 1 / -1; display: grid; gap: .15rem; color: #d8d0bf; }
+.prosody-heading small, .prosody-empty { color: #979c90; }
+.prosodic-unit { display: grid; gap: .3rem; padding: .5rem; color: #f3e6ca; background: #1d201b; border: 1px solid #44493f; border-radius: .35rem; }
+.prosodic-unit > span { overflow-wrap: anywhere; }
+.prosodic-unit > span small { margin-left: .25rem; color: #969b8f; }
+.prosodic-unit select { width: 100%; padding: .4rem .45rem; color: #fff7e7; background: #111410; border-color: #70684f; }
+.prosodic-unit select:focus { border-color: #d6b86d; outline: 2px solid rgba(214, 184, 109, .25); outline-offset: 1px; }
+.prosodic-unit > small { color: #aaa596; text-transform: uppercase; letter-spacing: .05em; }
+.prosody-empty { display: block; margin-top: .6rem; }
 .lyric-delete { color: #efb7ad !important; border-color: #7a4b44 !important; }
 .developer-details { padding-top: .45rem; border-top: 1px solid #30342e; }
 .developer-details summary { color: #858b7e; font-size: .72rem; }

@@ -204,6 +204,12 @@ public sealed class SongProject
         var phrases = lines.SelectMany(line => line.Phrases).ToList();
         if (phrases.Select(item => item.Id).Distinct().Count() != phrases.Count)
             throw new ArgumentException("Lyric phrase IDs must be unique across the project.");
+        var patterns = phrases.Where(item => item.Prosody is not null).Select(item => item.Prosody!).ToList();
+        if (patterns.Select(item => item.Id).Distinct().Count() != patterns.Count)
+            throw new ArgumentException("Prosodic pattern IDs must be unique across the project.");
+        var prosodicUnits = patterns.SelectMany(item => item.Units).ToList();
+        if (prosodicUnits.Select(item => item.Id).Distinct().Count() != prosodicUnits.Count)
+            throw new ArgumentException("Prosodic unit IDs must be unique across the project.");
     }
 
     public void Touch() => LastModifiedUtc = DateTimeOffset.UtcNow;

@@ -74,6 +74,16 @@ No analyzer currently assigns stress. Vocal analysis, emotional scoring, genre p
 
 **Deliverable:** an artist can record which sung syllables carry weight, revise that decision safely, and preserve it as structured creative intent.
 
+### Milestone 2.5 — Prosody foundation
+
+The current slice adds an optional phrase-relative prosodic pattern with stable pattern and unit identifiers. Each unit references an existing syllable ID and records `Weak`, `Neutral`, or `Strong` weight plus `Manual`, `Analyzer`, or `Imported` provenance. The editor creates manual decisions only and leaves unmapped syllables explicitly undecided. Stress remains a separate syllable annotation; the engine does not infer prosodic weight from it.
+
+Compatible lyric and syllable edits preserve surviving units. Phrase split partitions existing units, phrase join recombines them in syllable order, and neither operation invents weights. Save/load and session undo/redo preserve exact pattern and unit identities and provenance. Schema-v6 songs and recovery snapshots migrate in memory to schema v7 with phrases left without a prosodic pattern.
+
+Automatic prosody detection, natural-language scoring, breath analysis, beat mapping, rhythm candidates, melodic contour, AI, MIDI, playback, and audio remain outside this slice.
+
+**Deliverable:** an artist can describe the relative weight of chosen syllables inside a phrase as stable, editable data without committing them to musical time.
+
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 
 ## Milestone 3 — Theory and harmony
