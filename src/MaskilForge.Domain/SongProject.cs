@@ -37,7 +37,8 @@ public sealed class SongProject
         string rawLyricDraft = "",
         DateTimeOffset createdUtc = default,
         DateTimeOffset lastModifiedUtc = default,
-        IReadOnlyList<CreativeLock>? locks = null)
+        IReadOnlyList<CreativeLock>? locks = null,
+        MusicalKey? key = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -52,6 +53,7 @@ public sealed class SongProject
         _sections = sections?.ToList() ?? [];
         _tracks = tracks?.ToList() ?? [];
         _locks = locks?.Select(CloneLock).ToList() ?? [];
+        Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
         ValidateAllSyllablePlacements(TimeSignature);
@@ -79,6 +81,7 @@ public sealed class SongProject
     public IReadOnlyList<SongSection> Sections => _sections;
     public IReadOnlyList<Track> Tracks => _tracks;
     public IReadOnlyList<CreativeLock> Locks => _locks;
+    public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
         ProjectId.New(),
@@ -106,6 +109,13 @@ public sealed class SongProject
     {
         if (!Enum.IsDefined(genre)) throw new ArgumentOutOfRangeException(nameof(genre), "Genre is invalid.");
         Genre = genre;
+        Touch();
+    }
+
+    public void SetKey(MusicalKey key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        Key = key;
         Touch();
     }
 

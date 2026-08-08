@@ -9,6 +9,16 @@ export type ProsodyProvenance = 'Manual' | 'Analyzer' | 'Imported'
 export type PlacementProvenance = 'Manual' | 'Analyzer' | 'Imported'
 export type RhythmCandidateProvenance = 'Manual' | 'Analyzer' | 'Imported'
 export type BreathProvenance = 'Manual' | 'Analyzer' | 'Imported'
+export type NoteLetter = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'
+export type Accidental = 'Natural' | 'Sharp' | 'Flat'
+export type ScaleMode = 'Major' | 'NaturalMinor'
+export type ChordQuality = 'Major' | 'Minor' | 'Diminished' | 'Augmented' | 'DominantSeventh'
+
+export interface MusicalKey {
+  tonic: NoteLetter
+  accidental: Accidental
+  mode: ScaleMode
+}
 
 export interface LyricLine {
   id: string
@@ -203,6 +213,7 @@ export interface SongProject {
   sections: SongSection[]
   tracks: unknown[]
   locks: CreativeLock[]
+  key: MusicalKey
 }
 
 export interface ProjectResponse {
@@ -263,6 +274,7 @@ export interface ProjectCommand {
   candidateLabel?: string
   breathPresent?: boolean
   creativeLockId?: string
+  key?: MusicalKey
   text?: string
   syllables?: string[]
 }

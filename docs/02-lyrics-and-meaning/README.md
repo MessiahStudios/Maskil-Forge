@@ -67,7 +67,7 @@ Emotional intent maps to musical tendencies. For example, vulnerability may redu
 
 ## Theory foundation
 
-Implement notes, intervals, scales, modes, keys, chords, inversions, Roman numerals, cadences, voice leading, transposition, and range checking as deterministic code.
+The current foundation implements deterministic theory primitives in code: pitch class, note spelling, intervals, major and natural-minor scales, a small chord vocabulary (major, minor, diminished, augmented, dominant seventh), transposition, and an editable song-level `MusicalKey` (schema v12). Progressions, Roman numerals, cadences, voice leading, instrument range checks, harmony candidates, and chord audition remain later Milestone 3 slices.
 
 ## Planned completion gate
 

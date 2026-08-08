@@ -592,6 +592,24 @@ public sealed class UnlockCreativeLockCommand(CreativeLockId lockId) : IProjectC
     }
 }
 
+public sealed class SetKeyCommand(MusicalKey key) : IProjectCommand
+{
+    private MusicalKey? _previous;
+
+    public void Execute(SongProject project)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        _previous ??= project.Key;
+        project.SetKey(key);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previous is null) throw new InvalidOperationException("Command has not been executed.");
+        project.SetKey(_previous);
+    }
+}
+
 internal static class RhythmCandidateSnapshots
 {
     public static IReadOnlyList<RhythmCandidate> Create(IEnumerable<RhythmCandidate> candidates) =>

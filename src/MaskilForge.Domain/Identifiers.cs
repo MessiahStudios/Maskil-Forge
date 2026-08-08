@@ -124,7 +124,7 @@ public readonly record struct CreativeLockId(Guid Value)
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(11);
+    public static SchemaVersion Current => new(12);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>

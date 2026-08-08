@@ -188,7 +188,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV11_WritesStableLyricProsodyBeatMappingRhythmBreathAndLockContract()
+    public async Task SchemaV12_WritesStableLyricProsodyBeatMappingRhythmBreathLockAndKeyContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -219,7 +219,7 @@ public sealed class JsonPersistenceTests
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(11, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(12, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -291,6 +291,10 @@ public sealed class JsonPersistenceTests
             Assert.Equal(line.Id.ToString(), creativeLock.GetProperty("lineId").GetString());
             Assert.Equal(JsonValueKind.Null, creativeLock.GetProperty("phraseId").ValueKind);
             Assert.Equal("Manual", creativeLock.GetProperty("provenance").GetString());
+            var key = root.GetProperty("key");
+            Assert.Equal("C", key.GetProperty("tonic").GetString());
+            Assert.Equal("Natural", key.GetProperty("accidental").GetString());
+            Assert.Equal("Major", key.GetProperty("mode").GetString());
         }
         finally
         {
@@ -1080,7 +1084,62 @@ public sealed class JsonPersistenceTests
             Assert.NotNull(loaded);
             Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
             Assert.Empty(loaded.Locks);
+            Assert.Equal(NoteLetter.C, loaded.Key.Tonic);
+            Assert.Equal(Accidental.Natural, loaded.Key.Accidental);
+            Assert.Equal(ScaleMode.Major, loaded.Key.Mode);
             Assert.Equal(originalV10, await File.ReadAllTextAsync(path));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_MigratesSchemaV11WithDefaultCMajorKey()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var projectId = ProjectId.New();
+        var sectionId = SectionId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var originalV11 = $$"""
+            {
+              "id": "{{projectId}}",
+              "schemaVersion": 11,
+              "title": "Key Migration",
+              "timeline": {
+                "ticksPerQuarterNote": 480,
+                "tempoMap": { "events": [{ "beat": 0, "beatsPerMinute": 120 }] },
+                "timeSignatureMap": { "events": [{ "beat": 0, "numerator": 4, "denominator": 4 }] },
+                "sectionPlacements": [{
+                  "sectionId": "{{sectionId}}",
+                  "start": { "bar": 1, "beat": 1, "tick": 0 },
+                  "durationBars": 8
+                }]
+              },
+              "sections": [{
+                "id": "{{sectionId}}",
+                "kind": "Verse",
+                "title": "Verse",
+                "lyricLines": []
+              }],
+              "tracks": [],
+              "locks": []
+            }
+            """;
+            var path = Path.Combine(directory, $"{projectId}.json");
+            await File.WriteAllTextAsync(path, originalV11);
+
+            var loaded = await new JsonFileProjectRepository(directory).LoadAsync(projectId, CancellationToken.None);
+
+            Assert.NotNull(loaded);
+            Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
+            Assert.Equal(NoteLetter.C, loaded.Key.Tonic);
+            Assert.Equal(Accidental.Natural, loaded.Key.Accidental);
+            Assert.Equal(ScaleMode.Major, loaded.Key.Mode);
+            Assert.Equal(originalV11, await File.ReadAllTextAsync(path));
         }
         finally
         {
