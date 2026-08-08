@@ -246,6 +246,32 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
                 request.SyllableId ?? throw new ArgumentException("Syllable ID is required."),
                 request.BeatPosition));
             break;
+        case "capture-rhythm-candidate":
+            editor.Execute(new CaptureRhythmCandidateCommand(
+                RequiredSectionId(request),
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.PhraseId ?? throw new ArgumentException("Lyric phrase ID is required."),
+                Required(request.CandidateLabel, "Rhythm option label")));
+            break;
+        case "rename-rhythm-candidate":
+            editor.Execute(new RenameRhythmCandidateCommand(
+                RequiredSectionId(request),
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.RhythmCandidateId ?? throw new ArgumentException("Rhythm candidate ID is required."),
+                Required(request.CandidateLabel, "Rhythm option label")));
+            break;
+        case "remove-rhythm-candidate":
+            editor.Execute(new RemoveRhythmCandidateCommand(
+                RequiredSectionId(request),
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.RhythmCandidateId ?? throw new ArgumentException("Rhythm candidate ID is required.")));
+            break;
+        case "apply-rhythm-candidate":
+            editor.Execute(new ApplyRhythmCandidateCommand(
+                RequiredSectionId(request),
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.RhythmCandidateId ?? throw new ArgumentException("Rhythm candidate ID is required.")));
+            break;
         case "split-lyric-phrase":
             editor.Execute(new SplitLyricPhraseCommand(
                 RequiredSectionId(request),
@@ -292,6 +318,8 @@ public sealed record ProjectCommandRequest(
     StressLevel? StressLevel = null,
     ProsodicWeight? ProsodicWeight = null,
     BeatPosition? BeatPosition = null,
+    RhythmCandidateId? RhythmCandidateId = null,
+    string? CandidateLabel = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

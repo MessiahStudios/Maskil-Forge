@@ -52,6 +52,7 @@ public sealed class SongProject
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
         ValidateAllSyllablePlacements(TimeSignature);
+        ValidateAllRhythmCandidates(TimeSignature);
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
@@ -125,6 +126,7 @@ public sealed class SongProject
     {
         var proposed = new TimeSignatureEvent(0, numerator, denominator);
         ValidateAllSyllablePlacements(proposed);
+        ValidateAllRhythmCandidates(proposed);
         Timeline.TimeSignatureMap.SetInitialTimeSignature(numerator, denominator);
         Touch();
     }
@@ -166,6 +168,8 @@ public sealed class SongProject
         var section = FindSection(sectionId);
         if (section.LyricLines.SelectMany(line => line.SyllablePlacements).Any(item => item.Position.Bar > durationBars))
             throw new InvalidOperationException("Section duration cannot end before an existing syllable placement. Clear or move the placement first.");
+        if (section.LyricLines.SelectMany(line => line.RhythmCandidates).SelectMany(item => item.Events).Any(item => item.BeatPosition.Bar > durationBars))
+            throw new InvalidOperationException("Section duration cannot end before an existing rhythm option. Remove that option first.");
         Timeline.SetSectionDuration(sectionId, durationBars, _sections.Select(item => item.Id).ToList());
         Touch();
     }
@@ -187,6 +191,29 @@ public sealed class SongProject
         ValidateBeatPosition(sectionId, position, TimeSignature);
         var section = Timeline.FindSection(sectionId);
         return new MusicalPosition(section.Start.Bar + position.Bar - 1, position.Beat, position.Tick);
+    }
+
+    public RhythmCandidate CaptureRhythmCandidate(
+        SectionId sectionId,
+        LyricLineId lineId,
+        LyricPhraseId phraseId,
+        string label,
+        RhythmCandidateProvenance provenance = RhythmCandidateProvenance.Manual)
+    {
+        var candidate = FindSection(sectionId).FindLyricLine(lineId)
+            .CaptureRhythmCandidate(phraseId, label, provenance);
+        Touch();
+        return candidate;
+    }
+
+    public void ApplyRhythmCandidate(SectionId sectionId, LyricLineId lineId, RhythmCandidateId candidateId)
+    {
+        var line = FindSection(sectionId).FindLyricLine(lineId);
+        var candidate = line.RhythmCandidates.SingleOrDefault(item => item.Id == candidateId)
+            ?? throw new KeyNotFoundException($"Rhythm candidate '{candidateId}' was not found.");
+        foreach (var item in candidate.Events) ValidateBeatPosition(sectionId, item.BeatPosition, TimeSignature);
+        line.ApplyRhythmCandidate(candidateId);
+        Touch();
     }
 
     public void MoveSection(SectionId sectionId, int targetIndex)
@@ -241,6 +268,12 @@ public sealed class SongProject
         var syllablePlacements = lines.SelectMany(line => line.SyllablePlacements).ToList();
         if (syllablePlacements.Select(item => item.Id).Distinct().Count() != syllablePlacements.Count)
             throw new ArgumentException("Syllable placement IDs must be unique across the project.");
+        var rhythmCandidates = lines.SelectMany(line => line.RhythmCandidates).ToList();
+        if (rhythmCandidates.Select(item => item.Id).Distinct().Count() != rhythmCandidates.Count)
+            throw new ArgumentException("Rhythm candidate IDs must be unique across the project.");
+        var rhythmEvents = rhythmCandidates.SelectMany(item => item.Events).ToList();
+        if (rhythmEvents.Select(item => item.Id).Distinct().Count() != rhythmEvents.Count)
+            throw new ArgumentException("Rhythm candidate event IDs must be unique across the project.");
     }
 
     private void ValidateAllSyllablePlacements(TimeSignatureEvent meter)
@@ -248,6 +281,13 @@ public sealed class SongProject
         foreach (var section in _sections)
         foreach (var placement in section.LyricLines.SelectMany(line => line.SyllablePlacements))
             ValidateBeatPosition(section.Id, placement.Position, meter);
+    }
+
+    private void ValidateAllRhythmCandidates(TimeSignatureEvent meter)
+    {
+        foreach (var section in _sections)
+        foreach (var rhythmEvent in section.LyricLines.SelectMany(line => line.RhythmCandidates).SelectMany(item => item.Events))
+            ValidateBeatPosition(section.Id, rhythmEvent.BeatPosition, meter);
     }
 
     private void ValidateBeatPosition(SectionId sectionId, BeatPosition position, TimeSignatureEvent meter)

@@ -46,7 +46,7 @@ Build the lyric document, token/syllable/stress annotations, beat mapping, breat
 
 The current slice gives lyric lines, words, and syllables strongly typed identifiers; tokenizes structured lines with exact source offsets; preserves unchanged word identities across edits; and exposes addressable word tokens in the editor. Schema-v2 songs and recovery snapshots migrate deterministically to schema v3. Syllable collections are explicitly editable data but remain empty until a future analyzer or artist supplies boundaries.
 
-Automatic syllable extraction, automatic stress detection, rhyme, breath points, rhythm candidates, locks, and scoring remain future Milestone 2 slices. Artist-authored stress representation is delivered separately in Milestone 2.4, and manual beat anchors in Milestone 2.6.
+Automatic syllable extraction, automatic stress detection, rhyme, breath points, candidate generation, locks, and scoring remain future Milestone 2 slices. Artist-authored stress representation is delivered separately in Milestone 2.4, manual beat anchors in Milestone 2.6, and manually captured rhythm options in Milestone 2.7.
 
 **Deliverable:** Maskil Forge can identify and preserve the individual words that later lyric intelligence will analyze.
 
@@ -62,7 +62,7 @@ No automatic pronunciation or syllabification service is implemented yet. Stress
 
 The current slice identifies punctuation without removing it from the original lyric text and represents each phrase as an ordered reference to existing word IDs. New and schema-v4 lines begin as one default phrase. Artists can add phrase breaks or join adjacent phrases with explicit, readable controls; these decisions receive `Manual` provenance and participate in session undo/redo without changing phrase identities during redo. Phrase and punctuation identities survive save/load and compatible nearby text edits. Schema-v4 songs and recovery snapshots migrate deterministically to schema v5.
 
-Punctuation does not automatically imply a breath or phrase break. Phrase meaning, automatic emphasis or stress detection, breath recommendations, automatic boundary suggestions, and rhythm candidates remain future work. Manual beat anchors are delivered separately in Milestone 2.6.
+Punctuation does not automatically imply a breath or phrase break. Phrase meaning, automatic emphasis or stress detection, breath recommendations, automatic boundary suggestions, and candidate generation remain future work. Manual beat anchors are delivered separately in Milestone 2.6, and manually captured rhythm options in Milestone 2.7.
 
 **Deliverable:** an artist can group a lyric line into meaningful sung ideas without changing its words, and those groupings remain stable, editable project data.
 
@@ -80,7 +80,7 @@ The current slice adds an optional phrase-relative prosodic pattern with stable 
 
 Compatible lyric and syllable edits preserve surviving units. Phrase split partitions existing units, phrase join recombines them in syllable order, and neither operation invents weights. Save/load and session undo/redo preserve exact pattern and unit identities and provenance. Schema-v6 songs and recovery snapshots migrate in memory to schema v7 with phrases left without a prosodic pattern.
 
-Automatic prosody detection, natural-language scoring, breath analysis, automatic beat mapping, rhythm candidates, melodic contour, AI, MIDI, playback, and audio remain outside this slice. Manual beat anchors are delivered separately in Milestone 2.6.
+Automatic prosody detection, natural-language scoring, breath analysis, automatic beat mapping, generated rhythm candidates, melodic contour, AI, MIDI, playback, and audio remain outside this slice. Manual beat anchors are delivered separately in Milestone 2.6, and manually captured rhythm options in Milestone 2.7.
 
 **Deliverable:** an artist can describe the relative weight of chosen syllables inside a phrase as stable, editable data without committing them to musical time.
 
@@ -90,9 +90,19 @@ The current slice connects selected syllables to section-relative musical coordi
 
 Artists can place, move, and clear individual syllable anchors. Placements record `Manual`, `Analyzer`, or `Imported` provenance, while the current editor creates manual data only. Domain boundaries reject coordinates outside the section or meter, prevent lyric order from moving backward in musical time, and stop section or meter edits from invalidating accepted anchors. Compatible lyric and syllable edits preserve surviving placement IDs; save/load and session undo/redo preserve exact identities and provenance. Schema-v7 songs and recovery snapshots migrate in memory to schema v8 with all syllables left unplaced.
 
-No automatic beat assignment, rhythm generation, note duration, melisma, breath analysis, rhythm candidates, melody, harmony, AI, MIDI, transport, playback, or audio is included.
+No automatic beat assignment, rhythm generation, note duration, melisma, breath analysis, generated candidates, melody, harmony, AI, MIDI, transport, playback, or audio is included. Manual candidate representation is delivered separately in Milestone 2.7.
 
 **Deliverable:** an artist can state exactly where a chosen syllable occurs in the song's musical coordinate system without generating a performance.
+
+### Milestone 2.7 — Rhythm candidate foundation
+
+The current slice lets an artist capture the active beat placements for one phrase as a named rhythm option. Stable `RhythmCandidateId` and `RhythmCandidateEventId` values preserve each possibility without copying lyric text: every event references an existing syllable ID and stores an alternative section-relative onset. Multiple options may coexist, and the artist explicitly chooses when to apply one back to the active syllable placements.
+
+Capture, rename, removal, and application participate in session undo/redo with exact identity restoration. Compatible lyric and syllable edits retain surviving events; phrase splits partition options and phrase joins re-associate them with the surviving phrase. Section duration and meter changes cannot invalidate saved options. Schema-v8 projects and recovery snapshots migrate in memory to schema v9 with an empty candidate collection, so migration never invents alternatives.
+
+This slice does not generate, rank, score, audition, or automatically accept rhythm. It adds no duration, rests, melisma, breath analysis, locks, melody, harmony, AI, MIDI, transport, playback, or audio.
+
+**Deliverable:** an artist can preserve, compare, and deliberately apply multiple onset possibilities for a phrase while the active beat map remains authoritative.
 
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 

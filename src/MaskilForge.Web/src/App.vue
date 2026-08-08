@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type BeatPosition, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type RecoverySummary, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
+import { projectsApi, type BeatPosition, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type RecoverySummary, type RhythmCandidate, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -30,9 +30,11 @@ const editorState = computed(() => isDirty.value ? 'Unsaved changes' : cleanLabe
 const meters = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8']
 const genres: SongGenre[] = ['Unspecified', 'Pop', 'Rock', 'Folk', 'Country', 'RAndB', 'HipHop', 'Electronic', 'Cinematic', 'Alternative', 'Other']
 const placementDrafts = reactive<Record<string, BeatPosition>>({})
+const candidateLabelDrafts = reactive<Record<string, string>>({})
 
 function accept(next: ProjectResponse, message: string, markPersisted = false) {
   response.value = next
+  Object.keys(placementDrafts).forEach(key => delete placementDrafts[key])
   projectId.value = next.project.id
   localStorage.setItem('maskilForge.projectId', next.project.id)
   status.value = message
@@ -337,6 +339,60 @@ function setSyllablePlacement(sectionId: string, lineId: string, syllableId: str
     'lyrics.beat-map.manual',
     { sectionId, lineId, syllableId, bar: beatPosition?.bar ?? null, beat: beatPosition?.beat ?? null, tick: beatPosition?.tick ?? null })
 }
+function rhythmCandidatesFor(line: LyricLine, phraseId: string) {
+  return line.rhythmCandidates.filter(candidate => candidate.phraseId === phraseId)
+}
+function suggestedCandidateLabel(line: LyricLine, phrase: LyricPhrase) {
+  return `Option ${rhythmCandidatesFor(line, phrase.id).length + 1}`
+}
+async function captureRhythmCandidate(sectionId: string, line: LyricLine, phrase: LyricPhrase) {
+  if (!project.value) return
+  const candidateLabel = candidateLabelDrafts[phrase.id]?.trim() || suggestedCandidateLabel(line, phrase)
+  const succeeded = await run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'capture-rhythm-candidate', sectionId, lineId: line.id, phraseId: phrase.id, candidateLabel,
+    }),
+    `${candidateLabel} saved for comparison.`,
+    'lyrics.rhythm-candidate.capture',
+    { sectionId, lineId: line.id, phraseId: phrase.id, candidateLabel })
+  if (succeeded) candidateLabelDrafts[phrase.id] = `Option ${rhythmCandidatesFor(line, phrase.id).length + 2}`
+}
+function renameRhythmCandidate(sectionId: string, lineId: string, candidateId: string, candidateLabel: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'rename-rhythm-candidate', sectionId, lineId, rhythmCandidateId: candidateId, candidateLabel,
+    }),
+    'Rhythm option renamed.',
+    'lyrics.rhythm-candidate.rename',
+    { sectionId, lineId, candidateId })
+}
+function removeRhythmCandidate(sectionId: string, lineId: string, candidateId: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'remove-rhythm-candidate', sectionId, lineId, rhythmCandidateId: candidateId,
+    }),
+    'Rhythm option removed.',
+    'lyrics.rhythm-candidate.remove',
+    { sectionId, lineId, candidateId })
+}
+function applyRhythmCandidate(sectionId: string, lineId: string, candidate: RhythmCandidate) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'apply-rhythm-candidate', sectionId, lineId, rhythmCandidateId: candidate.id,
+    }),
+    `${candidate.label} is now the active beat placement for this phrase.`,
+    'lyrics.rhythm-candidate.apply',
+    { sectionId, lineId, candidateId: candidate.id })
+}
+function candidateEventLabel(line: LyricLine, candidateEvent: RhythmCandidate['events'][number]) {
+  const syllable = line.words.flatMap(word => word.syllables.map(item => ({ word, syllable: item })))
+    .find(item => item.syllable.id === candidateEvent.syllableId)
+  const position = candidateEvent.beatPosition
+  return `${syllable?.syllable.text ?? 'Syllable'} ${position.bar}:${position.beat}:${position.tick}`
+}
 function setProsodicWeight(sectionId: string, lineId: string, phraseId: string, syllableId: string, value: string) {
   if (!project.value) return
   const prosodicWeight = value ? value as ProsodicWeight : null
@@ -371,7 +427,7 @@ function joinLyricPhrase(sectionId: string, lineId: string, phraseId: string) {
 async function addLyricLine(sectionIndex: number, focus = false) {
   if (!project.value) return
   const section = project.value.sections[sectionIndex]
-  const line = { id: crypto.randomUUID(), text: '', words: [], punctuation: [], phrases: [], syllablePlacements: [] }
+  const line = { id: crypto.randomUUID(), text: '', words: [], punctuation: [], phrases: [], syllablePlacements: [], rhythmCandidates: [] }
   section.lyricLines.push(line)
   activityLog.write('info', 'lyrics.line.add', 'Lyric line added locally.', { sectionId: section.id, lineId: line.id })
   if (focus) {
@@ -382,7 +438,7 @@ async function addLyricLine(sectionIndex: number, focus = false) {
 async function addLineAfter(sectionIndex: number, lineIndex: number) {
   if (!project.value) return
   const section = project.value.sections[sectionIndex]
-  const line = { id: crypto.randomUUID(), text: '', words: [], punctuation: [], phrases: [], syllablePlacements: [] }
+  const line = { id: crypto.randomUUID(), text: '', words: [], punctuation: [], phrases: [], syllablePlacements: [], rhythmCandidates: [] }
   section.lyricLines.splice(lineIndex + 1, 0, line)
   await nextTick()
   document.querySelector<HTMLInputElement>(`[data-line-id="${line.id}"]`)?.focus()
@@ -647,11 +703,34 @@ onBeforeUnmount(() => {
                       </div>
                     </div>
                     <small v-else class="prosody-empty">Add syllable boundaries above before describing phrase weight.</small>
+                    <section v-if="phraseSyllables(line, phrase).length" class="rhythm-candidate-editor" :aria-label="`Rhythm options for phrase ${phrase.position + 1}`">
+                      <div class="rhythm-candidate-heading">
+                        <div><strong>Rhythm options</strong><small>Save the current beat placements as a possibility. Nothing is generated or accepted automatically.</small></div>
+                        <form class="candidate-capture" @submit.prevent="captureRhythmCandidate(section.id, line, phrase)">
+                          <label>Option name<input v-model="candidateLabelDrafts[phrase.id]" :placeholder="suggestedCandidateLabel(line, phrase)" maxlength="100" :aria-label="`Name for a new rhythm option for phrase ${phrase.position + 1}`" :disabled="busy" /></label>
+                          <button type="submit" class="secondary" :disabled="busy">Save current placement</button>
+                        </form>
+                      </div>
+                      <p v-if="rhythmCandidatesFor(line, phrase.id).length === 0" class="candidate-empty">Place one or more syllables above, then save the timing as an option.</p>
+                      <div v-else class="candidate-list">
+                        <article v-for="candidate in rhythmCandidatesFor(line, phrase.id)" :key="candidate.id" class="candidate-card">
+                          <label>Option name<input :value="candidate.label" maxlength="100" :aria-label="`Rename rhythm option ${candidate.label}`" :disabled="busy" @change="renameRhythmCandidate(section.id, line.id, candidate.id, ($event.target as HTMLInputElement).value)" /></label>
+                          <div class="candidate-events" :aria-label="`${candidate.label} timing`">
+                            <span v-for="candidateEvent in candidate.events" :key="candidateEvent.id">{{ candidateEventLabel(line, candidateEvent) }}</span>
+                          </div>
+                          <small>{{ candidate.provenance }} · {{ candidate.events.length }} timed {{ candidate.events.length === 1 ? 'syllable' : 'syllables' }}</small>
+                          <div class="candidate-actions">
+                            <button type="button" :disabled="busy" @click="applyRhythmCandidate(section.id, line.id, candidate)">Use this option</button>
+                            <button type="button" class="danger" :disabled="busy" @click="removeRhythmCandidate(section.id, line.id, candidate.id)">Remove option</button>
+                          </div>
+                        </article>
+                      </div>
+                    </section>
                   </article>
                 </div>
               </div>
             </div>
-            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }} · Stress: {{ syllable.stress ? `${syllable.stress.level} (${syllable.stress.provenance})` : 'Unmarked' }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><template v-for="phrase in line.phrases" :key="phrase.id"><small>Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small><small v-if="phrase.prosody">Prosodic Pattern ID: {{ phrase.prosody.id }}</small><small v-for="unit in phrase.prosody?.units ?? []" :key="unit.id">Prosodic Unit ID: {{ unit.id }} · {{ unit.position }} · {{ unit.syllableId }} · {{ unit.weight }} · {{ unit.provenance }}</small></template><small v-for="placement in line.syllablePlacements" :key="placement.id">Syllable Placement ID: {{ placement.id }} · {{ placement.syllableId }} · {{ placement.position.bar }}:{{ placement.position.beat }}:{{ placement.position.tick }} · {{ placement.provenance }}</small></template></details>
+            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }} · Stress: {{ syllable.stress ? `${syllable.stress.level} (${syllable.stress.provenance})` : 'Unmarked' }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><template v-for="phrase in line.phrases" :key="phrase.id"><small>Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small><small v-if="phrase.prosody">Prosodic Pattern ID: {{ phrase.prosody.id }}</small><small v-for="unit in phrase.prosody?.units ?? []" :key="unit.id">Prosodic Unit ID: {{ unit.id }} · {{ unit.position }} · {{ unit.syllableId }} · {{ unit.weight }} · {{ unit.provenance }}</small></template><small v-for="placement in line.syllablePlacements" :key="placement.id">Syllable Placement ID: {{ placement.id }} · {{ placement.syllableId }} · {{ placement.position.bar }}:{{ placement.position.beat }}:{{ placement.position.tick }} · {{ placement.provenance }}</small><template v-for="candidate in line.rhythmCandidates" :key="candidate.id"><small>Rhythm Candidate ID: {{ candidate.id }} · {{ candidate.phraseId }} · {{ candidate.label }} · {{ candidate.provenance }}</small><small v-for="candidateEvent in candidate.events" :key="candidateEvent.id">Rhythm Event ID: {{ candidateEvent.id }} · {{ candidateEvent.position }} · {{ candidateEvent.syllableId }} · {{ candidateEvent.beatPosition.bar }}:{{ candidateEvent.beatPosition.beat }}:{{ candidateEvent.beatPosition.tick }}</small></template></template></details>
           </li>
         </ol>
       </section>

@@ -88,6 +88,86 @@ public sealed class SyllablePlacement
     public PlacementProvenance Provenance { get; }
 }
 
+public enum RhythmCandidateProvenance
+{
+    Manual,
+    Analyzer,
+    Imported
+}
+
+/// <summary>
+/// One syllable timing inside a reviewable rhythm possibility.
+/// </summary>
+public sealed class RhythmCandidateEvent
+{
+    [JsonConstructor]
+    public RhythmCandidateEvent(
+        RhythmCandidateEventId id,
+        SyllableId syllableId,
+        int position,
+        BeatPosition beatPosition)
+    {
+        if (id.Value == Guid.Empty) throw new ArgumentException("A rhythm candidate event ID is required.", nameof(id));
+        if (syllableId.Value == Guid.Empty) throw new ArgumentException("A syllable ID is required.", nameof(syllableId));
+        if (position < 0) throw new ArgumentOutOfRangeException(nameof(position), "Rhythm event position cannot be negative.");
+        Id = id;
+        SyllableId = syllableId;
+        Position = position;
+        BeatPosition = beatPosition;
+    }
+
+    public RhythmCandidateEventId Id { get; }
+    public SyllableId SyllableId { get; }
+    public int Position { get; }
+    public BeatPosition BeatPosition { get; }
+}
+
+/// <summary>
+/// A named, artist-reviewable timing possibility for one lyric phrase.
+/// </summary>
+public sealed class RhythmCandidate
+{
+    private readonly List<RhythmCandidateEvent> _events;
+
+    [JsonConstructor]
+    public RhythmCandidate(
+        RhythmCandidateId id,
+        LyricPhraseId phraseId,
+        string label,
+        RhythmCandidateProvenance provenance,
+        IReadOnlyList<RhythmCandidateEvent> events)
+    {
+        if (id.Value == Guid.Empty) throw new ArgumentException("A rhythm candidate ID is required.", nameof(id));
+        if (phraseId.Value == Guid.Empty) throw new ArgumentException("A lyric phrase ID is required.", nameof(phraseId));
+        if (string.IsNullOrWhiteSpace(label)) throw new ArgumentException("A rhythm candidate label is required.", nameof(label));
+        if (label.Trim().Length > 100) throw new ArgumentOutOfRangeException(nameof(label), "A rhythm candidate label cannot exceed 100 characters.");
+        if (!Enum.IsDefined(provenance)) throw new ArgumentOutOfRangeException(nameof(provenance), "Rhythm candidate provenance is invalid.");
+        ArgumentNullException.ThrowIfNull(events);
+        if (events.Count == 0) throw new ArgumentException("A rhythm candidate must contain at least one timed syllable.", nameof(events));
+        if (events.Select(item => item.Id).Distinct().Count() != events.Count)
+            throw new ArgumentException("Rhythm candidate event IDs must be unique.", nameof(events));
+        if (events.Select(item => item.SyllableId).Distinct().Count() != events.Count)
+            throw new ArgumentException("A syllable can appear only once in a rhythm candidate.", nameof(events));
+        if (events.Where((item, index) => item.Position != index).Any())
+            throw new ArgumentException("Rhythm candidate event positions must be contiguous and ordered from zero.", nameof(events));
+        for (var index = 1; index < events.Count; index++)
+            if (events[index - 1].BeatPosition.CompareTo(events[index].BeatPosition) >= 0)
+                throw new ArgumentException("Rhythm candidate syllables must advance through musical time.", nameof(events));
+
+        Id = id;
+        PhraseId = phraseId;
+        Label = label.Trim();
+        Provenance = provenance;
+        _events = events.ToList();
+    }
+
+    public RhythmCandidateId Id { get; }
+    public LyricPhraseId PhraseId { get; }
+    public string Label { get; }
+    public RhythmCandidateProvenance Provenance { get; }
+    public IReadOnlyList<RhythmCandidateEvent> Events => _events;
+}
+
 public sealed record TempoEvent
 {
     public TempoEvent(int beat, decimal beatsPerMinute)

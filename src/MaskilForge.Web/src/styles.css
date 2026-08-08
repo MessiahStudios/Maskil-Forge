@@ -139,6 +139,22 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .clear-placement { color: #f0ddbc !important; border-color: #71684f !important; }
 .placement-summary { grid-column: 1 / -1; color: #aaa596 !important; text-transform: none !important; letter-spacing: 0 !important; line-height: 1.4; }
 .prosody-empty { display: block; margin-top: .6rem; }
+.rhythm-candidate-editor { display: grid; gap: .7rem; margin-top: .8rem; padding-top: .75rem; border-top: 1px solid #4a4332; }
+.rhythm-candidate-heading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, .8fr); gap: .8rem; align-items: end; }
+.rhythm-candidate-heading > div { display: grid; gap: .2rem; color: #ead6a5; }
+.rhythm-candidate-heading small, .candidate-empty { color: #a9a395; line-height: 1.45; }
+.candidate-capture { display: grid; grid-template-columns: minmax(9rem, 1fr) auto; gap: .45rem; align-items: end; }
+.candidate-capture input, .candidate-card input { padding: .48rem .55rem; color: #fff8e9; background: #111410; border-color: #756b50; }
+.candidate-capture button { color: #fff1d3; background: #30291d; border-color: #917743; }
+.candidate-empty { margin: 0; padding: .65rem; border: 1px dashed #565143; border-radius: .35rem; }
+.candidate-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .6rem; }
+.candidate-card { display: grid; gap: .55rem; padding: .7rem; background: #20231d; border: 1px solid #555b4c; border-radius: .4rem; }
+.candidate-card > small { color: #b7b09f; }
+.candidate-events { display: flex; gap: .35rem; flex-wrap: wrap; }
+.candidate-events span { padding: .3rem .45rem; color: #f8e8c4; background: #171914; border: 1px solid #5d5949; border-radius: .3rem; font: .72rem ui-monospace, Consolas, monospace; }
+.candidate-actions { display: flex; gap: .45rem; flex-wrap: wrap; }
+.candidate-actions button { flex: 1; min-width: 8rem; }
+.candidate-actions .danger { color: #fff1ed; background: #612f2a; border-color: #b9665b; }
 .lyric-delete { color: #efb7ad !important; border-color: #7a4b44 !important; }
 .developer-details { padding-top: .45rem; border-top: 1px solid #30342e; }
 .developer-details summary { color: #858b7e; font-size: .72rem; }
@@ -179,6 +195,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-actions { grid-column: 1 / -1; }
   .section-actions button { flex: 1; }
   .section-actions button span { display: none; }
+  .rhythm-candidate-heading { grid-template-columns: 1fr; }
+  .candidate-capture { grid-template-columns: 1fr; }
   .lyric-line { grid-template-columns: 24px 1fr; }
   .lyric-delete { grid-column: 2; justify-self: start; }
   .settings-grid { grid-template-columns: 1fr; }

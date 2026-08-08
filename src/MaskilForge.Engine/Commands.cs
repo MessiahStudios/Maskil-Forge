@@ -106,21 +106,21 @@ public sealed class SplitLyricPhraseCommand(
     LyricLineId lineId,
     LyricWordId wordId) : IProjectCommand
 {
-    private IReadOnlyList<LyricPhrase>? _before;
-    private IReadOnlyList<LyricPhrase>? _after;
+    private LyricStructureSnapshot? _before;
+    private LyricStructureSnapshot? _after;
 
     public void Execute(SongProject project)
     {
         var line = FindLine(project);
         if (_after is null)
         {
-            _before = PhraseSnapshots.Create(line.Phrases);
+            _before = LyricStructureSnapshots.Create(line);
             line.SplitPhraseAfter(wordId);
-            _after = PhraseSnapshots.Create(line.Phrases);
+            _after = LyricStructureSnapshots.Create(line);
         }
         else
         {
-            line.RestorePhrases(_after);
+            LyricStructureSnapshots.Restore(line, _after);
         }
         project.Touch();
     }
@@ -128,11 +128,28 @@ public sealed class SplitLyricPhraseCommand(
     public void Undo(SongProject project)
     {
         if (_before is null) throw new InvalidOperationException("Command has not been executed.");
-        FindLine(project).RestorePhrases(_before);
+        LyricStructureSnapshots.Restore(FindLine(project), _before);
         project.Touch();
     }
 
     private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+}
+
+internal sealed record LyricStructureSnapshot(
+    IReadOnlyList<LyricPhrase> Phrases,
+    IReadOnlyList<RhythmCandidate> RhythmCandidates);
+
+internal static class LyricStructureSnapshots
+{
+    public static LyricStructureSnapshot Create(LyricLine line) => new(
+        PhraseSnapshots.Create(line.Phrases),
+        RhythmCandidateSnapshots.Create(line.RhythmCandidates));
+
+    public static void Restore(LyricLine line, LyricStructureSnapshot snapshot)
+    {
+        line.RestorePhrases(snapshot.Phrases);
+        line.RestoreRhythmCandidates(snapshot.RhythmCandidates);
+    }
 }
 
 internal static class PhraseSnapshots
@@ -160,21 +177,21 @@ public sealed class JoinLyricPhraseCommand(
     LyricLineId lineId,
     LyricPhraseId phraseId) : IProjectCommand
 {
-    private IReadOnlyList<LyricPhrase>? _before;
-    private IReadOnlyList<LyricPhrase>? _after;
+    private LyricStructureSnapshot? _before;
+    private LyricStructureSnapshot? _after;
 
     public void Execute(SongProject project)
     {
         var line = FindLine(project);
         if (_after is null)
         {
-            _before = PhraseSnapshots.Create(line.Phrases);
+            _before = LyricStructureSnapshots.Create(line);
             line.JoinPhraseWithPrevious(phraseId);
-            _after = PhraseSnapshots.Create(line.Phrases);
+            _after = LyricStructureSnapshots.Create(line);
         }
         else
         {
-            line.RestorePhrases(_after);
+            LyricStructureSnapshots.Restore(line, _after);
         }
         project.Touch();
     }
@@ -182,7 +199,7 @@ public sealed class JoinLyricPhraseCommand(
     public void Undo(SongProject project)
     {
         if (_before is null) throw new InvalidOperationException("Command has not been executed.");
-        FindLine(project).RestorePhrases(_before);
+        LyricStructureSnapshots.Restore(FindLine(project), _before);
         project.Touch();
     }
 
@@ -315,4 +332,149 @@ internal static class PlacementSnapshots
             item.SyllableId,
             item.Position,
             item.Provenance)).ToList();
+}
+
+public sealed class CaptureRhythmCandidateCommand(
+    SectionId sectionId,
+    LyricLineId lineId,
+    LyricPhraseId phraseId,
+    string label) : IProjectCommand
+{
+    private RhythmCandidate? _candidate;
+    private int? _index;
+
+    public RhythmCandidateId? CandidateId => _candidate?.Id;
+
+    public void Execute(SongProject project)
+    {
+        var line = FindLine(project);
+        if (_candidate is null)
+        {
+            _candidate = RhythmCandidateSnapshots.Clone(project.CaptureRhythmCandidate(
+                sectionId,
+                lineId,
+                phraseId,
+                label,
+                RhythmCandidateProvenance.Manual));
+            _index = line.RhythmCandidates.Count - 1;
+        }
+        else
+        {
+            line.InsertRhythmCandidate(_index!.Value, _candidate);
+            project.Touch();
+        }
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_candidate is null) throw new InvalidOperationException("Command has not been executed.");
+        FindLine(project).RemoveRhythmCandidate(_candidate.Id);
+        project.Touch();
+    }
+
+    private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+}
+
+public sealed class RenameRhythmCandidateCommand(
+    SectionId sectionId,
+    LyricLineId lineId,
+    RhythmCandidateId candidateId,
+    string label) : IProjectCommand
+{
+    private string? _previousLabel;
+
+    public void Execute(SongProject project)
+    {
+        var line = FindLine(project);
+        _previousLabel ??= line.RhythmCandidates.SingleOrDefault(item => item.Id == candidateId)?.Label
+            ?? throw new KeyNotFoundException($"Rhythm candidate '{candidateId}' was not found.");
+        line.RenameRhythmCandidate(candidateId, label);
+        project.Touch();
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previousLabel is null) throw new InvalidOperationException("Command has not been executed.");
+        FindLine(project).RenameRhythmCandidate(candidateId, _previousLabel);
+        project.Touch();
+    }
+
+    private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+}
+
+public sealed class RemoveRhythmCandidateCommand(
+    SectionId sectionId,
+    LyricLineId lineId,
+    RhythmCandidateId candidateId) : IProjectCommand
+{
+    private RhythmCandidate? _removed;
+    private int? _index;
+
+    public void Execute(SongProject project)
+    {
+        var removed = FindLine(project).RemoveRhythmCandidate(candidateId);
+        _removed ??= RhythmCandidateSnapshots.Clone(removed.Candidate);
+        _index ??= removed.Index;
+        project.Touch();
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_removed is null || _index is null) throw new InvalidOperationException("Command has not been executed.");
+        FindLine(project).InsertRhythmCandidate(_index.Value, _removed);
+        project.Touch();
+    }
+
+    private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+}
+
+public sealed class ApplyRhythmCandidateCommand(
+    SectionId sectionId,
+    LyricLineId lineId,
+    RhythmCandidateId candidateId) : IProjectCommand
+{
+    private IReadOnlyList<SyllablePlacement>? _before;
+    private IReadOnlyList<SyllablePlacement>? _after;
+
+    public void Execute(SongProject project)
+    {
+        var line = FindLine(project);
+        if (_after is null)
+        {
+            _before = PlacementSnapshots.Create(line.SyllablePlacements);
+            project.ApplyRhythmCandidate(sectionId, lineId, candidateId);
+            _after = PlacementSnapshots.Create(line.SyllablePlacements);
+        }
+        else
+        {
+            line.RestoreSyllablePlacements(_after);
+            project.Touch();
+        }
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_before is null) throw new InvalidOperationException("Command has not been executed.");
+        FindLine(project).RestoreSyllablePlacements(_before);
+        project.Touch();
+    }
+
+    private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+}
+
+internal static class RhythmCandidateSnapshots
+{
+    public static IReadOnlyList<RhythmCandidate> Create(IEnumerable<RhythmCandidate> candidates) =>
+        candidates.Select(Clone).ToList();
+
+    public static RhythmCandidate Clone(RhythmCandidate candidate) => new(
+        candidate.Id,
+        candidate.PhraseId,
+        candidate.Label,
+        candidate.Provenance,
+        candidate.Events.Select(item => new RhythmCandidateEvent(
+            item.Id,
+            item.SyllableId,
+            item.Position,
+            item.BeatPosition)).ToList());
 }
