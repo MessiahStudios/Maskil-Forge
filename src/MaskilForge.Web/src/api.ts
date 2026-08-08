@@ -125,6 +125,17 @@ export interface ProsodyScore {
   findings: ProsodyFinding[]
 }
 
+export type CreativeLockScope = 'LyricLine' | 'PhraseRhythm'
+export type LockProvenance = 'Manual' | 'Analyzer' | 'Imported'
+
+export interface CreativeLock {
+  id: string
+  scope: CreativeLockScope
+  lineId: string
+  phraseId: string | null
+  provenance: LockProvenance
+}
+
 export interface SongSection {
   id: string
   kind: SectionKind
@@ -153,6 +164,7 @@ export interface SongProject {
   }
   sections: SongSection[]
   tracks: unknown[]
+  locks: CreativeLock[]
 }
 
 export interface ProjectResponse {
@@ -212,6 +224,7 @@ export interface ProjectCommand {
   rhythmCandidateId?: string
   candidateLabel?: string
   breathPresent?: boolean
+  creativeLockId?: string
   text?: string
   syllables?: string[]
 }

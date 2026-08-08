@@ -120,6 +120,14 @@ No locks, audition, automatic candidate generation, timed breath placement, dura
 
 **Deliverable:** an artist can compare rhythm options with explicit reasons for stress, breath, and crowding concerns.
 
+### Milestone 2.10 — Creative lock foundation
+
+The current slice adds durable artist locks for lyric lines and phrase rhythm. Stable `CreativeLockId` values record `LyricLine` or `PhraseRhythm` scope with `Manual`, `Analyzer`, or `Imported` provenance. Locked lyric lines reject word, syllable, stress, prosody, breath, and phrase-boundary edits. Locked phrase rhythm rejects placement changes and applying a rhythm option, while capture and review remain available. Session undo/redo restores exact lock identities. Schema-v10 projects and recovery snapshots migrate in memory to schema v11 with an empty lock collection.
+
+No automatic locking, chord locks, audition, generation, melody, harmony, AI, MIDI, transport, playback, or audio is included.
+
+**Deliverable:** an artist can protect accepted lyric wording or phrase timing so later edits and regeneration cannot silently overwrite them.
+
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 
 ## Milestone 3 — Theory and harmony

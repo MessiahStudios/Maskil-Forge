@@ -32,6 +32,8 @@ Compatible lyric and syllable edits filter candidates to surviving identities. P
 
 Prosody scoring is derived review, not stored creative state. `ProsodyScorer` evaluates a phrase's active syllable placements or one saved rhythm candidate and returns category scores for stress, breath, and crowding plus inspectable findings. Primary or emphasized stress and strong phrase weight on weak or offbeat positions reduce the stress score. Breath marks with less than a beat before the next onset, and long timed phrases with no interior breath, reduce the breath score. Sub-half-beat gaps and three-or-more syllables on one beat reduce the crowding score. The engine never invents placements, breaths, or locks from a score.
 
+`CreativeLock` protects accepted decisions. A lyric-line lock references one `LyricLineId` and blocks word, syllable, stress, prosody, breath, and phrase-boundary edits. A phrase-rhythm lock references one line and `LyricPhraseId`, blocks placement edits and applying rhythm options, and still allows capturing or reviewing options. Locks carry stable identities and provenance, survive save/load, and participate in session undo/redo. Migration to schema v11 never invents locks.
+
 `LyricPunctuation` preserves punctuation groups as identified tokens with exact source offsets while apostrophes and internal hyphens remain part of their words. `LyricPhrase` stores a stable ID, zero-based position, provenance, and an ordered list of existing word IDs. Every word belongs to exactly one contiguous phrase. A new or migrated line begins as one `Default` phrase; split and join operations are explicit artist actions and produce `Manual` provenance. Nearby word edits retain surviving phrase and punctuation IDs without copying or rewriting lyric text.
 
 ## Processing order
@@ -40,7 +42,7 @@ Prosody scoring is derived review, not stored creative state. `ProsodyScorer` ev
 2. Analyze rhyme, repeated language, important words, and breath opportunities without replacing artist-authored stress or breath decisions.
 3. Describe narrative roles and emotional transitions.
 4. Preserve multiple artist-authored rhythm possibilities; later analyzers may propose additional candidates through the same typed model.
-5. Score candidates with inspectable stress, breath, and crowding findings; later slices add audition and locks.
+5. Score candidates with inspectable stress, breath, and crowding findings; lock accepted lyric wording or phrase rhythm before later audition and generation.
 6. Build harmony and energy plans around the approved meaning and phrasing.
 
 ## Future timed prosody model

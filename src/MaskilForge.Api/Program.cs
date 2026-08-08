@@ -233,21 +233,30 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
+            if (section.LyricLines.Any(line => project.IsLyricLineLocked(line.Id)))
+                throw new InvalidOperationException("Unlock locked lyric lines in this section before replacing all lyrics.");
             section.SetLyricLines((request.Lyrics ?? []).Select(LyricLine.Create));
+            project.ReconcileLocks();
             project.Touch();
             break;
         case "edit-lyric-line":
+            var editLineId = request.LineId ?? throw new ArgumentException("Lyric line ID is required.");
+            project.EnsureLyricLineUnlocked(editLineId);
             project.FindSection(RequiredSectionId(request)).EditLyricLine(
-                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                editLineId,
                 request.Text ?? throw new ArgumentException("Lyric text is required."));
+            project.ReconcileLocks();
             project.Touch();
             break;
         case "set-word-syllables":
+            var syllableLineId = request.LineId ?? throw new ArgumentException("Lyric line ID is required.");
+            project.EnsureLyricLineUnlocked(syllableLineId);
             project.FindSection(RequiredSectionId(request))
-                .FindLyricLine(request.LineId ?? throw new ArgumentException("Lyric line ID is required."))
+                .FindLyricLine(syllableLineId)
                 .SetSyllables(
                     request.WordId ?? throw new ArgumentException("Lyric word ID is required."),
                     request.Syllables ?? throw new ArgumentException("Syllables are required."));
+            project.ReconcileLocks();
             project.Touch();
             break;
         case "set-syllable-stress":
@@ -306,6 +315,19 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
                 request.SyllableId ?? throw new ArgumentException("Syllable ID is required."),
                 request.BreathPresent ?? throw new ArgumentException("Breath present is required.")));
             break;
+        case "lock-lyric-line":
+            editor.Execute(new LockLyricLineCommand(
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required.")));
+            break;
+        case "lock-phrase-rhythm":
+            editor.Execute(new LockPhraseRhythmCommand(
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.PhraseId ?? throw new ArgumentException("Lyric phrase ID is required.")));
+            break;
+        case "unlock-creative-lock":
+            editor.Execute(new UnlockCreativeLockCommand(
+                request.CreativeLockId ?? throw new ArgumentException("Creative lock ID is required.")));
+            break;
         case "split-lyric-phrase":
             editor.Execute(new SplitLyricPhraseCommand(
                 RequiredSectionId(request),
@@ -361,6 +383,7 @@ public sealed record ProjectCommandRequest(
     RhythmCandidateId? RhythmCandidateId = null,
     string? CandidateLabel = null,
     bool? BreathPresent = null,
+    CreativeLockId? CreativeLockId = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
