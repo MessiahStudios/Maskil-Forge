@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -14,6 +15,7 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         WriteIndented = true,
         Converters = { new JsonStringEnumConverter() }
     };
+    private readonly ConcurrentDictionary<ProjectId, SemaphoreSlim> _projectLocks = new();
 
     private readonly string _directory = string.IsNullOrWhiteSpace(directory)
         ? throw new ArgumentException("A persistence directory is required.", nameof(directory))
@@ -60,6 +62,20 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
     }
 
     public async Task SaveAsync(SongProject project, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var projectLock = _projectLocks.GetOrAdd(project.Id, _ => new SemaphoreSlim(1, 1));
+        await projectLock.WaitAsync(cancellationToken);
+        try
+        {
+            await SaveWithoutLockAsync(project, cancellationToken);
+            var recoveryPath = GetSessionRecoveryPath(project.Id);
+            if (File.Exists(recoveryPath)) File.Delete(recoveryPath);
+        }
+        finally { projectLock.Release(); }
+    }
+
+    private async Task SaveWithoutLockAsync(SongProject project, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);
         Directory.CreateDirectory(_directory);
@@ -141,6 +157,16 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(snapshot.Project);
+        var projectLock = _projectLocks.GetOrAdd(snapshot.Project.Id, _ => new SemaphoreSlim(1, 1));
+        await projectLock.WaitAsync(cancellationToken);
+        try { await SaveRecoverySnapshotWithoutLockAsync(snapshot, cancellationToken); }
+        finally { projectLock.Release(); }
+    }
+
+    private async Task SaveRecoverySnapshotWithoutLockAsync(ProjectRecoverySnapshot snapshot, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(snapshot.Project);
         if (string.IsNullOrWhiteSpace(snapshot.SessionId)) throw new ArgumentException("A recovery session ID is required.", nameof(snapshot));
         var saved = await LoadAsync(snapshot.Project.Id, cancellationToken)
             ?? throw new InvalidProjectDataException("The saved project for this recovery snapshot was not found.");
@@ -173,27 +199,37 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         }
     }
 
-    public Task<bool> DeleteRecoverySnapshotAsync(ProjectId id, CancellationToken cancellationToken = default)
+    public async Task<bool> DeleteRecoverySnapshotAsync(ProjectId id, CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var path = GetSessionRecoveryPath(id);
-        if (!File.Exists(path)) return Task.FromResult(false);
-        File.Delete(path);
-        return Task.FromResult(true);
+        var projectLock = _projectLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await projectLock.WaitAsync(cancellationToken);
+        try
+        {
+            var path = GetSessionRecoveryPath(id);
+            if (!File.Exists(path)) return false;
+            File.Delete(path);
+            return true;
+        }
+        finally { projectLock.Release(); }
     }
 
-    public Task<bool> MoveToTrashAsync(ProjectId id, CancellationToken cancellationToken = default)
+    public async Task<bool> MoveToTrashAsync(ProjectId id, CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var source = GetPath(id);
-        if (!File.Exists(source)) return Task.FromResult(false);
-        var trashDirectory = GetTrashDirectory();
-        Directory.CreateDirectory(trashDirectory);
-        var destination = Path.Combine(trashDirectory, $"{id}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.json");
-        File.Move(source, destination);
-        var sessionRecoveryPath = GetSessionRecoveryPath(id);
-        if (File.Exists(sessionRecoveryPath)) File.Delete(sessionRecoveryPath);
-        return Task.FromResult(true);
+        var projectLock = _projectLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await projectLock.WaitAsync(cancellationToken);
+        try
+        {
+            var source = GetPath(id);
+            if (!File.Exists(source)) return false;
+            var trashDirectory = GetTrashDirectory();
+            Directory.CreateDirectory(trashDirectory);
+            var destination = Path.Combine(trashDirectory, $"{id}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.json");
+            File.Move(source, destination);
+            var sessionRecoveryPath = GetSessionRecoveryPath(id);
+            if (File.Exists(sessionRecoveryPath)) File.Delete(sessionRecoveryPath);
+            return true;
+        }
+        finally { projectLock.Release(); }
     }
 
     public Task<bool> RestoreFromTrashAsync(ProjectId id, CancellationToken cancellationToken = default)

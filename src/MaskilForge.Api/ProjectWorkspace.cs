@@ -77,10 +77,7 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
                 throw new StaleProjectSessionException();
             var editor = await SyncAsync(update, cancellationToken);
             if (editor is not null)
-            {
                 await repository.SaveAsync(editor.Project, cancellationToken);
-                await repository.DeleteRecoverySnapshotAsync(editor.Project.Id, cancellationToken);
-            }
             return editor;
         }
         finally { saveLock.Release(); }

@@ -131,6 +131,33 @@ public sealed class SessionRecoveryTests
         finally { DeleteDirectory(directory); }
     }
 
+    [Fact]
+    public async Task ConcurrentSnapshotAndExplicitSave_CannotLeaveAStaleRecoverySnapshot()
+    {
+        var directory = NewDirectory();
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var project = SongProject.Create("Concurrent recovery");
+            await repository.SaveAsync(project, CancellationToken.None);
+            var baseRevision = project.LastModifiedUtc;
+            var unsaved = Clone(project, "Unsaved snapshot", new string('w', 50_000));
+            project.Rename("Explicit save wins");
+
+            var snapshotTask = repository.SaveRecoverySnapshotAsync(
+                new ProjectRecoverySnapshot(unsaved, DateTimeOffset.UtcNow, baseRevision, "snapshot-session"),
+                CancellationToken.None);
+            var saveTask = repository.SaveAsync(project, CancellationToken.None);
+            try { await snapshotTask; }
+            catch (StaleProjectSessionException) { }
+            await saveTask;
+
+            Assert.Null(await repository.LoadRecoverySnapshotAsync(project.Id, CancellationToken.None));
+            Assert.Equal("Explicit save wins", (await repository.LoadAsync(project.Id, CancellationToken.None))!.Title);
+        }
+        finally { DeleteDirectory(directory); }
+    }
+
     private static SongProject Clone(SongProject source, string title, string rawLyricDraft) => new(
         source.Id,
         source.SchemaVersion,
