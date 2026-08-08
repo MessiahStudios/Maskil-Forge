@@ -203,6 +203,51 @@ public sealed class SessionRecoveryTests
         finally { DeleteDirectory(directory); }
     }
 
+    [Fact]
+    public async Task LoadAsync_MissingTimestamps_StayStableAcrossLoadsForSessionChecks()
+    {
+        var directory = NewDirectory();
+        var projectId = ProjectId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, $"{projectId}.json");
+            var original = $$"""
+            {
+              "id": "{{projectId}}",
+              "schemaVersion": 1,
+              "title": "Legacy Timestamps",
+              "tempo": { "beat": 0, "beatsPerMinute": 120 },
+              "timeSignature": { "beat": 0, "numerator": 4, "denominator": 4 }
+            }
+            """;
+            await File.WriteAllTextAsync(path, original);
+            File.SetLastWriteTimeUtc(path, new DateTime(2026, 8, 7, 12, 0, 0, DateTimeKind.Utc));
+
+            var repository = new JsonFileProjectRepository(directory);
+            var first = await repository.LoadAsync(projectId, CancellationToken.None);
+            await Task.Delay(20);
+            var second = await repository.LoadAsync(projectId, CancellationToken.None);
+
+            Assert.NotNull(first);
+            Assert.NotNull(second);
+            Assert.Equal(first.LastModifiedUtc, second.LastModifiedUtc);
+            Assert.Equal(first.CreatedUtc, second.CreatedUtc);
+            Assert.Equal(new DateTimeOffset(2026, 8, 7, 12, 0, 0, TimeSpan.Zero), first.LastModifiedUtc);
+
+            var unsaved = Clone(first, "Edited locally", "draft words");
+            await repository.SaveRecoverySnapshotAsync(
+                new ProjectRecoverySnapshot(unsaved, DateTimeOffset.UtcNow, first.LastModifiedUtc, "legacy-session"),
+                CancellationToken.None);
+
+            var workspace = new ProjectWorkspace(repository);
+            var saved = await workspace.UpdateAsync(unsaved, first.LastModifiedUtc, CancellationToken.None);
+            Assert.NotNull(saved);
+            Assert.Equal("Edited locally", saved.Project.Title);
+        }
+        finally { DeleteDirectory(directory); }
+    }
+
     private static SongProject Clone(SongProject source, string title, string rawLyricDraft) => new(
         source.Id,
         source.SchemaVersion,
