@@ -42,6 +42,45 @@ public sealed class SessionRecoveryTests
     }
 
     [Fact]
+    public async Task RecoverySnapshot_MigratesSchemaV1ProjectData()
+    {
+        var directory = NewDirectory();
+        var projectId = ProjectId.New();
+        var sectionId = SectionId.New();
+        try
+        {
+            Directory.CreateDirectory(Path.Combine(directory, "sessions"));
+            var captured = DateTimeOffset.UtcNow;
+            var json = $$"""
+            {
+              "project": {
+                "id": "{{projectId}}",
+                "schemaVersion": 1,
+                "title": "Recovered V1",
+                "tempo": { "beat": 0, "beatsPerMinute": 120 },
+                "timeSignature": { "beat": 0, "numerator": 4, "denominator": 4 },
+                "sections": [{ "id": "{{sectionId}}", "kind": "Verse", "title": "Verse", "lyricLines": [] }]
+              },
+              "capturedAtUtc": "{{captured:O}}",
+              "baseProjectLastModifiedUtc": "{{captured:O}}",
+              "sessionId": "legacy-session"
+            }
+            """;
+            await File.WriteAllTextAsync(Path.Combine(directory, "sessions", $"{projectId}.json"), json);
+
+            var snapshot = await new JsonFileProjectRepository(directory).LoadRecoverySnapshotAsync(projectId, CancellationToken.None);
+
+            Assert.NotNull(snapshot);
+            Assert.Equal(SchemaVersion.Current, snapshot.Project.SchemaVersion);
+            var placement = Assert.Single(snapshot.Project.Timeline.SectionPlacements);
+            Assert.Equal(sectionId, placement.SectionId);
+            Assert.Equal(1, placement.Start.Bar);
+            Assert.Equal(8, placement.DurationBars);
+        }
+        finally { DeleteDirectory(directory); }
+    }
+
+    [Fact]
     public async Task RecoverySnapshot_IsRejectedWhenSavedProjectRevisionChanged()
     {
         var directory = NewDirectory();
@@ -162,8 +201,11 @@ public sealed class SessionRecoveryTests
         source.Id,
         source.SchemaVersion,
         title,
-        source.Tempo,
-        source.TimeSignature,
+        new SongTimeline(
+            TimelineResolution.TicksPerQuarterNote,
+            new TempoMap(source.Timeline.TempoMap.Events),
+            new TimeSignatureMap(source.Timeline.TimeSignatureMap.Events),
+            source.Timeline.SectionPlacements),
         source.Sections,
         source.Tracks,
         source.Artist,

@@ -28,7 +28,15 @@ The focused `feature/project-durability` slice now provides the migration bounda
 
 The follow-up `feature/session-recovery` slice adds automatic dirty-editor snapshots, a startup recovery screen, restore/discard actions, snapshot cleanup after save or deletion, and persisted-revision checks that reject stale saves. The recovery state remains separate from the explicitly saved song.
 
-Still planned for later durability work are timed snapshot retention policies, user-facing saved-version history, recovery from external asset failures, and migrations that transform a real schema version beyond v1. The migration mechanism exists now, but no fictional v2 migration is included before a v2 schema is defined.
+Still planned for later durability work are timed snapshot retention policies, user-facing saved-version history, and recovery from external asset failures. The timeline foundation now provides the first real schema evolution: schema-v1 projects and recovery snapshots migrate in memory to schema v2 while preserving their settings and identities.
+
+### Milestone 1.8 — Timeline foundation
+
+The current timeline slice establishes a 480-PPQ musical clock, validated bar/beat/tick positions, absolute-tick conversion, tempo and time-signature maps, and ordered section placements with editable bar durations. Section add, remove, reorder, resize, undo, and redo keep placements contiguous and tied to stable section IDs. GitHub Actions verifies the .NET solution and Vue production build on pull requests and `main`.
+
+Variable tempo/meter regions, markers, clip placement, seconds conversion, transport, playback, MIDI, and audio remain outside this slice.
+
+**Deliverable:** Maskil Forge can describe where each song section exists in musical time without acting as a DAW.
 
 ## Milestone 2 — Lyrics and prosody
 

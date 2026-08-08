@@ -40,7 +40,7 @@ public readonly record struct ClipId(Guid Value)
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(1);
+    public static SchemaVersion Current => new(2);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>

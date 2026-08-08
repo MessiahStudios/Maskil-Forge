@@ -83,6 +83,9 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .section-number { color: #92988a; font-family: Georgia, serif; font-size: 1.6rem; }
 .section-identity { display: grid; grid-template-columns: 105px 1fr; gap: .75rem; align-items: center; }
 .section-identity > span { color: #e0bd73; font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; }
+.section-position { grid-column: 2; display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; color: #aeb4a6; font-size: .76rem; }
+.section-position label { display: flex; flex-direction: row; gap: .4rem; align-items: center; color: #c9c3b6; }
+.section-position input { width: 4.5rem; padding: .35rem .5rem; color: #fff7e7; background: #111410; border-color: #666d5d; }
 .section-actions { display: flex; gap: .4rem; }
 .lyrics-editor { display: grid; gap: .65rem; }
 .lyrics-heading { display: flex; justify-content: space-between; align-items: center; color: #ccc5b7; font-size: .83rem; letter-spacing: .04em; }

@@ -39,6 +39,7 @@ public sealed class CommandHistoryTests
         var project = SongProject.Create("History");
         var verse = project.AddSection(SectionKind.Verse);
         verse.AddLyricLine("A line worth keeping");
+        project.SetSectionDuration(verse.Id, 12);
         var chorus = project.AddSection(SectionKind.Chorus);
         var editor = new ProjectEditor(project);
 
@@ -48,6 +49,8 @@ public sealed class CommandHistoryTests
 
         Assert.Equal([verse.Id, chorus.Id], project.Sections.Select(section => section.Id));
         Assert.Equal("A line worth keeping", project.Sections[0].LyricLines[0].Text);
+        Assert.Equal(12, project.Timeline.FindSection(verse.Id).DurationBars);
+        Assert.Equal(13, project.Timeline.FindSection(chorus.Id).Start.Bar);
     }
 
     [Fact]

@@ -62,22 +62,41 @@ public sealed class MoveSectionCommand(SectionId sectionId, int targetIndex) : I
     }
 }
 
+public sealed class SetSectionDurationCommand(SectionId sectionId, int durationBars) : IProjectCommand
+{
+    private int? _previousDurationBars;
+
+    public void Execute(SongProject project)
+    {
+        _previousDurationBars ??= project.Timeline.FindSection(sectionId).DurationBars;
+        project.SetSectionDuration(sectionId, durationBars);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previousDurationBars is null) throw new InvalidOperationException("Command has not been executed.");
+        project.SetSectionDuration(sectionId, _previousDurationBars.Value);
+    }
+}
+
 public sealed class RemoveSectionCommand(SectionId sectionId) : IProjectCommand
 {
     private SongSection? _removedSection;
     private int? _removedIndex;
+    private int? _removedDurationBars;
 
     public void Execute(SongProject project)
     {
         var removed = project.RemoveSection(sectionId);
         _removedSection ??= removed.Section;
         _removedIndex ??= removed.Index;
+        _removedDurationBars ??= removed.DurationBars;
     }
 
     public void Undo(SongProject project)
     {
-        if (_removedSection is null || _removedIndex is null)
+        if (_removedSection is null || _removedIndex is null || _removedDurationBars is null)
             throw new InvalidOperationException("Command has not been executed.");
-        project.InsertSection(_removedIndex.Value, _removedSection);
+        project.InsertSection(_removedIndex.Value, _removedSection, _removedDurationBars.Value);
     }
 }

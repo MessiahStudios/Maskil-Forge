@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using MaskilForge.Domain;
 using MaskilForge.Engine;
@@ -9,7 +10,7 @@ namespace MaskilForge.Infrastructure;
 
 public sealed class JsonFileProjectRepository(string directory) : IProjectRepository
 {
-    private static readonly ProjectMigrationPipeline MigrationPipeline = new();
+    private static readonly ProjectMigrationPipeline MigrationPipeline = new([new V1ToV2ProjectMigration()]);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,
@@ -321,11 +322,14 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
     {
         try
         {
-            await using var stream = File.OpenRead(path);
-            var snapshot = await JsonSerializer.DeserializeAsync<ProjectRecoverySnapshot>(stream, JsonOptions, cancellationToken)
+            var json = await File.ReadAllTextAsync(path, cancellationToken);
+            var envelope = JsonNode.Parse(json) as JsonObject
+                ?? throw new InvalidProjectDataException("The recovery snapshot root must be a JSON object.");
+            var project = envelope["project"] as JsonObject
                 ?? throw new InvalidProjectDataException("The recovery snapshot contains no project data.");
-            if (snapshot.Project.SchemaVersion.Value > SchemaVersion.Current.Value)
-                throw new UnsupportedProjectSchemaException(snapshot.Project.SchemaVersion.Value, SchemaVersion.Current.Value);
+            envelope["project"] = MigrationPipeline.Normalize(project);
+            var snapshot = envelope.Deserialize<ProjectRecoverySnapshot>(JsonOptions)
+                ?? throw new InvalidProjectDataException("The recovery snapshot contains no project data.");
             if (snapshot.CapturedAtUtc == default || snapshot.BaseProjectLastModifiedUtc == default || string.IsNullOrWhiteSpace(snapshot.SessionId))
                 throw new InvalidProjectDataException("The recovery snapshot metadata is invalid.");
             return snapshot;

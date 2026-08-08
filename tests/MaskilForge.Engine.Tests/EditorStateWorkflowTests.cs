@@ -22,8 +22,11 @@ public sealed class EditorStateWorkflowTests
                 editor.Project.Id,
                 editor.Project.SchemaVersion,
                 "Ashes & Redemption",
-                editor.Project.Tempo,
-                editor.Project.TimeSignature,
+                new SongTimeline(
+                    TimelineResolution.TicksPerQuarterNote,
+                    new TempoMap(editor.Project.Timeline.TempoMap.Events),
+                    new TimeSignatureMap(editor.Project.Timeline.TimeSignatureMap.Events),
+                    [new SectionPlacement(verse.Id, new MusicalPosition(1, 1, 0), 12)]),
                 editor.Project.Sections,
                 editor.Project.Tracks,
                 "Test Artist",
@@ -37,11 +40,14 @@ public sealed class EditorStateWorkflowTests
             Assert.Equal([SectionKind.Verse, SectionKind.Chorus], synced.Project.Sections.Select(section => section.Kind));
             Assert.Equal(line.Id, synced.Project.Sections[0].LyricLines[0].Id);
             Assert.Equal("I have an idea", synced.Project.Sections[0].LyricLines[0].Text);
+            Assert.Equal(12, synced.Project.Timeline.FindSection(verse.Id).DurationBars);
+            Assert.Equal(13, synced.Project.Timeline.FindSection(synced.Project.Sections[1].Id).Start.Bar);
 
             await workspace.SaveAsync(synced, CancellationToken.None);
             var reopened = await new JsonFileProjectRepository(directory).LoadAsync(synced.Project.Id, CancellationToken.None);
             Assert.Equal(line.Id, reopened!.Sections[0].LyricLines[0].Id);
             Assert.Equal("I have an idea", reopened.Sections[0].LyricLines[0].Text);
+            Assert.Equal(12, reopened.Timeline.FindSection(verse.Id).DurationBars);
         }
         finally
         {

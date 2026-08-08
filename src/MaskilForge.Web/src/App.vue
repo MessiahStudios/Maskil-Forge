@@ -251,6 +251,14 @@ function moveSection(sectionId: string, targetIndex: number) {
   if (!project.value) return
   return run(() => projectsApi.command(project.value!.id, project.value!, { type: 'move-section', sectionId, targetIndex }), 'Section order updated.', 'section.move', { sectionId, targetIndex })
 }
+function setSectionDuration(sectionId: string, durationBars: number) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-section-duration', sectionId, durationBars }),
+    'Section length updated.',
+    'section.duration',
+    { sectionId, durationBars })
+}
 function removeSection(sectionId: string) {
   if (!project.value) return
   return run(() => projectsApi.command(project.value!.id, project.value!, { type: 'remove-section', sectionId }), 'Section removed.', 'section.remove', { sectionId })
@@ -290,10 +298,11 @@ async function handleLineBackspace(sectionIndex: number, lineIndex: number, line
 function setMeter(value: string) {
   if (!project.value) return
   const [numerator, denominator] = value.split('/').map(Number)
-  project.value.timeSignature.numerator = numerator
-  project.value.timeSignature.denominator = denominator
+  project.value.timeline.timeSignatureMap.events[0].numerator = numerator
+  project.value.timeline.timeSignatureMap.events[0].denominator = denominator
 }
-function meterValue(value: SongProject) { return `${value.timeSignature.numerator}/${value.timeSignature.denominator}` }
+function meterValue(value: SongProject) { return `${value.timeline.timeSignatureMap.events[0].numerator}/${value.timeline.timeSignatureMap.events[0].denominator}` }
+function placementFor(sectionId: string) { return project.value?.timeline.sectionPlacements.find(item => item.sectionId === sectionId) }
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
 function undo() { if (project.value) return run(() => projectsApi.undo(project.value!.id, project.value!), 'Last section operation undone.', 'history.undo') }
 function redo() { if (project.value) return run(() => projectsApi.redo(project.value!.id, project.value!), 'Section operation restored.', 'history.redo') }
@@ -433,7 +442,14 @@ onBeforeUnmount(() => {
           <li v-for="(section, index) in project.sections" :key="section.id" class="section-card">
             <div class="section-heading">
               <span class="section-number">{{ String(index + 1).padStart(2, '0') }}</span>
-              <div class="section-identity"><span>{{ label(section.kind) }}</span><label><span class="sr-only">Section title</span><input :value="section.title" maxlength="100" @change="renameSection(section.id, ($event.target as HTMLInputElement).value)" /></label></div>
+              <div class="section-identity">
+                <span>{{ label(section.kind) }}</span>
+                <label><span class="sr-only">Section title</span><input :value="section.title" maxlength="100" @change="renameSection(section.id, ($event.target as HTMLInputElement).value)" /></label>
+                <div v-if="placementFor(section.id)" class="section-position">
+                  <span>Bars {{ placementFor(section.id)!.start.bar }}–{{ placementFor(section.id)!.start.bar + placementFor(section.id)!.durationBars - 1 }}</span>
+                  <label>Length <input :value="placementFor(section.id)!.durationBars" type="number" min="1" max="128" :aria-label="`${section.title} length in bars`" @change="setSectionDuration(section.id, Number(($event.target as HTMLInputElement).value))" /> bars</label>
+                </div>
+              </div>
               <div class="section-actions">
                 <button class="quiet" :disabled="busy || index === 0" @click="moveSection(section.id, index - 1)">↑ <span>Move up</span></button>
                 <button class="quiet" :disabled="busy || index === project.sections.length - 1" @click="moveSection(section.id, index + 1)">↓ <span>Move down</span></button>
@@ -458,7 +474,7 @@ onBeforeUnmount(() => {
         <div class="settings-grid">
           <label>Artist<input v-model="project.artist" maxlength="200" placeholder="Artist or songwriter" /></label>
           <label>Genre<select v-model="project.genre"><option v-for="genre in genres" :key="genre" :value="genre">{{ genre === 'RAndB' ? 'R&B' : genre }}</option></select></label>
-          <label>Tempo<input v-model.number="project.tempo.beatsPerMinute" type="number" min="20" max="300" /></label>
+          <label>Tempo<input v-model.number="project.timeline.tempoMap.events[0].beatsPerMinute" type="number" min="20" max="300" /></label>
           <label>Time signature<select :value="meterValue(project)" @change="setMeter(($event.target as HTMLSelectElement).value)"><option v-for="meter in meters" :key="meter">{{ meter }}</option></select></label>
           <label class="description-field">Description<textarea v-model="project.description" maxlength="2000" rows="3" placeholder="Song concept or creative context" /></label>
         </div>

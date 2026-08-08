@@ -25,6 +25,7 @@ public sealed class JsonPersistenceTests
             var verseLine = verse.AddLyricLine("I walked through shadows");
             var chorus = project.AddSection(SectionKind.Chorus);
             var chorusLine = chorus.AddLyricLine("You brought me home");
+            project.SetSectionDuration(verse.Id, 12);
 
             await savingRepository.SaveAsync(project, CancellationToken.None);
 
@@ -45,6 +46,9 @@ public sealed class JsonPersistenceTests
             Assert.Equal("Unstructured source words that must remain intact.", loaded.RawLyricDraft);
             Assert.Equal(84, loaded.Tempo.BeatsPerMinute);
             Assert.Equal((6, 8), (loaded.TimeSignature.Numerator, loaded.TimeSignature.Denominator));
+            Assert.Equal([verse.Id, chorus.Id], loaded.Timeline.SectionPlacements.Select(item => item.SectionId));
+            Assert.Equal([1, 13], loaded.Timeline.SectionPlacements.Select(item => item.Start.Bar));
+            Assert.Equal([12, 8], loaded.Timeline.SectionPlacements.Select(item => item.DurationBars));
         }
         finally
         {
@@ -119,7 +123,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV1_WritesStableTopLevelContract()
+    public async Task SchemaV2_WritesStableTimelineContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -130,13 +134,20 @@ public sealed class JsonPersistenceTests
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(1, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(2, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
             Assert.Equal(JsonValueKind.String, root.GetProperty("lastModifiedUtc").ValueKind);
             Assert.Equal(JsonValueKind.Array, root.GetProperty("sections").ValueKind);
             Assert.Equal(JsonValueKind.Array, root.GetProperty("tracks").ValueKind);
+            Assert.False(root.TryGetProperty("tempo", out _));
+            Assert.False(root.TryGetProperty("timeSignature", out _));
+            var timeline = root.GetProperty("timeline");
+            Assert.Equal(480, timeline.GetProperty("ticksPerQuarterNote").GetInt32());
+            Assert.Single(timeline.GetProperty("tempoMap").GetProperty("events").EnumerateArray());
+            Assert.Single(timeline.GetProperty("timeSignatureMap").GetProperty("events").EnumerateArray());
+            Assert.Empty(timeline.GetProperty("sectionPlacements").EnumerateArray());
         }
         finally
         {
@@ -177,6 +188,54 @@ public sealed class JsonPersistenceTests
             Assert.Empty(loaded.Tracks);
             Assert.NotEqual(default, loaded.CreatedUtc);
             Assert.Equal(loaded.CreatedUtc, loaded.LastModifiedUtc);
+            Assert.Equal(480, loaded.Timeline.TicksPerQuarterNote);
+            Assert.Equal(120, loaded.Timeline.TempoMap.Events[0].BeatsPerMinute);
+            Assert.Equal(4, loaded.Timeline.TimeSignatureMap.Events[0].Numerator);
+            Assert.Equal(4, loaded.Timeline.TimeSignatureMap.Events[0].Denominator);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_MigratesSchemaV1SectionsToOrderedTimelinePlacements()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var projectId = ProjectId.New();
+        var verseId = SectionId.New();
+        var chorusId = SectionId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var originalV1 = $$"""
+            {
+              "id": "{{projectId}}",
+              "schemaVersion": 1,
+              "title": "Migration Song",
+              "tempo": { "beat": 0, "beatsPerMinute": 96 },
+              "timeSignature": { "beat": 0, "numerator": 6, "denominator": 8 },
+              "sections": [
+                { "id": "{{verseId}}", "kind": "Verse", "title": "Verse", "lyricLines": [] },
+                { "id": "{{chorusId}}", "kind": "Chorus", "title": "Chorus", "lyricLines": [] }
+              ]
+            }
+            """;
+            var path = Path.Combine(directory, $"{projectId}.json");
+            await File.WriteAllTextAsync(path, originalV1);
+
+            var loaded = await new JsonFileProjectRepository(directory).LoadAsync(projectId, CancellationToken.None);
+
+            Assert.NotNull(loaded);
+            Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
+            Assert.Equal(96, loaded.Timeline.TempoMap.Events[0].BeatsPerMinute);
+            Assert.Equal(6, loaded.Timeline.TimeSignatureMap.Events[0].Numerator);
+            Assert.Equal(8, loaded.Timeline.TimeSignatureMap.Events[0].Denominator);
+            Assert.Equal([verseId, chorusId], loaded.Timeline.SectionPlacements.Select(item => item.SectionId));
+            Assert.Equal([1, 9], loaded.Timeline.SectionPlacements.Select(item => item.Start.Bar));
+            Assert.All(loaded.Timeline.SectionPlacements, item => Assert.Equal(8, item.DurationBars));
+            Assert.Equal(originalV1, await File.ReadAllTextAsync(path));
         }
         finally
         {

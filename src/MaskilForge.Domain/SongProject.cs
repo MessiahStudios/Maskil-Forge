@@ -27,8 +27,7 @@ public sealed class SongProject
         ProjectId id,
         SchemaVersion schemaVersion,
         string title,
-        TempoEvent tempo,
-        TimeSignatureEvent timeSignature,
+        SongTimeline timeline,
         IReadOnlyList<SongSection>? sections = null,
         IReadOnlyList<Track>? tracks = null,
         string artist = "",
@@ -47,11 +46,11 @@ public sealed class SongProject
         SetGenre(genre);
         SetDescription(description);
         SetRawLyricDraft(rawLyricDraft);
-        Tempo = tempo ?? throw new ArgumentNullException(nameof(tempo));
-        TimeSignature = timeSignature ?? throw new ArgumentNullException(nameof(timeSignature));
+        Timeline = timeline ?? throw new ArgumentNullException(nameof(timeline));
         _sections = sections?.ToList() ?? [];
         _tracks = tracks?.ToList() ?? [];
         EnsureUniqueIds();
+        Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
@@ -65,8 +64,9 @@ public sealed class SongProject
     public string RawLyricDraft { get; private set; } = string.Empty;
     public DateTimeOffset CreatedUtc { get; private set; }
     public DateTimeOffset LastModifiedUtc { get; private set; }
-    public TempoEvent Tempo { get; private set; }
-    public TimeSignatureEvent TimeSignature { get; private set; }
+    public SongTimeline Timeline { get; }
+    [JsonIgnore] public TempoEvent Tempo => Timeline.TempoMap.Events[0];
+    [JsonIgnore] public TimeSignatureEvent TimeSignature => Timeline.TimeSignatureMap.Events[0];
     public IReadOnlyList<SongSection> Sections => _sections;
     public IReadOnlyList<Track> Tracks => _tracks;
 
@@ -74,8 +74,7 @@ public sealed class SongProject
         ProjectId.New(),
         SchemaVersion.Current,
         title,
-        new TempoEvent(0, 120),
-        new TimeSignatureEvent(0, 4, 4));
+        SongTimeline.CreateDefault());
 
     public void Rename(string title)
     {
@@ -116,10 +115,10 @@ public sealed class SongProject
         Touch();
     }
 
-    public void SetTempo(decimal beatsPerMinute) { Tempo = new TempoEvent(0, beatsPerMinute); Touch(); }
+    public void SetTempo(decimal beatsPerMinute) { Timeline.TempoMap.SetInitialTempo(beatsPerMinute); Touch(); }
 
     public void SetTimeSignature(int numerator, int denominator)
-    { TimeSignature = new TimeSignatureEvent(0, numerator, denominator); Touch(); }
+    { Timeline.TimeSignatureMap.SetInitialTimeSignature(numerator, denominator); Touch(); }
 
     public SongSection AddSection(SectionKind kind, string? title = null)
     {
@@ -128,25 +127,36 @@ public sealed class SongProject
         return section;
     }
 
-    public void InsertSection(int index, SongSection section)
+    public void InsertSection(int index, SongSection section, int durationBars = 8)
     {
         ArgumentNullException.ThrowIfNull(section);
         if (index < 0 || index > _sections.Count) throw new ArgumentOutOfRangeException(nameof(index));
         if (_sections.Any(item => item.Id == section.Id)) throw new InvalidOperationException($"Section '{section.Id}' already exists.");
         _sections.Insert(index, section);
+        Timeline.ReflowSections(
+            _sections.Select(item => item.Id).ToList(),
+            new Dictionary<SectionId, int> { [section.Id] = durationBars });
         Touch();
     }
 
-    public (SongSection Section, int Index) RemoveSection(SectionId sectionId)
+    public (SongSection Section, int Index, int DurationBars) RemoveSection(SectionId sectionId)
     {
         var index = IndexOf(sectionId);
         var section = _sections[index];
+        var durationBars = Timeline.FindSection(sectionId).DurationBars;
         _sections.RemoveAt(index);
+        Timeline.ReflowSections(_sections.Select(item => item.Id).ToList());
         Touch();
-        return (section, index);
+        return (section, index, durationBars);
     }
 
     public void RenameSection(SectionId sectionId, string title) { FindSection(sectionId).Rename(title); Touch(); }
+
+    public void SetSectionDuration(SectionId sectionId, int durationBars)
+    {
+        Timeline.SetSectionDuration(sectionId, durationBars, _sections.Select(item => item.Id).ToList());
+        Touch();
+    }
 
     public void MoveSection(SectionId sectionId, int targetIndex)
     {
@@ -156,6 +166,7 @@ public sealed class SongProject
         var section = _sections[currentIndex];
         _sections.RemoveAt(currentIndex);
         _sections.Insert(targetIndex, section);
+        Timeline.ReflowSections(_sections.Select(item => item.Id).ToList());
         Touch();
     }
 

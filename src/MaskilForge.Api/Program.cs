@@ -200,6 +200,9 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             request.Kind ?? throw new ArgumentException("Section kind is required."), request.Title)); break;
         case "rename-section": editor.Execute(new RenameSectionCommand(RequiredSectionId(request), Required(request.Title, "title"))); break;
         case "move-section": editor.Execute(new MoveSectionCommand(RequiredSectionId(request), request.TargetIndex ?? throw new ArgumentException("Target index is required."))); break;
+        case "set-section-duration": editor.Execute(new SetSectionDurationCommand(
+            RequiredSectionId(request),
+            request.DurationBars ?? throw new ArgumentException("Section duration is required."))); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
@@ -230,6 +233,7 @@ public sealed record ProjectCommandRequest(
     int? Numerator = null,
     int? Denominator = null,
     int? TargetIndex = null,
+    int? DurationBars = null,
     IReadOnlyList<string>? Lyrics = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
 public sealed record ProjectResponse(SongProject Project, bool CanUndo, bool CanRedo)

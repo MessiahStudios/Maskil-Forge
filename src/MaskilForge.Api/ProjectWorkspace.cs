@@ -56,6 +56,9 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         {
             var section = project.FindSection(updatedSection.Id);
             section.SetLyricLines(updatedSection.LyricLines);
+            var durationBars = update.Timeline.FindSection(updatedSection.Id).DurationBars;
+            if (project.Timeline.FindSection(updatedSection.Id).DurationBars != durationBars)
+                project.SetSectionDuration(updatedSection.Id, durationBars);
         }
         project.Touch();
 

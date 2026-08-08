@@ -5,6 +5,7 @@ This document specifies the planned foundation of Maskil Engine, the procedural 
 Architecture decisions:
 
 - [ADR-0001 — Human Creative Authority](ADR-0001-human-creative-authority.md)
+- [ADR-0002 — Musical Timeline Resolution](ADR-0002-musical-timeline-resolution.md)
 
 ## Canonical Song Graph
 
@@ -29,14 +30,11 @@ LyricPhrase -> ProsodyPlan -> MelodyPhrase -> HarmonyRegion
 
 ## Time model
 
-Define one authoritative musical timeline with:
+The current authoritative timeline uses 480 pulses per quarter note (PPQ). A `MusicalPosition` uses one-based bars and beats plus a zero-based tick within the beat. The timeline converts these positions to and from absolute ticks under the current meter.
 
-- Tempo map and time-signature map
-- Bars, beats, subdivisions, and absolute ticks
-- Sections, markers, clips, and loop regions
-- Conversion between ticks, musical positions, and seconds
+`SongTimeline` owns a `TempoMap`, `TimeSignatureMap`, and ordered `SectionPlacement` values. The current slice intentionally supports one tempo and one time signature at beat zero. Sections begin on bar boundaries, receive an eight-bar default duration, and reflow contiguously when added, removed, reordered, or resized. Each placement references its existing `SectionId`.
 
-Musical positions should survive tempo changes. Audio positions need explicit behavior when tempo changes.
+Future slices may add multiple tempo and meter regions, markers, clips, loop regions, conversion to seconds, and explicit audio behavior when tempo changes. The current timeline does not implement those capabilities, MIDI, transport, or playback.
 
 ## Commands and history
 
@@ -55,11 +53,11 @@ A command should record its inputs, resulting changes, provenance, and random se
 
 Undo and redo history is session-only in the current foundation. The active application session retains reversible section commands, but closing or reloading a project clears that history. Persisting a command journal is a future durability concern and is not implied by project JSON persistence.
 
-## Project schema v1
+## Project schema versions
 
-Project JSON is a durable creative file format rather than a disposable API payload. Schema v1 writes a numeric `schemaVersion`, string `id`, title, creation and modification timestamps, raw lyric draft, sections, tracks, tempo, meter, and metadata. Strongly typed project, section, track, and clip identifiers serialize as strings.
+Project JSON is a durable creative file format rather than a disposable API payload. Schema v2 writes a numeric `schemaVersion`, string `id`, title, creation and modification timestamps, raw lyric draft, sections, tracks, timeline, and metadata. The timeline contains its resolution, tempo map, time-signature map, and section placements. Strongly typed project, section, track, and clip identifiers serialize as strings.
 
-The schema-v1 reader also accepts the original object-shaped schema version (`{ "value": 1 }`) and supplies defaults for raw lyrics and timestamps when loading files created before those fields existed. Future schema changes require explicit migration tests before changing `SchemaVersion.Current`.
+The schema-v1 reader accepts both numeric and original object-shaped schema versions (`{ "value": 1 }`) and supplies defaults for raw lyrics and timestamps when loading early files. The v1-to-v2 migration moves the existing tempo and meter into their maps and creates ordered eight-bar placements using the original section IDs. It runs in memory; the source file is not rewritten until an explicit save. Recovery snapshots use the same migration path.
 
 All reads now pass through a version-aware migration pipeline before domain deserialization. A file from a future schema is rejected without modifying it. Malformed JSON, mismatched project identity, and invalid duplicate lyric or clip identifiers are rejected when loaded directly; one content-addressed copy of the original bytes is retained in the ignored `recovery` directory. Library and Trash listing isolate damaged files so healthy projects remain accessible.
 
@@ -85,12 +83,12 @@ Generators receive one shared context containing hard constraints, soft preferen
 
 Never silently alter locked content. A failed generation should explain which constraints conflict.
 
-## Planned foundation completion gate
+## Foundation completion gate
 
-This future gate will be met when:
+The current foundation demonstrates that:
 
 - A project with sections, lyrics, tempo, meter, tracks, and clips can round-trip without data loss.
 - Commands undo and redo deterministically.
 - IDs and references remain valid after editing.
-- Project migrations remain versioned as the schema evolves beyond v1.
-- Timeline calculations have automated tests.
+- The schema-v1-to-v2 migration retains musical settings, section IDs, and order.
+- Timeline coordinate conversion and section reflow have automated tests.

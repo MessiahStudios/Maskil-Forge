@@ -60,3 +60,46 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
         }
     }
 }
+
+internal sealed class V1ToV2ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 1;
+    public int ToVersion => 2;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        var tempo = project["tempo"]?.DeepClone()
+            ?? throw new InvalidProjectDataException("Schema-v1 project is missing tempo data.");
+        var timeSignature = project["timeSignature"]?.DeepClone()
+            ?? throw new InvalidProjectDataException("Schema-v1 project is missing time-signature data.");
+        var placements = new JsonArray();
+        var startBar = 1;
+        if (project["sections"] is JsonArray sections)
+        {
+            foreach (var section in sections.OfType<JsonObject>())
+            {
+                var sectionId = section["id"]?.DeepClone()
+                    ?? throw new InvalidProjectDataException("Schema-v1 section is missing its ID.");
+                placements.Add(new JsonObject
+                {
+                    ["sectionId"] = sectionId,
+                    ["start"] = new JsonObject { ["bar"] = startBar, ["beat"] = 1, ["tick"] = 0 },
+                    ["durationBars"] = 8
+                });
+                startBar += 8;
+            }
+        }
+
+        project["timeline"] = new JsonObject
+        {
+            ["ticksPerQuarterNote"] = TimelineResolution.TicksPerQuarterNote,
+            ["tempoMap"] = new JsonObject { ["events"] = new JsonArray(tempo) },
+            ["timeSignatureMap"] = new JsonObject { ["events"] = new JsonArray(timeSignature) },
+            ["sectionPlacements"] = placements
+        };
+        project.Remove("tempo");
+        project.Remove("timeSignature");
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

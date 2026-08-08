@@ -15,15 +15,23 @@ export interface SongSection {
 
 export interface SongProject {
   id: string
-  schemaVersion: { value: number }
+  schemaVersion: number
   title: string
   artist: string
   genre: SongGenre
   description: string
   rawLyricDraft: string
   lastModifiedUtc: string
-  tempo: { beat: number; beatsPerMinute: number }
-  timeSignature: { beat: number; numerator: number; denominator: number }
+  timeline: {
+    ticksPerQuarterNote: number
+    tempoMap: { events: Array<{ beat: number; beatsPerMinute: number }> }
+    timeSignatureMap: { events: Array<{ beat: number; numerator: number; denominator: number }> }
+    sectionPlacements: Array<{
+      sectionId: string
+      start: { bar: number; beat: number; tick: number }
+      durationBars: number
+    }>
+  }
   sections: SongSection[]
   tracks: unknown[]
 }
@@ -71,6 +79,7 @@ export interface ProjectCommand {
   kind?: SectionKind
   title?: string
   targetIndex?: number
+  durationBars?: number
   lyrics?: string[]
 }
 
