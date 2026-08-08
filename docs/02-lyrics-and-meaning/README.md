@@ -6,11 +6,15 @@ This planned Maskil Engine layer will turn text and creative intent into annotat
 
 Maskil Forge allows an artist to preserve an unstructured lyric draft before assigning words to Verse, Chorus, or other Song Graph sections. The raw draft may contain finished lyrics, fragments, prose, images, themes, or notes. It remains editable source material and is not destructively replaced when structured lyric-line objects are created.
 
-The current foundation stores this source as `RawLyricDraft` and stores section lyrics as individually identified `LyricLine` objects. Automatic interpretation, syllable analysis, stress analysis, and suggested section boundaries remain planned capabilities rather than implemented behavior.
+The current foundation stores this source as `RawLyricDraft` and stores section lyrics as individually identified `LyricLine` objects. Each structured line now contains ordered `LyricWord` tokens with stable `LyricWordId` values and exact source offsets. Apostrophes and internal hyphens remain part of their word; surrounding punctuation remains untouched in the original line text.
+
+Editing a line reconciles the previous and next word sequences so unchanged words retain their identities when nearby words are inserted or removed. A read-only `LyricDocument` projection connects the raw draft to structured lines and their owning sections without duplicating stored creative state.
+
+`LyricSyllable` and `SyllableId` provide an explicit manual representation. Empty syllable collections mean “not analyzed,” not “zero syllables.” Automatic syllable extraction, phrase boundaries, stress, rhyme, breath analysis, suggested structure, rhythm candidates, and musical placement remain planned rather than implemented.
 
 ## Processing order
 
-1. Parse raw lyrics into sections, lines, phrases, words, and syllables.
+1. Parse raw lyrics into sections, lines, phrases, words, and syllables. Word tokenization is now foundational; the remaining levels are planned.
 2. Annotate stress, rhyme, repeated language, important words, and breath opportunities.
 3. Describe narrative roles and emotional transitions.
 4. Generate multiple rhythmic/prosody candidates.

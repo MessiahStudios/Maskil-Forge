@@ -4,6 +4,15 @@ export type SongGenre = 'Unspecified' | 'Pop' | 'Rock' | 'Folk' | 'Country' | 'R
 export interface LyricLine {
   id: string
   text: string
+  words: LyricWord[]
+}
+
+export interface LyricWord {
+  id: string
+  text: string
+  start: number
+  length: number
+  syllables: Array<{ id: string; text: string }>
 }
 
 export interface SongSection {
@@ -81,6 +90,10 @@ export interface ProjectCommand {
   targetIndex?: number
   durationBars?: number
   lyrics?: string[]
+  lineId?: string
+  wordId?: string
+  text?: string
+  syllables?: string[]
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {

@@ -263,10 +263,18 @@ function removeSection(sectionId: string) {
   if (!project.value) return
   return run(() => projectsApi.command(project.value!.id, project.value!, { type: 'remove-section', sectionId }), 'Section removed.', 'section.remove', { sectionId })
 }
+function editLyricLine(sectionId: string, lineId: string, text: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'edit-lyric-line', sectionId, lineId, text }),
+    'Lyric words updated.',
+    'lyrics.line.edit',
+    { sectionId, lineId, wordCount: text.trim() ? text.trim().split(/\s+/u).length : 0 })
+}
 async function addLyricLine(sectionIndex: number, focus = false) {
   if (!project.value) return
   const section = project.value.sections[sectionIndex]
-  const line = { id: crypto.randomUUID(), text: '' }
+  const line = { id: crypto.randomUUID(), text: '', words: [] }
   section.lyricLines.push(line)
   activityLog.write('info', 'lyrics.line.add', 'Lyric line added locally.', { sectionId: section.id, lineId: line.id })
   if (focus) {
@@ -277,7 +285,7 @@ async function addLyricLine(sectionIndex: number, focus = false) {
 async function addLineAfter(sectionIndex: number, lineIndex: number) {
   if (!project.value) return
   const section = project.value.sections[sectionIndex]
-  const line = { id: crypto.randomUUID(), text: '' }
+  const line = { id: crypto.randomUUID(), text: '', words: [] }
   section.lyricLines.splice(lineIndex + 1, 0, line)
   await nextTick()
   document.querySelector<HTMLInputElement>(`[data-line-id="${line.id}"]`)?.focus()
@@ -460,11 +468,15 @@ onBeforeUnmount(() => {
               <div class="lyrics-heading"><span>Lyrics</span><button class="quiet" :disabled="busy" @click="addLyricLine(index, true)">+ Add line</button></div>
               <div v-for="(line, lineIndex) in section.lyricLines" :key="line.id" class="lyric-line">
                 <span>{{ lineIndex + 1 }}</span>
-                <input v-model="line.text" :data-line-id="line.id" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Write a lyric line…" @keydown.enter.prevent="addLineAfter(index, lineIndex)" @keydown.backspace="handleLineBackspace(index, lineIndex, line.text)" />
+                <input v-model="line.text" :data-line-id="line.id" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Write a lyric line…" @change="editLyricLine(section.id, line.id, line.text)" @keydown.enter.prevent="addLineAfter(index, lineIndex)" @keydown.backspace="handleLineBackspace(index, lineIndex, line.text)" />
                 <button class="quiet lyric-delete" :disabled="busy" @click="removeLyricLine(index, lineIndex)">Remove line</button>
+                <div v-if="line.words.length" class="lyric-words" :aria-label="`Addressable words for lyric line ${lineIndex + 1}`">
+                  <span v-for="word in line.words" :key="word.id" class="word-token">{{ word.text }}</span>
+                  <small>Syllables not analyzed</small>
+                </div>
               </div>
             </div>
-            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><small v-for="line in section.lyricLines" :key="line.id">Line ID: {{ line.id }}</small></details>
+            <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><small v-for="word in line.words" :key="word.id">Word ID: {{ word.id }} · {{ word.text }}</small></template></details>
           </li>
         </ol>
       </section>

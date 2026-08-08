@@ -42,6 +42,14 @@ Variable tempo/meter regions, markers, clip placement, seconds conversion, trans
 
 Build the lyric document, token/syllable/stress annotations, beat mapping, breath analysis, rhythm candidates, scoring, locks, and a basic lyric/timeline UI.
 
+### Milestone 2.1 — Lyric document foundation
+
+The current slice gives lyric lines, words, and syllables strongly typed identifiers; tokenizes structured lines with exact source offsets; preserves unchanged word identities across edits; and exposes addressable word tokens in the editor. Schema-v2 songs and recovery snapshots migrate deterministically to schema v3. Syllable collections are explicitly editable data but remain empty until a future analyzer or artist supplies boundaries.
+
+Phrase modeling, automatic syllable extraction, stress, rhyme, breath points, rhythm candidates, locks, scoring, and beat mapping remain future Milestone 2 slices.
+
+**Deliverable:** Maskil Forge can identify and preserve the individual words that later lyric intelligence will analyze.
+
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 
 ## Milestone 3 — Theory and harmony

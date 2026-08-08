@@ -37,10 +37,31 @@ public readonly record struct ClipId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(LyricLineIdJsonConverter))]
+public readonly record struct LyricLineId(Guid Value)
+{
+    public static LyricLineId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
+[JsonConverter(typeof(LyricWordIdJsonConverter))]
+public readonly record struct LyricWordId(Guid Value)
+{
+    public static LyricWordId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
+[JsonConverter(typeof(SyllableIdJsonConverter))]
+public readonly record struct SyllableId(Guid Value)
+{
+    public static SyllableId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(2);
+    public static SchemaVersion Current => new(3);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -101,4 +122,22 @@ internal sealed class ClipIdJsonConverter : GuidIdJsonConverter<ClipId>
 {
     protected override ClipId Create(Guid value) => new(value);
     protected override Guid GetValue(ClipId value) => value.Value;
+}
+
+internal sealed class LyricLineIdJsonConverter : GuidIdJsonConverter<LyricLineId>
+{
+    protected override LyricLineId Create(Guid value) => new(value);
+    protected override Guid GetValue(LyricLineId value) => value.Value;
+}
+
+internal sealed class LyricWordIdJsonConverter : GuidIdJsonConverter<LyricWordId>
+{
+    protected override LyricWordId Create(Guid value) => new(value);
+    protected override Guid GetValue(LyricWordId value) => value.Value;
+}
+
+internal sealed class SyllableIdJsonConverter : GuidIdJsonConverter<SyllableId>
+{
+    protected override SyllableId Create(Guid value) => new(value);
+    protected override Guid GetValue(SyllableId value) => value.Value;
 }
