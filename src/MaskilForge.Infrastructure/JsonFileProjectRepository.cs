@@ -295,6 +295,7 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         {
             var json = await File.ReadAllTextAsync(path, cancellationToken);
             var normalized = MigrationPipeline.Normalize(ProjectMigrationPipeline.Parse(json));
+            EnsureStableTimestamps(normalized, path);
             var project = normalized.Deserialize<SongProject>(JsonOptions)
                 ?? throw new InvalidProjectDataException("The project file contains no project data.");
             if (expectedId is not null && project.Id != expectedId.Value)
@@ -338,7 +339,9 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
                 ?? throw new InvalidProjectDataException("The recovery snapshot root must be a JSON object.");
             var project = envelope["project"] as JsonObject
                 ?? throw new InvalidProjectDataException("The recovery snapshot contains no project data.");
-            envelope["project"] = MigrationPipeline.Normalize(project);
+            var normalized = MigrationPipeline.Normalize(project);
+            EnsureStableTimestamps(normalized, path);
+            envelope["project"] = normalized;
             var snapshot = envelope.Deserialize<ProjectRecoverySnapshot>(JsonOptions)
                 ?? throw new InvalidProjectDataException("The recovery snapshot contains no project data.");
             if (snapshot.CapturedAtUtc == default || snapshot.BaseProjectLastModifiedUtc == default || string.IsNullOrWhiteSpace(snapshot.SessionId))
@@ -350,6 +353,31 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         catch (Exception exception) when (exception is JsonException or ArgumentException or InvalidOperationException)
         {
             throw new InvalidProjectDataException("The recovery snapshot is invalid.", null, exception);
+        }
+    }
+
+    private static void EnsureStableTimestamps(JsonObject project, string path)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var fallback = new DateTimeOffset(File.GetLastWriteTimeUtc(path), TimeSpan.Zero);
+        if (!HasTimestamp(project, "createdUtc"))
+            project["createdUtc"] = fallback;
+        if (!HasTimestamp(project, "lastModifiedUtc"))
+            project["lastModifiedUtc"] = project["createdUtc"]!.DeepClone();
+    }
+
+    private static bool HasTimestamp(JsonObject project, string name)
+    {
+        if (!project.TryGetPropertyValue(name, out var node) || node is null)
+            return false;
+        try
+        {
+            var value = node.Deserialize<DateTimeOffset?>(JsonOptions);
+            return value is not null && value.Value != default;
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 
