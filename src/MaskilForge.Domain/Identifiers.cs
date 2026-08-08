@@ -107,10 +107,17 @@ public readonly record struct RhythmCandidateEventId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(BreathPointIdJsonConverter))]
+public readonly record struct BreathPointId(Guid Value)
+{
+    public static BreathPointId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(9);
+    public static SchemaVersion Current => new(10);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -231,4 +238,10 @@ internal sealed class RhythmCandidateEventIdJsonConverter : GuidIdJsonConverter<
 {
     protected override RhythmCandidateEventId Create(Guid value) => new(value);
     protected override Guid GetValue(RhythmCandidateEventId value) => value.Value;
+}
+
+internal sealed class BreathPointIdJsonConverter : GuidIdJsonConverter<BreathPointId>
+{
+    protected override BreathPointId Create(Guid value) => new(value);
+    protected override Guid GetValue(BreathPointId value) => value.Value;
 }

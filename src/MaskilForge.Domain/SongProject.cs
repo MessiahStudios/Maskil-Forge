@@ -274,6 +274,9 @@ public sealed class SongProject
         var rhythmEvents = rhythmCandidates.SelectMany(item => item.Events).ToList();
         if (rhythmEvents.Select(item => item.Id).Distinct().Count() != rhythmEvents.Count)
             throw new ArgumentException("Rhythm candidate event IDs must be unique across the project.");
+        var breathPoints = lines.SelectMany(line => line.BreathPoints).ToList();
+        if (breathPoints.Select(item => item.Id).Distinct().Count() != breathPoints.Count)
+            throw new ArgumentException("Breath point IDs must be unique across the project.");
     }
 
     private void ValidateAllSyllablePlacements(TimeSignatureEvent meter)

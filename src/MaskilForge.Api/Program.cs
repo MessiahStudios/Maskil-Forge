@@ -272,6 +272,13 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
                 request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
                 request.RhythmCandidateId ?? throw new ArgumentException("Rhythm candidate ID is required.")));
             break;
+        case "set-breath-point":
+            editor.Execute(new SetBreathPointCommand(
+                RequiredSectionId(request),
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.SyllableId ?? throw new ArgumentException("Syllable ID is required."),
+                request.BreathPresent ?? throw new ArgumentException("Breath present is required.")));
+            break;
         case "split-lyric-phrase":
             editor.Execute(new SplitLyricPhraseCommand(
                 RequiredSectionId(request),
@@ -320,6 +327,7 @@ public sealed record ProjectCommandRequest(
     BeatPosition? BeatPosition = null,
     RhythmCandidateId? RhythmCandidateId = null,
     string? CandidateLabel = null,
+    bool? BreathPresent = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

@@ -28,12 +28,14 @@ Placement is artist-authored and partial. Unplaced means undecided. Existing pla
 
 Compatible lyric and syllable edits filter candidates to surviving identities. Phrase splits partition candidate events without duplicating lyric data, while joins re-associate the options with the surviving phrase. The current editor does not generate, score, audition, rank, or automatically accept candidates. Candidates contain point onsets only; duration, rests, melisma, locks, and performance data remain future work.
 
+`BreathPoint` records an artist-authored inhale after an existing syllable. It has a stable `BreathPointId`, references that syllable through `AfterSyllableId`, and stores `Manual`, `Analyzer`, or `Imported` provenance. Absence means undecided. Punctuation and phrase breaks do not invent breaths. Compatible lyric and syllable edits retain surviving breath identities; removing a syllable removes its now-invalid breath mark. The editor writes manual decisions only. Timed breath placement, automatic breath analysis, scoring, and locks remain later slices.
+
 `LyricPunctuation` preserves punctuation groups as identified tokens with exact source offsets while apostrophes and internal hyphens remain part of their words. `LyricPhrase` stores a stable ID, zero-based position, provenance, and an ordered list of existing word IDs. Every word belongs to exactly one contiguous phrase. A new or migrated line begins as one `Default` phrase; split and join operations are explicit artist actions and produce `Manual` provenance. Nearby word edits retain surviving phrase and punctuation IDs without copying or rewriting lyric text.
 
 ## Processing order
 
-1. Parse raw lyrics into sections, lines, phrases, words, and syllables. Word tokenization, punctuation identity, artist-controlled syllable boundaries, manual phrase structure, artist-authored syllable stress, phrase-relative prosodic weight, and manual beat anchors are now foundational; automatic analysis remains planned.
-2. Analyze rhyme, repeated language, important words, and breath opportunities without replacing artist-authored stress decisions.
+1. Parse raw lyrics into sections, lines, phrases, words, and syllables. Word tokenization, punctuation identity, artist-controlled syllable boundaries, manual phrase structure, artist-authored syllable stress, phrase-relative prosodic weight, manual beat anchors, and manually marked breath points are now foundational; automatic analysis remains planned.
+2. Analyze rhyme, repeated language, important words, and breath opportunities without replacing artist-authored stress or breath decisions.
 3. Describe narrative roles and emotional transitions.
 4. Preserve multiple artist-authored rhythm possibilities; later analyzers may propose additional candidates through the same typed model.
 5. Score candidates and let the artist audition, edit, or lock one.
@@ -41,10 +43,10 @@ Compatible lyric and syllable edits filter candidates to surviving identities. P
 
 ## Future timed prosody model
 
-The current foundation records phrase-relative weight, optional point anchors, and multiple named onset alternatives. Later timed-prosody slices will extend those candidates with:
+The current foundation records phrase-relative weight, optional point anchors, multiple named onset alternatives, and optional after-syllable breath marks. Later timed-prosody slices will extend those candidates with:
 
 - Onset, duration, stress, and melisma
-- Breath points and phrase boundaries
+- Timed breath points and phrase boundaries
 - Sustained-vowel opportunities
 - Crowding, syncopation, and vocal difficulty
 - Natural-stress, hook-clarity, and genre-fit scores

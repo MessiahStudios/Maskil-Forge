@@ -302,6 +302,50 @@ public sealed class CommandHistoryTests
         AssertPlacement(line, placementId, new BeatPosition(1, 2, 0), PlacementProvenance.Manual);
     }
 
+    [Fact]
+    public void UndoAndRedo_BreathPoint_RestoresExactIdentityAndProvenance()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("home");
+        var word = line.Words[0];
+        line.SetSyllables(word.Id, ["home"]);
+        var syllableId = word.Syllables[0].Id;
+        line.SetBreathPoint(syllableId, true, BreathProvenance.Imported);
+        var breathId = line.BreathPoints[0].Id;
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetBreathPointCommand(section.Id, line.Id, syllableId, false));
+        Assert.Empty(line.BreathPoints);
+
+        Assert.True(editor.Undo());
+        AssertBreath(line, breathId, syllableId, BreathProvenance.Imported);
+
+        Assert.True(editor.Redo());
+        Assert.Empty(line.BreathPoints);
+    }
+
+    [Fact]
+    public void UndoAndRedo_NewBreathPoint_ReusesGeneratedIdentifier()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("home");
+        var word = line.Words[0];
+        line.SetSyllables(word.Id, ["home"]);
+        var syllableId = word.Syllables[0].Id;
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetBreathPointCommand(section.Id, line.Id, syllableId, true));
+        var breathId = line.BreathPoints[0].Id;
+
+        Assert.True(editor.Undo());
+        Assert.Empty(line.BreathPoints);
+
+        Assert.True(editor.Redo());
+        AssertBreath(line, breathId, syllableId, BreathProvenance.Manual);
+    }
+
     private static void AssertPlacement(
         LyricLine line,
         SyllablePlacementId placementId,
@@ -312,6 +356,18 @@ public sealed class CommandHistoryTests
         Assert.Equal(placementId, placement.Id);
         Assert.Equal(position, placement.Position);
         Assert.Equal(provenance, placement.Provenance);
+    }
+
+    private static void AssertBreath(
+        LyricLine line,
+        BreathPointId breathId,
+        SyllableId afterSyllableId,
+        BreathProvenance provenance)
+    {
+        var breath = Assert.Single(line.BreathPoints);
+        Assert.Equal(breathId, breath.Id);
+        Assert.Equal(afterSyllableId, breath.AfterSyllableId);
+        Assert.Equal(provenance, breath.Provenance);
     }
 
     [Fact]

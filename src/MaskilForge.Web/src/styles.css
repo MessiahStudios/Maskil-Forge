@@ -138,6 +138,9 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .beat-map-form button { padding: .42rem .55rem; }
 .clear-placement { color: #f0ddbc !important; border-color: #71684f !important; }
 .placement-summary { grid-column: 1 / -1; color: #aaa596 !important; text-transform: none !important; letter-spacing: 0 !important; line-height: 1.4; }
+.breath-toggle { display: grid; grid-template-columns: auto 1fr; gap: .2rem .55rem; align-items: center; margin-top: .45rem; padding-top: .5rem; border-top: 1px solid #3b4037; color: #d8cfbc; font-size: .78rem; }
+.breath-toggle input { width: auto; margin: 0; accent-color: #d8ba78; }
+.breath-toggle small { grid-column: 2; color: #a9a395; text-transform: none; letter-spacing: 0; }
 .prosody-empty { display: block; margin-top: .6rem; }
 .rhythm-candidate-editor { display: grid; gap: .7rem; margin-top: .8rem; padding-top: .75rem; border-top: 1px solid #4a4332; }
 .rhythm-candidate-heading { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, .8fr); gap: .8rem; align-items: end; }
