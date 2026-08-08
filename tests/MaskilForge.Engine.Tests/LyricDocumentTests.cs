@@ -95,6 +95,52 @@ public sealed class LyricDocumentTests
     }
 
     [Fact]
+    public void ArtistStress_RecordsLevelAndManualProvenanceOnTheAddressedSyllable()
+    {
+        var line = LyricLine.Create("through pain");
+        var pain = line.Words[1];
+        line.SetSyllables(pain.Id, ["pain"]);
+        var syllable = Assert.Single(pain.Syllables);
+
+        line.SetStress(pain.Id, syllable.Id, StressLevel.Emphasized);
+
+        Assert.NotNull(pain.Syllables[0].Stress);
+        Assert.Equal(StressLevel.Emphasized, pain.Syllables[0].Stress!.Level);
+        Assert.Equal(StressProvenance.Manual, pain.Syllables[0].Stress!.Provenance);
+    }
+
+    [Fact]
+    public void StressMark_SurvivesMatchingSyllableBoundaryAndLineEdits()
+    {
+        var line = LyricLine.Create("Amazing grace");
+        var amazing = line.Words[0];
+        line.SetSyllables(amazing.Id, ["A", "maz", "ing"]);
+        var stressedId = amazing.Syllables[1].Id;
+        line.SetStress(amazing.Id, stressedId, StressLevel.Primary, StressProvenance.Imported);
+
+        line.SetSyllables(amazing.Id, ["uh", "A", "maz", "ing"]);
+        line.SetText("Oh Amazing grace");
+
+        var retained = line.Words.Single(word => word.Text == "Amazing")
+            .Syllables.Single(syllable => syllable.Id == stressedId);
+        Assert.Equal(StressLevel.Primary, retained.Stress?.Level);
+        Assert.Equal(StressProvenance.Imported, retained.Stress?.Provenance);
+    }
+
+    [Fact]
+    public void ExplicitNoStress_IsDistinctFromAnUnmarkedSyllable()
+    {
+        var line = LyricLine.Create("quiet");
+        var word = line.Words[0];
+        line.SetSyllables(word.Id, ["qui", "et"]);
+
+        line.SetStress(word.Id, word.Syllables[0].Id, StressLevel.None);
+
+        Assert.Equal(StressLevel.None, word.Syllables[0].Stress?.Level);
+        Assert.Null(word.Syllables[1].Stress);
+    }
+
+    [Fact]
     public void NewLyricLine_StartsAsOneDefaultPhraseCoveringEveryWord()
     {
         var line = LyricLine.Create("I thought the way out");
@@ -171,6 +217,19 @@ public sealed class LyricDocumentTests
         Assert.Throws<ArgumentException>(() => line.SetSyllables(line.Words[0].Id, [""]));
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             line.SetSyllables(line.Words[0].Id, Enumerable.Repeat("a", 33)));
+    }
+
+    [Fact]
+    public void Stress_RejectsInvalidLevelsAndUnknownSyllables()
+    {
+        var line = LyricLine.Create("word");
+        var word = line.Words[0];
+        line.SetSyllables(word.Id, ["word"]);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            line.SetStress(word.Id, word.Syllables[0].Id, (StressLevel)999));
+        Assert.Throws<KeyNotFoundException>(() =>
+            line.SetStress(word.Id, SyllableId.New(), StressLevel.Primary));
     }
 
     [Fact]

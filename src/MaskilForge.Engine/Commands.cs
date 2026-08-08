@@ -172,3 +172,45 @@ public sealed class JoinLyricPhraseCommand(
     private static IReadOnlyList<LyricPhrase> Snapshot(IEnumerable<LyricPhrase> phrases) =>
         phrases.Select(phrase => new LyricPhrase(phrase.Id, phrase.Position, phrase.WordIds.ToList(), phrase.Source)).ToList();
 }
+
+public sealed class SetSyllableStressCommand(
+    SectionId sectionId,
+    LyricLineId lineId,
+    LyricWordId wordId,
+    SyllableId syllableId,
+    StressLevel? level) : IProjectCommand
+{
+    private StressMark? _previous;
+    private bool _captured;
+
+    public void Execute(SongProject project)
+    {
+        var line = FindLine(project);
+        if (!_captured)
+        {
+            var syllable = FindSyllable(line);
+            _previous = syllable.Stress is null
+                ? null
+                : new StressMark(syllable.Stress.Level, syllable.Stress.Provenance);
+            _captured = true;
+        }
+        line.SetStress(wordId, syllableId, level, StressProvenance.Manual);
+        project.Touch();
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (!_captured) throw new InvalidOperationException("Command has not been executed.");
+        FindLine(project).SetStress(
+            wordId,
+            syllableId,
+            _previous?.Level,
+            _previous?.Provenance ?? StressProvenance.Manual);
+        project.Touch();
+    }
+
+    private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+    private LyricSyllable FindSyllable(LyricLine line) =>
+        line.Words.SingleOrDefault(item => item.Id == wordId)?.Syllables.SingleOrDefault(item => item.Id == syllableId)
+        ?? throw new KeyNotFoundException($"Syllable '{syllableId}' was not found in lyric word '{wordId}'.");
+}

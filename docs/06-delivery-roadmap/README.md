@@ -46,7 +46,7 @@ Build the lyric document, token/syllable/stress annotations, beat mapping, breat
 
 The current slice gives lyric lines, words, and syllables strongly typed identifiers; tokenizes structured lines with exact source offsets; preserves unchanged word identities across edits; and exposes addressable word tokens in the editor. Schema-v2 songs and recovery snapshots migrate deterministically to schema v3. Syllable collections are explicitly editable data but remain empty until a future analyzer or artist supplies boundaries.
 
-Automatic syllable extraction, stress, rhyme, breath points, rhythm candidates, locks, scoring, and beat mapping remain future Milestone 2 slices.
+Automatic syllable extraction, automatic stress detection, rhyme, breath points, rhythm candidates, locks, scoring, and beat mapping remain future Milestone 2 slices. Artist-authored stress representation is delivered separately in Milestone 2.4.
 
 **Deliverable:** Maskil Forge can identify and preserve the individual words that later lyric intelligence will analyze.
 
@@ -62,9 +62,17 @@ No automatic pronunciation or syllabification service is implemented yet. Stress
 
 The current slice identifies punctuation without removing it from the original lyric text and represents each phrase as an ordered reference to existing word IDs. New and schema-v4 lines begin as one default phrase. Artists can add phrase breaks or join adjacent phrases with explicit, readable controls; these decisions receive `Manual` provenance and participate in session undo/redo without changing phrase identities during redo. Phrase and punctuation identities survive save/load and compatible nearby text edits. Schema-v4 songs and recovery snapshots migrate deterministically to schema v5.
 
-Punctuation does not automatically imply a breath or phrase break. Phrase meaning, emphasis, stress, breath recommendations, automatic boundary suggestions, rhythm candidates, and beat mapping remain future work.
+Punctuation does not automatically imply a breath or phrase break. Phrase meaning, automatic emphasis or stress detection, breath recommendations, automatic boundary suggestions, rhythm candidates, and beat mapping remain future work.
 
 **Deliverable:** an artist can group a lyric line into meaningful sung ideas without changing its words, and those groupings remain stable, editable project data.
+
+### Milestone 2.4 — Stress foundation
+
+The current slice adds optional stress marks to existing syllable identities. Artists can explicitly choose `None`, `Secondary`, `Primary`, or `Emphasized`; every editor decision receives `Manual` provenance. An unmarked syllable remains distinct from an explicit no-stress decision. Matching syllables keep their marks across compatible boundary and line edits, save/load preserves the annotation, and session undo/redo restores the exact prior level and provenance. Schema-v5 songs and recovery snapshots migrate in memory to schema v6 with syllables left unmarked.
+
+No analyzer currently assigns stress. Vocal analysis, emotional scoring, genre prediction, melody generation, rhythm suggestions, beat placement, AI, MIDI, playback, and audio remain outside this slice.
+
+**Deliverable:** an artist can record which sung syllables carry weight, revise that decision safely, and preserve it as structured creative intent.
 
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 

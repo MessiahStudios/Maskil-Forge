@@ -223,6 +223,14 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
                     request.Syllables ?? throw new ArgumentException("Syllables are required."));
             project.Touch();
             break;
+        case "set-syllable-stress":
+            editor.Execute(new SetSyllableStressCommand(
+                RequiredSectionId(request),
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.WordId ?? throw new ArgumentException("Lyric word ID is required."),
+                request.SyllableId ?? throw new ArgumentException("Syllable ID is required."),
+                request.StressLevel));
+            break;
         case "split-lyric-phrase":
             editor.Execute(new SplitLyricPhraseCommand(
                 RequiredSectionId(request),
@@ -264,7 +272,9 @@ public sealed record ProjectCommandRequest(
     IReadOnlyList<string>? Lyrics = null,
     LyricLineId? LineId = null,
     LyricWordId? WordId = null,
+    SyllableId? SyllableId = null,
     LyricPhraseId? PhraseId = null,
+    StressLevel? StressLevel = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

@@ -20,10 +20,45 @@ public enum PhraseSource
     Imported
 }
 
+public enum StressLevel
+{
+    None,
+    Secondary,
+    Primary,
+    Emphasized
+}
+
+public enum StressProvenance
+{
+    Manual,
+    Analyzer,
+    Imported
+}
+
+public sealed class StressMark
+{
+    [JsonConstructor]
+    public StressMark(StressLevel level, StressProvenance provenance)
+    {
+        if (!Enum.IsDefined(level)) throw new ArgumentOutOfRangeException(nameof(level), "Stress level is invalid.");
+        if (!Enum.IsDefined(provenance)) throw new ArgumentOutOfRangeException(nameof(provenance), "Stress provenance is invalid.");
+        Level = level;
+        Provenance = provenance;
+    }
+
+    public StressLevel Level { get; }
+    public StressProvenance Provenance { get; }
+}
+
 public sealed class LyricSyllable
 {
     [JsonConstructor]
-    public LyricSyllable(SyllableId id, string text, int position, SyllableSource source)
+    public LyricSyllable(
+        SyllableId id,
+        string text,
+        int position,
+        SyllableSource source,
+        StressMark? stress = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A syllable ID is required.", nameof(id));
         if (string.IsNullOrWhiteSpace(text)) throw new ArgumentException("Syllable text is required.", nameof(text));
@@ -34,12 +69,14 @@ public sealed class LyricSyllable
         Text = text;
         Position = position;
         Source = source;
+        Stress = stress;
     }
 
     public SyllableId Id { get; }
     public string Text { get; }
     public int Position { get; }
     public SyllableSource Source { get; }
+    public StressMark? Stress { get; }
 }
 
 public sealed class LyricWord
@@ -87,10 +124,31 @@ public sealed class LyricWord
         var replacements = values.Select((text, position) =>
         {
             var id = matches.TryGetValue(position, out var existing) ? existing.Id : SyllableId.New();
-            return new LyricSyllable(id, text, position, source);
+            return new LyricSyllable(id, text, position, source, existing?.Stress);
         }).ToList();
         _syllables.Clear();
         _syllables.AddRange(replacements);
+    }
+
+    public void SetStress(
+        SyllableId syllableId,
+        StressLevel? level,
+        StressProvenance provenance = StressProvenance.Manual)
+    {
+        if (level is not null && !Enum.IsDefined(level.Value))
+            throw new ArgumentOutOfRangeException(nameof(level), "Stress level is invalid.");
+        if (!Enum.IsDefined(provenance))
+            throw new ArgumentOutOfRangeException(nameof(provenance), "Stress provenance is invalid.");
+        var index = _syllables.FindIndex(item => item.Id == syllableId);
+        if (index < 0) throw new KeyNotFoundException($"Syllable '{syllableId}' was not found.");
+        var syllable = _syllables[index];
+        var stress = level is null ? null : new StressMark(level.Value, provenance);
+        _syllables[index] = new LyricSyllable(
+            syllable.Id,
+            syllable.Text,
+            syllable.Position,
+            syllable.Source,
+            stress);
     }
 
     private static Dictionary<int, LyricSyllable> MatchExistingSyllables(
@@ -235,6 +293,17 @@ public sealed class LyricLine
         var word = _words.SingleOrDefault(item => item.Id == wordId)
             ?? throw new KeyNotFoundException($"Lyric word '{wordId}' was not found.");
         word.SetSyllables(syllables, source);
+    }
+
+    public void SetStress(
+        LyricWordId wordId,
+        SyllableId syllableId,
+        StressLevel? level,
+        StressProvenance provenance = StressProvenance.Manual)
+    {
+        var word = _words.SingleOrDefault(item => item.Id == wordId)
+            ?? throw new KeyNotFoundException($"Lyric word '{wordId}' was not found.");
+        word.SetStress(syllableId, level, provenance);
     }
 
     public void SplitPhraseAfter(LyricWordId wordId)

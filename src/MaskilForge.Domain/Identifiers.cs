@@ -75,7 +75,7 @@ public readonly record struct PunctuationId(Guid Value)
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(5);
+    public static SchemaVersion Current => new(6);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>

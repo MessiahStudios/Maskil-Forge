@@ -24,6 +24,10 @@ public sealed class JsonPersistenceTests
             var verse = project.AddSection(SectionKind.Verse);
             var verseLine = verse.AddLyricLine("I walked, through shadows");
             verseLine.SetSyllables(verseLine.Words[2].Id, ["through"]);
+            verseLine.SetStress(
+                verseLine.Words[2].Id,
+                verseLine.Words[2].Syllables[0].Id,
+                StressLevel.Primary);
             verseLine.SplitPhraseAfter(verseLine.Words[1].Id);
             var verseWordIds = verseLine.Words.Select(word => word.Id).ToList();
             var syllableId = verseLine.Words[2].Syllables[0].Id;
@@ -48,6 +52,8 @@ public sealed class JsonPersistenceTests
             Assert.Equal(syllableId, loaded.Sections[0].LyricLines[0].Words[2].Syllables[0].Id);
             Assert.Equal(0, loaded.Sections[0].LyricLines[0].Words[2].Syllables[0].Position);
             Assert.Equal(SyllableSource.Manual, loaded.Sections[0].LyricLines[0].Words[2].Syllables[0].Source);
+            Assert.Equal(StressLevel.Primary, loaded.Sections[0].LyricLines[0].Words[2].Syllables[0].Stress?.Level);
+            Assert.Equal(StressProvenance.Manual, loaded.Sections[0].LyricLines[0].Words[2].Syllables[0].Stress?.Provenance);
             Assert.Equal(punctuationId, loaded.Sections[0].LyricLines[0].Punctuation[0].Id);
             Assert.Equal(phraseIds, loaded.Sections[0].LyricLines[0].Phrases.Select(item => item.Id));
             Assert.All(loaded.Sections[0].LyricLines[0].Phrases, item => Assert.Equal(PhraseSource.Manual, item.Source));
@@ -136,7 +142,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV5_WritesStableTimelineLyricSyllableAndPhraseContract()
+    public async Task SchemaV6_WritesStableTimelineLyricSyllablePhraseAndStressContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -145,12 +151,13 @@ public sealed class JsonPersistenceTests
             var project = SongProject.Create("Schema Contract");
             var line = project.AddSection(SectionKind.Verse).AddLyricLine("Words become addressable!");
             line.SetSyllables(line.Words[1].Id, ["be", "come"]);
+            line.SetStress(line.Words[1].Id, line.Words[1].Syllables[1].Id, StressLevel.Emphasized);
             line.SplitPhraseAfter(line.Words[1].Id);
             await repository.SaveAsync(project, CancellationToken.None);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(5, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(6, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -174,6 +181,9 @@ public sealed class JsonPersistenceTests
             var syllables = savedLine.GetProperty("words")[1].GetProperty("syllables");
             Assert.Equal([0, 1], syllables.EnumerateArray().Select(item => item.GetProperty("position").GetInt32()));
             Assert.All(syllables.EnumerateArray(), item => Assert.Equal("Manual", item.GetProperty("source").GetString()));
+            Assert.Equal(JsonValueKind.Null, syllables[0].GetProperty("stress").ValueKind);
+            Assert.Equal("Emphasized", syllables[1].GetProperty("stress").GetProperty("level").GetString());
+            Assert.Equal("Manual", syllables[1].GetProperty("stress").GetProperty("provenance").GetString());
             var punctuation = Assert.Single(savedLine.GetProperty("punctuation").EnumerateArray());
             Assert.Equal("!", punctuation.GetProperty("text").GetString());
             Assert.Equal(2, savedLine.GetProperty("phrases").GetArrayLength());
@@ -465,6 +475,83 @@ public sealed class JsonPersistenceTests
             Assert.Equal([heavenId, nowId], phrase.WordIds);
             Assert.Equal(phrase.Id, Assert.Single(repeatedLine.Phrases).Id);
             Assert.Equal(originalV4, await File.ReadAllTextAsync(path));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_MigratesSchemaV5SyllablesToUnmarkedStress()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var projectId = ProjectId.New();
+        var sectionId = SectionId.New();
+        var lineId = LyricLineId.New();
+        var wordId = LyricWordId.New();
+        var syllableId = SyllableId.New();
+        var phraseId = LyricPhraseId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var originalV5 = $$"""
+            {
+              "id": "{{projectId}}",
+              "schemaVersion": 5,
+              "title": "Stress Migration",
+              "timeline": {
+                "ticksPerQuarterNote": 480,
+                "tempoMap": { "events": [{ "beat": 0, "beatsPerMinute": 120 }] },
+                "timeSignatureMap": { "events": [{ "beat": 0, "numerator": 4, "denominator": 4 }] },
+                "sectionPlacements": [{
+                  "sectionId": "{{sectionId}}",
+                  "start": { "bar": 1, "beat": 1, "tick": 0 },
+                  "durationBars": 8
+                }]
+              },
+              "sections": [{
+                "id": "{{sectionId}}",
+                "kind": "Verse",
+                "title": "Verse",
+                "lyricLines": [{
+                  "id": "{{lineId}}",
+                  "text": "pain",
+                  "words": [{
+                    "id": "{{wordId}}",
+                    "text": "pain",
+                    "start": 0,
+                    "length": 4,
+                    "syllables": [{
+                      "id": "{{syllableId}}",
+                      "text": "pain",
+                      "position": 0,
+                      "source": "Manual"
+                    }]
+                  }],
+                  "punctuation": [],
+                  "phrases": [{
+                    "id": "{{phraseId}}",
+                    "position": 0,
+                    "wordIds": ["{{wordId}}"],
+                    "source": "Default"
+                  }]
+                }]
+              }],
+              "tracks": []
+            }
+            """;
+            var path = Path.Combine(directory, $"{projectId}.json");
+            await File.WriteAllTextAsync(path, originalV5);
+
+            var loaded = await new JsonFileProjectRepository(directory).LoadAsync(projectId, CancellationToken.None);
+
+            Assert.NotNull(loaded);
+            Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
+            var syllable = Assert.Single(loaded.Sections[0].LyricLines[0].Words[0].Syllables);
+            Assert.Equal(syllableId, syllable.Id);
+            Assert.Null(syllable.Stress);
+            Assert.Equal(originalV5, await File.ReadAllTextAsync(path));
         }
         finally
         {

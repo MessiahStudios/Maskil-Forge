@@ -2,6 +2,8 @@ export type SectionKind = 'Verse' | 'Chorus' | 'PreChorus' | 'Bridge' | 'Outro'
 export type SongGenre = 'Unspecified' | 'Pop' | 'Rock' | 'Folk' | 'Country' | 'RAndB' | 'HipHop' | 'Electronic' | 'Cinematic' | 'Alternative' | 'Other'
 export type SyllableSource = 'Manual' | 'Analyzer' | 'Imported'
 export type PhraseSource = 'Default' | 'Manual' | 'Analyzer' | 'Imported'
+export type StressLevel = 'None' | 'Secondary' | 'Primary' | 'Emphasized'
+export type StressProvenance = 'Manual' | 'Analyzer' | 'Imported'
 
 export interface LyricLine {
   id: string
@@ -24,6 +26,12 @@ export interface LyricSyllable {
   text: string
   position: number
   source: SyllableSource
+  stress: StressMark | null
+}
+
+export interface StressMark {
+  level: StressLevel
+  provenance: StressProvenance
 }
 
 export interface LyricPunctuation {
@@ -117,7 +125,9 @@ export interface ProjectCommand {
   lyrics?: string[]
   lineId?: string
   wordId?: string
+  syllableId?: string
   phraseId?: string
+  stressLevel?: StressLevel | null
   text?: string
   syllables?: string[]
 }

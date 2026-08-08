@@ -252,3 +252,33 @@ internal sealed class V4ToV5ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V5ToV6ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 5;
+    public int ToVersion => 6;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["sections"] is JsonArray sections)
+        {
+            foreach (var section in sections.OfType<JsonObject>())
+            {
+                if (section["lyricLines"] is not JsonArray lines) continue;
+                foreach (var line in lines.OfType<JsonObject>())
+                {
+                    if (line["words"] is not JsonArray words) continue;
+                    foreach (var word in words.OfType<JsonObject>())
+                    {
+                        if (word["syllables"] is not JsonArray syllables) continue;
+                        foreach (var syllable in syllables.OfType<JsonObject>())
+                            syllable["stress"] = null;
+                    }
+                }
+            }
+        }
+
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}
