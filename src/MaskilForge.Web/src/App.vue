@@ -22,6 +22,7 @@ const pendingAction = ref<'load' | 'new' | 'home'>('load')
 const pendingLoadId = ref('')
 const sessionId = crypto.randomUUID()
 const persistedRevision = ref('')
+const recoveryBlocked = ref(false)
 let recoveryTimer: ReturnType<typeof setTimeout> | undefined
 const project = computed(() => response.value?.project ?? null)
 const serializedProject = computed(() => project.value ? JSON.stringify(project.value) : '')
@@ -41,6 +42,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
   if (markPersisted) {
     savedSnapshot.value = JSON.stringify(next.project)
     persistedRevision.value = next.project.lastModifiedUtc
+    recoveryBlocked.value = false
     cleanLabel.value = message.includes('saved') ? 'saved' : 'clean'
   }
 }
@@ -185,6 +187,7 @@ async function restoreRecovery(id: string) {
     projectId.value = recovered.project.id
     localStorage.setItem('maskilForge.projectId', recovered.project.id)
     persistedRevision.value = recovered.baseProjectLastModifiedUtc
+    recoveryBlocked.value = false
     savedSnapshot.value = ''
     view.value = recovered.project.sections.length ? 'structure' : 'capture'
     status.value = 'Recovered unsaved work. Save the song when you are ready.'
@@ -475,19 +478,25 @@ function redo() { if (project.value) return run(() => projectsApi.redo(project.v
 function warnBeforeClose(event: BeforeUnloadEvent) { if (isDirty.value) event.preventDefault() }
 
 async function saveRecoverySnapshot() {
-  if (!project.value || !isDirty.value || !persistedRevision.value || busy.value) return
+  if (!project.value || !isDirty.value || !persistedRevision.value || busy.value || recoveryBlocked.value) return
   try {
     await projectsApi.saveRecovery(project.value, persistedRevision.value, sessionId)
     activityLog.write('info', 'recovery.snapshot', 'Unsaved work protected.', { projectId: project.value.id })
   } catch (error) {
-    status.value = error instanceof Error ? error.message : 'Unsaved recovery snapshot failed.'
-    activityLog.write('error', 'recovery.snapshot', status.value, { projectId: project.value.id })
+    const message = error instanceof Error ? error.message : 'Unsaved recovery snapshot failed.'
+    status.value = message
+    if (message.includes('another session') || message.includes('Reload it before saving')) {
+      recoveryBlocked.value = true
+      activityLog.write('error', 'recovery.snapshot', `${message} Automatic recovery paused until you reload.`, { projectId: project.value.id })
+    } else {
+      activityLog.write('error', 'recovery.snapshot', message, { projectId: project.value.id })
+    }
   }
 }
 
 watch(serializedProject, () => {
   if (recoveryTimer) clearTimeout(recoveryTimer)
-  if (isDirty.value) recoveryTimer = setTimeout(() => void saveRecoverySnapshot(), 1_000)
+  if (isDirty.value && !recoveryBlocked.value) recoveryTimer = setTimeout(() => void saveRecoverySnapshot(), 1_000)
 })
 
 onMounted(async () => {
