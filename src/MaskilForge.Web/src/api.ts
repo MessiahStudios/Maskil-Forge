@@ -125,6 +125,44 @@ export interface ProsodyScore {
   findings: ProsodyFinding[]
 }
 
+export type LyricTimelineMarkerKind = 'ActivePlacement' | 'RhythmCandidate' | 'BreathAfter'
+
+export interface LyricTimelineSectionSpan {
+  sectionId: string
+  kind: SectionKind
+  title: string
+  start: BeatPosition
+  durationBars: number
+  startTick: number
+  endTickExclusive: number
+}
+
+export interface LyricTimelineMarker {
+  kind: LyricTimelineMarkerKind
+  sectionId: string
+  lineId: string
+  phraseId: string | null
+  syllableId: string
+  placementId: string | null
+  rhythmCandidateId: string | null
+  syllableText: string
+  wordText: string
+  sectionRelative: BeatPosition
+  songPosition: BeatPosition
+  absoluteTick: number
+  stressLevel: StressLevel | null
+  prosodicWeight: ProsodicWeight | null
+  hasBreathAfter: boolean
+}
+
+export interface LyricTimelineView {
+  totalTicks: number
+  ticksPerBeat: number
+  beatsPerBar: number
+  sections: LyricTimelineSectionSpan[]
+  markers: LyricTimelineMarker[]
+}
+
 export type CreativeLockScope = 'LyricLine' | 'PhraseRhythm'
 export type LockProvenance = 'Manual' | 'Analyzer' | 'Imported'
 
@@ -280,6 +318,14 @@ export const projectsApi = {
   ) => request<ProsodyScore>(`/api/projects/${id}/prosody-score`, {
     method: 'POST',
     body: JSON.stringify({ project, sectionId, lineId, phraseId, rhythmCandidateId: rhythmCandidateId ?? null }),
+  }),
+  lyricTimeline: (
+    id: string,
+    project: SongProject,
+    rhythmCandidateId?: string | null,
+  ) => request<LyricTimelineView>(`/api/projects/${id}/lyric-timeline`, {
+    method: 'POST',
+    body: JSON.stringify({ project, rhythmCandidateId: rhythmCandidateId ?? null }),
   }),
   undo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST', body: JSON.stringify({ project }) }),
   redo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/redo`, { method: 'POST', body: JSON.stringify({ project }) }),

@@ -128,6 +128,12 @@ No automatic locking, chord locks, audition, generation, melody, harmony, AI, MI
 
 **Deliverable:** an artist can protect accepted lyric wording or phrase timing so later edits and regeneration cannot silently overwrite them.
 
+### Milestone 2.11 — Lyric timeline UI foundation
+
+The current slice projects existing section placements and syllable anchors onto a derived song-timeline view. `LyricTimelineProjector` resolves section-relative beat positions to absolute ticks and song bars, exposes active placements, optional breath-after marks, and an optional rhythm-candidate overlay, and never writes those marks into the project schema. The structure editor shows a horizontal lyric timeline above the section list: section spans, bar ticks, clickable syllable markers, and jump-to-control selection. Comparing a saved rhythm option draws dashed ghost markers beside the authoritative placements.
+
+No duration, melisma, timed breath coordinates, transport, playback, MIDI, generation, or schema bump is included. Scores and locks remain separate slices.
+
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 
 ## Milestone 3 — Theory and harmony

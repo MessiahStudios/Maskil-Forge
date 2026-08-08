@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type BeatPosition, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
+import { projectsApi, type BeatPosition, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -32,6 +32,10 @@ const genres: SongGenre[] = ['Unspecified', 'Pop', 'Rock', 'Folk', 'Country', 'R
 const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
+const lyricTimeline = ref<LyricTimelineView | null>(null)
+const timelineOverlayCandidateId = ref('')
+const selectedTimelineMarkerKey = ref('')
+let timelineRefreshToken = 0
 
 function accept(next: ProjectResponse, message: string, markPersisted = false) {
   response.value = next
@@ -45,6 +49,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
     persistedRevision.value = next.project.lastModifiedUtc
     cleanLabel.value = message.includes('saved') ? 'saved' : 'clean'
   }
+  void refreshLyricTimeline()
 }
 
 async function run(action: () => Promise<ProjectResponse>, message: string, logAction: string, details?: Record<string, string | number | boolean | null>, markPersisted = false) {
@@ -127,8 +132,9 @@ async function beginStructuring() {
   if (isDirty.value && !(await saveProject())) return
   view.value = 'structure'
   status.value = 'Your original lyric draft remains preserved while you shape the song.'
+  void refreshLyricTimeline()
 }
-function returnToDraft() { view.value = 'capture'; status.value = 'Raw lyric draft.' }
+function returnToDraft() { view.value = 'capture'; status.value = 'Raw lyric draft.'; lyricTimeline.value = null }
 function requestHome() { if (isDirty.value) return openConfirmation('home'); return goHome() }
 async function goHome() { confirmationOpen.value = false; view.value = 'home'; await Promise.all([refreshLibrary(), refreshRecovery()]) }
 function openSummary(id: string) { projectId.value = id; return requestLoad() }
@@ -443,6 +449,81 @@ async function reviewProsody(
     busy.value = false
   }
 }
+async function refreshLyricTimeline() {
+  if (!project.value || view.value !== 'structure') {
+    if (!project.value) lyricTimeline.value = null
+    return
+  }
+  const token = ++timelineRefreshToken
+  const overlay = timelineOverlayCandidateId.value || null
+  try {
+    const next = await projectsApi.lyricTimeline(project.value.id, project.value, overlay)
+    if (token !== timelineRefreshToken) return
+    lyricTimeline.value = next
+  } catch (error) {
+    if (token !== timelineRefreshToken) return
+    activityLog.write(
+      'error',
+      'lyrics.timeline.view',
+      error instanceof Error ? error.message : 'Lyric timeline refresh failed.',
+      { projectId: project.value.id })
+  }
+}
+function timelinePercent(tick: number) {
+  const total = lyricTimeline.value?.totalTicks ?? 0
+  if (total <= 0) return 0
+  return Math.min(100, Math.max(0, (tick / total) * 100))
+}
+function timelineMarkerKey(marker: LyricTimelineMarker) {
+  return `${marker.kind}:${marker.syllableId}:${marker.absoluteTick}:${marker.rhythmCandidateId ?? 'none'}`
+}
+function activeTimelineMarkers() {
+  return lyricTimeline.value?.markers.filter(item => item.kind === 'ActivePlacement') ?? []
+}
+function overlayTimelineMarkers() {
+  return lyricTimeline.value?.markers.filter(item => item.kind === 'RhythmCandidate') ?? []
+}
+function breathTimelineMarkers() {
+  return lyricTimeline.value?.markers.filter(item => item.kind === 'BreathAfter') ?? []
+}
+function timelineBarTicks() {
+  const viewModel = lyricTimeline.value
+  if (!viewModel || viewModel.totalTicks <= 0) return []
+  const ticksPerBar = viewModel.ticksPerBeat * viewModel.beatsPerBar
+  const bars = Math.max(1, Math.round(viewModel.totalTicks / ticksPerBar))
+  return Array.from({ length: bars + 1 }, (_, index) => ({
+    bar: index + 1,
+    percent: timelinePercent(index * ticksPerBar),
+  }))
+}
+function overlayCandidateOptions() {
+  if (!project.value) return [] as Array<{ id: string; label: string }>
+  return project.value.sections.flatMap(section =>
+    section.lyricLines.flatMap(line =>
+      line.rhythmCandidates.map(candidate => ({
+        id: candidate.id,
+        label: `${section.title}: ${candidate.label}`,
+      }))))
+}
+function selectedTimelineMarker() {
+  return lyricTimeline.value?.markers.find(item => timelineMarkerKey(item) === selectedTimelineMarkerKey.value) ?? null
+}
+async function selectTimelineMarker(marker: LyricTimelineMarker) {
+  selectedTimelineMarkerKey.value = timelineMarkerKey(marker)
+  status.value = `${marker.syllableText} · song bar ${marker.songPosition.bar}, beat ${marker.songPosition.beat}, tick ${marker.songPosition.tick}`
+  activityLog.write('info', 'lyrics.timeline.select', status.value, {
+    syllableId: marker.syllableId,
+    kind: marker.kind,
+    absoluteTick: marker.absoluteTick,
+  })
+  await nextTick()
+  const target = document.querySelector(`[data-syllable-id="${marker.syllableId}"]`) as HTMLElement | null
+  target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+function setTimelineOverlay(candidateId: string) {
+  timelineOverlayCandidateId.value = candidateId
+  void refreshLyricTimeline()
+}
 function lyricLineLock(lineId: string) {
   return project.value?.locks.find(item => item.scope === 'LyricLine' && item.lineId === lineId)
 }
@@ -681,6 +762,103 @@ onBeforeUnmount(() => {
 
       <template v-else>
       <div class="structure-nav"><button class="quiet" @click="returnToDraft">← Raw lyric draft</button></div>
+      <section class="lyric-timeline" aria-labelledby="lyric-timeline-title">
+        <div class="lyric-timeline-heading">
+          <div>
+            <p class="eyebrow">Musical fit</p>
+            <h2 id="lyric-timeline-title">Lyric timeline</h2>
+            <p>Placed syllables appear on the song timeline. Click a mark to jump to its lyric controls.</p>
+          </div>
+          <label class="timeline-overlay">
+            <span>Compare rhythm option</span>
+            <select
+              :value="timelineOverlayCandidateId"
+              :disabled="busy || overlayCandidateOptions().length === 0"
+              @change="setTimelineOverlay(($event.target as HTMLSelectElement).value)">
+              <option value="">Active placements only</option>
+              <option v-for="option in overlayCandidateOptions()" :key="option.id" :value="option.id">{{ option.label }}</option>
+            </select>
+          </label>
+        </div>
+        <p v-if="!lyricTimeline || lyricTimeline.sections.length === 0" class="timeline-empty">Add a section to see the song timeline.</p>
+        <div v-else-if="activeTimelineMarkers().length === 0 && overlayTimelineMarkers().length === 0" class="timeline-empty">
+          Place syllables in a phrase below to see them here.
+          <div class="timeline-rail" aria-hidden="true">
+            <div
+              v-for="span in lyricTimeline.sections"
+              :key="span.sectionId"
+              class="timeline-section-span"
+              :style="{ left: `${timelinePercent(span.startTick)}%`, width: `${timelinePercent(span.endTickExclusive - span.startTick)}%` }">
+              <span>{{ span.title }}</span>
+            </div>
+          </div>
+        </div>
+        <div v-else class="timeline-stage">
+          <div class="timeline-rail" role="img" :aria-label="`Song timeline with ${activeTimelineMarkers().length} placed syllable${activeTimelineMarkers().length === 1 ? '' : 's'}`">
+            <div
+              v-for="span in lyricTimeline.sections"
+              :key="span.sectionId"
+              class="timeline-section-span"
+              :style="{ left: `${timelinePercent(span.startTick)}%`, width: `${timelinePercent(span.endTickExclusive - span.startTick)}%` }">
+              <span>{{ span.title }}</span>
+            </div>
+            <span
+              v-for="tick in timelineBarTicks()"
+              :key="`bar-${tick.bar}`"
+              class="timeline-bar-tick"
+              :style="{ left: `${tick.percent}%` }"
+              :data-bar="tick.bar"></span>
+            <button
+              v-for="marker in breathTimelineMarkers()"
+              :key="timelineMarkerKey(marker)"
+              type="button"
+              class="timeline-marker breath"
+              :class="{ selected: selectedTimelineMarkerKey === timelineMarkerKey(marker) }"
+              :style="{ left: `${timelinePercent(marker.absoluteTick)}%` }"
+              :title="`Breath after ${marker.syllableText}`"
+              :aria-label="`Breath after ${marker.syllableText} near song bar ${marker.songPosition.bar}`"
+              @click="selectTimelineMarker(marker)">
+              <span class="sr-only">Breath after {{ marker.syllableText }}</span>
+            </button>
+            <button
+              v-for="marker in overlayTimelineMarkers()"
+              :key="timelineMarkerKey(marker)"
+              type="button"
+              class="timeline-marker candidate"
+              :class="{ selected: selectedTimelineMarkerKey === timelineMarkerKey(marker) }"
+              :style="{ left: `${timelinePercent(marker.absoluteTick)}%` }"
+              :title="`${marker.syllableText} (option)`"
+              :aria-label="`${marker.syllableText} from compared rhythm option at song bar ${marker.songPosition.bar}, beat ${marker.songPosition.beat}`"
+              @click="selectTimelineMarker(marker)">
+              {{ marker.syllableText }}
+            </button>
+            <button
+              v-for="marker in activeTimelineMarkers()"
+              :key="timelineMarkerKey(marker)"
+              type="button"
+              class="timeline-marker active"
+              :class="{
+                selected: selectedTimelineMarkerKey === timelineMarkerKey(marker),
+                strong: marker.prosodicWeight === 'Strong' || marker.stressLevel === 'Primary' || marker.stressLevel === 'Emphasized',
+              }"
+              :style="{ left: `${timelinePercent(marker.absoluteTick)}%` }"
+              :title="`${marker.wordText} · ${marker.syllableText}`"
+              :aria-label="`${marker.syllableText} at song bar ${marker.songPosition.bar}, beat ${marker.songPosition.beat}, tick ${marker.songPosition.tick}`"
+              @click="selectTimelineMarker(marker)">
+              {{ marker.syllableText }}
+            </button>
+          </div>
+          <p v-if="selectedTimelineMarker()" class="timeline-selection">
+            <strong>{{ selectedTimelineMarker()!.syllableText }}</strong>
+            in {{ selectedTimelineMarker()!.wordText }}
+            · song bar {{ selectedTimelineMarker()!.songPosition.bar }}, beat {{ selectedTimelineMarker()!.songPosition.beat }}, tick {{ selectedTimelineMarker()!.songPosition.tick }}
+            · section bar {{ selectedTimelineMarker()!.sectionRelative.bar }}
+            <template v-if="selectedTimelineMarker()!.kind === 'BreathAfter'"> · breath mark</template>
+            <template v-else-if="selectedTimelineMarker()!.kind === 'RhythmCandidate'"> · compared option</template>
+            <template v-else> · active placement</template>
+          </p>
+        </div>
+      </section>
       <section class="song-canvas" aria-label="Song structure">
         <div class="canvas-heading">
           <div><p class="eyebrow">Song structure</p><h1>Shape the song</h1></div>
@@ -771,7 +949,7 @@ onBeforeUnmount(() => {
                     </div>
                     <div v-if="phraseSyllables(line, phrase).length" class="prosody-editor">
                       <div class="prosody-heading"><strong>Phrase weight and placement</strong><small>Describe relative weight, then anchor chosen syllables in the section timeline.</small></div>
-                      <div v-for="entry in phraseSyllables(line, phrase)" :key="entry.syllable.id" class="prosodic-unit">
+                      <div v-for="entry in phraseSyllables(line, phrase)" :key="entry.syllable.id" class="prosodic-unit" :data-syllable-id="entry.syllable.id" :class="{ 'timeline-focus': selectedTimelineMarker()?.syllableId === entry.syllable.id }">
                         <span>{{ entry.syllable.text }} <small>{{ entry.word.text }}</small></span>
                         <select
                           :value="prosodicUnitFor(phrase, entry.syllable.id)?.weight ?? ''"

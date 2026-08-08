@@ -34,6 +34,8 @@ Prosody scoring is derived review, not stored creative state. `ProsodyScorer` ev
 
 `CreativeLock` protects accepted decisions. A lyric-line lock references one `LyricLineId` and blocks word, syllable, stress, prosody, breath, and phrase-boundary edits. A phrase-rhythm lock references one line and `LyricPhraseId`, blocks placement edits and applying rhythm options, and still allows capturing or reviewing options. Locks carry stable identities and provenance, survive save/load, and participate in session undo/redo. Migration to schema v11 never invents locks.
 
+The lyric timeline is a derived view, not stored state. `LyricTimelineProjector` maps section spans and syllable placements onto absolute song ticks, can overlay one rhythm candidate for comparison, and marks breath-after opportunities near their host syllables. The editor uses that projection to show how placed lyrics sit in musical time and to jump from a timeline mark back to the matching syllable controls.
+
 `LyricPunctuation` preserves punctuation groups as identified tokens with exact source offsets while apostrophes and internal hyphens remain part of their words. `LyricPhrase` stores a stable ID, zero-based position, provenance, and an ordered list of existing word IDs. Every word belongs to exactly one contiguous phrase. A new or migrated line begins as one `Default` phrase; split and join operations are explicit artist actions and produce `Manual` provenance. Nearby word edits retain surviving phrase and punctuation IDs without copying or rewriting lyric text.
 
 ## Processing order
