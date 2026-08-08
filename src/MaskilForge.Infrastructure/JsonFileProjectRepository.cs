@@ -10,7 +10,10 @@ namespace MaskilForge.Infrastructure;
 
 public sealed class JsonFileProjectRepository(string directory) : IProjectRepository
 {
-    private static readonly ProjectMigrationPipeline MigrationPipeline = new([new V1ToV2ProjectMigration()]);
+    private static readonly ProjectMigrationPipeline MigrationPipeline = new([
+        new V1ToV2ProjectMigration(),
+        new V2ToV3ProjectMigration()
+    ]);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,

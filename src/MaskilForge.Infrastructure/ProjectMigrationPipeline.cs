@@ -103,3 +103,46 @@ internal sealed class V1ToV2ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V2ToV3ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 2;
+    public int ToVersion => 3;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["sections"] is JsonArray sections)
+        {
+            foreach (var section in sections.OfType<JsonObject>())
+            {
+                if (section["lyricLines"] is not JsonArray lines) continue;
+                foreach (var line in lines.OfType<JsonObject>())
+                {
+                    var idText = line["id"]?.GetValue<string>();
+                    if (!Guid.TryParse(idText, out var id))
+                        throw new InvalidProjectDataException("Schema-v2 lyric line is missing a valid ID.");
+                    var lineId = new LyricLineId(id);
+                    var text = line["text"]?.GetValue<string>() ?? string.Empty;
+                    var words = new JsonArray();
+                    var tokens = LyricLine.Tokenize(text);
+                    for (var index = 0; index < tokens.Count; index++)
+                    {
+                        var token = tokens[index];
+                        words.Add(new JsonObject
+                        {
+                            ["id"] = LyricLine.CreateMigratedWordId(lineId, index, token.Text).ToString(),
+                            ["text"] = token.Text,
+                            ["start"] = token.Start,
+                            ["length"] = token.Length,
+                            ["syllables"] = new JsonArray()
+                        });
+                    }
+                    line["words"] = words;
+                }
+            }
+        }
+
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

@@ -59,7 +59,12 @@ public sealed class SessionRecoveryTests
                 "title": "Recovered V1",
                 "tempo": { "beat": 0, "beatsPerMinute": 120 },
                 "timeSignature": { "beat": 0, "numerator": 4, "denominator": 4 },
-                "sections": [{ "id": "{{sectionId}}", "kind": "Verse", "title": "Verse", "lyricLines": [] }]
+                "sections": [{
+                  "id": "{{sectionId}}",
+                  "kind": "Verse",
+                  "title": "Verse",
+                  "lyricLines": [{ "id": "{{LyricLineId.New()}}", "text": "Recovered words" }]
+                }]
               },
               "capturedAtUtc": "{{captured:O}}",
               "baseProjectLastModifiedUtc": "{{captured:O}}",
@@ -76,6 +81,7 @@ public sealed class SessionRecoveryTests
             Assert.Equal(sectionId, placement.SectionId);
             Assert.Equal(1, placement.Start.Bar);
             Assert.Equal(8, placement.DurationBars);
+            Assert.Equal(["Recovered", "words"], snapshot.Project.Sections[0].LyricLines[0].Words.Select(word => word.Text));
         }
         finally { DeleteDirectory(directory); }
     }

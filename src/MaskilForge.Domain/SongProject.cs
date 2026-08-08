@@ -67,6 +67,9 @@ public sealed class SongProject
     public SongTimeline Timeline { get; }
     [JsonIgnore] public TempoEvent Tempo => Timeline.TempoMap.Events[0];
     [JsonIgnore] public TimeSignatureEvent TimeSignature => Timeline.TimeSignatureMap.Events[0];
+    [JsonIgnore] public LyricDocument Lyrics => new(
+        RawLyricDraft,
+        _sections.SelectMany(section => section.LyricLines.Select(line => new LyricDocumentLine(section.Id, line))).ToList());
     public IReadOnlyList<SongSection> Sections => _sections;
     public IReadOnlyList<Track> Tracks => _tracks;
 
@@ -186,6 +189,15 @@ public sealed class SongProject
             throw new ArgumentException("Section IDs must be unique.");
         if (_tracks.Select(track => track.Id).Distinct().Count() != _tracks.Count)
             throw new ArgumentException("Track IDs must be unique.");
+        var lines = _sections.SelectMany(section => section.LyricLines).ToList();
+        if (lines.Select(line => line.Id).Distinct().Count() != lines.Count)
+            throw new ArgumentException("Lyric line IDs must be unique across the project.");
+        var words = lines.SelectMany(line => line.Words).ToList();
+        if (words.Select(word => word.Id).Distinct().Count() != words.Count)
+            throw new ArgumentException("Lyric word IDs must be unique across the project.");
+        var syllables = words.SelectMany(word => word.Syllables).ToList();
+        if (syllables.Select(syllable => syllable.Id).Distinct().Count() != syllables.Count)
+            throw new ArgumentException("Syllable IDs must be unique across the project.");
     }
 
     public void Touch() => LastModifiedUtc = DateTimeOffset.UtcNow;

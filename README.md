@@ -61,9 +61,11 @@ Future C# code will use `MaskilForge` as its namespace root. The repository is n
 
 ## Current project status
 
-This repository contains the product definition, architectural principles, delivery roadmap, and an initial executable songwriting foundation. The current vertical slice supports a local song library, raw lyric drafts, structured projects, ordered sections, individually identified lyric lines, JSON persistence, reversible section operations, and a Trash workflow with restore and separately confirmed permanent deletion. Raw drafts remain separate from structured sections so an artist can capture words before deciding how the song is organized.
+This repository contains the product definition, architectural principles, delivery roadmap, and an initial executable songwriting foundation. The current vertical slice supports a local song library, raw lyric drafts, structured projects, ordered sections, individually identified lyric lines and words, JSON persistence, reversible section operations, and a Trash workflow with restore and separately confirmed permanent deletion. Raw drafts remain separate from structured sections so an artist can capture words before deciding how the song is organized.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.
+
+The schema-v3 lyric-document foundation tokenizes structured lyric lines into individually addressable words while preserving punctuation in the original line text. Unchanged words retain their identifiers when nearby words are inserted or removed. Syllables have a stable editable representation, but Maskil Forge does not infer syllable boundaries, stress, breath points, rhythm, or musical placement yet.
 
 Maskil Forge remains early-stage: it is not a functional DAW or complete audio generator. Automatic lyric analysis, AI direction, MIDI, VST hosting, vocal analysis, procedural music generation, recording, and mixing have not been implemented.
 
@@ -71,7 +73,7 @@ Undo and redo history is currently session-only. Saved project content survives 
 
 Project persistence validates a temporary JSON file before replacing the active copy and retains the previous validated save as an ignored local backup. Invalid or malformed project files are not silently promoted to backups: they are preserved once by content as recovery copies, while healthy songs remain available in the library. Confirmed permanent deletion removes the song's Trash entry, backup, and recovery artifacts. User-facing saved-version history and recovery for future external media assets are not implemented yet.
 
-Schema-v1 project files and recovery snapshots are migrated in memory to schema v2 when loaded. Their existing tempo, time signature, section identifiers, and section order are retained; migrated sections receive an initial eight-bar placement. The original file is not rewritten until the artist explicitly saves it.
+Schema-v1 project files and recovery snapshots migrate in memory through schema v2 and into schema v3 when loaded. Their existing tempo, time signature, section identifiers, line identifiers, text, and section order are retained. Migrated sections receive an initial eight-bar placement, and existing lyric words receive deterministic identifiers. The original file is not rewritten until the artist explicitly saves it.
 
 The current session-recovery slice automatically protects dirty editor state in a separate validated snapshot after a short editing pause. On the next startup, the artist can restore or discard that snapshot without overwriting the explicitly saved song. Saves use the last persisted project revision to reject stale browser sessions instead of silently replacing newer work. Recovery snapshots are not version history, and undo/redo remains session-only.
 

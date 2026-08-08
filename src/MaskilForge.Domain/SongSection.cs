@@ -11,29 +11,6 @@ public enum SectionKind
     Outro
 }
 
-public sealed class LyricLine
-{
-    [JsonConstructor]
-    public LyricLine(Guid id, string text)
-    {
-        if (id == Guid.Empty) throw new ArgumentException("A lyric line ID is required.", nameof(id));
-        Id = id;
-        SetText(text);
-    }
-
-    public Guid Id { get; }
-    public string Text { get; private set; } = string.Empty;
-
-    public static LyricLine Create(string text = "") => new(Guid.NewGuid(), text);
-
-    public void SetText(string text)
-    {
-        ArgumentNullException.ThrowIfNull(text);
-        if (text.Length > 2_000) throw new ArgumentOutOfRangeException(nameof(text), "A lyric line cannot exceed 2,000 characters.");
-        Text = text;
-    }
-}
-
 public sealed class SongSection
 {
     private readonly List<LyricLine> _lyricLines;
@@ -82,12 +59,14 @@ public sealed class SongSection
         _lyricLines.AddRange(replacement);
     }
 
-    public void EditLyricLine(Guid lineId, string text)
+    public void EditLyricLine(LyricLineId lineId, string text)
     {
-        var line = _lyricLines.SingleOrDefault(item => item.Id == lineId)
-            ?? throw new KeyNotFoundException($"Lyric line '{lineId}' was not found.");
-        line.SetText(text);
+        FindLyricLine(lineId).SetText(text);
     }
+
+    public LyricLine FindLyricLine(LyricLineId lineId) =>
+        _lyricLines.SingleOrDefault(item => item.Id == lineId)
+        ?? throw new KeyNotFoundException($"Lyric line '{lineId}' was not found.");
 
     public static string DefaultTitle(SectionKind kind) => kind switch
     {

@@ -91,6 +91,9 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .lyrics-heading { display: flex; justify-content: space-between; align-items: center; color: #ccc5b7; font-size: .83rem; letter-spacing: .04em; }
 .lyric-line { display: grid; grid-template-columns: 28px 1fr auto; gap: .55rem; align-items: center; }
 .lyric-line > span { color: #92988a; text-align: right; font: .78rem ui-monospace, Consolas, monospace; }
+.lyric-words { grid-column: 2; display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; min-height: 1.7rem; }
+.word-token { padding: .22rem .48rem; color: #f1d89e; background: #29271f; border: 1px solid #5c543f; border-radius: 999px; font-size: .74rem; }
+.lyric-words small { margin-left: .25rem; color: #92988a; font-size: .7rem; }
 .lyric-delete { color: #efb7ad !important; border-color: #7a4b44 !important; }
 .developer-details { padding-top: .45rem; border-top: 1px solid #30342e; }
 .developer-details summary { color: #858b7e; font-size: .72rem; }

@@ -207,6 +207,21 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
             section.SetLyricLines((request.Lyrics ?? []).Select(LyricLine.Create));
+            project.Touch();
+            break;
+        case "edit-lyric-line":
+            project.FindSection(RequiredSectionId(request)).EditLyricLine(
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.Text ?? throw new ArgumentException("Lyric text is required."));
+            project.Touch();
+            break;
+        case "set-word-syllables":
+            project.FindSection(RequiredSectionId(request))
+                .FindLyricLine(request.LineId ?? throw new ArgumentException("Lyric line ID is required."))
+                .SetSyllables(
+                    request.WordId ?? throw new ArgumentException("Lyric word ID is required."),
+                    request.Syllables ?? throw new ArgumentException("Syllables are required."));
+            project.Touch();
             break;
         default: throw new ArgumentException($"Unknown command type '{request.Type}'.");
     }
@@ -234,7 +249,11 @@ public sealed record ProjectCommandRequest(
     int? Denominator = null,
     int? TargetIndex = null,
     int? DurationBars = null,
-    IReadOnlyList<string>? Lyrics = null);
+    IReadOnlyList<string>? Lyrics = null,
+    LyricLineId? LineId = null,
+    LyricWordId? WordId = null,
+    string? Text = null,
+    IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
 public sealed record ProjectResponse(SongProject Project, bool CanUndo, bool CanRedo)
 {
