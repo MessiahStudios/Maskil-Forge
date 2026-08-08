@@ -100,3 +100,75 @@ public sealed class RemoveSectionCommand(SectionId sectionId) : IProjectCommand
         project.InsertSection(_removedIndex.Value, _removedSection, _removedDurationBars.Value);
     }
 }
+
+public sealed class SplitLyricPhraseCommand(
+    SectionId sectionId,
+    LyricLineId lineId,
+    LyricWordId wordId) : IProjectCommand
+{
+    private IReadOnlyList<LyricPhrase>? _before;
+    private IReadOnlyList<LyricPhrase>? _after;
+
+    public void Execute(SongProject project)
+    {
+        var line = FindLine(project);
+        if (_after is null)
+        {
+            _before = Snapshot(line.Phrases);
+            line.SplitPhraseAfter(wordId);
+            _after = Snapshot(line.Phrases);
+        }
+        else
+        {
+            line.RestorePhrases(_after);
+        }
+        project.Touch();
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_before is null) throw new InvalidOperationException("Command has not been executed.");
+        FindLine(project).RestorePhrases(_before);
+        project.Touch();
+    }
+
+    private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+    private static IReadOnlyList<LyricPhrase> Snapshot(IEnumerable<LyricPhrase> phrases) =>
+        phrases.Select(phrase => new LyricPhrase(phrase.Id, phrase.Position, phrase.WordIds.ToList(), phrase.Source)).ToList();
+}
+
+public sealed class JoinLyricPhraseCommand(
+    SectionId sectionId,
+    LyricLineId lineId,
+    LyricPhraseId phraseId) : IProjectCommand
+{
+    private IReadOnlyList<LyricPhrase>? _before;
+    private IReadOnlyList<LyricPhrase>? _after;
+
+    public void Execute(SongProject project)
+    {
+        var line = FindLine(project);
+        if (_after is null)
+        {
+            _before = Snapshot(line.Phrases);
+            line.JoinPhraseWithPrevious(phraseId);
+            _after = Snapshot(line.Phrases);
+        }
+        else
+        {
+            line.RestorePhrases(_after);
+        }
+        project.Touch();
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_before is null) throw new InvalidOperationException("Command has not been executed.");
+        FindLine(project).RestorePhrases(_before);
+        project.Touch();
+    }
+
+    private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+    private static IReadOnlyList<LyricPhrase> Snapshot(IEnumerable<LyricPhrase> phrases) =>
+        phrases.Select(phrase => new LyricPhrase(phrase.Id, phrase.Position, phrase.WordIds.ToList(), phrase.Source)).ToList();
+}

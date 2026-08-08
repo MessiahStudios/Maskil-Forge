@@ -60,7 +60,7 @@ No automatic pronunciation or syllabification service is implemented yet. Stress
 
 ### Milestone 2.3 — Phrase foundation
 
-The current slice identifies punctuation without removing it from the original lyric text and represents each phrase as an ordered reference to existing word IDs. New and schema-v4 lines begin as one default phrase. Artists can add phrase breaks or join adjacent phrases with explicit, readable controls; these decisions receive `Manual` provenance. Phrase and punctuation identities survive save/load and compatible nearby text edits. Schema-v4 songs and recovery snapshots migrate deterministically to schema v5.
+The current slice identifies punctuation without removing it from the original lyric text and represents each phrase as an ordered reference to existing word IDs. New and schema-v4 lines begin as one default phrase. Artists can add phrase breaks or join adjacent phrases with explicit, readable controls; these decisions receive `Manual` provenance and participate in session undo/redo without changing phrase identities during redo. Phrase and punctuation identities survive save/load and compatible nearby text edits. Schema-v4 songs and recovery snapshots migrate deterministically to schema v5.
 
 Punctuation does not automatically imply a breath or phrase break. Phrase meaning, emphasis, stress, breath recommendations, automatic boundary suggestions, rhythm candidates, and beat mapping remain future work.
 

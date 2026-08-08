@@ -355,8 +355,8 @@ function setMeter(value: string) {
 function meterValue(value: SongProject) { return `${value.timeline.timeSignatureMap.events[0].numerator}/${value.timeline.timeSignatureMap.events[0].denominator}` }
 function placementFor(sectionId: string) { return project.value?.timeline.sectionPlacements.find(item => item.sectionId === sectionId) }
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
-function undo() { if (project.value) return run(() => projectsApi.undo(project.value!.id, project.value!), 'Last section operation undone.', 'history.undo') }
-function redo() { if (project.value) return run(() => projectsApi.redo(project.value!.id, project.value!), 'Section operation restored.', 'history.redo') }
+function undo() { if (project.value) return run(() => projectsApi.undo(project.value!.id, project.value!), 'Last edit undone.', 'history.undo') }
+function redo() { if (project.value) return run(() => projectsApi.redo(project.value!.id, project.value!), 'Edit restored.', 'history.redo') }
 function warnBeforeClose(event: BeforeUnloadEvent) { if (isDirty.value) event.preventDefault() }
 
 async function saveRecoverySnapshot() {

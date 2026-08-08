@@ -69,7 +69,7 @@ The schema-v3 lyric-document foundation tokenizes structured lyric lines into in
 
 Maskil Forge remains early-stage: it is not a functional DAW or complete audio generator. Automatic lyric analysis, AI direction, MIDI, VST hosting, vocal analysis, procedural music generation, recording, and mixing have not been implemented.
 
-Undo and redo history is currently session-only. Saved project content survives closing and reopening, but the command history itself does not.
+Undo and redo history is currently session-only. Section edits and manual phrase split/join actions participate in that history, and redo restores the same phrase identities. Saved project content survives closing and reopening, but the command history itself does not.
 
 Project persistence validates a temporary JSON file before replacing the active copy and retains the previous validated save as an ignored local backup. Invalid or malformed project files are not silently promoted to backups: they are preserved once by content as recovery copies, while healthy songs remain available in the library. Confirmed permanent deletion removes the song's Trash entry, backup, and recovery artifacts. User-facing saved-version history and recovery for future external media assets are not implemented yet.
 

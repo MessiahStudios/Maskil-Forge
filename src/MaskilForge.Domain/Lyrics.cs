@@ -269,6 +269,16 @@ public sealed class LyricLine
         NormalizePhrasePositions();
     }
 
+    public void RestorePhrases(IReadOnlyList<LyricPhrase> phrases)
+    {
+        ArgumentNullException.ThrowIfNull(phrases);
+        if (_words.Count > 0 && phrases.Count == 0)
+            throw new ArgumentException("A lyric line with words must have at least one phrase.", nameof(phrases));
+        ValidateSerializedPhraseCoverage(_words, phrases);
+        _phrases.Clear();
+        _phrases.AddRange(phrases.Select(ClonePhrase));
+    }
+
     private void SetText(
         string text,
         IReadOnlyList<LyricWord> existingWords,
@@ -362,6 +372,9 @@ public sealed class LyricLine
         _phrases.AddRange(normalized);
         ValidatePhraseCoverage();
     }
+
+    private static LyricPhrase ClonePhrase(LyricPhrase phrase) =>
+        new(phrase.Id, phrase.Position, phrase.WordIds.ToList(), phrase.Source);
 
     private void ValidatePhraseCoverage()
     {

@@ -67,4 +67,54 @@ public sealed class CommandHistoryTests
         editor.Undo();
         Assert.Equal([verse.Id, preChorus.Id, chorus.Id], project.Sections.Select(section => section.Id));
     }
+
+    [Fact]
+    public void UndoAndRedo_SplitPhrase_PreservesExactPhraseState()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("I thought the way out was through pain");
+        var originalPhrase = Assert.Single(line.Phrases);
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SplitLyricPhraseCommand(section.Id, line.Id, line.Words[4].Id));
+        var splitIds = line.Phrases.Select(phrase => phrase.Id).ToList();
+        Assert.Equal(2, line.Phrases.Count);
+        Assert.All(line.Phrases, phrase => Assert.Equal(PhraseSource.Manual, phrase.Source));
+
+        Assert.True(editor.Undo());
+        var restored = Assert.Single(line.Phrases);
+        Assert.Equal(originalPhrase.Id, restored.Id);
+        Assert.Equal(PhraseSource.Default, restored.Source);
+        Assert.Equal(line.Words.Select(word => word.Id), restored.WordIds);
+
+        Assert.True(editor.Redo());
+        Assert.Equal(splitIds, line.Phrases.Select(phrase => phrase.Id));
+        Assert.All(line.Phrases, phrase => Assert.Equal(PhraseSource.Manual, phrase.Source));
+    }
+
+    [Fact]
+    public void UndoAndRedo_JoinPhrase_PreservesExactPhraseState()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("I thought the way out was through pain");
+        line.SplitPhraseAfter(line.Words[4].Id);
+        var splitIds = line.Phrases.Select(phrase => phrase.Id).ToList();
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new JoinLyricPhraseCommand(section.Id, line.Id, line.Phrases[1].Id));
+        var joined = Assert.Single(line.Phrases);
+        var joinedId = joined.Id;
+        Assert.Equal(PhraseSource.Manual, joined.Source);
+
+        Assert.True(editor.Undo());
+        Assert.Equal(splitIds, line.Phrases.Select(phrase => phrase.Id));
+        Assert.All(line.Phrases, phrase => Assert.Equal(PhraseSource.Manual, phrase.Source));
+
+        Assert.True(editor.Redo());
+        var redone = Assert.Single(line.Phrases);
+        Assert.Equal(joinedId, redone.Id);
+        Assert.Equal(line.Words.Select(word => word.Id), redone.WordIds);
+    }
 }
