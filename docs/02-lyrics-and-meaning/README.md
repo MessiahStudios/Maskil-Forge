@@ -10,11 +10,13 @@ The current foundation stores this source as `RawLyricDraft` and stores section 
 
 Editing a line reconciles the previous and next word sequences so unchanged words retain their identities when nearby words are inserted or removed. A read-only `LyricDocument` projection connects the raw draft to structured lines and their owning sections without duplicating stored creative state.
 
-`LyricSyllable` and `SyllableId` provide an explicit manual representation. Empty syllable collections mean “not analyzed,” not “zero syllables.” Automatic syllable extraction, phrase boundaries, stress, rhyme, breath analysis, suggested structure, rhythm candidates, and musical placement remain planned rather than implemented.
+`LyricSyllable` and `SyllableId` now provide an ordered, provenance-aware representation. Each syllable stores its stable ID, text, zero-based position within the word, and source: `Manual`, `Analyzer`, or `Imported`. Matching syllable IDs survive nearby boundary insertions, and an artist correction replaces provenance with `Manual` without allowing a future analyzer to silently become authoritative. The editor accepts boundaries separated by `|` and clearly identifies manual data.
+
+Empty syllable collections mean “not analyzed,” not “zero syllables.” The current slice does not guess pronunciation: analyzer and imported provenance are domain capabilities for later typed integrations, not claims that an analyzer or importer already exists. Automatic syllable extraction, phrase boundaries, stress, rhyme, breath analysis, suggested structure, rhythm candidates, and musical placement remain planned rather than implemented.
 
 ## Processing order
 
-1. Parse raw lyrics into sections, lines, phrases, words, and syllables. Word tokenization is now foundational; the remaining levels are planned.
+1. Parse raw lyrics into sections, lines, phrases, words, and syllables. Word tokenization and artist-controlled syllable boundaries are now foundational; phrase modeling and automatic analysis remain planned.
 2. Annotate stress, rhyme, repeated language, important words, and breath opportunities.
 3. Describe narrative roles and emotional transitions.
 4. Generate multiple rhythmic/prosody candidates.

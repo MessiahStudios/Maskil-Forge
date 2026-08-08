@@ -1,5 +1,6 @@
 export type SectionKind = 'Verse' | 'Chorus' | 'PreChorus' | 'Bridge' | 'Outro'
 export type SongGenre = 'Unspecified' | 'Pop' | 'Rock' | 'Folk' | 'Country' | 'RAndB' | 'HipHop' | 'Electronic' | 'Cinematic' | 'Alternative' | 'Other'
+export type SyllableSource = 'Manual' | 'Analyzer' | 'Imported'
 
 export interface LyricLine {
   id: string
@@ -12,7 +13,14 @@ export interface LyricWord {
   text: string
   start: number
   length: number
-  syllables: Array<{ id: string; text: string }>
+  syllables: LyricSyllable[]
+}
+
+export interface LyricSyllable {
+  id: string
+  text: string
+  position: number
+  source: SyllableSource
 }
 
 export interface SongSection {

@@ -43,6 +43,8 @@ public sealed class JsonPersistenceTests
             Assert.Equal("I walked through shadows", loaded.Sections[0].LyricLines[0].Text);
             Assert.Equal(verseWordIds, loaded.Sections[0].LyricLines[0].Words.Select(word => word.Id));
             Assert.Equal(syllableId, loaded.Sections[0].LyricLines[0].Words[2].Syllables[0].Id);
+            Assert.Equal(0, loaded.Sections[0].LyricLines[0].Words[2].Syllables[0].Position);
+            Assert.Equal(SyllableSource.Manual, loaded.Sections[0].LyricLines[0].Words[2].Syllables[0].Source);
             Assert.Equal(chorusLine.Id, loaded.Sections[1].LyricLines[0].Id);
             Assert.Equal("You brought me home", loaded.Sections[1].LyricLines[0].Text);
             Assert.Equal("Maskil Artist", loaded.Artist);
@@ -128,19 +130,20 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV3_WritesStableTimelineAndLyricContract()
+    public async Task SchemaV4_WritesStableTimelineLyricAndSyllableContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
         {
             var repository = new JsonFileProjectRepository(directory);
             var project = SongProject.Create("Schema Contract");
-            project.AddSection(SectionKind.Verse).AddLyricLine("Words become addressable");
+            var line = project.AddSection(SectionKind.Verse).AddLyricLine("Words become addressable");
+            line.SetSyllables(line.Words[1].Id, ["be", "come"]);
             await repository.SaveAsync(project, CancellationToken.None);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(3, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(4, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -154,13 +157,16 @@ public sealed class JsonPersistenceTests
             Assert.Single(timeline.GetProperty("tempoMap").GetProperty("events").EnumerateArray());
             Assert.Single(timeline.GetProperty("timeSignatureMap").GetProperty("events").EnumerateArray());
             Assert.Single(timeline.GetProperty("sectionPlacements").EnumerateArray());
-            var line = root.GetProperty("sections")[0].GetProperty("lyricLines")[0];
-            Assert.Equal(3, line.GetProperty("words").GetArrayLength());
-            Assert.All(line.GetProperty("words").EnumerateArray(), word =>
+            var savedLine = root.GetProperty("sections")[0].GetProperty("lyricLines")[0];
+            Assert.Equal(3, savedLine.GetProperty("words").GetArrayLength());
+            Assert.All(savedLine.GetProperty("words").EnumerateArray(), word =>
             {
                 Assert.Equal(JsonValueKind.String, word.GetProperty("id").ValueKind);
                 Assert.Equal(JsonValueKind.Array, word.GetProperty("syllables").ValueKind);
             });
+            var syllables = savedLine.GetProperty("words")[1].GetProperty("syllables");
+            Assert.Equal([0, 1], syllables.EnumerateArray().Select(item => item.GetProperty("position").GetInt32()));
+            Assert.All(syllables.EnumerateArray(), item => Assert.Equal("Manual", item.GetProperty("source").GetString()));
         }
         finally
         {
@@ -305,6 +311,75 @@ public sealed class JsonPersistenceTests
                 second.Sections[0].LyricLines[0].Words.Select(word => word.Id));
             Assert.All(first.Sections[0].LyricLines[0].Words, word => Assert.Empty(word.Syllables));
             Assert.Equal(originalV2, await File.ReadAllTextAsync(path));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_MigratesSchemaV3SyllablesToOrderedManualProvenance()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var projectId = ProjectId.New();
+        var sectionId = SectionId.New();
+        var lineId = LyricLineId.New();
+        var wordId = LyricWordId.New();
+        var firstSyllableId = SyllableId.New();
+        var secondSyllableId = SyllableId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var originalV3 = $$"""
+            {
+              "id": "{{projectId}}",
+              "schemaVersion": 3,
+              "title": "Syllable Migration",
+              "timeline": {
+                "ticksPerQuarterNote": 480,
+                "tempoMap": { "events": [{ "beat": 0, "beatsPerMinute": 120 }] },
+                "timeSignatureMap": { "events": [{ "beat": 0, "numerator": 4, "denominator": 4 }] },
+                "sectionPlacements": [{
+                  "sectionId": "{{sectionId}}",
+                  "start": { "bar": 1, "beat": 1, "tick": 0 },
+                  "durationBars": 8
+                }]
+              },
+              "sections": [{
+                "id": "{{sectionId}}",
+                "kind": "Verse",
+                "title": "Verse",
+                "lyricLines": [{
+                  "id": "{{lineId}}",
+                  "text": "heaven",
+                  "words": [{
+                    "id": "{{wordId}}",
+                    "text": "heaven",
+                    "start": 0,
+                    "length": 6,
+                    "syllables": [
+                      { "id": "{{firstSyllableId}}", "text": "heav" },
+                      { "id": "{{secondSyllableId}}", "text": "en" }
+                    ]
+                  }]
+                }]
+              }],
+              "tracks": []
+            }
+            """;
+            var path = Path.Combine(directory, $"{projectId}.json");
+            await File.WriteAllTextAsync(path, originalV3);
+
+            var loaded = await new JsonFileProjectRepository(directory).LoadAsync(projectId, CancellationToken.None);
+
+            Assert.NotNull(loaded);
+            Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
+            var syllables = loaded.Sections[0].LyricLines[0].Words[0].Syllables;
+            Assert.Equal([firstSyllableId, secondSyllableId], syllables.Select(item => item.Id));
+            Assert.Equal([0, 1], syllables.Select(item => item.Position));
+            Assert.All(syllables, item => Assert.Equal(SyllableSource.Manual, item.Source));
+            Assert.Equal(originalV3, await File.ReadAllTextAsync(path));
         }
         finally
         {
