@@ -65,6 +65,10 @@ All reads now pass through a version-aware migration pipeline before domain dese
 
 Saving uses a temporary file that is flushed and read back through the same validation boundary before it can replace the active project. Before an existing project is promoted to the ignored `backups` directory, it must pass that validation boundary. A damaged active file is retained for recovery without overwriting an existing known-good backup. These artifacts are implementation safeguards, not a user-facing version-history system or a substitute for future crash-recovery snapshots.
 
+Dirty editor state is protected separately from explicit saves. After a short pause in editing, the web client writes a validated recovery snapshot under the ignored project data directory. Startup lists these snapshots before the normal library and lets the artist restore the unsaved state into the editor or discard it without modifying the saved project. A successful explicit save or intentional move to Trash removes the associated snapshot.
+
+Each editor remembers the `LastModifiedUtc` revision it originally loaded. Snapshot and explicit-save requests must still match that persisted revision. A conflicting save returns `409 stale_session`, protecting newer saved work from an older browser session. This is optimistic concurrency for the current local API; it is not multi-user collaboration or a persistent command journal.
+
 Current projects store their complete project tree in one JSON file. Confirmed permanent deletion removes its Trash file and any matching backup and recovery artifacts. Future external assets such as audio recordings must join the same lifecycle contract before they are introduced.
 
 ## Events

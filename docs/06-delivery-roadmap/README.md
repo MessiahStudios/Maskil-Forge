@@ -14,7 +14,7 @@ Build the Song Graph, sections, timeline, tempo/meter, tracks, clips, markers, c
 
 **Deliverable:** a reliable non-audio song editor.
 
-### Milestone 1.6 â€” Project library and lyric capture
+### Milestone 1.6 — Project library and lyric capture
 
 Provide a deliberate welcome screen, discover locally saved projects without requiring a known identifier, capture and save an unstructured lyric draft, and let the artist move between raw writing and direct section editing without destroying either representation. Track last-modified time and protect unsaved work when switching projects.
 
@@ -26,7 +26,9 @@ The current foundation implements the local project summary list, raw lyric draf
 
 The focused `feature/project-durability` slice now provides the migration boundary for schema evolution, compatibility with early schema-v1 files, explicit future-version rejection, validated temporary saves, known-good-file backups, content-addressed corrupt-file recovery copies, per-project failure isolation during library listing, and structured API errors. Confirmed permanent deletion includes these durability artifacts. Session-only undo remains an explicit current decision; a persistent command journal should not be added casually.
 
-Still planned for later durability work are automatic crash snapshots, recovery-session UI, stale concurrent-session detection, and migrations that transform a real schema version beyond v1. The migration mechanism exists now, but no fictional v2 migration is included before a v2 schema is defined.
+The follow-up `feature/session-recovery` slice adds automatic dirty-editor snapshots, a startup recovery screen, restore/discard actions, snapshot cleanup after save or deletion, and persisted-revision checks that reject stale saves. The recovery state remains separate from the explicitly saved song.
+
+Still planned for later durability work are timed snapshot retention policies, user-facing saved-version history, recovery from external asset failures, and migrations that transform a real schema version beyond v1. The migration mechanism exists now, but no fictional v2 migration is included before a v2 schema is defined.
 
 ## Milestone 2 — Lyrics and prosody
 

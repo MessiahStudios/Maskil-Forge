@@ -27,3 +27,8 @@ public sealed class InvalidProjectDataException(string message, string? recovery
 
 public sealed class ProjectSaveException(string message, Exception? innerException = null)
     : ProjectPersistenceException(message, "save_failed", null, innerException);
+
+public sealed class StaleProjectSessionException()
+    : ProjectPersistenceException(
+        "This song was saved by another session. Reload it before saving or replacing its recovery snapshot.",
+        "stale_session");

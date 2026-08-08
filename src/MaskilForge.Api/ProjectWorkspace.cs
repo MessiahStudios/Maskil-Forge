@@ -7,6 +7,7 @@ namespace MaskilForge.Api;
 public sealed class ProjectWorkspace(IProjectRepository repository)
 {
     private readonly ConcurrentDictionary<ProjectId, ProjectEditor> _editors = new();
+    private readonly ConcurrentDictionary<ProjectId, SemaphoreSlim> _saveLocks = new();
 
     public async Task<ProjectEditor?> GetAsync(ProjectId id, CancellationToken cancellationToken)
     {
@@ -61,10 +62,32 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         return editor;
     }
 
-    public async Task<ProjectEditor?> UpdateAsync(SongProject update, CancellationToken cancellationToken)
+    public async Task<ProjectEditor?> UpdateAsync(
+        SongProject update,
+        DateTimeOffset expectedLastModifiedUtc,
+        CancellationToken cancellationToken)
     {
-        var editor = await SyncAsync(update, cancellationToken);
-        if (editor is not null) await repository.SaveAsync(editor.Project, cancellationToken);
-        return editor;
+        var saveLock = _saveLocks.GetOrAdd(update.Id, _ => new SemaphoreSlim(1, 1));
+        await saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            var persisted = await repository.LoadAsync(update.Id, cancellationToken);
+            if (persisted is null) return null;
+            if (persisted.LastModifiedUtc != expectedLastModifiedUtc)
+                throw new StaleProjectSessionException();
+            var editor = await SyncAsync(update, cancellationToken);
+            if (editor is not null)
+                await repository.SaveAsync(editor.Project, cancellationToken);
+            return editor;
+        }
+        finally { saveLock.Release(); }
+    }
+
+    public async Task<ProjectRecoverySnapshot?> LoadRecoveryAsync(ProjectId id, CancellationToken cancellationToken)
+    {
+        var snapshot = await repository.LoadRecoverySnapshotAsync(id, cancellationToken);
+        if (snapshot is null) return null;
+        _editors[id] = new ProjectEditor(snapshot.Project);
+        return snapshot;
     }
 }
