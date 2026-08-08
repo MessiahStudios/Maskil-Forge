@@ -244,4 +244,73 @@ public sealed class CommandHistoryTests
         Assert.Equal(weight, unit.Weight);
         Assert.Equal(provenance, unit.Provenance);
     }
+
+    [Fact]
+    public void UndoAndRedo_SyllablePlacement_RestoresExactIdentityAndProvenance()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("home");
+        var word = line.Words[0];
+        line.SetSyllables(word.Id, ["home"]);
+        var syllableId = word.Syllables[0].Id;
+        project.SetSyllablePlacement(
+            section.Id,
+            line.Id,
+            syllableId,
+            new BeatPosition(1, 1, 0),
+            PlacementProvenance.Imported);
+        var placementId = line.SyllablePlacements[0].Id;
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetSyllablePlacementCommand(
+            section.Id,
+            line.Id,
+            syllableId,
+            new BeatPosition(2, 3, 120)));
+        AssertPlacement(line, placementId, new BeatPosition(2, 3, 120), PlacementProvenance.Manual);
+
+        Assert.True(editor.Undo());
+        AssertPlacement(line, placementId, new BeatPosition(1, 1, 0), PlacementProvenance.Imported);
+
+        Assert.True(editor.Redo());
+        AssertPlacement(line, placementId, new BeatPosition(2, 3, 120), PlacementProvenance.Manual);
+    }
+
+    [Fact]
+    public void UndoAndRedo_NewSyllablePlacement_ReusesGeneratedIdentifier()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("home");
+        var word = line.Words[0];
+        line.SetSyllables(word.Id, ["home"]);
+        var syllableId = word.Syllables[0].Id;
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetSyllablePlacementCommand(
+            section.Id,
+            line.Id,
+            syllableId,
+            new BeatPosition(1, 2, 0)));
+        var placementId = line.SyllablePlacements[0].Id;
+
+        Assert.True(editor.Undo());
+        Assert.Empty(line.SyllablePlacements);
+
+        Assert.True(editor.Redo());
+        AssertPlacement(line, placementId, new BeatPosition(1, 2, 0), PlacementProvenance.Manual);
+    }
+
+    private static void AssertPlacement(
+        LyricLine line,
+        SyllablePlacementId placementId,
+        BeatPosition position,
+        PlacementProvenance provenance)
+    {
+        var placement = Assert.Single(line.SyllablePlacements);
+        Assert.Equal(placementId, placement.Id);
+        Assert.Equal(position, placement.Position);
+        Assert.Equal(provenance, placement.Provenance);
+    }
 }

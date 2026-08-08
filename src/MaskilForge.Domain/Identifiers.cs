@@ -86,10 +86,17 @@ public readonly record struct ProsodicUnitId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(SyllablePlacementIdJsonConverter))]
+public readonly record struct SyllablePlacementId(Guid Value)
+{
+    public static SyllablePlacementId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(7);
+    public static SchemaVersion Current => new(8);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -192,4 +199,10 @@ internal sealed class ProsodicUnitIdJsonConverter : GuidIdJsonConverter<Prosodic
 {
     protected override ProsodicUnitId Create(Guid value) => new(value);
     protected override Guid GetValue(ProsodicUnitId value) => value.Value;
+}
+
+internal sealed class SyllablePlacementIdJsonConverter : GuidIdJsonConverter<SyllablePlacementId>
+{
+    protected override SyllablePlacementId Create(Guid value) => new(value);
+    protected override Guid GetValue(SyllablePlacementId value) => value.Value;
 }

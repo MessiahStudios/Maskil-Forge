@@ -51,6 +51,7 @@ public sealed class SongProject
         _tracks = tracks?.ToList() ?? [];
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
+        ValidateAllSyllablePlacements(TimeSignature);
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
@@ -121,7 +122,12 @@ public sealed class SongProject
     public void SetTempo(decimal beatsPerMinute) { Timeline.TempoMap.SetInitialTempo(beatsPerMinute); Touch(); }
 
     public void SetTimeSignature(int numerator, int denominator)
-    { Timeline.TimeSignatureMap.SetInitialTimeSignature(numerator, denominator); Touch(); }
+    {
+        var proposed = new TimeSignatureEvent(0, numerator, denominator);
+        ValidateAllSyllablePlacements(proposed);
+        Timeline.TimeSignatureMap.SetInitialTimeSignature(numerator, denominator);
+        Touch();
+    }
 
     public SongSection AddSection(SectionKind kind, string? title = null)
     {
@@ -157,8 +163,30 @@ public sealed class SongProject
 
     public void SetSectionDuration(SectionId sectionId, int durationBars)
     {
+        var section = FindSection(sectionId);
+        if (section.LyricLines.SelectMany(line => line.SyllablePlacements).Any(item => item.Position.Bar > durationBars))
+            throw new InvalidOperationException("Section duration cannot end before an existing syllable placement. Clear or move the placement first.");
         Timeline.SetSectionDuration(sectionId, durationBars, _sections.Select(item => item.Id).ToList());
         Touch();
+    }
+
+    public void SetSyllablePlacement(
+        SectionId sectionId,
+        LyricLineId lineId,
+        SyllableId syllableId,
+        BeatPosition? position,
+        PlacementProvenance provenance = PlacementProvenance.Manual)
+    {
+        if (position is not null) ValidateBeatPosition(sectionId, position.Value, TimeSignature);
+        FindSection(sectionId).FindLyricLine(lineId).SetSyllablePlacement(syllableId, position, provenance);
+        Touch();
+    }
+
+    public MusicalPosition ResolveSyllablePosition(SectionId sectionId, BeatPosition position)
+    {
+        ValidateBeatPosition(sectionId, position, TimeSignature);
+        var section = Timeline.FindSection(sectionId);
+        return new MusicalPosition(section.Start.Bar + position.Bar - 1, position.Beat, position.Tick);
     }
 
     public void MoveSection(SectionId sectionId, int targetIndex)
@@ -210,6 +238,28 @@ public sealed class SongProject
         var prosodicUnits = patterns.SelectMany(item => item.Units).ToList();
         if (prosodicUnits.Select(item => item.Id).Distinct().Count() != prosodicUnits.Count)
             throw new ArgumentException("Prosodic unit IDs must be unique across the project.");
+        var syllablePlacements = lines.SelectMany(line => line.SyllablePlacements).ToList();
+        if (syllablePlacements.Select(item => item.Id).Distinct().Count() != syllablePlacements.Count)
+            throw new ArgumentException("Syllable placement IDs must be unique across the project.");
+    }
+
+    private void ValidateAllSyllablePlacements(TimeSignatureEvent meter)
+    {
+        foreach (var section in _sections)
+        foreach (var placement in section.LyricLines.SelectMany(line => line.SyllablePlacements))
+            ValidateBeatPosition(section.Id, placement.Position, meter);
+    }
+
+    private void ValidateBeatPosition(SectionId sectionId, BeatPosition position, TimeSignatureEvent meter)
+    {
+        var section = Timeline.FindSection(sectionId);
+        if (position.Bar > section.DurationBars)
+            throw new ArgumentOutOfRangeException(nameof(position), $"Bar must be between 1 and {section.DurationBars} within this section.");
+        if (position.Beat > meter.Numerator)
+            throw new ArgumentOutOfRangeException(nameof(position), $"Beat must be between 1 and {meter.Numerator} for the current meter.");
+        var ticksPerBeat = checked(Timeline.TicksPerQuarterNote * 4 / meter.Denominator);
+        if (position.Tick >= ticksPerBeat)
+            throw new ArgumentOutOfRangeException(nameof(position), $"Tick must be between 0 and {ticksPerBeat - 1} for the current meter.");
     }
 
     public void Touch() => LastModifiedUtc = DateTimeOffset.UtcNow;

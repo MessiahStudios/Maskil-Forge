@@ -239,6 +239,13 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
                 request.SyllableId ?? throw new ArgumentException("Syllable ID is required."),
                 request.ProsodicWeight));
             break;
+        case "set-syllable-placement":
+            editor.Execute(new SetSyllablePlacementCommand(
+                RequiredSectionId(request),
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.SyllableId ?? throw new ArgumentException("Syllable ID is required."),
+                request.BeatPosition));
+            break;
         case "split-lyric-phrase":
             editor.Execute(new SplitLyricPhraseCommand(
                 RequiredSectionId(request),
@@ -284,6 +291,7 @@ public sealed record ProjectCommandRequest(
     LyricPhraseId? PhraseId = null,
     StressLevel? StressLevel = null,
     ProsodicWeight? ProsodicWeight = null,
+    BeatPosition? BeatPosition = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
