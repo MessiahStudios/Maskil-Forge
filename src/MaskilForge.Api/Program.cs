@@ -224,16 +224,16 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             project.Touch();
             break;
         case "split-lyric-phrase":
-            project.FindSection(RequiredSectionId(request))
-                .FindLyricLine(request.LineId ?? throw new ArgumentException("Lyric line ID is required."))
-                .SplitPhraseAfter(request.WordId ?? throw new ArgumentException("Lyric word ID is required."));
-            project.Touch();
+            editor.Execute(new SplitLyricPhraseCommand(
+                RequiredSectionId(request),
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.WordId ?? throw new ArgumentException("Lyric word ID is required.")));
             break;
         case "join-lyric-phrase":
-            project.FindSection(RequiredSectionId(request))
-                .FindLyricLine(request.LineId ?? throw new ArgumentException("Lyric line ID is required."))
-                .JoinPhraseWithPrevious(request.PhraseId ?? throw new ArgumentException("Lyric phrase ID is required."));
-            project.Touch();
+            editor.Execute(new JoinLyricPhraseCommand(
+                RequiredSectionId(request),
+                request.LineId ?? throw new ArgumentException("Lyric line ID is required."),
+                request.PhraseId ?? throw new ArgumentException("Lyric phrase ID is required.")));
             break;
         default: throw new ArgumentException($"Unknown command type '{request.Type}'.");
     }

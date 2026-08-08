@@ -51,7 +51,7 @@ A command should record its inputs, resulting changes, provenance, and random se
 
 ### Current undo-history decision
 
-Undo and redo history is session-only in the current foundation. The active application session retains reversible section commands, but closing or reloading a project clears that history. Persisting a command journal is a future durability concern and is not implied by project JSON persistence.
+Undo and redo history is session-only in the current foundation. The active application session retains reversible section commands and manual phrase-boundary commands, including their stable phrase identities, but closing or reloading a project clears that history. Persisting a command journal is a future durability concern and is not implied by project JSON persistence.
 
 ## Project schema versions
 
