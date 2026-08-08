@@ -314,6 +314,7 @@ public sealed class LyricLine
     private readonly List<LyricPhrase> _phrases = [];
     private readonly List<SyllablePlacement> _syllablePlacements = [];
     private readonly List<RhythmCandidate> _rhythmCandidates = [];
+    private readonly List<BreathPoint> _breathPoints = [];
 
     [JsonConstructor]
     public LyricLine(
@@ -323,14 +324,23 @@ public sealed class LyricLine
         IReadOnlyList<LyricPunctuation>? punctuation = null,
         IReadOnlyList<LyricPhrase>? phrases = null,
         IReadOnlyList<SyllablePlacement>? syllablePlacements = null,
-        IReadOnlyList<RhythmCandidate>? rhythmCandidates = null)
+        IReadOnlyList<RhythmCandidate>? rhythmCandidates = null,
+        IReadOnlyList<BreathPoint>? breathPoints = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A lyric line ID is required.", nameof(id));
         ValidateSerializedPhraseCoverage(words ?? [], phrases ?? []);
         ValidateSerializedPlacements(words ?? [], syllablePlacements ?? []);
         ValidateSerializedRhythmCandidates(words ?? [], phrases ?? [], rhythmCandidates ?? []);
+        ValidateSerializedBreathPoints(words ?? [], breathPoints ?? []);
         Id = id;
-        SetText(text, words ?? [], punctuation ?? [], phrases ?? [], syllablePlacements ?? [], rhythmCandidates ?? []);
+        SetText(
+            text,
+            words ?? [],
+            punctuation ?? [],
+            phrases ?? [],
+            syllablePlacements ?? [],
+            rhythmCandidates ?? [],
+            breathPoints ?? []);
     }
 
     public LyricLineId Id { get; }
@@ -340,6 +350,7 @@ public sealed class LyricLine
     public IReadOnlyList<LyricPhrase> Phrases => _phrases;
     public IReadOnlyList<SyllablePlacement> SyllablePlacements => _syllablePlacements;
     public IReadOnlyList<RhythmCandidate> RhythmCandidates => _rhythmCandidates;
+    public IReadOnlyList<BreathPoint> BreathPoints => _breathPoints;
 
     public static LyricLine Create(string text = "") => new(LyricLineId.New(), text);
 
@@ -367,7 +378,8 @@ public sealed class LyricLine
         _punctuation.ToList(),
         _phrases.ToList(),
         _syllablePlacements.ToList(),
-        _rhythmCandidates.ToList());
+        _rhythmCandidates.ToList(),
+        _breathPoints.ToList());
 
     public void SetSyllables(
         LyricWordId wordId,
@@ -375,12 +387,14 @@ public sealed class LyricLine
         SyllableSource source = SyllableSource.Manual)
     {
         var existingCandidates = _rhythmCandidates.ToList();
+        var existingBreathPoints = _breathPoints.ToList();
         var word = _words.SingleOrDefault(item => item.Id == wordId)
             ?? throw new KeyNotFoundException($"Lyric word '{wordId}' was not found.");
         word.SetSyllables(syllables, source);
         ReconcileAllPhraseProsody();
         ReconcileSyllablePlacements(_syllablePlacements.ToList());
         ReconcileRhythmCandidates(existingCandidates);
+        ReconcileBreathPoints(existingBreathPoints);
     }
 
     public void SetStress(
@@ -585,6 +599,44 @@ public sealed class LyricLine
         _rhythmCandidates.AddRange(candidates.Select(CloneRhythmCandidate));
     }
 
+    public void SetBreathPoint(
+        SyllableId afterSyllableId,
+        bool present,
+        BreathProvenance provenance = BreathProvenance.Manual)
+    {
+        if (!Enum.IsDefined(provenance))
+            throw new ArgumentOutOfRangeException(nameof(provenance), "Breath provenance is invalid.");
+        var orderedSyllableIds = OrderedSyllableIds();
+        if (!orderedSyllableIds.Contains(afterSyllableId))
+            throw new KeyNotFoundException($"Syllable '{afterSyllableId}' was not found in lyric line '{Id}'.");
+
+        var points = _breathPoints.ToList();
+        var existingIndex = points.FindIndex(item => item.AfterSyllableId == afterSyllableId);
+        if (!present)
+        {
+            if (existingIndex >= 0) points.RemoveAt(existingIndex);
+        }
+        else if (existingIndex >= 0)
+        {
+            var existing = points[existingIndex];
+            points[existingIndex] = new BreathPoint(existing.Id, afterSyllableId, provenance);
+        }
+        else
+        {
+            points.Add(new BreathPoint(BreathPointId.New(), afterSyllableId, provenance));
+        }
+
+        RestoreBreathPoints(BuildBreathPoints(points, orderedSyllableIds));
+    }
+
+    public void RestoreBreathPoints(IReadOnlyList<BreathPoint> breathPoints)
+    {
+        ArgumentNullException.ThrowIfNull(breathPoints);
+        ValidateSerializedBreathPoints(_words, breathPoints);
+        _breathPoints.Clear();
+        _breathPoints.AddRange(breathPoints.Select(CloneBreathPoint));
+    }
+
     public void SplitPhraseAfter(LyricWordId wordId)
     {
         var existingCandidates = _rhythmCandidates.ToList();
@@ -651,7 +703,8 @@ public sealed class LyricLine
         IReadOnlyList<LyricPunctuation> existingPunctuation,
         IReadOnlyList<LyricPhrase> existingPhrases,
         IReadOnlyList<SyllablePlacement> existingPlacements,
-        IReadOnlyList<RhythmCandidate> existingCandidates)
+        IReadOnlyList<RhythmCandidate> existingCandidates,
+        IReadOnlyList<BreathPoint> existingBreathPoints)
     {
         ArgumentNullException.ThrowIfNull(text);
         if (text.Length > 2_000) throw new ArgumentOutOfRangeException(nameof(text), "A lyric line cannot exceed 2,000 characters.");
@@ -682,6 +735,7 @@ public sealed class LyricLine
         ReconcilePhrases(existingPhrases);
         ReconcileSyllablePlacements(existingPlacements);
         ReconcileRhythmCandidates(existingCandidates);
+        ReconcileBreathPoints(existingBreathPoints);
         Text = text;
     }
 
@@ -978,6 +1032,45 @@ public sealed class LyricLine
             if (!referenced.SequenceEqual(orderedSyllableIds.Where(referencedSet.Contains)))
                 throw new ArgumentException("Rhythm candidate events must reference syllables from their phrase once and in lyric order.", nameof(candidates));
         }
+    }
+
+    private void ReconcileBreathPoints(IReadOnlyList<BreathPoint> existingBreathPoints)
+    {
+        var reconciled = BuildBreathPoints(existingBreathPoints, OrderedSyllableIds());
+        _breathPoints.Clear();
+        _breathPoints.AddRange(reconciled);
+    }
+
+    private static IReadOnlyList<BreathPoint> BuildBreathPoints(
+        IEnumerable<BreathPoint> breathPoints,
+        IReadOnlyList<SyllableId> orderedSyllableIds)
+    {
+        var pointBySyllable = breathPoints.ToDictionary(item => item.AfterSyllableId);
+        return orderedSyllableIds
+            .Where(pointBySyllable.ContainsKey)
+            .Select(syllableId => CloneBreathPoint(pointBySyllable[syllableId]))
+            .ToList();
+    }
+
+    private static BreathPoint CloneBreathPoint(BreathPoint breathPoint) => new(
+        breathPoint.Id,
+        breathPoint.AfterSyllableId,
+        breathPoint.Provenance);
+
+    private static void ValidateSerializedBreathPoints(
+        IReadOnlyList<LyricWord> words,
+        IReadOnlyList<BreathPoint> breathPoints)
+    {
+        if (breathPoints.Select(item => item.Id).Distinct().Count() != breathPoints.Count)
+            throw new ArgumentException("Breath point IDs must be unique within a lyric line.", nameof(breathPoints));
+        if (breathPoints.Select(item => item.AfterSyllableId).Distinct().Count() != breathPoints.Count)
+            throw new ArgumentException("A syllable can have only one breath point after it within a lyric line.", nameof(breathPoints));
+
+        var orderedSyllableIds = words.SelectMany(word => word.Syllables).Select(syllable => syllable.Id).ToList();
+        var referenced = breathPoints.Select(item => item.AfterSyllableId).ToList();
+        var referencedSet = referenced.ToHashSet();
+        if (!referenced.SequenceEqual(orderedSyllableIds.Where(referencedSet.Contains)))
+            throw new ArgumentException("Breath points must reference existing syllables once and in lyric order.", nameof(breathPoints));
     }
 
     private static void ValidateSerializedPlacements(

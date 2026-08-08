@@ -462,6 +462,41 @@ public sealed class ApplyRhythmCandidateCommand(
     private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
 }
 
+public sealed class SetBreathPointCommand(
+    SectionId sectionId,
+    LyricLineId lineId,
+    SyllableId afterSyllableId,
+    bool present) : IProjectCommand
+{
+    private IReadOnlyList<BreathPoint>? _before;
+    private IReadOnlyList<BreathPoint>? _after;
+
+    public void Execute(SongProject project)
+    {
+        var line = FindLine(project);
+        if (_after is null)
+        {
+            _before = BreathPointSnapshots.Create(line.BreathPoints);
+            line.SetBreathPoint(afterSyllableId, present, BreathProvenance.Manual);
+            _after = BreathPointSnapshots.Create(line.BreathPoints);
+        }
+        else
+        {
+            line.RestoreBreathPoints(_after);
+        }
+        project.Touch();
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_before is null) throw new InvalidOperationException("Command has not been executed.");
+        FindLine(project).RestoreBreathPoints(_before);
+        project.Touch();
+    }
+
+    private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+}
+
 internal static class RhythmCandidateSnapshots
 {
     public static IReadOnlyList<RhythmCandidate> Create(IEnumerable<RhythmCandidate> candidates) =>
@@ -477,4 +512,10 @@ internal static class RhythmCandidateSnapshots
             item.SyllableId,
             item.Position,
             item.BeatPosition)).ToList());
+}
+
+internal static class BreathPointSnapshots
+{
+    public static IReadOnlyList<BreathPoint> Create(IEnumerable<BreathPoint> breathPoints) =>
+        breathPoints.Select(item => new BreathPoint(item.Id, item.AfterSyllableId, item.Provenance)).ToList();
 }

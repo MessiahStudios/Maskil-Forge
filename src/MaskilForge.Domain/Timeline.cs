@@ -168,6 +168,37 @@ public sealed class RhythmCandidate
     public IReadOnlyList<RhythmCandidateEvent> Events => _events;
 }
 
+public enum BreathProvenance
+{
+    Manual,
+    Analyzer,
+    Imported
+}
+
+/// <summary>
+/// An artist-authored inhale opportunity after an existing sung syllable.
+/// </summary>
+public sealed class BreathPoint
+{
+    [JsonConstructor]
+    public BreathPoint(
+        BreathPointId id,
+        SyllableId afterSyllableId,
+        BreathProvenance provenance)
+    {
+        if (id.Value == Guid.Empty) throw new ArgumentException("A breath point ID is required.", nameof(id));
+        if (afterSyllableId.Value == Guid.Empty) throw new ArgumentException("A syllable ID is required.", nameof(afterSyllableId));
+        if (!Enum.IsDefined(provenance)) throw new ArgumentOutOfRangeException(nameof(provenance), "Breath provenance is invalid.");
+        Id = id;
+        AfterSyllableId = afterSyllableId;
+        Provenance = provenance;
+    }
+
+    public BreathPointId Id { get; }
+    public SyllableId AfterSyllableId { get; }
+    public BreathProvenance Provenance { get; }
+}
+
 public sealed record TempoEvent
 {
     public TempoEvent(int beat, decimal beatsPerMinute)

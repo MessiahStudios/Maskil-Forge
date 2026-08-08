@@ -352,3 +352,25 @@ internal sealed class V8ToV9ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V9ToV10ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 9;
+    public int ToVersion => 10;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["sections"] is JsonArray sections)
+        {
+            foreach (var section in sections.OfType<JsonObject>())
+            {
+                if (section["lyricLines"] is not JsonArray lines) continue;
+                foreach (var line in lines.OfType<JsonObject>())
+                    line["breathPoints"] = new JsonArray();
+            }
+        }
+
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

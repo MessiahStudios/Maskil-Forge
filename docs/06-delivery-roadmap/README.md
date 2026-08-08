@@ -104,6 +104,14 @@ This slice does not generate, rank, score, audition, or automatically accept rhy
 
 **Deliverable:** an artist can preserve, compare, and deliberately apply multiple onset possibilities for a phrase while the active beat map remains authoritative.
 
+### Milestone 2.8 — Breath point foundation
+
+The current slice adds optional inhale marks after existing syllables. Stable `BreathPointId` values reference one syllable through `AfterSyllableId` and record `Manual`, `Analyzer`, or `Imported` provenance. The editor creates manual decisions only. Absence means undecided; punctuation and phrase breaks never invent a breath. Compatible lyric and syllable edits preserve surviving identities, save/load retains exact marks, and session undo/redo restores identity and provenance. Schema-v9 songs and recovery snapshots migrate in memory to schema v10 with empty breath collections.
+
+No automatic breath analysis, timed breath placement, scoring, locks, duration, melisma, melody, harmony, AI, MIDI, transport, playback, or audio is included.
+
+**Deliverable:** an artist can mark where they intend to breathe, revise that decision safely, and preserve it as structured creative intent.
+
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 
 ## Milestone 3 — Theory and harmony

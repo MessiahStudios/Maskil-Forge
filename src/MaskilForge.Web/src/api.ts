@@ -8,6 +8,7 @@ export type ProsodicWeight = 'Weak' | 'Neutral' | 'Strong'
 export type ProsodyProvenance = 'Manual' | 'Analyzer' | 'Imported'
 export type PlacementProvenance = 'Manual' | 'Analyzer' | 'Imported'
 export type RhythmCandidateProvenance = 'Manual' | 'Analyzer' | 'Imported'
+export type BreathProvenance = 'Manual' | 'Analyzer' | 'Imported'
 
 export interface LyricLine {
   id: string
@@ -17,6 +18,7 @@ export interface LyricLine {
   phrases: LyricPhrase[]
   syllablePlacements: SyllablePlacement[]
   rhythmCandidates: RhythmCandidate[]
+  breathPoints: BreathPoint[]
 }
 
 export interface LyricWord {
@@ -94,6 +96,12 @@ export interface RhythmCandidate {
   label: string
   provenance: RhythmCandidateProvenance
   events: RhythmCandidateEvent[]
+}
+
+export interface BreathPoint {
+  id: string
+  afterSyllableId: string
+  provenance: BreathProvenance
 }
 
 export interface SongSection {
@@ -182,6 +190,7 @@ export interface ProjectCommand {
   beatPosition?: BeatPosition | null
   rhythmCandidateId?: string
   candidateLabel?: string
+  breathPresent?: boolean
   text?: string
   syllables?: string[]
 }
