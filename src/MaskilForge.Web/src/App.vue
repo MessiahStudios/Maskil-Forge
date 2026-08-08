@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type BeatPosition, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type RecoverySummary, type RhythmCandidate, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
+import { projectsApi, type BeatPosition, type LyricLine, type LyricPhrase, type LyricWord, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -32,10 +32,12 @@ const meters = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8']
 const genres: SongGenre[] = ['Unspecified', 'Pop', 'Rock', 'Folk', 'Country', 'RAndB', 'HipHop', 'Electronic', 'Cinematic', 'Alternative', 'Other']
 const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
+const prosodyScores = reactive<Record<string, ProsodyScore>>({})
 
 function accept(next: ProjectResponse, message: string, markPersisted = false) {
   response.value = next
   Object.keys(placementDrafts).forEach(key => delete placementDrafts[key])
+  Object.keys(prosodyScores).forEach(key => delete prosodyScores[key])
   projectId.value = next.project.id
   localStorage.setItem('maskilForge.projectId', next.project.id)
   status.value = message
@@ -403,6 +405,47 @@ function setBreathPoint(sectionId: string, lineId: string, syllableId: string, p
     'lyrics.breath.manual',
     { sectionId, lineId, syllableId, present })
 }
+function scoreKey(phraseId: string, rhythmCandidateId?: string | null) {
+  return rhythmCandidateId ? `${phraseId}:${rhythmCandidateId}` : `${phraseId}:active`
+}
+function prosodyScoreFor(phraseId: string, rhythmCandidateId?: string | null) {
+  return prosodyScores[scoreKey(phraseId, rhythmCandidateId)]
+}
+async function reviewProsody(
+  sectionId: string,
+  lineId: string,
+  phraseId: string,
+  rhythmCandidateId?: string,
+) {
+  if (!project.value) return
+  busy.value = true
+  const details = { sectionId, lineId, phraseId, rhythmCandidateId: rhythmCandidateId ?? null }
+  activityLog.write('info', 'lyrics.prosody.score', 'Prosody review requested.', details)
+  try {
+    const score = await projectsApi.scoreProsody(
+      project.value.id,
+      project.value,
+      sectionId,
+      lineId,
+      phraseId,
+      rhythmCandidateId,
+    )
+    prosodyScores[scoreKey(phraseId, rhythmCandidateId)] = score
+    status.value = score.findings.length
+      ? `Prosody review: ${score.overall}/100 with ${score.findings.length} note${score.findings.length === 1 ? '' : 's'}.`
+      : `Prosody review: ${score.overall}/100 with no issues flagged.`
+    activityLog.write('success', 'lyrics.prosody.score', status.value, {
+      ...details,
+      overall: score.overall,
+      findingCount: score.findings.length,
+    })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The request failed.'
+    activityLog.write('error', 'lyrics.prosody.score', status.value, details)
+  } finally {
+    busy.value = false
+  }
+}
 function candidateEventLabel(line: LyricLine, candidateEvent: RhythmCandidate['events'][number]) {
   const syllable = line.words.flatMap(word => word.syllables.map(item => ({ word, syllable: item })))
     .find(item => item.syllable.id === candidateEvent.syllableId)
@@ -743,6 +786,22 @@ onBeforeUnmount(() => {
                           <button type="submit" class="secondary" :disabled="busy">Save current placement</button>
                         </form>
                       </div>
+                      <div class="prosody-score-panel">
+                        <div class="prosody-score-heading">
+                          <div><strong>Prosody review</strong><small>Derived scores explain stress conflicts, breath room, and crowding. They are not saved creative state.</small></div>
+                          <button type="button" class="secondary" :disabled="busy" @click="reviewProsody(section.id, line.id, phrase.id)">Review active placement</button>
+                        </div>
+                        <div v-if="prosodyScoreFor(phrase.id)" class="prosody-score-card" :aria-label="`Active placement score for phrase ${phrase.position + 1}`">
+                          <p class="score-summary"><strong>{{ prosodyScoreFor(phrase.id)!.overall }}</strong>/100 · stress {{ prosodyScoreFor(phrase.id)!.stress }} · breath {{ prosodyScoreFor(phrase.id)!.breath }} · crowding {{ prosodyScoreFor(phrase.id)!.crowding }}</p>
+                          <ul v-if="prosodyScoreFor(phrase.id)!.findings.length" class="score-findings">
+                            <li v-for="(finding, findingIndex) in prosodyScoreFor(phrase.id)!.findings" :key="`${phrase.id}-active-${findingIndex}`">
+                              <span class="finding-kind">{{ finding.kind }}</span>
+                              <span>{{ finding.message }}</span>
+                            </li>
+                          </ul>
+                          <p v-else class="candidate-empty">No stress, breath, or crowding issues flagged for the active placement.</p>
+                        </div>
+                      </div>
                       <p v-if="rhythmCandidatesFor(line, phrase.id).length === 0" class="candidate-empty">Place one or more syllables above, then save the timing as an option.</p>
                       <div v-else class="candidate-list">
                         <article v-for="candidate in rhythmCandidatesFor(line, phrase.id)" :key="candidate.id" class="candidate-card">
@@ -753,7 +812,18 @@ onBeforeUnmount(() => {
                           <small>{{ candidate.provenance }} · {{ candidate.events.length }} timed {{ candidate.events.length === 1 ? 'syllable' : 'syllables' }}</small>
                           <div class="candidate-actions">
                             <button type="button" :disabled="busy" @click="applyRhythmCandidate(section.id, line.id, candidate)">Use this option</button>
+                            <button type="button" class="secondary" :disabled="busy" @click="reviewProsody(section.id, line.id, phrase.id, candidate.id)">Review score</button>
                             <button type="button" class="danger" :disabled="busy" @click="removeRhythmCandidate(section.id, line.id, candidate.id)">Remove option</button>
+                          </div>
+                          <div v-if="prosodyScoreFor(phrase.id, candidate.id)" class="prosody-score-card nested-score" :aria-label="`Score for ${candidate.label}`">
+                            <p class="score-summary"><strong>{{ prosodyScoreFor(phrase.id, candidate.id)!.overall }}</strong>/100 · stress {{ prosodyScoreFor(phrase.id, candidate.id)!.stress }} · breath {{ prosodyScoreFor(phrase.id, candidate.id)!.breath }} · crowding {{ prosodyScoreFor(phrase.id, candidate.id)!.crowding }}</p>
+                            <ul v-if="prosodyScoreFor(phrase.id, candidate.id)!.findings.length" class="score-findings">
+                              <li v-for="(finding, findingIndex) in prosodyScoreFor(phrase.id, candidate.id)!.findings" :key="`${candidate.id}-${findingIndex}`">
+                                <span class="finding-kind">{{ finding.kind }}</span>
+                                <span>{{ finding.message }}</span>
+                              </li>
+                            </ul>
+                            <p v-else class="candidate-empty">No issues flagged for this option.</p>
                           </div>
                         </article>
                       </div>

@@ -112,6 +112,14 @@ No automatic breath analysis, timed breath placement, scoring, locks, duration, 
 
 **Deliverable:** an artist can mark where they intend to breathe, revise that decision safely, and preserve it as structured creative intent.
 
+### Milestone 2.9 — Prosody scoring foundation
+
+The current slice adds derived, deterministic prosody review for a phrase's active placements or a saved rhythm option. Scores cover stress conflicts, breath room, and crowding, and each reduced score includes inspectable findings that explain why. Review is available from the editor without writing score data into the project schema; punctuation still never invents a breath, and no option is accepted automatically.
+
+No locks, audition, automatic candidate generation, timed breath placement, duration, melisma, melody, harmony, AI, MIDI, transport, playback, or audio is included.
+
+**Deliverable:** an artist can compare rhythm options with explicit reasons for stress, breath, and crowding concerns.
+
 **Deliverable:** the app explains and demonstrates how lyrics fit musical time.
 
 ## Milestone 3 — Theory and harmony

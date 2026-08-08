@@ -104,6 +104,27 @@ export interface BreathPoint {
   provenance: BreathProvenance
 }
 
+export type ProsodyFindingKind = 'StressConflict' | 'BreathIssue' | 'Crowding'
+export type ProsodyFindingSeverity = 'Info' | 'Warning'
+
+export interface ProsodyFinding {
+  kind: ProsodyFindingKind
+  severity: ProsodyFindingSeverity
+  message: string
+  syllableId: string | null
+  relatedSyllableId: string | null
+}
+
+export interface ProsodyScore {
+  phraseId: string
+  rhythmCandidateId: string | null
+  overall: number
+  stress: number
+  breath: number
+  crowding: number
+  findings: ProsodyFinding[]
+}
+
 export interface SongSection {
   id: string
   kind: SectionKind
@@ -235,6 +256,17 @@ export const projectsApi = {
   }),
   command: (id: string, project: SongProject, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {
     method: 'POST', body: JSON.stringify({ ...command, project }),
+  }),
+  scoreProsody: (
+    id: string,
+    project: SongProject,
+    sectionId: string,
+    lineId: string,
+    phraseId: string,
+    rhythmCandidateId?: string,
+  ) => request<ProsodyScore>(`/api/projects/${id}/prosody-score`, {
+    method: 'POST',
+    body: JSON.stringify({ project, sectionId, lineId, phraseId, rhythmCandidateId: rhythmCandidateId ?? null }),
   }),
   undo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST', body: JSON.stringify({ project }) }),
   redo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/redo`, { method: 'POST', body: JSON.stringify({ project }) }),

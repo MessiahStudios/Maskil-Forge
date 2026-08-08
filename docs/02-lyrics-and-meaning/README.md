@@ -28,7 +28,9 @@ Placement is artist-authored and partial. Unplaced means undecided. Existing pla
 
 Compatible lyric and syllable edits filter candidates to surviving identities. Phrase splits partition candidate events without duplicating lyric data, while joins re-associate the options with the surviving phrase. The current editor does not generate, score, audition, rank, or automatically accept candidates. Candidates contain point onsets only; duration, rests, melisma, locks, and performance data remain future work.
 
-`BreathPoint` records an artist-authored inhale after an existing syllable. It has a stable `BreathPointId`, references that syllable through `AfterSyllableId`, and stores `Manual`, `Analyzer`, or `Imported` provenance. Absence means undecided. Punctuation and phrase breaks do not invent breaths. Compatible lyric and syllable edits retain surviving breath identities; removing a syllable removes its now-invalid breath mark. The editor writes manual decisions only. Timed breath placement, automatic breath analysis, scoring, and locks remain later slices.
+`BreathPoint` records an artist-authored inhale after an existing syllable. It has a stable `BreathPointId`, references that syllable through `AfterSyllableId`, and stores `Manual`, `Analyzer`, or `Imported` provenance. Absence means undecided. Punctuation and phrase breaks do not invent breaths. Compatible lyric and syllable edits retain surviving breath identities; removing a syllable removes its now-invalid breath mark. The editor writes manual decisions only. Timed breath placement, automatic breath analysis, locks, and generation remain later slices.
+
+Prosody scoring is derived review, not stored creative state. `ProsodyScorer` evaluates a phrase's active syllable placements or one saved rhythm candidate and returns category scores for stress, breath, and crowding plus inspectable findings. Primary or emphasized stress and strong phrase weight on weak or offbeat positions reduce the stress score. Breath marks with less than a beat before the next onset, and long timed phrases with no interior breath, reduce the breath score. Sub-half-beat gaps and three-or-more syllables on one beat reduce the crowding score. The engine never invents placements, breaths, or locks from a score.
 
 `LyricPunctuation` preserves punctuation groups as identified tokens with exact source offsets while apostrophes and internal hyphens remain part of their words. `LyricPhrase` stores a stable ID, zero-based position, provenance, and an ordered list of existing word IDs. Every word belongs to exactly one contiguous phrase. A new or migrated line begins as one `Default` phrase; split and join operations are explicit artist actions and produce `Manual` provenance. Nearby word edits retain surviving phrase and punctuation IDs without copying or rewriting lyric text.
 
@@ -38,17 +40,17 @@ Compatible lyric and syllable edits filter candidates to surviving identities. P
 2. Analyze rhyme, repeated language, important words, and breath opportunities without replacing artist-authored stress or breath decisions.
 3. Describe narrative roles and emotional transitions.
 4. Preserve multiple artist-authored rhythm possibilities; later analyzers may propose additional candidates through the same typed model.
-5. Score candidates and let the artist audition, edit, or lock one.
+5. Score candidates with inspectable stress, breath, and crowding findings; later slices add audition and locks.
 6. Build harmony and energy plans around the approved meaning and phrasing.
 
 ## Future timed prosody model
 
-The current foundation records phrase-relative weight, optional point anchors, multiple named onset alternatives, and optional after-syllable breath marks. Later timed-prosody slices will extend those candidates with:
+The current foundation records phrase-relative weight, optional point anchors, multiple named onset alternatives, optional after-syllable breath marks, and derived prosody review findings. Later timed-prosody slices will extend those candidates with:
 
 - Onset, duration, stress, and melisma
 - Timed breath points and phrase boundaries
 - Sustained-vowel opportunities
-- Crowding, syncopation, and vocal difficulty
+- Crowding, syncopation, and vocal difficulty refinements
 - Natural-stress, hook-clarity, and genre-fit scores
 
 The system should expose why a score is low instead of only showing a number.

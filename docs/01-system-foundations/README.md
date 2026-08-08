@@ -82,6 +82,8 @@ Generators receive one shared context containing hard constraints, soft preferen
 
 Never silently alter locked content. A failed generation should explain which constraints conflict.
 
+The current prosody-scoring foundation provides derived, inspectable findings for stress conflicts, breath room, and crowding against active placements or saved rhythm candidates. Those scores are not stored in project JSON and do not lock or regenerate material.
+
 ## Foundation completion gate
 
 The current foundation demonstrates that:
