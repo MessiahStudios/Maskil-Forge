@@ -197,9 +197,12 @@ async function restoreRecovery(id: string) {
     persistedRevision.value = recovered.baseProjectLastModifiedUtc
     recoveryBlocked.value = false
     savedSnapshot.value = ''
+    timelineOverlayCandidateId.value = ''
+    selectedTimelineMarkerKey.value = ''
     view.value = recovered.project.sections.length ? 'structure' : 'capture'
     status.value = 'Recovered unsaved work. Save the song when you are ready.'
     activityLog.write('success', 'recovery.restore', 'Unsaved work restored.', { projectId: id })
+    void refreshLyricTimeline()
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'The recovery snapshot could not be restored.'
   } finally { busy.value = false }
@@ -666,6 +669,12 @@ watch(serializedProject, () => {
   if (isDirty.value && !recoveryBlocked.value) recoveryTimer = setTimeout(() => void saveRecoverySnapshot(), 1_000)
 })
 
+watch(
+  () => [view.value, project.value?.id, project.value?.sections.length ?? 0] as const,
+  ([nextView]) => {
+    if (nextView === 'structure') void refreshLyricTimeline()
+  })
+
 onMounted(async () => {
   window.addEventListener('beforeunload', warnBeforeClose)
   await Promise.all([refreshLibrary(), refreshRecovery()])
@@ -789,7 +798,8 @@ onBeforeUnmount(() => {
             </select>
           </label>
         </div>
-        <p v-if="!lyricTimeline || lyricTimeline.sections.length === 0" class="timeline-empty">Add a section to see the song timeline.</p>
+        <p v-if="!lyricTimeline && project.sections.length > 0" class="timeline-empty">Loading song timeline…</p>
+        <p v-else-if="!lyricTimeline || lyricTimeline.sections.length === 0" class="timeline-empty">Add a section to see the song timeline.</p>
         <div v-else-if="activeTimelineMarkers().length === 0 && overlayTimelineMarkers().length === 0" class="timeline-empty">
           Place syllables in a phrase below to see them here.
           <div class="timeline-rail" aria-hidden="true">
@@ -898,11 +908,13 @@ onBeforeUnmount(() => {
             <div class="lyrics-editor">
               <div class="lyrics-heading"><span>Lyrics</span><button class="quiet" :disabled="busy" @click="addLyricLine(index, true)">+ Add line</button></div>
               <div v-for="(line, lineIndex) in section.lyricLines" :key="line.id" class="lyric-line">
-                <span>{{ lineIndex + 1 }}</span>
+                <span class="lyric-line-number">{{ lineIndex + 1 }}</span>
                 <input v-model="line.text" :data-line-id="line.id" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Write a lyric line…" :disabled="busy || Boolean(lyricLineLock(line.id))" @change="editLyricLine(section.id, line.id, line.text)" @keydown.enter.prevent="addLineAfter(index, lineIndex)" @keydown.backspace="handleLineBackspace(index, lineIndex, line.text)" />
-                <button v-if="lyricLineLock(line.id)" class="quiet" :disabled="busy" @click="unlockCreativeLock(lyricLineLock(line.id)!.id, 'Lyric line unlocked.')">Unlock line</button>
-                <button v-else class="quiet" :disabled="busy" @click="lockLyricLine(line.id)">Lock line</button>
-                <button class="quiet lyric-delete" :disabled="busy || Boolean(lyricLineLock(line.id))" @click="removeLyricLine(index, lineIndex)">Remove line</button>
+                <div class="lyric-line-actions">
+                  <button v-if="lyricLineLock(line.id)" class="quiet" :disabled="busy" @click="unlockCreativeLock(lyricLineLock(line.id)!.id, 'Lyric line unlocked.')">Unlock line</button>
+                  <button v-else class="quiet" :disabled="busy" @click="lockLyricLine(line.id)">Lock line</button>
+                  <button class="quiet lyric-delete" :disabled="busy || Boolean(lyricLineLock(line.id))" @click="removeLyricLine(index, lineIndex)">Remove line</button>
+                </div>
                 <div v-if="line.words.length" class="lyric-words" :aria-label="`Artist-controlled syllables for lyric line ${lineIndex + 1}`">
                   <form v-for="word in line.words" :key="word.id" class="syllable-word" @submit.prevent="setWordSyllables(section.id, line.id, word.id, $event)">
                     <label :for="`syllables-${word.id}`" class="word-token">{{ word.text }}</label>
