@@ -346,6 +346,30 @@ public sealed class CommandHistoryTests
         AssertBreath(line, breathId, syllableId, BreathProvenance.Manual);
     }
 
+    [Fact]
+    public void UndoAndRedo_CreativeLocks_RestoresExactIdentity()
+    {
+        var project = SongProject.Create("History");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("home");
+        line.SetSyllables(line.Words[0].Id, ["home"]);
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new LockLyricLineCommand(line.Id));
+        var lockId = Assert.Single(project.Locks).Id;
+
+        Assert.True(editor.Undo());
+        Assert.Empty(project.Locks);
+
+        Assert.True(editor.Redo());
+        Assert.Equal(lockId, Assert.Single(project.Locks).Id);
+
+        editor.Execute(new UnlockCreativeLockCommand(lockId));
+        Assert.Empty(project.Locks);
+        Assert.True(editor.Undo());
+        Assert.Equal(lockId, Assert.Single(project.Locks).Id);
+    }
+
     private static void AssertPlacement(
         LyricLine line,
         SyllablePlacementId placementId,

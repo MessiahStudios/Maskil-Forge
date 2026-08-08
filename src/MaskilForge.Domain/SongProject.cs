@@ -21,6 +21,7 @@ public sealed class SongProject
 {
     private readonly List<SongSection> _sections;
     private readonly List<Track> _tracks;
+    private readonly List<CreativeLock> _locks;
 
     [JsonConstructor]
     public SongProject(
@@ -35,7 +36,8 @@ public sealed class SongProject
         string description = "",
         string rawLyricDraft = "",
         DateTimeOffset createdUtc = default,
-        DateTimeOffset lastModifiedUtc = default)
+        DateTimeOffset lastModifiedUtc = default,
+        IReadOnlyList<CreativeLock>? locks = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -49,10 +51,12 @@ public sealed class SongProject
         Timeline = timeline ?? throw new ArgumentNullException(nameof(timeline));
         _sections = sections?.ToList() ?? [];
         _tracks = tracks?.ToList() ?? [];
+        _locks = locks?.Select(CloneLock).ToList() ?? [];
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
         ValidateAllSyllablePlacements(TimeSignature);
         ValidateAllRhythmCandidates(TimeSignature);
+        ValidateLockReferences();
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
@@ -74,6 +78,7 @@ public sealed class SongProject
         _sections.SelectMany(section => section.LyricLines.Select(line => new LyricDocumentLine(section.Id, line))).ToList());
     public IReadOnlyList<SongSection> Sections => _sections;
     public IReadOnlyList<Track> Tracks => _tracks;
+    public IReadOnlyList<CreativeLock> Locks => _locks;
 
     public static SongProject Create(string title) => new(
         ProjectId.New(),
@@ -154,9 +159,12 @@ public sealed class SongProject
     {
         var index = IndexOf(sectionId);
         var section = _sections[index];
+        if (section.LyricLines.Any(line => IsLyricLineLocked(line.Id) || line.Phrases.Any(phrase => IsPhraseRhythmLocked(line.Id, phrase.Id))))
+            throw new InvalidOperationException("Unlock the lyric or phrase rhythm in this section before removing it.");
         var durationBars = Timeline.FindSection(sectionId).DurationBars;
         _sections.RemoveAt(index);
         Timeline.ReflowSections(_sections.Select(item => item.Id).ToList());
+        ReconcileLocks();
         Touch();
         return (section, index, durationBars);
     }
@@ -181,6 +189,7 @@ public sealed class SongProject
         BeatPosition? position,
         PlacementProvenance provenance = PlacementProvenance.Manual)
     {
+        EnsurePhraseRhythmUnlockedForSyllable(lineId, syllableId);
         if (position is not null) ValidateBeatPosition(sectionId, position.Value, TimeSignature);
         FindSection(sectionId).FindLyricLine(lineId).SetSyllablePlacement(syllableId, position, provenance);
         Touch();
@@ -211,9 +220,112 @@ public sealed class SongProject
         var line = FindSection(sectionId).FindLyricLine(lineId);
         var candidate = line.RhythmCandidates.SingleOrDefault(item => item.Id == candidateId)
             ?? throw new KeyNotFoundException($"Rhythm candidate '{candidateId}' was not found.");
+        EnsurePhraseRhythmUnlocked(lineId, candidate.PhraseId);
         foreach (var item in candidate.Events) ValidateBeatPosition(sectionId, item.BeatPosition, TimeSignature);
         line.ApplyRhythmCandidate(candidateId);
         Touch();
+    }
+
+    public CreativeLock LockLyricLine(LyricLineId lineId, LockProvenance provenance = LockProvenance.Manual)
+    {
+        EnsureLineExists(lineId);
+        if (IsLyricLineLocked(lineId))
+            throw new InvalidOperationException($"Lyric line '{lineId}' is already locked.");
+        var lockItem = new CreativeLock(CreativeLockId.New(), CreativeLockScope.LyricLine, lineId, null, provenance);
+        _locks.Add(lockItem);
+        Touch();
+        return lockItem;
+    }
+
+    public CreativeLock LockPhraseRhythm(
+        LyricLineId lineId,
+        LyricPhraseId phraseId,
+        LockProvenance provenance = LockProvenance.Manual)
+    {
+        EnsurePhraseExists(lineId, phraseId);
+        if (IsPhraseRhythmLocked(lineId, phraseId))
+            throw new InvalidOperationException($"Phrase rhythm '{phraseId}' is already locked.");
+        var lockItem = new CreativeLock(
+            CreativeLockId.New(),
+            CreativeLockScope.PhraseRhythm,
+            lineId,
+            phraseId,
+            provenance);
+        _locks.Add(lockItem);
+        Touch();
+        return lockItem;
+    }
+
+    public (CreativeLock Lock, int Index) Unlock(CreativeLockId lockId)
+    {
+        var index = _locks.FindIndex(item => item.Id == lockId);
+        if (index < 0) throw new KeyNotFoundException($"Creative lock '{lockId}' was not found.");
+        var lockItem = _locks[index];
+        _locks.RemoveAt(index);
+        Touch();
+        return (lockItem, index);
+    }
+
+    public void InsertLock(int index, CreativeLock lockItem)
+    {
+        ArgumentNullException.ThrowIfNull(lockItem);
+        if (index < 0 || index > _locks.Count) throw new ArgumentOutOfRangeException(nameof(index));
+        if (_locks.Any(item => item.Id == lockItem.Id))
+            throw new InvalidOperationException($"Creative lock '{lockItem.Id}' already exists.");
+        _locks.Insert(index, CloneLock(lockItem));
+        ValidateLockReferences();
+        Touch();
+    }
+
+    public void RestoreLocks(IReadOnlyList<CreativeLock> locks)
+    {
+        ArgumentNullException.ThrowIfNull(locks);
+        _locks.Clear();
+        _locks.AddRange(locks.Select(CloneLock));
+        ValidateLockReferences();
+    }
+
+    public bool IsLyricLineLocked(LyricLineId lineId) =>
+        _locks.Any(item => item.Scope == CreativeLockScope.LyricLine && item.LineId == lineId);
+
+    public bool IsPhraseRhythmLocked(LyricLineId lineId, LyricPhraseId phraseId) =>
+        _locks.Any(item =>
+            item.Scope == CreativeLockScope.PhraseRhythm
+            && item.LineId == lineId
+            && item.PhraseId == phraseId);
+
+    public void EnsureLyricLineUnlocked(LyricLineId lineId)
+    {
+        if (IsLyricLineLocked(lineId))
+            throw new InvalidOperationException("This lyric line is locked. Unlock it before editing the words.");
+    }
+
+    public void EnsurePhraseRhythmUnlocked(LyricLineId lineId, LyricPhraseId phraseId)
+    {
+        if (IsPhraseRhythmLocked(lineId, phraseId))
+            throw new InvalidOperationException("This phrase rhythm is locked. Unlock it before changing placements.");
+    }
+
+    public void EnsurePhraseRhythmUnlockedForSyllable(LyricLineId lineId, SyllableId syllableId)
+    {
+        var line = FindLine(lineId);
+        var phrase = line.Phrases.FirstOrDefault(item =>
+            item.WordIds.SelectMany(wordId => line.Words.Single(word => word.Id == wordId).Syllables)
+                .Any(syllable => syllable.Id == syllableId));
+        if (phrase is not null) EnsurePhraseRhythmUnlocked(lineId, phrase.Id);
+    }
+
+    public void ReconcileLocks()
+    {
+        var lines = _sections.SelectMany(section => section.LyricLines).ToDictionary(item => item.Id);
+        var surviving = _locks.Where(item =>
+        {
+            if (!lines.TryGetValue(item.LineId, out var line)) return false;
+            if (item.Scope == CreativeLockScope.LyricLine) return true;
+            return item.PhraseId is not null && line.Phrases.Any(phrase => phrase.Id == item.PhraseId);
+        }).Select(CloneLock).ToList();
+        _locks.Clear();
+        _locks.AddRange(surviving);
     }
 
     public void MoveSection(SectionId sectionId, int targetIndex)
@@ -277,7 +389,52 @@ public sealed class SongProject
         var breathPoints = lines.SelectMany(line => line.BreathPoints).ToList();
         if (breathPoints.Select(item => item.Id).Distinct().Count() != breathPoints.Count)
             throw new ArgumentException("Breath point IDs must be unique across the project.");
+        if (_locks.Select(item => item.Id).Distinct().Count() != _locks.Count)
+            throw new ArgumentException("Creative lock IDs must be unique across the project.");
     }
+
+    private void ValidateLockReferences()
+    {
+        var lines = _sections.SelectMany(section => section.LyricLines).ToDictionary(item => item.Id);
+        foreach (var lockItem in _locks)
+        {
+            if (!lines.TryGetValue(lockItem.LineId, out var line))
+                throw new ArgumentException($"Creative lock '{lockItem.Id}' references a lyric line that does not exist.");
+            if (lockItem.Scope == CreativeLockScope.PhraseRhythm
+                && (lockItem.PhraseId is null || line.Phrases.All(phrase => phrase.Id != lockItem.PhraseId)))
+                throw new ArgumentException($"Creative lock '{lockItem.Id}' references a phrase that does not exist.");
+        }
+
+        var lineLocks = _locks.Where(item => item.Scope == CreativeLockScope.LyricLine).Select(item => item.LineId).ToList();
+        if (lineLocks.Count != lineLocks.Distinct().Count())
+            throw new ArgumentException("A lyric line can have only one lyric lock.");
+        var phraseLocks = _locks
+            .Where(item => item.Scope == CreativeLockScope.PhraseRhythm)
+            .Select(item => (item.LineId, item.PhraseId!.Value))
+            .ToList();
+        if (phraseLocks.Count != phraseLocks.Distinct().Count())
+            throw new ArgumentException("A phrase can have only one rhythm lock.");
+    }
+
+    private LyricLine FindLine(LyricLineId lineId) =>
+        _sections.SelectMany(section => section.LyricLines).SingleOrDefault(line => line.Id == lineId)
+        ?? throw new KeyNotFoundException($"Lyric line '{lineId}' was not found.");
+
+    private void EnsureLineExists(LyricLineId lineId) => FindLine(lineId);
+
+    private void EnsurePhraseExists(LyricLineId lineId, LyricPhraseId phraseId)
+    {
+        var line = FindLine(lineId);
+        if (line.Phrases.All(item => item.Id != phraseId))
+            throw new KeyNotFoundException($"Lyric phrase '{phraseId}' was not found in lyric line '{lineId}'.");
+    }
+
+    private static CreativeLock CloneLock(CreativeLock lockItem) => new(
+        lockItem.Id,
+        lockItem.Scope,
+        lockItem.LineId,
+        lockItem.PhraseId,
+        lockItem.Provenance);
 
     private void ValidateAllSyllablePlacements(TimeSignatureEvent meter)
     {

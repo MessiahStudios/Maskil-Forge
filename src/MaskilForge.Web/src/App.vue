@@ -443,6 +443,36 @@ async function reviewProsody(
     busy.value = false
   }
 }
+function lyricLineLock(lineId: string) {
+  return project.value?.locks.find(item => item.scope === 'LyricLine' && item.lineId === lineId)
+}
+function phraseRhythmLock(lineId: string, phraseId: string) {
+  return project.value?.locks.find(item => item.scope === 'PhraseRhythm' && item.lineId === lineId && item.phraseId === phraseId)
+}
+function lockLyricLine(lineId: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'lock-lyric-line', lineId }),
+    'Lyric line locked.',
+    'lyrics.lock.line',
+    { lineId })
+}
+function lockPhraseRhythm(lineId: string, phraseId: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'lock-phrase-rhythm', lineId, phraseId }),
+    'Phrase rhythm locked.',
+    'lyrics.lock.phrase-rhythm',
+    { lineId, phraseId })
+}
+function unlockCreativeLock(creativeLockId: string, message: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'unlock-creative-lock', creativeLockId }),
+    message,
+    'lyrics.lock.unlock',
+    { creativeLockId })
+}
 function candidateEventLabel(line: LyricLine, candidateEvent: RhythmCandidate['events'][number]) {
   const syllable = line.words.flatMap(word => word.syllables.map(item => ({ word, syllable: item })))
     .find(item => item.syllable.id === candidateEvent.syllableId)
@@ -682,8 +712,10 @@ onBeforeUnmount(() => {
               <div class="lyrics-heading"><span>Lyrics</span><button class="quiet" :disabled="busy" @click="addLyricLine(index, true)">+ Add line</button></div>
               <div v-for="(line, lineIndex) in section.lyricLines" :key="line.id" class="lyric-line">
                 <span>{{ lineIndex + 1 }}</span>
-                <input v-model="line.text" :data-line-id="line.id" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Write a lyric line…" @change="editLyricLine(section.id, line.id, line.text)" @keydown.enter.prevent="addLineAfter(index, lineIndex)" @keydown.backspace="handleLineBackspace(index, lineIndex, line.text)" />
-                <button class="quiet lyric-delete" :disabled="busy" @click="removeLyricLine(index, lineIndex)">Remove line</button>
+                <input v-model="line.text" :data-line-id="line.id" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Write a lyric line…" :disabled="busy || Boolean(lyricLineLock(line.id))" @change="editLyricLine(section.id, line.id, line.text)" @keydown.enter.prevent="addLineAfter(index, lineIndex)" @keydown.backspace="handleLineBackspace(index, lineIndex, line.text)" />
+                <button v-if="lyricLineLock(line.id)" class="quiet" :disabled="busy" @click="unlockCreativeLock(lyricLineLock(line.id)!.id, 'Lyric line unlocked.')">Unlock line</button>
+                <button v-else class="quiet" :disabled="busy" @click="lockLyricLine(line.id)">Lock line</button>
+                <button class="quiet lyric-delete" :disabled="busy || Boolean(lyricLineLock(line.id))" @click="removeLyricLine(index, lineIndex)">Remove line</button>
                 <div v-if="line.words.length" class="lyric-words" :aria-label="`Artist-controlled syllables for lyric line ${lineIndex + 1}`">
                   <form v-for="word in line.words" :key="word.id" class="syllable-word" @submit.prevent="setWordSyllables(section.id, line.id, word.id, $event)">
                     <label :for="`syllables-${word.id}`" class="word-token">{{ word.text }}</label>
@@ -724,7 +756,13 @@ onBeforeUnmount(() => {
                 <div v-if="line.phrases.length" class="phrase-editor" :aria-label="`Phrase boundaries for lyric line ${lineIndex + 1}`">
                   <div class="phrase-heading"><strong>Phrases</strong><small>Break or join ideas without changing the lyric.</small></div>
                   <article v-for="phrase in line.phrases" :key="phrase.id" class="phrase-card">
-                    <header><span>Phrase {{ phrase.position + 1 }}</span><small>{{ phrase.source }}</small><button v-if="phrase.position > 0" class="quiet phrase-join" :disabled="busy" @click="joinLyricPhrase(section.id, line.id, phrase.id)">Join with previous</button></header>
+                    <header>
+                      <span>Phrase {{ phrase.position + 1 }}</span>
+                      <small>{{ phrase.source }}</small>
+                      <button v-if="phraseRhythmLock(line.id, phrase.id)" class="quiet" :disabled="busy" @click="unlockCreativeLock(phraseRhythmLock(line.id, phrase.id)!.id, 'Phrase rhythm unlocked.')">Unlock rhythm</button>
+                      <button v-else class="quiet" :disabled="busy || Boolean(lyricLineLock(line.id))" @click="lockPhraseRhythm(line.id, phrase.id)">Lock rhythm</button>
+                      <button v-if="phrase.position > 0" class="quiet phrase-join" :disabled="busy || Boolean(lyricLineLock(line.id))" @click="joinLyricPhrase(section.id, line.id, phrase.id)">Join with previous</button>
+                    </header>
                     <div class="phrase-words">
                       <template v-for="(word, phraseWordIndex) in phraseWords(line, phrase)" :key="word.id">
                         <span class="phrase-word">{{ word.text }}</span>

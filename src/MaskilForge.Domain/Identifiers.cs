@@ -114,10 +114,17 @@ public readonly record struct BreathPointId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(CreativeLockIdJsonConverter))]
+public readonly record struct CreativeLockId(Guid Value)
+{
+    public static CreativeLockId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(10);
+    public static SchemaVersion Current => new(11);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -244,4 +251,10 @@ internal sealed class BreathPointIdJsonConverter : GuidIdJsonConverter<BreathPoi
 {
     protected override BreathPointId Create(Guid value) => new(value);
     protected override Guid GetValue(BreathPointId value) => value.Value;
+}
+
+internal sealed class CreativeLockIdJsonConverter : GuidIdJsonConverter<CreativeLockId>
+{
+    protected override CreativeLockId Create(Guid value) => new(value);
+    protected override Guid GetValue(CreativeLockId value) => value.Value;
 }

@@ -374,3 +374,16 @@ internal sealed class V9ToV10ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V10ToV11ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 10;
+    public int ToVersion => 11;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        project["locks"] = new JsonArray();
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

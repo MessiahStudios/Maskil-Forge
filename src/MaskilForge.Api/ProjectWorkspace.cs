@@ -55,14 +55,63 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         foreach (var updatedSection in update.Sections)
         {
             var section = project.FindSection(updatedSection.Id);
+            foreach (var updatedLine in updatedSection.LyricLines)
+            {
+                if (project.IsLyricLineLocked(updatedLine.Id))
+                {
+                    var current = section.LyricLines.SingleOrDefault(item => item.Id == updatedLine.Id)
+                        ?? throw new InvalidOperationException("A locked lyric line cannot be removed.");
+                    if (!string.Equals(current.Text, updatedLine.Text, StringComparison.Ordinal))
+                        throw new InvalidOperationException("This lyric line is locked. Unlock it before editing the words.");
+                }
+
+                foreach (var phrase in updatedLine.Phrases)
+                {
+                    if (!project.IsPhraseRhythmLocked(updatedLine.Id, phrase.Id)) continue;
+                    var current = section.LyricLines.SingleOrDefault(item => item.Id == updatedLine.Id)
+                        ?? throw new InvalidOperationException("A locked phrase rhythm cannot be removed.");
+                    EnsureLockedPhraseRhythmUnchanged(current, updatedLine, phrase.Id);
+                }
+            }
+
             section.SetLyricLines(updatedSection.LyricLines);
             var durationBars = update.Timeline.FindSection(updatedSection.Id).DurationBars;
             if (project.Timeline.FindSection(updatedSection.Id).DurationBars != durationBars)
                 project.SetSectionDuration(updatedSection.Id, durationBars);
         }
+        project.ReconcileLocks();
         project.Touch();
 
         return editor;
+    }
+
+    private static void EnsureLockedPhraseRhythmUnchanged(LyricLine current, LyricLine updated, LyricPhraseId phraseId)
+    {
+        var currentPhrase = current.Phrases.SingleOrDefault(item => item.Id == phraseId)
+            ?? throw new InvalidOperationException("A locked phrase rhythm cannot be removed.");
+        var updatedPhrase = updated.Phrases.SingleOrDefault(item => item.Id == phraseId)
+            ?? throw new InvalidOperationException("A locked phrase rhythm cannot be removed.");
+        var currentSyllables = currentPhrase.WordIds
+            .SelectMany(wordId => current.Words.Single(word => word.Id == wordId).Syllables.Select(item => item.Id))
+            .ToHashSet();
+        var updatedSyllables = updatedPhrase.WordIds
+            .SelectMany(wordId => updated.Words.Single(word => word.Id == wordId).Syllables.Select(item => item.Id))
+            .ToHashSet();
+        if (!currentSyllables.SetEquals(updatedSyllables))
+            throw new InvalidOperationException("This phrase rhythm is locked. Unlock it before changing its syllables.");
+
+        var currentPlacements = current.SyllablePlacements
+            .Where(item => currentSyllables.Contains(item.SyllableId))
+            .Select(item => (item.SyllableId, item.Position.Bar, item.Position.Beat, item.Position.Tick))
+            .OrderBy(item => item.SyllableId.Value)
+            .ToList();
+        var updatedPlacements = updated.SyllablePlacements
+            .Where(item => updatedSyllables.Contains(item.SyllableId))
+            .Select(item => (item.SyllableId, item.Position.Bar, item.Position.Beat, item.Position.Tick))
+            .OrderBy(item => item.SyllableId.Value)
+            .ToList();
+        if (!currentPlacements.SequenceEqual(updatedPlacements))
+            throw new InvalidOperationException("This phrase rhythm is locked. Unlock it before changing placements.");
     }
 
     public async Task<ProjectEditor?> UpdateAsync(

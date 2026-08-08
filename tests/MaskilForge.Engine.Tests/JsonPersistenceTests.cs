@@ -188,7 +188,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV10_WritesStableLyricProsodyBeatMappingRhythmAndBreathContract()
+    public async Task SchemaV11_WritesStableLyricProsodyBeatMappingRhythmBreathAndLockContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -214,11 +214,12 @@ public sealed class JsonPersistenceTests
                 line.Phrases[0].Id,
                 "Option A");
             line.SetBreathPoint(line.Words[1].Syllables[1].Id, true);
+            var lineLock = project.LockLyricLine(line.Id);
             await repository.SaveAsync(project, CancellationToken.None);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(10, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(11, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -284,6 +285,12 @@ public sealed class JsonPersistenceTests
             Assert.Equal(JsonValueKind.String, breath.GetProperty("id").ValueKind);
             Assert.Equal(line.Words[1].Syllables[1].Id.ToString(), breath.GetProperty("afterSyllableId").GetString());
             Assert.Equal("Manual", breath.GetProperty("provenance").GetString());
+            var creativeLock = Assert.Single(root.GetProperty("locks").EnumerateArray());
+            Assert.Equal(lineLock.Id.ToString(), creativeLock.GetProperty("id").GetString());
+            Assert.Equal("LyricLine", creativeLock.GetProperty("scope").GetString());
+            Assert.Equal(line.Id.ToString(), creativeLock.GetProperty("lineId").GetString());
+            Assert.Equal(JsonValueKind.Null, creativeLock.GetProperty("phraseId").ValueKind);
+            Assert.Equal("Manual", creativeLock.GetProperty("provenance").GetString());
         }
         finally
         {
@@ -992,7 +999,88 @@ public sealed class JsonPersistenceTests
             Assert.Equal(candidateId, Assert.Single(line.RhythmCandidates).Id);
             Assert.Equal(eventId, Assert.Single(line.RhythmCandidates[0].Events).Id);
             Assert.Empty(line.BreathPoints);
+            Assert.Empty(loaded.Locks);
             Assert.Equal(originalV9, await File.ReadAllTextAsync(path));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_MigratesSchemaV10WithoutInventingLocks()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var projectId = ProjectId.New();
+        var sectionId = SectionId.New();
+        var lineId = LyricLineId.New();
+        var wordId = LyricWordId.New();
+        var syllableId = SyllableId.New();
+        var phraseId = LyricPhraseId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var originalV10 = $$"""
+            {
+              "id": "{{projectId}}",
+              "schemaVersion": 10,
+              "title": "Lock Migration",
+              "timeline": {
+                "ticksPerQuarterNote": 480,
+                "tempoMap": { "events": [{ "beat": 0, "beatsPerMinute": 120 }] },
+                "timeSignatureMap": { "events": [{ "beat": 0, "numerator": 4, "denominator": 4 }] },
+                "sectionPlacements": [{
+                  "sectionId": "{{sectionId}}",
+                  "start": { "bar": 1, "beat": 1, "tick": 0 },
+                  "durationBars": 8
+                }]
+              },
+              "sections": [{
+                "id": "{{sectionId}}",
+                "kind": "Verse",
+                "title": "Verse",
+                "lyricLines": [{
+                  "id": "{{lineId}}",
+                  "text": "pain",
+                  "words": [{
+                    "id": "{{wordId}}",
+                    "text": "pain",
+                    "start": 0,
+                    "length": 4,
+                    "syllables": [{
+                      "id": "{{syllableId}}",
+                      "text": "pain",
+                      "position": 0,
+                      "source": "Manual",
+                      "stress": null
+                    }]
+                  }],
+                  "punctuation": [],
+                  "phrases": [{
+                    "id": "{{phraseId}}",
+                    "position": 0,
+                    "wordIds": ["{{wordId}}"],
+                    "source": "Manual",
+                    "prosody": null
+                  }],
+                  "syllablePlacements": [],
+                  "rhythmCandidates": [],
+                  "breathPoints": []
+                }]
+              }],
+              "tracks": []
+            }
+            """;
+            var path = Path.Combine(directory, $"{projectId}.json");
+            await File.WriteAllTextAsync(path, originalV10);
+
+            var loaded = await new JsonFileProjectRepository(directory).LoadAsync(projectId, CancellationToken.None);
+
+            Assert.NotNull(loaded);
+            Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
+            Assert.Empty(loaded.Locks);
+            Assert.Equal(originalV10, await File.ReadAllTextAsync(path));
         }
         finally
         {

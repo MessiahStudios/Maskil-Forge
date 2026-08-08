@@ -111,16 +111,19 @@ public sealed class SplitLyricPhraseCommand(
 
     public void Execute(SongProject project)
     {
+        project.EnsureLyricLineUnlocked(lineId);
         var line = FindLine(project);
         if (_after is null)
         {
             _before = LyricStructureSnapshots.Create(line);
             line.SplitPhraseAfter(wordId);
+            project.ReconcileLocks();
             _after = LyricStructureSnapshots.Create(line);
         }
         else
         {
             LyricStructureSnapshots.Restore(line, _after);
+            project.ReconcileLocks();
         }
         project.Touch();
     }
@@ -129,6 +132,7 @@ public sealed class SplitLyricPhraseCommand(
     {
         if (_before is null) throw new InvalidOperationException("Command has not been executed.");
         LyricStructureSnapshots.Restore(FindLine(project), _before);
+        project.ReconcileLocks();
         project.Touch();
     }
 
@@ -182,16 +186,19 @@ public sealed class JoinLyricPhraseCommand(
 
     public void Execute(SongProject project)
     {
+        project.EnsureLyricLineUnlocked(lineId);
         var line = FindLine(project);
         if (_after is null)
         {
             _before = LyricStructureSnapshots.Create(line);
             line.JoinPhraseWithPrevious(phraseId);
+            project.ReconcileLocks();
             _after = LyricStructureSnapshots.Create(line);
         }
         else
         {
             LyricStructureSnapshots.Restore(line, _after);
+            project.ReconcileLocks();
         }
         project.Touch();
     }
@@ -200,6 +207,7 @@ public sealed class JoinLyricPhraseCommand(
     {
         if (_before is null) throw new InvalidOperationException("Command has not been executed.");
         LyricStructureSnapshots.Restore(FindLine(project), _before);
+        project.ReconcileLocks();
         project.Touch();
     }
 
@@ -218,6 +226,7 @@ public sealed class SetSyllableStressCommand(
 
     public void Execute(SongProject project)
     {
+        project.EnsureLyricLineUnlocked(lineId);
         var line = FindLine(project);
         if (!_captured)
         {
@@ -260,6 +269,7 @@ public sealed class SetProsodicWeightCommand(
 
     public void Execute(SongProject project)
     {
+        project.EnsureLyricLineUnlocked(lineId);
         var line = FindLine(project);
         if (_after is null)
         {
@@ -473,6 +483,7 @@ public sealed class SetBreathPointCommand(
 
     public void Execute(SongProject project)
     {
+        project.EnsureLyricLineUnlocked(lineId);
         var line = FindLine(project);
         if (_after is null)
         {
@@ -495,6 +506,90 @@ public sealed class SetBreathPointCommand(
     }
 
     private LyricLine FindLine(SongProject project) => project.FindSection(sectionId).FindLyricLine(lineId);
+}
+
+public sealed class LockLyricLineCommand(LyricLineId lineId) : IProjectCommand
+{
+    private CreativeLock? _lock;
+    private int? _index;
+
+    public CreativeLockId? LockId => _lock?.Id;
+
+    public void Execute(SongProject project)
+    {
+        if (_lock is null)
+        {
+            _lock = Clone(project.LockLyricLine(lineId, LockProvenance.Manual));
+            _index = project.Locks.Count - 1;
+        }
+        else
+        {
+            project.InsertLock(_index!.Value, _lock);
+        }
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_lock is null) throw new InvalidOperationException("Command has not been executed.");
+        project.Unlock(_lock.Id);
+    }
+
+    private static CreativeLock Clone(CreativeLock lockItem) => new(
+        lockItem.Id, lockItem.Scope, lockItem.LineId, lockItem.PhraseId, lockItem.Provenance);
+}
+
+public sealed class LockPhraseRhythmCommand(LyricLineId lineId, LyricPhraseId phraseId) : IProjectCommand
+{
+    private CreativeLock? _lock;
+    private int? _index;
+
+    public CreativeLockId? LockId => _lock?.Id;
+
+    public void Execute(SongProject project)
+    {
+        if (_lock is null)
+        {
+            _lock = Clone(project.LockPhraseRhythm(lineId, phraseId, LockProvenance.Manual));
+            _index = project.Locks.Count - 1;
+        }
+        else
+        {
+            project.InsertLock(_index!.Value, _lock);
+        }
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_lock is null) throw new InvalidOperationException("Command has not been executed.");
+        project.Unlock(_lock.Id);
+    }
+
+    private static CreativeLock Clone(CreativeLock lockItem) => new(
+        lockItem.Id, lockItem.Scope, lockItem.LineId, lockItem.PhraseId, lockItem.Provenance);
+}
+
+public sealed class UnlockCreativeLockCommand(CreativeLockId lockId) : IProjectCommand
+{
+    private CreativeLock? _removed;
+    private int? _index;
+
+    public void Execute(SongProject project)
+    {
+        var removed = project.Unlock(lockId);
+        _removed ??= new CreativeLock(
+            removed.Lock.Id,
+            removed.Lock.Scope,
+            removed.Lock.LineId,
+            removed.Lock.PhraseId,
+            removed.Lock.Provenance);
+        _index ??= removed.Index;
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_removed is null || _index is null) throw new InvalidOperationException("Command has not been executed.");
+        project.InsertLock(_index.Value, _removed);
+    }
 }
 
 internal static class RhythmCandidateSnapshots
