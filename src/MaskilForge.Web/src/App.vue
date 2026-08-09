@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { projectsApi, type Accidental, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
+import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -89,7 +90,7 @@ function requestNewProject() {
 function createProject() {
   confirmationOpen.value = false
   return run(() => projectsApi.create('Untitled Song'), 'Capture the idea. Structure can come later.', 'project.create', undefined, true).then(succeeded => {
-    if (succeeded) view.value = 'capture'
+    if (succeeded) { view.value = 'capture'; activeCreatorStage.value = 'idea' }
     return succeeded
   })
 }
@@ -111,7 +112,10 @@ function openConfirmation(action: 'load' | 'new' | 'home') {
 async function performLoad() {
   confirmationOpen.value = false
   const succeeded = await run(() => projectsApi.load(pendingLoadId.value), 'Song opened.', 'project.load', { projectId: pendingLoadId.value }, true)
-  if (succeeded) view.value = project.value?.sections.length ? 'structure' : 'capture'
+  if (succeeded) {
+    view.value = project.value?.sections.length ? 'structure' : 'capture'
+    activeCreatorStage.value = project.value?.sections.length ? 'shape' : 'idea'
+  }
   return succeeded
 }
 async function continuePendingAction() {
@@ -145,10 +149,11 @@ async function beginStructuring() {
   if (!project.value) return
   if (isDirty.value && !(await saveProject())) return
   view.value = 'structure'
+  activeCreatorStage.value = 'shape'
   status.value = 'Your original lyric draft remains preserved while you shape the song.'
   void refreshLyricTimeline()
 }
-function returnToDraft() { view.value = 'capture'; status.value = 'Raw lyric draft.'; lyricTimeline.value = null }
+function returnToDraft() { view.value = 'capture'; activeCreatorStage.value = 'words'; status.value = 'Raw lyric draft.'; lyricTimeline.value = null }
 function requestHome() { if (isDirty.value) return openConfirmation('home'); return goHome() }
 async function goHome() { confirmationOpen.value = false; view.value = 'home'; await Promise.all([refreshLibrary(), refreshRecovery()]) }
 function openSummary(id: string) { projectId.value = id; return requestLoad() }
@@ -794,41 +799,26 @@ function meterValue(value: SongProject) { return `${value.timeline.timeSignature
 function placementFor(sectionId: string) { return project.value?.timeline.sectionPlacements.find(item => item.sectionId === sectionId) }
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
 type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
-const creatorStages: Array<{ id: CreatorStage; label: string }> = [
-  { id: 'idea', label: 'Idea' },
-  { id: 'words', label: 'Words' },
-  { id: 'shape', label: 'Shape' },
-  { id: 'music', label: 'Music' },
-  { id: 'harmony', label: 'Harmony' },
-  { id: 'arrangement', label: 'Arrangement' },
-]
-function creatorStageState(stage: CreatorStage) {
-  if (!project.value) return 'upcoming'
-  const hasIdea = true
-  const lines = project.value.sections.flatMap(section => section.lyricLines)
-  const hasWords = Boolean(project.value.rawLyricDraft.trim()) || lines.some(line => line.text.trim())
-  const hasShape = project.value.sections.length > 0
-  const hasMusic = lines.some(line => line.syllablePlacements.length || line.rhythmCandidates.length)
-  const hasHarmony = project.value.sections.some(section => section.harmony.length)
-  const complete = { idea: hasIdea, words: hasWords, shape: hasShape, music: hasMusic, harmony: hasHarmony, arrangement: false }
-  if (complete[stage]) return 'complete'
-  if (stage === 'arrangement') return 'later'
-  const current: CreatorStage = !hasIdea ? 'idea' : !hasWords ? 'words' : !hasShape ? 'shape' : !hasMusic ? 'music' : !hasHarmony ? 'harmony' : 'arrangement'
-  return stage === current ? 'current' : 'upcoming'
-}
+const activeCreatorStage = ref<CreatorStage>('idea')
+const creatorCompletion = computed(() => creatorProgress(project.value))
+function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : stage === 'arrangement' ? 'later' : 'upcoming' }
 async function goToCreatorStage(stage: CreatorStage) {
-  if (stage === 'arrangement') return
-  if (stage === 'idea' || stage === 'words') {
-    view.value = 'capture'
-    lyricTimeline.value = null
-    await nextTick()
-    document.getElementById('capture-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    return
-  }
-  view.value = 'structure'
+  const destination = creatorDestination(stage)
+  if (!destination) return
+  activeCreatorStage.value = stage
+  view.value = destination.view
+  if (destination.view === 'capture') lyricTimeline.value = null
   await nextTick()
-  const target = stage === 'shape' ? 'song-structure' : stage === 'music' ? 'musical-refinement' : 'harmony-tools'
-  document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const target = document.getElementById(destination.target)
+  if (!target) return
+  if (destination.open && target instanceof HTMLDetailsElement) target.open = true
+  target.classList.remove('journey-focus')
+  void target.getBoundingClientRect()
+  target.classList.add('journey-focus')
+  window.setTimeout(() => target.classList.remove('journey-focus'), 1_400)
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (destination.focus && target instanceof HTMLElement) target.focus({ preventScroll: true })
+  else if (target instanceof HTMLDetailsElement) target.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true })
 }
 function undo() { if (project.value) return run(() => projectsApi.undo(project.value!.id, project.value!), 'Last edit undone.', 'history.undo') }
 function redo() { if (project.value) return run(() => projectsApi.redo(project.value!.id, project.value!), 'Edit restored.', 'history.redo') }
@@ -957,27 +947,37 @@ onBeforeUnmount(() => {
 
       <p class="status" role="status">{{ status }}</p>
 
-      <nav class="creator-journey" aria-label="Songwriting journey">
-        <p><strong>Your song, one layer at a time</strong><span>Follow the path or jump to any available creative area.</span></p>
+      <nav class="creator-journey" aria-label="Songwriting workspaces">
+        <p><strong>Current workspace</strong><span>Move between creative areas without changing your song.</span></p>
         <ol>
-          <li v-for="stage in creatorStages" :key="stage.id" :class="`stage-${creatorStageState(stage.id)}`">
+          <li v-for="stage in creatorStages" :key="stage.id" :class="{ 'stage-active': activeCreatorStage === stage.id, 'stage-later': stage.id === 'arrangement' }">
             <button
               type="button"
               class="journey-step"
               :disabled="stage.id === 'arrangement'"
-              :aria-current="creatorStageState(stage.id) === 'current' ? 'step' : undefined"
+              :aria-current="activeCreatorStage === stage.id ? 'page' : undefined"
+              :title="stage.id === 'arrangement' ? 'Coming in a future update: instruments, performances, and final song development.' : undefined"
               @click="goToCreatorStage(stage.id)">
-              <span class="journey-mark">{{ creatorStageState(stage.id) === 'complete' ? '✓' : creatorStageState(stage.id) === 'current' ? '→' : '·' }}</span>
+              <span class="journey-mark">{{ activeCreatorStage === stage.id ? '✦' : '·' }}</span>
               <span>{{ stage.label }}</span>
-              <small v-if="stage.id === 'arrangement'">Later</small>
+              <small v-if="stage.id === 'arrangement'">Future update</small>
             </button>
           </li>
         </ol>
+        <div class="journey-progress" aria-label="Song development progress">
+          <strong>Your song journey</strong>
+          <ul>
+            <li v-for="stage in creatorStages" :key="`progress-${stage.id}`" :class="`progress-${creatorStageState(stage.id)}`">
+              <span aria-hidden="true">{{ creatorStageState(stage.id) === 'complete' ? '✓' : '○' }}</span>
+              {{ stage.id === 'idea' ? 'Idea captured' : stage.id === 'words' ? 'Lyrics started' : stage.id === 'shape' ? 'Structure' : stage.id === 'music' ? 'Music exploration' : stage.label }}
+            </li>
+          </ul>
+        </div>
       </nav>
 
       <section v-if="view === 'capture'" class="capture-workspace" aria-labelledby="capture-title">
         <div class="capture-heading"><p class="eyebrow">Start with the words</p><h1 id="capture-title">Capture the idea</h1><p>Write lyrics, fragments, images, themes, or plain thoughts. You do not need to know the song structure yet.</p></div>
-        <label class="raw-lyrics">Raw lyric draft<textarea v-model="project.rawLyricDraft" maxlength="100000" rows="18" autofocus placeholder="Write whatever is on your mind…&#10;&#10;A complete song is not required. Fragments are welcome." /></label>
+        <label class="raw-lyrics">Raw lyric draft<textarea id="raw-lyric-draft" v-model="project.rawLyricDraft" maxlength="100000" rows="18" autofocus placeholder="Write whatever is on your mind…&#10;&#10;A complete song is not required. Fragments are welcome." /></label>
         <div class="capture-actions"><button :disabled="busy || !isDirty" @click="saveDraft">Save draft</button><button class="secondary" :disabled="busy" @click="beginStructuring">Shape these words</button></div>
         <p class="preservation-note">Your raw draft remains preserved when you begin creating Verse, Chorus, and other sections.</p>
       </section>
