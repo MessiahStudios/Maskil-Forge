@@ -188,11 +188,11 @@ This slice does not generate or rank replacement progressions, automatically rew
 
 ### Milestone 3.7 — Chord audition foundation
 
-Provide the first narrow audible feedback loop for existing harmony and voicing choices: play an individual chord or a section progression with simple transport controls and a replaceable preview sound. Audition must read the authoritative Song Graph without turning rendered audio into canonical project state.
+The current slice provides the first narrow audible feedback loop for existing harmony and voicing choices. The harmony workspace can play or stop a section progression through a transient Web Audio preview, following the project's existing tempo, meter, chord positions, and chord durations. Registered voicings take priority; chords without them use clearly identified temporary preview voicings.
 
-This is not a DAW, piano roll, production renderer, MIDI export workflow, arrangement engine, or instrument-performance system. Those remain later milestones.
+Playback state, generated tones, and preview voicings are not stored or written to activity history. This slice does not add MIDI, recording, a piano roll, transport state, instrument selection, audio files, backend audio work, or schema changes.
 
-**Deliverable:** an artist can hear a chord progression well enough to compare existing harmony and voicing choices before arrangement begins.
+**Deliverable:** an artist can hear a deterministic, non-destructive representation of the harmony they already created without needing to understand the underlying theory.
 
 ## Milestone 3 — Theory and harmony
 

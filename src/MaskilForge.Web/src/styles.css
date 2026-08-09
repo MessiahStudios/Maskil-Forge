@@ -161,7 +161,15 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .harmony-symbol small { color: #9aa093; text-transform: uppercase; letter-spacing: .05em; font-size: .68rem; }
 .harmony-card label { display: grid; gap: .2rem; color: #c7c0b1; font-size: .7rem; }
 .harmony-card input, .harmony-card select { width: 100%; min-width: 0; padding: .38rem .4rem; color: #fff7e7; background: #111410; border: 1px solid #70684f; }
+.chord-audition { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem 1rem; align-items: center; padding: .75rem; color: #ead9b2; background: #202419; border: 1px solid #6e7656; border-radius: .4rem; }
+.chord-audition > div { display: grid; gap: .15rem; }
+.chord-audition small, .chord-audition p { color: #aeb4a7; }
+.chord-audition p { grid-column: 1 / -1; margin: 0; font-size: .76rem; }
+.voice-leading-disclosure { border: 1px solid #3f453b; border-radius: .35rem; background: #181c17; }
+.voice-leading-disclosure > summary { padding: .65rem .7rem; color: #d5c69f; cursor: pointer; }
+.voice-leading-disclosure[open] > summary { border-bottom: 1px solid #3f453b; }
 .voice-leading-review { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .45rem 1rem; align-items: end; padding: .65rem .7rem; background: #181c17; border: 1px solid #3f453b; border-radius: .35rem; }
+.voice-leading-disclosure .voice-leading-review { border: 0; }
 .voice-leading-review > div:first-child { display: grid; gap: .15rem; }
 .voice-leading-review > div:first-child small { color: #9aa093; max-width: 48rem; }
 .voice-leading-review > .harmony-empty, .voice-leading-results { grid-column: 1 / -1; }
