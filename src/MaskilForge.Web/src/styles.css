@@ -55,6 +55,29 @@ main.has-project { padding-top: 1rem; }
 .project-menu > summary { min-height: 44px; display: grid; place-items: center; padding: .55rem .8rem; border: 1px solid #747b69; border-radius: .4rem; list-style: none; }
 .project-menu-panel { position: absolute; top: calc(100% + .7rem); right: 0; width: min(360px, calc(100vw - 2rem)); display: grid; gap: .75rem; padding: 1rem; background: #20231e; border: 1px solid #646b5c; border-radius: .5rem; box-shadow: 0 15px 45px rgb(0 0 0 / .5); }
 .status { min-height: 1.3rem; margin: .75rem .25rem 1rem; color: #c8ab6d; font-size: .87rem; }
+.creator-journey { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(0, 2fr); gap: 1rem; align-items: center; margin: 0 0 1.25rem; padding: .8rem 1rem; background: #171a16; border: 1px solid #3d4339; border-radius: .5rem; }
+.creator-journey > p { display: grid; gap: .15rem; margin: 0; }
+.creator-journey > p span { color: #969c8e; font-size: .76rem; }
+.creator-journey ol { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .25rem; margin: 0; padding: 0; list-style: none; }
+.creator-journey li { position: relative; }
+.creator-journey li:not(:last-child)::after { content: ''; position: absolute; top: 1.15rem; right: -.25rem; width: .25rem; border-top: 1px solid #555c4f; }
+button.journey-step { width: 100%; min-height: 46px; display: grid; grid-template-columns: auto 1fr; gap: .35rem; align-items: center; padding: .45rem .5rem; color: #bdb7aa; background: transparent; border-color: transparent; text-align: left; font-size: .78rem; }
+button.journey-step:hover:not(:disabled) { border-color: #6e755f; background: #20241e; }
+.journey-step small { grid-column: 2; color: #7f8579; font-size: .62rem; }
+.journey-mark { display: grid; width: 1.45rem; height: 1.45rem; place-items: center; color: #8f9688; border: 1px solid #555c4f; border-radius: 50%; }
+.stage-complete .journey-mark { color: #172014; background: #93ad7e; border-color: #acc498; }
+.stage-current .journey-step { color: #f2e3bd; border-color: #8d7547; background: #292419; }
+.stage-current .journey-mark { color: #1c170d; background: #d8ba78; border-color: #f0d28a; }
+.stage-later .journey-step:disabled { opacity: .72; background: transparent; }
+.disclosure-panel { border: 1px solid #41473d; border-radius: .45rem; background: #151814; }
+.disclosure-panel > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem 1rem; align-items: center; min-height: 52px; padding: .75rem .9rem; cursor: pointer; list-style: none; }
+.disclosure-panel > summary::-webkit-details-marker { display: none; }
+.disclosure-panel > summary::after { content: 'Explore'; color: #d8ba78; font-size: .72rem; font-weight: 750; text-transform: uppercase; letter-spacing: .06em; }
+.disclosure-panel[open] > summary::after { content: 'Close'; }
+.disclosure-panel > summary span { color: #e9dfcc; font-weight: 750; }
+.disclosure-panel > summary small { grid-column: 1; color: #969c8e; }
+.timeline-disclosure { margin-bottom: 1.4rem; }
+.timeline-disclosure .lyric-timeline { margin: 0; border: 0; border-top: 1px solid #41473d; border-radius: 0 0 .45rem .45rem; }
 .capture-workspace { width: min(880px, 100%); display: grid; gap: 1.2rem; margin: 2rem auto 0; }
 .capture-heading { max-width: 680px; }
 .capture-heading h1 { margin: .25rem 0 .5rem; font: 3rem Georgia, serif; }
@@ -103,6 +126,10 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .empty-song { margin: 0; padding: 4rem 1rem; color: #a9a397; border: 1px dashed #4c5247; border-radius: .5rem; text-align: center; }
 .sections { list-style: none; display: grid; gap: 1rem; padding: 0; margin: 0; }
 .section-card { display: grid; gap: 1rem; padding: 1.2rem; background: #181b17; border: 1px solid #3f453b; border-left: 3px solid #c6a96c; border-radius: .4rem; }
+.section-card > .section-heading { order: 1; }
+.section-card > .lyrics-editor { order: 2; }
+.section-card > .harmony-disclosure { order: 3; }
+.section-card > .developer-details { order: 4; }
 .section-heading { display: grid; grid-template-columns: auto minmax(220px, 1fr) auto; align-items: center; gap: 1rem; }
 .section-number { color: #92988a; font-family: Georgia, serif; font-size: 1.6rem; }
 .section-identity { display: grid; grid-template-columns: 105px 1fr; gap: .75rem; align-items: center; }
@@ -114,6 +141,9 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .lyrics-editor { display: grid; gap: .65rem; }
 .lyrics-heading { display: flex; justify-content: space-between; align-items: center; color: #ccc5b7; font-size: .83rem; letter-spacing: .04em; }
 .harmony-editor { display: grid; gap: .65rem; padding: .85rem .9rem; background: #151813; border: 1px solid #3f453b; border-radius: .4rem; }
+.harmony-disclosure .harmony-editor { border: 0; border-top: 1px solid #41473d; border-radius: 0 0 .45rem .45rem; }
+.lyric-flow-tools { grid-column: 2 / -1; }
+.lyric-flow-tools > .lyric-words, .lyric-flow-tools > .punctuation-row, .lyric-flow-tools > .phrase-editor { margin: .75rem; }
 .harmony-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: end; }
 .harmony-heading strong { display: block; color: #e2c987; }
 .harmony-heading small, .harmony-empty { color: #9aa093; }
@@ -260,6 +290,10 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .project-actions button { flex: 1; }
   .project-menu { grid-column: 1 / -1; grid-row: 4; }
   .project-menu > summary { width: 100%; }
+  .creator-journey { grid-template-columns: 1fr; }
+  .creator-journey ol { grid-template-columns: repeat(3, 1fr); }
+  .creator-journey li::after { display: none; }
+  .disclosure-panel > summary { grid-template-columns: 1fr auto; }
   .section-toolbar button { flex: 1 1 45%; }
   .section-identity { grid-template-columns: 1fr; }
   .section-actions { grid-column: 1 / -1; }
@@ -270,6 +304,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .lyric-line { grid-template-columns: 24px 1fr; }
   .lyric-line-actions { grid-column: 2; justify-self: stretch; }
   .lyric-line-actions > button { flex: 1; }
+  .lyric-flow-tools { grid-column: 1 / -1; }
   .harmony-card { grid-template-columns: 1fr 1fr; }
   .harmony-symbol, .harmony-card > button { grid-column: 1 / -1; }
   .harmony-candidate-card { grid-template-columns: 1fr; }

@@ -20,6 +20,14 @@ The aim is not to hide music behind a prompt. It is to make musical structure un
 
 The product begins before formal structure. An artist may first capture fragments, prose, themes, or complete lyrics in a raw draft, then choose when to shape that material into Verse, Chorus, and other editable sections. Maskil Forge should never require the artist to understand song form before preserving an idea.
 
+## Creator experience
+
+The interface should follow the natural creative progression from an idea to words, song shape, musical refinement, harmony, and arrangement. This progression is a guide, not a locked wizard: newcomers should always know the next useful action, while experienced songwriters may move directly to any available capability.
+
+Progressive disclosure keeps the first encounter focused on songwriting rather than terminology. Lyrics and meaning appear before formal structure. Timing, syllables, phrasing, prosody, harmony, and analysis remain available as contextual explorations that first explain their creative purpose. Technical metrics may support a decision, but they should not imply that theory knowledge or a particular score is required to write a valid song.
+
+This presentation principle does not create a separate beginner mode or reduce the engine. A beginner should meet a songwriting companion; deeper exploration should reveal the same composition workstation used by an expert.
+
 ## What the product should become
 
 Maskil Forge should feel more like a game engine for songs than a one-click audio generator. It should offer high-level creative controls while preserving words, syllables, beats, notes, chords, tracks, automation, takes, locks, and decisions as editable project data.
