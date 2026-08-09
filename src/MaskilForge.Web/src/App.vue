@@ -1221,7 +1221,7 @@ onBeforeUnmount(() => {
               <div class="voice-leading-review">
                 <div>
                   <strong>How smoothly do these chords connect?</strong>
-                  <small>This optional check looks for notes the chords share or can move by a short distance. A wider move is a color choice, not an error.</small>
+                  <small>This optional check follows registered notes when both chords have them. Otherwise, it compares shared chord tones and short moves. A wider move is a color choice, not an error.</small>
                 </div>
                 <button type="button" class="quiet" :disabled="busy || section.harmony.length < 2" @click="reviewVoiceLeading(section.id)">Check chord movement</button>
                 <p v-if="section.harmony.length < 2" class="harmony-empty">Add at least two chords to review how they connect.</p>
@@ -1230,7 +1230,10 @@ onBeforeUnmount(() => {
                   <article v-for="transition in voiceLeadingReviews[section.id].transitions" :key="`${transition.fromChordId}:${transition.toChordId}`" :class="`motion-${transition.motion.toLowerCase()}`">
                     <strong>{{ chordLabel(section.id, transition.fromChordId) }} → {{ chordLabel(section.id, transition.toChordId) }}</strong>
                     <span>{{ transition.motion }}</span>
-                    <small>{{ motionExplanation(transition.motion) }} {{ transition.commonToneCount }} shared {{ transition.commonToneCount === 1 ? 'note' : 'notes' }}.</small>
+                    <small>{{ transition.usesRegisteredVoices ? `Registered voices · largest move ${transition.maximumVoiceMovementSemitones} semitones.` : motionExplanation(transition.motion) }} {{ transition.commonToneCount }} shared {{ transition.commonToneCount === 1 ? 'note' : 'notes' }}.</small>
+                    <ul v-if="transition.findings.length" class="voice-leading-findings">
+                      <li v-for="(finding, findingIndex) in transition.findings" :key="`${finding.kind}:${findingIndex}`" :class="`finding-${finding.severity.toLowerCase()}`">{{ finding.message }}</li>
+                    </ul>
                   </article>
                 </div>
               </div>

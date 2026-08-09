@@ -170,6 +170,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .voice-leading-results article { display: grid; grid-template-columns: minmax(6rem, auto) auto 1fr; gap: .5rem; align-items: baseline; padding: .45rem .55rem; border-left: 3px solid #8b7c55; background: #111410; }
 .voice-leading-results article > span { color: #e5cf98; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
 .voice-leading-results article > small { color: #9aa093; }
+.voice-leading-findings { grid-column: 1 / -1; display: grid; gap: .25rem; margin: .2rem 0 0; padding-left: 1.1rem; color: #aeb4a7; font-size: .74rem; }
+.voice-leading-findings .finding-warning { color: #d7b77b; }
 .voice-leading-results .motion-smooth { border-left-color: #6f956b; }
 .voice-leading-results .motion-wide { border-left-color: #a67b55; }
 .harmony-candidate-capture, .harmony-candidate-card { display: flex; gap: .55rem; align-items: end; flex-wrap: wrap; }
