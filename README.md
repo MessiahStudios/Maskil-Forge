@@ -4,6 +4,39 @@
 
 Maskil Forge is a human-driven procedural songwriting and arrangement engine by Messiah Studios. It is designed for singer-songwriters who know what they want to communicate but may not yet know how the lyrics should fit a genre, how the arrangement should develop, or which instruments can best express the idea.
 
+## Why this project matters
+
+Maskil Forge explores the intersection of music composition, software engineering, and human creativity. Instead of replacing musicians with generated audio, it provides tools that help artists understand and shape their own creative decisions.
+
+The product sits closer to a **DAW workflow + composition assistant + music theory engine** than to “type a prompt → get an MP3.” The central engineering claim is:
+
+> A song exists as structured, editable data before it exists as finished audio.
+
+That means lyrics, syllables, timing, locks, and theory live as inspectable project state—so later MIDI, arrangement, and rendering can revise individual layers without discarding the artist’s authorship.
+
+### Build phases
+
+```text
+Phase 1  ✅  Song foundations
+         Song Graph, project library, lyric capture
+         Timeline (PPQ), sections, persistence, undo/redo
+         Syllables, phrases, stress, prosody, beat mapping
+         Rhythm options, breath marks, scoring, creative locks
+         Lyric timeline UI, musical key / theory primitives
+
+Phase 2  🚧  Harmony → audible demo
+         Chord progressions and harmony candidates
+         Arrangement blueprint and instrument roles
+         MIDI generation, piano-roll editing, simple preview
+
+Phase 3  ○  Performance and sound
+         Voice capture / analysis, instrument intelligence
+         Replaceable renderers, VST path, vocal production
+         Mix, export, and AI director over the same Song Graph
+```
+
+Detail lives in the [delivery roadmap](docs/06-delivery-roadmap/README.md). The sections below stay engineering-accurate for contributors and reviewers.
+
 ## Why Maskil Forge exists
 
 Many aspiring and independent singer-songwriters begin with lyrics, a vocal idea, or an emotional direction but do not yet know how prosody, harmony, arrangement, orchestration, MIDI, or instrument technique can express it. Maskil Forge is intended to bridge that gap without taking authorship away from the artist. The artist supplies the words, intent, vocal gestures, taste, revisions, and final lead-vocal performance; the system helps turn those decisions into inspectable musical structure.
