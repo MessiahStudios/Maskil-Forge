@@ -152,6 +152,14 @@ No progression generation, candidate ranking, voice leading, audition, MIDI, tra
 
 **Deliverable:** an artist can author a section’s chord progression as durable, timed Song Graph data.
 
+### Milestone 3.3 — Harmony candidate foundation
+
+The current slice lets an artist capture a section's active chord progression as a named harmony option. Stable `HarmonyCandidateId` and `HarmonyCandidateEventId` values preserve each alternative independently of the authoritative harmony chords. Multiple options may coexist; rename, removal, and explicit application participate in session undo/redo with exact identity restoration. Applying an option preserves compatible active chord identities. Schema v14 adds an empty `harmonyCandidates` collection to every section, and schema-v13 projects migrate in memory without inventing alternatives.
+
+This slice does not generate, rank, score, audition, or automatically accept harmony. Voice leading, instrument range checks, MIDI, transport, playback, and audio remain later slices.
+
+**Deliverable:** an artist can preserve and explicitly compare multiple durable chord progressions for a section.
+
 ## Milestone 3 — Theory and harmony
 
 Build music primitives, keys/scales/chords, progressions, transposition, voice leading, range checks, harmony candidates, and simple chord audition.

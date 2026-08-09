@@ -188,7 +188,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV13_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyAndHarmonyContract()
+    public async Task SchemaV14_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyAndHarmonyContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -224,7 +224,7 @@ public sealed class JsonPersistenceTests
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(13, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(14, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -1203,6 +1203,73 @@ public sealed class JsonPersistenceTests
             Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
             Assert.Empty(loaded.Sections[0].Harmony);
             Assert.Equal(originalV12, await File.ReadAllTextAsync(path));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task SaveAndLoad_PreservesHarmonyCandidateIdentitiesAndEvents()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var project = SongProject.Create("Harmony options");
+            var section = project.AddSection(SectionKind.Chorus);
+            project.AddHarmonyChord(section.Id, new ChordSymbol(NoteLetter.C), new BeatPosition(1, 1, 0), 2);
+            var candidate = project.CaptureHarmonyCandidate(section.Id, "Open chorus");
+
+            await repository.SaveAsync(project, CancellationToken.None);
+            var loaded = await repository.LoadAsync(project.Id, CancellationToken.None);
+
+            var restored = Assert.Single(Assert.Single(loaded!.Sections).HarmonyCandidates);
+            Assert.Equal(candidate.Id, restored.Id);
+            Assert.Equal(candidate.Events[0].Id, Assert.Single(restored.Events).Id);
+            Assert.Equal("Open chorus", restored.Label);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_MigratesSchemaV13WithoutInventingHarmonyCandidates()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var projectId = ProjectId.New();
+        var sectionId = SectionId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var originalV13 = $$"""
+            {
+              "id": "{{projectId}}",
+              "schemaVersion": 13,
+              "title": "Candidate Migration",
+              "key": { "tonic": "C", "accidental": "Natural", "mode": "Major" },
+              "timeline": {
+                "ticksPerQuarterNote": 480,
+                "tempoMap": { "events": [{ "beat": 0, "beatsPerMinute": 120 }] },
+                "timeSignatureMap": { "events": [{ "beat": 0, "numerator": 4, "denominator": 4 }] },
+                "sectionPlacements": [{ "sectionId": "{{sectionId}}", "start": { "bar": 1, "beat": 1, "tick": 0 }, "durationBars": 8 }]
+              },
+              "sections": [{ "id": "{{sectionId}}", "kind": "Verse", "title": "Verse", "lyricLines": [], "harmony": [] }],
+              "tracks": [],
+              "locks": []
+            }
+            """;
+            var path = Path.Combine(directory, $"{projectId}.json");
+            await File.WriteAllTextAsync(path, originalV13);
+
+            var loaded = await new JsonFileProjectRepository(directory).LoadAsync(projectId, CancellationToken.None);
+
+            Assert.Equal(SchemaVersion.Current, loaded!.SchemaVersion);
+            Assert.Empty(loaded.Sections[0].HarmonyCandidates);
+            Assert.Equal(originalV13, await File.ReadAllTextAsync(path));
         }
         finally
         {

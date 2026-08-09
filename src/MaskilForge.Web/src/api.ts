@@ -35,6 +35,21 @@ export interface HarmonyChord {
   provenance: HarmonyProvenance
 }
 
+export interface HarmonyCandidateEvent {
+  id: string
+  position: number
+  chord: ChordSymbol
+  start: BeatPosition
+  durationBars: number
+}
+
+export interface HarmonyCandidate {
+  id: string
+  label: string
+  provenance: HarmonyProvenance
+  events: HarmonyCandidateEvent[]
+}
+
 export interface LyricLine {
   id: string
   text: string
@@ -205,6 +220,7 @@ export interface SongSection {
   title: string
   lyricLines: LyricLine[]
   harmony: HarmonyChord[]
+  harmonyCandidates: HarmonyCandidate[]
 }
 
 export interface SongProject {
@@ -293,6 +309,7 @@ export interface ProjectCommand {
   key?: MusicalKey
   chord?: ChordSymbol
   harmonyChordId?: string
+  harmonyCandidateId?: string
   text?: string
   syllables?: string[]
 }

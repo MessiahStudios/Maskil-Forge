@@ -123,6 +123,16 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .harmony-symbol small { color: #9aa093; text-transform: uppercase; letter-spacing: .05em; font-size: .68rem; }
 .harmony-card label { display: grid; gap: .2rem; color: #c7c0b1; font-size: .7rem; }
 .harmony-card input, .harmony-card select { width: 100%; min-width: 0; padding: .38rem .4rem; color: #fff7e7; background: #111410; border: 1px solid #70684f; }
+.harmony-candidate-capture, .harmony-candidate-card { display: flex; gap: .55rem; align-items: end; flex-wrap: wrap; }
+.harmony-candidate-capture label, .harmony-candidate-card label { display: grid; gap: .2rem; color: #c7c0b1; font-size: .7rem; }
+.harmony-candidate-capture input, .harmony-candidate-card input { padding: .38rem .4rem; color: #fff7e7; background: #111410; border: 1px solid #70684f; }
+.harmony-candidate-help { color: #92988a; }
+.harmony-candidates { display: grid; gap: .45rem; padding-top: .25rem; border-top: 1px solid #3f453b; }
+.harmony-candidate-card { display: grid; grid-template-columns: minmax(10rem, .75fr) minmax(14rem, 1.5fr) auto; padding: .65rem; background: #1b1f1a; border: 1px solid #41473d; border-radius: .35rem; color: #d8ccb1; }
+.harmony-candidate-summary { display: grid; gap: .2rem; }
+.harmony-candidate-summary small { color: #92988a; text-transform: uppercase; letter-spacing: .04em; }
+.harmony-candidate-events { display: grid; gap: .18rem; margin: 0; padding-left: 1.4rem; font: .75rem ui-monospace, Consolas, monospace; }
+.harmony-candidate-actions { display: flex; gap: .45rem; align-items: end; }
 .lyric-line { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: .55rem; align-items: start; }
 .lyric-line-number { color: #92988a; text-align: right; font: .78rem ui-monospace, Consolas, monospace; padding-top: .95rem; }
 .lyric-line-actions { display: flex; gap: .4rem; align-items: start; flex-wrap: wrap; justify-content: end; }
@@ -251,6 +261,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .lyric-line-actions > button { flex: 1; }
   .harmony-card { grid-template-columns: 1fr 1fr; }
   .harmony-symbol, .harmony-card > button { grid-column: 1 / -1; }
+  .harmony-candidate-card { grid-template-columns: 1fr; }
+  .harmony-candidate-actions button { flex: 1; }
   .settings-grid { grid-template-columns: 1fr; }
   .description-field { grid-column: auto; }
   .capture-actions { justify-content: stretch; }
