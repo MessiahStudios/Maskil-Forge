@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type Accidental, type BeatPosition, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
+import { projectsApi, type Accidental, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -33,6 +33,7 @@ const genres: SongGenre[] = ['Unspecified', 'Pop', 'Rock', 'Folk', 'Country', 'R
 const noteLetters: NoteLetter[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 const accidentals: Accidental[] = ['Natural', 'Sharp', 'Flat']
 const scaleModes: ScaleMode[] = ['Major', 'NaturalMinor']
+const chordQualities: ChordQuality[] = ['Major', 'Minor', 'Diminished', 'Augmented', 'DominantSeventh']
 const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
@@ -661,6 +662,62 @@ function formatKey(key: MusicalKey) {
   const mode = key.mode === 'Major' ? 'major' : 'natural minor'
   return `${key.tonic}${accidental} ${mode}`
 }
+function formatChord(chord: ChordSymbol) {
+  const accidental = chord.accidental === 'Sharp' ? '#' : chord.accidental === 'Flat' ? 'b' : ''
+  const quality = chord.quality === 'Major' ? ''
+    : chord.quality === 'Minor' ? 'm'
+      : chord.quality === 'Diminished' ? 'dim'
+        : chord.quality === 'Augmented' ? 'aug'
+          : '7'
+  return `${chord.root}${accidental}${quality}`
+}
+function addHarmonyChord(sectionId: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'add-harmony-chord',
+      sectionId,
+      chord: { root: project.value!.key.tonic, accidental: project.value!.key.accidental, quality: project.value!.key.mode === 'Major' ? 'Major' : 'Minor' },
+      beatPosition: { bar: 1, beat: 1, tick: 0 },
+      durationBars: 2,
+    }),
+    'Harmony chord added.',
+    'harmony.add',
+    { sectionId })
+}
+function updateHarmonyChord(
+  sectionId: string,
+  harmonyChordId: string,
+  chord: ChordSymbol,
+  start: BeatPosition,
+  durationBars: number)
+{
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'set-harmony-chord',
+      sectionId,
+      harmonyChordId,
+      chord,
+      beatPosition: start,
+      durationBars,
+    }),
+    `Harmony updated to ${formatChord(chord)}.`,
+    'harmony.set',
+    { sectionId, harmonyChordId })
+}
+function removeHarmonyChord(sectionId: string, harmonyChordId: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'remove-harmony-chord',
+      sectionId,
+      harmonyChordId,
+    }),
+    'Harmony chord removed.',
+    'harmony.remove',
+    { sectionId, harmonyChordId })
+}
 function meterValue(value: SongProject) { return `${value.timeline.timeSignatureMap.events[0].numerator}/${value.timeline.timeSignatureMap.events[0].denominator}` }
 function placementFor(sectionId: string) { return project.value?.timeline.sectionPlacements.find(item => item.sectionId === sectionId) }
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
@@ -924,6 +981,76 @@ onBeforeUnmount(() => {
                 <button class="quiet" :disabled="busy || index === 0" @click="moveSection(section.id, index - 1)">↑ <span>Move up</span></button>
                 <button class="quiet" :disabled="busy || index === project.sections.length - 1" @click="moveSection(section.id, index + 1)">↓ <span>Move down</span></button>
                 <button class="danger" :disabled="busy" @click="removeSection(section.id)">Delete section</button>
+              </div>
+            </div>
+            <div class="harmony-editor" :aria-label="`Harmony for ${section.title}`">
+              <div class="harmony-heading">
+                <div>
+                  <strong>Harmony</strong>
+                  <small>Section chords in musical time. Roman analysis and generation come later.</small>
+                </div>
+                <button class="quiet" :disabled="busy" @click="addHarmonyChord(section.id)">+ Add chord</button>
+              </div>
+              <p v-if="!section.harmony?.length" class="harmony-empty">No chords yet. Add one to begin this section’s progression.</p>
+              <div v-else class="harmony-list">
+                <article v-for="item in section.harmony" :key="item.id" class="harmony-card">
+                  <div class="harmony-symbol">
+                    <strong>{{ formatChord(item.chord) }}</strong>
+                    <small>{{ item.provenance }}</small>
+                  </div>
+                  <label>Root
+                    <select
+                      :value="item.chord.root"
+                      :disabled="busy"
+                      @change="updateHarmonyChord(section.id, item.id, { ...item.chord, root: ($event.target as HTMLSelectElement).value as NoteLetter }, item.start, item.durationBars)">
+                      <option v-for="letter in noteLetters" :key="letter" :value="letter">{{ letter }}</option>
+                    </select>
+                  </label>
+                  <label>Accidental
+                    <select
+                      :value="item.chord.accidental"
+                      :disabled="busy"
+                      @change="updateHarmonyChord(section.id, item.id, { ...item.chord, accidental: ($event.target as HTMLSelectElement).value as Accidental }, item.start, item.durationBars)">
+                      <option v-for="accidental in accidentals" :key="accidental" :value="accidental">{{ accidental }}</option>
+                    </select>
+                  </label>
+                  <label>Quality
+                    <select
+                      :value="item.chord.quality"
+                      :disabled="busy"
+                      @change="updateHarmonyChord(section.id, item.id, { ...item.chord, quality: ($event.target as HTMLSelectElement).value as ChordQuality }, item.start, item.durationBars)">
+                      <option v-for="quality in chordQualities" :key="quality" :value="quality">{{ quality === 'DominantSeventh' ? 'Dominant 7' : quality }}</option>
+                    </select>
+                  </label>
+                  <label>Bar
+                    <input
+                      type="number"
+                      min="1"
+                      :max="placementFor(section.id)?.durationBars ?? 1"
+                      :value="item.start.bar"
+                      :disabled="busy"
+                      @change="updateHarmonyChord(section.id, item.id, item.chord, { ...item.start, bar: Number(($event.target as HTMLInputElement).value) }, item.durationBars)" />
+                  </label>
+                  <label>Beat
+                    <input
+                      type="number"
+                      min="1"
+                      :max="project.timeline.timeSignatureMap.events[0].numerator"
+                      :value="item.start.beat"
+                      :disabled="busy"
+                      @change="updateHarmonyChord(section.id, item.id, item.chord, { ...item.start, beat: Number(($event.target as HTMLInputElement).value) }, item.durationBars)" />
+                  </label>
+                  <label>Length
+                    <input
+                      type="number"
+                      min="1"
+                      :max="placementFor(section.id)?.durationBars ?? 1"
+                      :value="item.durationBars"
+                      :disabled="busy"
+                      @change="updateHarmonyChord(section.id, item.id, item.chord, item.start, Number(($event.target as HTMLInputElement).value))" />
+                  </label>
+                  <button class="danger" :disabled="busy" @click="removeHarmonyChord(section.id, item.id)">Remove</button>
+                </article>
               </div>
             </div>
             <div class="lyrics-editor">

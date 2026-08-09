@@ -144,6 +144,14 @@ No chord progressions, Roman-numeral analysis, voice leading, range checks again
 
 **Deliverable:** Maskil Forge can name and transpose tonal materials and record the song's key as durable creative state.
 
+### Milestone 3.2 — Harmony progression foundation
+
+The current slice stores ordered, identified section harmony chords: each chord has a stable `HarmonyChordId`, a `ChordSymbol`, a section-relative start `BeatPosition`, a bar duration, and provenance. Artists can add, edit, and remove chords with session undo/redo. Derived Roman-numeral labels are available from theory helpers for diatonic matches but are not stored. Schema v13 adds an empty `harmony` collection on each section; schema-v12 projects migrate in memory without inventing chords.
+
+No progression generation, candidate ranking, voice leading, audition, MIDI, transport, playback, or audio is included.
+
+**Deliverable:** an artist can author a section’s chord progression as durable, timed Song Graph data.
+
 ## Milestone 3 — Theory and harmony
 
 Build music primitives, keys/scales/chords, progressions, transposition, voice leading, range checks, harmony candidates, and simple chord audition.

@@ -266,4 +266,59 @@ public static class Theory
 
     public static PitchSpelling PreferSpelling(PitchClass pitch, bool preferFlats = false) =>
         (preferFlats ? FlatSpellings : SharpSpellings)[pitch.Value];
+
+    /// <summary>
+    /// Derived Roman-numeral label relative to the song key. Returns null when the chord is not a simple diatonic match.
+    /// </summary>
+    public static string? RomanNumeral(MusicalKey key, ChordSymbol chord)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(chord);
+        var scale = ScalePitchClasses(key.TonicPitchClass, key.Mode);
+        var degree = scale.Select((tone, index) => (tone, index))
+            .Where(item => item.tone.Value == chord.Spelling.PitchClass.Value)
+            .Select(item => item.index)
+            .Cast<int?>()
+            .FirstOrDefault();
+        if (degree is null) return null;
+
+        var expectedQuality = key.Mode == ScaleMode.Major
+            ? MajorDiatonicQualities[degree.Value]
+            : MinorDiatonicQualities[degree.Value];
+        if (chord.Quality != expectedQuality
+            && !(expectedQuality == ChordQuality.Major
+                 && chord.Quality == ChordQuality.DominantSeventh
+                 && degree.Value == 4))
+            return null;
+
+        var numerals = key.Mode == ScaleMode.Major
+            ? new[] { "I", "ii", "iii", "IV", "V", "vi", "vii°" }
+            : new[] { "i", "ii°", "III", "iv", "v", "VI", "VII" };
+        var label = numerals[degree.Value];
+        if (chord.Quality == ChordQuality.DominantSeventh)
+            return degree.Value == 4 && key.Mode == ScaleMode.Major ? "V7" : $"{label}7";
+        return label;
+    }
+
+    private static readonly ChordQuality[] MajorDiatonicQualities =
+    [
+        ChordQuality.Major,
+        ChordQuality.Minor,
+        ChordQuality.Minor,
+        ChordQuality.Major,
+        ChordQuality.Major,
+        ChordQuality.Minor,
+        ChordQuality.Diminished
+    ];
+
+    private static readonly ChordQuality[] MinorDiatonicQualities =
+    [
+        ChordQuality.Minor,
+        ChordQuality.Diminished,
+        ChordQuality.Major,
+        ChordQuality.Minor,
+        ChordQuality.Minor,
+        ChordQuality.Major,
+        ChordQuality.Major
+    ];
 }

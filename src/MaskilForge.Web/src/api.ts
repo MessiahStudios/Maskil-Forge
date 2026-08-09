@@ -13,11 +13,26 @@ export type NoteLetter = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B'
 export type Accidental = 'Natural' | 'Sharp' | 'Flat'
 export type ScaleMode = 'Major' | 'NaturalMinor'
 export type ChordQuality = 'Major' | 'Minor' | 'Diminished' | 'Augmented' | 'DominantSeventh'
+export type HarmonyProvenance = 'Manual' | 'Analyzer' | 'Imported'
 
 export interface MusicalKey {
   tonic: NoteLetter
   accidental: Accidental
   mode: ScaleMode
+}
+
+export interface ChordSymbol {
+  root: NoteLetter
+  accidental: Accidental
+  quality: ChordQuality
+}
+
+export interface HarmonyChord {
+  id: string
+  chord: ChordSymbol
+  start: BeatPosition
+  durationBars: number
+  provenance: HarmonyProvenance
 }
 
 export interface LyricLine {
@@ -189,6 +204,7 @@ export interface SongSection {
   kind: SectionKind
   title: string
   lyricLines: LyricLine[]
+  harmony: HarmonyChord[]
 }
 
 export interface SongProject {
@@ -275,6 +291,8 @@ export interface ProjectCommand {
   breathPresent?: boolean
   creativeLockId?: string
   key?: MusicalKey
+  chord?: ChordSymbol
+  harmonyChordId?: string
   text?: string
   syllables?: string[]
 }

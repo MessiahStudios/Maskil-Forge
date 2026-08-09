@@ -348,6 +348,26 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             editor.Execute(new SetKeyCommand(
                 request.Key ?? throw new ArgumentException("Musical key is required.")));
             break;
+        case "add-harmony-chord":
+            editor.Execute(new AddHarmonyChordCommand(
+                RequiredSectionId(request),
+                request.Chord ?? throw new ArgumentException("Chord is required."),
+                request.BeatPosition ?? throw new ArgumentException("Harmony start position is required."),
+                request.DurationBars ?? 1));
+            break;
+        case "set-harmony-chord":
+            editor.Execute(new SetHarmonyChordCommand(
+                RequiredSectionId(request),
+                request.HarmonyChordId ?? throw new ArgumentException("Harmony chord ID is required."),
+                request.Chord ?? throw new ArgumentException("Chord is required."),
+                request.BeatPosition ?? throw new ArgumentException("Harmony start position is required."),
+                request.DurationBars ?? throw new ArgumentException("Harmony duration is required.")));
+            break;
+        case "remove-harmony-chord":
+            editor.Execute(new RemoveHarmonyChordCommand(
+                RequiredSectionId(request),
+                request.HarmonyChordId ?? throw new ArgumentException("Harmony chord ID is required.")));
+            break;
         case "split-lyric-phrase":
             editor.Execute(new SplitLyricPhraseCommand(
                 RequiredSectionId(request),
@@ -408,6 +428,8 @@ public sealed record ProjectCommandRequest(
     bool? BreathPresent = null,
     CreativeLockId? CreativeLockId = null,
     MusicalKey? Key = null,
+    ChordSymbol? Chord = null,
+    HarmonyChordId? HarmonyChordId = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

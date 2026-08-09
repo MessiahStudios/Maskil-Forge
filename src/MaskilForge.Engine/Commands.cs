@@ -610,6 +610,70 @@ public sealed class SetKeyCommand(MusicalKey key) : IProjectCommand
     }
 }
 
+public sealed class AddHarmonyChordCommand(
+    SectionId sectionId,
+    ChordSymbol chord,
+    BeatPosition start,
+    int durationBars = 1) : IProjectCommand
+{
+    private HarmonyChord? _created;
+
+    public HarmonyChordId? HarmonyChordId => _created?.Id;
+
+    public void Execute(SongProject project)
+    {
+        if (_created is null)
+            _created = project.AddHarmonyChord(sectionId, chord, start, durationBars);
+        else
+            project.ReinsertHarmonyChord(sectionId, _created);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_created is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RemoveHarmonyChord(sectionId, _created.Id);
+    }
+}
+
+public sealed class SetHarmonyChordCommand(
+    SectionId sectionId,
+    HarmonyChordId harmonyChordId,
+    ChordSymbol chord,
+    BeatPosition start,
+    int durationBars) : IProjectCommand
+{
+    private HarmonyChord? _previous;
+
+    public void Execute(SongProject project)
+    {
+        var section = project.FindSection(sectionId);
+        _previous ??= section.FindHarmonyChord(harmonyChordId);
+        project.SetHarmonyChord(sectionId, harmonyChordId, chord, start, durationBars);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previous is null) throw new InvalidOperationException("Command has not been executed.");
+        project.ReinsertHarmonyChord(sectionId, _previous);
+    }
+}
+
+public sealed class RemoveHarmonyChordCommand(SectionId sectionId, HarmonyChordId harmonyChordId) : IProjectCommand
+{
+    private HarmonyChord? _removed;
+
+    public void Execute(SongProject project)
+    {
+        _removed ??= project.RemoveHarmonyChord(sectionId, harmonyChordId);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_removed is null) throw new InvalidOperationException("Command has not been executed.");
+        project.ReinsertHarmonyChord(sectionId, _removed);
+    }
+}
+
 internal static class RhythmCandidateSnapshots
 {
     public static IReadOnlyList<RhythmCandidate> Create(IEnumerable<RhythmCandidate> candidates) =>

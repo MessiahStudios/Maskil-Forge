@@ -121,10 +121,17 @@ public readonly record struct CreativeLockId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(HarmonyChordIdJsonConverter))]
+public readonly record struct HarmonyChordId(Guid Value)
+{
+    public static HarmonyChordId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(12);
+    public static SchemaVersion Current => new(13);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -257,4 +264,10 @@ internal sealed class CreativeLockIdJsonConverter : GuidIdJsonConverter<Creative
 {
     protected override CreativeLockId Create(Guid value) => new(value);
     protected override Guid GetValue(CreativeLockId value) => value.Value;
+}
+
+internal sealed class HarmonyChordIdJsonConverter : GuidIdJsonConverter<HarmonyChordId>
+{
+    protected override HarmonyChordId Create(Guid value) => new(value);
+    protected override Guid GetValue(HarmonyChordId value) => value.Value;
 }
