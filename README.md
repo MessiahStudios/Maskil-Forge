@@ -111,6 +111,8 @@ Schema-v1 project files and recovery snapshots migrate in memory through schemas
 
 The current session-recovery slice automatically protects dirty editor state in a separate validated snapshot after a short editing pause. On the next startup, the artist can restore or discard that snapshot without overwriting the explicitly saved song. Saves use the last persisted project revision to reject stale browser sessions instead of silently replacing newer work. Recovery snapshots are not version history, and undo/redo remains session-only.
 
+The editor now presents these capabilities through a lightweight creator journey: Idea, Words, Shape, Music, Harmony, and Arrangement. It is guidance rather than a wizard, so an experienced artist can jump directly to an available area. Raw lyric capture remains the first creative workspace, while lyric timing, syllables, phrasing, prosody, and harmony remain fully available through optional, purpose-led disclosures. This is a presentation layer only: journey state is derived from the existing Song Graph and does not add schema fields, change persistence, or make advanced tools required.
+
 ## Run the foundation locally
 
 Prerequisites:

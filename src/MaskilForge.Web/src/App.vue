@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { projectsApi, type Accidental, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
+import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -89,7 +90,7 @@ function requestNewProject() {
 function createProject() {
   confirmationOpen.value = false
   return run(() => projectsApi.create('Untitled Song'), 'Capture the idea. Structure can come later.', 'project.create', undefined, true).then(succeeded => {
-    if (succeeded) view.value = 'capture'
+    if (succeeded) { view.value = 'capture'; activeCreatorStage.value = 'idea' }
     return succeeded
   })
 }
@@ -111,7 +112,10 @@ function openConfirmation(action: 'load' | 'new' | 'home') {
 async function performLoad() {
   confirmationOpen.value = false
   const succeeded = await run(() => projectsApi.load(pendingLoadId.value), 'Song opened.', 'project.load', { projectId: pendingLoadId.value }, true)
-  if (succeeded) view.value = project.value?.sections.length ? 'structure' : 'capture'
+  if (succeeded) {
+    view.value = project.value?.sections.length ? 'structure' : 'capture'
+    activeCreatorStage.value = project.value?.sections.length ? 'shape' : 'idea'
+  }
   return succeeded
 }
 async function continuePendingAction() {
@@ -145,10 +149,11 @@ async function beginStructuring() {
   if (!project.value) return
   if (isDirty.value && !(await saveProject())) return
   view.value = 'structure'
+  activeCreatorStage.value = 'shape'
   status.value = 'Your original lyric draft remains preserved while you shape the song.'
   void refreshLyricTimeline()
 }
-function returnToDraft() { view.value = 'capture'; status.value = 'Raw lyric draft.'; lyricTimeline.value = null }
+function returnToDraft() { view.value = 'capture'; activeCreatorStage.value = 'words'; status.value = 'Raw lyric draft.'; lyricTimeline.value = null }
 function requestHome() { if (isDirty.value) return openConfirmation('home'); return goHome() }
 async function goHome() { confirmationOpen.value = false; view.value = 'home'; await Promise.all([refreshLibrary(), refreshRecovery()]) }
 function openSummary(id: string) { projectId.value = id; return requestLoad() }
@@ -793,6 +798,28 @@ function removeHarmonyCandidate(sectionId: string, harmonyCandidateId: string) {
 function meterValue(value: SongProject) { return `${value.timeline.timeSignatureMap.events[0].numerator}/${value.timeline.timeSignatureMap.events[0].denominator}` }
 function placementFor(sectionId: string) { return project.value?.timeline.sectionPlacements.find(item => item.sectionId === sectionId) }
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
+type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
+const activeCreatorStage = ref<CreatorStage>('idea')
+const creatorCompletion = computed(() => creatorProgress(project.value))
+function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : stage === 'arrangement' ? 'later' : 'upcoming' }
+async function goToCreatorStage(stage: CreatorStage) {
+  const destination = creatorDestination(stage)
+  if (!destination) return
+  activeCreatorStage.value = stage
+  view.value = destination.view
+  if (destination.view === 'capture') lyricTimeline.value = null
+  await nextTick()
+  const target = document.getElementById(destination.target)
+  if (!target) return
+  if (destination.open && target instanceof HTMLDetailsElement) target.open = true
+  target.classList.remove('journey-focus')
+  void target.getBoundingClientRect()
+  target.classList.add('journey-focus')
+  window.setTimeout(() => target.classList.remove('journey-focus'), 1_400)
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  if (destination.focus && target instanceof HTMLElement) target.focus({ preventScroll: true })
+  else if (target instanceof HTMLDetailsElement) target.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true })
+}
 function undo() { if (project.value) return run(() => projectsApi.undo(project.value!.id, project.value!), 'Last edit undone.', 'history.undo') }
 function redo() { if (project.value) return run(() => projectsApi.redo(project.value!.id, project.value!), 'Edit restored.', 'history.redo') }
 function warnBeforeClose(event: BeforeUnloadEvent) { if (isDirty.value) event.preventDefault() }
@@ -920,15 +947,45 @@ onBeforeUnmount(() => {
 
       <p class="status" role="status">{{ status }}</p>
 
+      <nav class="creator-journey" aria-label="Songwriting workspaces">
+        <p><strong>Current workspace</strong><span>Move between creative areas without changing your song.</span></p>
+        <ol>
+          <li v-for="stage in creatorStages" :key="stage.id" :class="{ 'stage-active': activeCreatorStage === stage.id, 'stage-later': stage.id === 'arrangement' }">
+            <button
+              type="button"
+              class="journey-step"
+              :disabled="stage.id === 'arrangement'"
+              :aria-current="activeCreatorStage === stage.id ? 'page' : undefined"
+              :title="stage.id === 'arrangement' ? 'Coming in a future update: instruments, performances, and final song development.' : undefined"
+              @click="goToCreatorStage(stage.id)">
+              <span class="journey-mark">{{ activeCreatorStage === stage.id ? '✦' : '·' }}</span>
+              <span>{{ stage.label }}</span>
+              <small v-if="stage.id === 'arrangement'">Future update</small>
+            </button>
+          </li>
+        </ol>
+        <div class="journey-progress" aria-label="Song development progress">
+          <strong>Your song journey</strong>
+          <ul>
+            <li v-for="stage in creatorStages" :key="`progress-${stage.id}`" :class="`progress-${creatorStageState(stage.id)}`">
+              <span aria-hidden="true">{{ creatorStageState(stage.id) === 'complete' ? '✓' : '○' }}</span>
+              {{ stage.id === 'idea' ? 'Idea captured' : stage.id === 'words' ? 'Lyrics started' : stage.id === 'shape' ? 'Structure' : stage.id === 'music' ? 'Music exploration' : stage.label }}
+            </li>
+          </ul>
+        </div>
+      </nav>
+
       <section v-if="view === 'capture'" class="capture-workspace" aria-labelledby="capture-title">
         <div class="capture-heading"><p class="eyebrow">Start with the words</p><h1 id="capture-title">Capture the idea</h1><p>Write lyrics, fragments, images, themes, or plain thoughts. You do not need to know the song structure yet.</p></div>
-        <label class="raw-lyrics">Raw lyric draft<textarea v-model="project.rawLyricDraft" maxlength="100000" rows="18" autofocus placeholder="Write whatever is on your mind…&#10;&#10;A complete song is not required. Fragments are welcome." /></label>
-        <div class="capture-actions"><button :disabled="busy || !isDirty" @click="saveDraft">Save draft</button><button class="secondary" :disabled="busy" @click="beginStructuring">Begin structuring</button></div>
+        <label class="raw-lyrics">Raw lyric draft<textarea id="raw-lyric-draft" v-model="project.rawLyricDraft" maxlength="100000" rows="18" autofocus placeholder="Write whatever is on your mind…&#10;&#10;A complete song is not required. Fragments are welcome." /></label>
+        <div class="capture-actions"><button :disabled="busy || !isDirty" @click="saveDraft">Save draft</button><button class="secondary" :disabled="busy" @click="beginStructuring">Shape these words</button></div>
         <p class="preservation-note">Your raw draft remains preserved when you begin creating Verse, Chorus, and other sections.</p>
       </section>
 
       <template v-else>
       <div class="structure-nav"><button class="quiet" @click="returnToDraft">← Raw lyric draft</button></div>
+      <details id="musical-refinement" class="disclosure-panel timeline-disclosure">
+        <summary><span>Explore musical timing</span><small>Optional · See how placed words line up across the song.</small></summary>
       <section class="lyric-timeline" aria-labelledby="lyric-timeline-title">
         <div class="lyric-timeline-heading">
           <div>
@@ -1027,7 +1084,8 @@ onBeforeUnmount(() => {
           </p>
         </div>
       </section>
-      <section class="song-canvas" aria-label="Song structure">
+      </details>
+      <section id="song-structure" class="song-canvas" aria-label="Song structure">
         <div class="canvas-heading">
           <div><p class="eyebrow">Song structure</p><h1>Shape the song</h1></div>
           <div class="section-toolbar" aria-label="Add song section">
@@ -1054,7 +1112,9 @@ onBeforeUnmount(() => {
                 <button class="danger" :disabled="busy" @click="removeSection(section.id)">Delete section</button>
               </div>
             </div>
-            <div class="harmony-editor" :aria-label="`Harmony for ${section.title}`">
+            <details :id="index === 0 ? 'harmony-tools' : `harmony-tools-${section.id}`" class="disclosure-panel harmony-disclosure">
+              <summary><span>Explore musical ideas</span><small>Optional · Add chords, compare options, and review how changes connect.</small></summary>
+              <div class="harmony-editor" :aria-label="`Harmony for ${section.title}`">
               <div class="harmony-heading">
                 <div>
                   <strong>Harmony</strong>
@@ -1163,7 +1223,8 @@ onBeforeUnmount(() => {
                   </div>
                 </article>
               </div>
-            </div>
+              </div>
+            </details>
             <div class="lyrics-editor">
               <div class="lyrics-heading"><span>Lyrics</span><button class="quiet" :disabled="busy" @click="addLyricLine(index, true)">+ Add line</button></div>
               <div v-for="(line, lineIndex) in section.lyricLines" :key="line.id" class="lyric-line">
@@ -1174,6 +1235,8 @@ onBeforeUnmount(() => {
                   <button v-else class="quiet" :disabled="busy" @click="lockLyricLine(line.id)">Lock line</button>
                   <button class="quiet lyric-delete" :disabled="busy || Boolean(lyricLineLock(line.id))" @click="removeLyricLine(index, lineIndex)">Remove line</button>
                 </div>
+                <details v-if="line.words.length" class="disclosure-panel lyric-flow-tools">
+                  <summary><span>Understand lyric flow</span><small>Optional · Syllables, emphasis, phrasing, breathing, and musical timing.</small></summary>
                 <div v-if="line.words.length" class="lyric-words" :aria-label="`Artist-controlled syllables for lyric line ${lineIndex + 1}`">
                   <form v-for="word in line.words" :key="word.id" class="syllable-word" @submit.prevent="setWordSyllables(section.id, line.id, word.id, $event)">
                     <label :for="`syllables-${word.id}`" class="word-token">{{ word.text }}</label>
@@ -1185,7 +1248,7 @@ onBeforeUnmount(() => {
                       :placeholder="word.text"
                       :aria-label="`Syllables for ${word.text}; separate boundaries with a vertical bar`"
                       :disabled="busy" />
-                    <button class="quiet syllable-apply" type="submit" :disabled="busy">Apply</button>
+                    <button class="quiet syllable-apply" type="submit" :disabled="busy">Use syllables</button>
                     <small v-if="word.syllables.length">{{ word.syllables[0].source }}</small>
                     <fieldset v-if="word.syllables.length" class="stress-controls">
                       <legend>Stress</legend>
@@ -1228,7 +1291,7 @@ onBeforeUnmount(() => {
                       </template>
                     </div>
                     <div v-if="phraseSyllables(line, phrase).length" class="prosody-editor">
-                      <div class="prosody-heading"><strong>Phrase weight and placement</strong><small>Describe relative weight, then anchor chosen syllables in the section timeline.</small></div>
+                      <div class="prosody-heading"><strong>Shape the delivery</strong><small>Choose which syllables feel lighter or stronger, then place them in musical time if useful.</small></div>
                       <div v-for="entry in phraseSyllables(line, phrase)" :key="entry.syllable.id" class="prosodic-unit" :data-syllable-id="entry.syllable.id" :class="{ 'timeline-focus': selectedTimelineMarker()?.syllableId === entry.syllable.id }">
                         <span>{{ entry.syllable.text }} <small>{{ entry.word.text }}</small></span>
                         <select
@@ -1275,8 +1338,8 @@ onBeforeUnmount(() => {
                       </div>
                       <div class="prosody-score-panel">
                         <div class="prosody-score-heading">
-                          <div><strong>Prosody review</strong><small>Derived scores explain stress conflicts, breath room, and crowding. They are not saved creative state.</small></div>
-                          <button type="button" class="secondary" :disabled="busy" @click="reviewProsody(section.id, line.id, phrase.id)">Review active placement</button>
+                          <div><strong>How naturally do the words fit?</strong><small>An optional review of emphasis, breathing room, and crowded timing. The detailed scores do not change your song.</small></div>
+                          <button type="button" class="secondary" :disabled="busy" @click="reviewProsody(section.id, line.id, phrase.id)">Check word flow</button>
                         </div>
                         <div v-if="prosodyScoreFor(phrase.id)" class="prosody-score-card" :aria-label="`Active placement score for phrase ${phrase.position + 1}`">
                           <p class="score-summary"><strong>{{ prosodyScoreFor(phrase.id)!.overall }}</strong>/100 · stress {{ prosodyScoreFor(phrase.id)!.stress }} · breath {{ prosodyScoreFor(phrase.id)!.breath }} · crowding {{ prosodyScoreFor(phrase.id)!.crowding }}</p>
@@ -1299,7 +1362,7 @@ onBeforeUnmount(() => {
                           <small>{{ candidate.provenance }} · {{ candidate.events.length }} timed {{ candidate.events.length === 1 ? 'syllable' : 'syllables' }}</small>
                           <div class="candidate-actions">
                             <button type="button" :disabled="busy" @click="applyRhythmCandidate(section.id, line.id, candidate)">Use this option</button>
-                            <button type="button" class="secondary" :disabled="busy" @click="reviewProsody(section.id, line.id, phrase.id, candidate.id)">Review score</button>
+                            <button type="button" class="secondary" :disabled="busy" @click="reviewProsody(section.id, line.id, phrase.id, candidate.id)">Check this option</button>
                             <button type="button" class="danger" :disabled="busy" @click="removeRhythmCandidate(section.id, line.id, candidate.id)">Remove option</button>
                           </div>
                           <div v-if="prosodyScoreFor(phrase.id, candidate.id)" class="prosody-score-card nested-score" :aria-label="`Score for ${candidate.label}`">
@@ -1317,6 +1380,7 @@ onBeforeUnmount(() => {
                     </section>
                   </article>
                 </div>
+                </details>
               </div>
             </div>
             <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }} · Stress: {{ syllable.stress ? `${syllable.stress.level} (${syllable.stress.provenance})` : 'Unmarked' }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><template v-for="phrase in line.phrases" :key="phrase.id"><small>Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small><small v-if="phrase.prosody">Prosodic Pattern ID: {{ phrase.prosody.id }}</small><small v-for="unit in phrase.prosody?.units ?? []" :key="unit.id">Prosodic Unit ID: {{ unit.id }} · {{ unit.position }} · {{ unit.syllableId }} · {{ unit.weight }} · {{ unit.provenance }}</small></template><small v-for="placement in line.syllablePlacements" :key="placement.id">Syllable Placement ID: {{ placement.id }} · {{ placement.syllableId }} · {{ placement.position.bar }}:{{ placement.position.beat }}:{{ placement.position.tick }} · {{ placement.provenance }}</small><template v-for="candidate in line.rhythmCandidates" :key="candidate.id"><small>Rhythm Candidate ID: {{ candidate.id }} · {{ candidate.phraseId }} · {{ candidate.label }} · {{ candidate.provenance }}</small><small v-for="candidateEvent in candidate.events" :key="candidateEvent.id">Rhythm Event ID: {{ candidateEvent.id }} · {{ candidateEvent.position }} · {{ candidateEvent.syllableId }} · {{ candidateEvent.beatPosition.bar }}:{{ candidateEvent.beatPosition.beat }}:{{ candidateEvent.beatPosition.tick }}</small></template><small v-for="breath in line.breathPoints" :key="breath.id">Breath Point ID: {{ breath.id }} · after {{ breath.afterSyllableId }} · {{ breath.provenance }}</small></template></details>
