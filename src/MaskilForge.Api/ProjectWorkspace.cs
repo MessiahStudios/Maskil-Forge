@@ -8,6 +8,39 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
 {
     private readonly ConcurrentDictionary<ProjectId, ProjectEditor> _editors = new();
     private readonly ConcurrentDictionary<ProjectId, SemaphoreSlim> _saveLocks = new();
+    private readonly ConcurrentDictionary<ProjectId, SemaphoreSlim> _editorLocks = new();
+
+    public async Task<T> WithEditorAsync<T>(ProjectId id, Func<ProjectEditor, Task<T>> action, CancellationToken cancellationToken)
+    {
+        var gate = _editorLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var editor = await GetAsync(id, cancellationToken);
+            if (editor is null) throw new KeyNotFoundException($"Project '{id}' was not found.");
+            return await action(editor);
+        }
+        finally { gate.Release(); }
+    }
+
+    public async Task<TResult?> UseAsync<TResult>(
+        ProjectId id,
+        SongProject? update,
+        Func<ProjectEditor, TResult> use,
+        CancellationToken cancellationToken)
+    {
+        var gate = _editorLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var editor = update is null
+                ? await GetAsync(id, cancellationToken)
+                : await SyncCoreAsync(update, cancellationToken);
+            if (editor is null) return default;
+            return use(editor);
+        }
+        finally { gate.Release(); }
+    }
 
     public async Task<ProjectEditor?> GetAsync(ProjectId id, CancellationToken cancellationToken)
     {
@@ -38,6 +71,17 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
 
     public async Task<ProjectEditor?> SyncAsync(SongProject update, CancellationToken cancellationToken)
     {
+        var gate = _editorLocks.GetOrAdd(update.Id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            return await SyncCoreAsync(update, cancellationToken);
+        }
+        finally { gate.Release(); }
+    }
+
+    private async Task<ProjectEditor?> SyncCoreAsync(SongProject update, CancellationToken cancellationToken)
+    {
         var editor = await GetAsync(update.Id, cancellationToken);
         if (editor is null) return null;
 
@@ -50,6 +94,7 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         project.SetGenre(update.Genre);
         project.SetDescription(update.Description);
         project.SetRawLyricDraft(update.RawLyricDraft);
+        project.SetKey(update.Key);
         project.SetTempo(update.Tempo.BeatsPerMinute);
         project.SetTimeSignature(update.TimeSignature.Numerator, update.TimeSignature.Denominator);
         foreach (var updatedSection in update.Sections)
@@ -78,6 +123,7 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
             var durationBars = update.Timeline.FindSection(updatedSection.Id).DurationBars;
             if (project.Timeline.FindSection(updatedSection.Id).DurationBars != durationBars)
                 project.SetSectionDuration(updatedSection.Id, durationBars);
+            project.ReplaceSectionHarmony(updatedSection.Id, updatedSection.Harmony);
         }
         project.ReconcileLocks();
         project.Touch();

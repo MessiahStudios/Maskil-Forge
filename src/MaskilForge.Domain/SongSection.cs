@@ -79,6 +79,17 @@ public sealed class SongSection
         _lyricLines.SingleOrDefault(item => item.Id == lineId)
         ?? throw new KeyNotFoundException($"Lyric line '{lineId}' was not found.");
 
+    public void SetHarmony(IEnumerable<HarmonyChord> chords)
+    {
+        ArgumentNullException.ThrowIfNull(chords);
+        var replacement = chords.ToList();
+        if (replacement.Select(item => item.Id).Distinct().Count() != replacement.Count)
+            throw new ArgumentException("Harmony chord IDs must be unique.", nameof(chords));
+        _harmony.Clear();
+        _harmony.AddRange(replacement);
+        SortHarmony();
+    }
+
     public HarmonyChord AddHarmonyChord(ChordSymbol chord, BeatPosition start, int durationBars = 1)
     {
         var item = HarmonyChord.Create(chord, start, durationBars);

@@ -235,6 +235,16 @@ public sealed class SongProject
         Touch();
     }
 
+    public void ReplaceSectionHarmony(SectionId sectionId, IEnumerable<HarmonyChord> chords)
+    {
+        ArgumentNullException.ThrowIfNull(chords);
+        var replacement = chords.ToList();
+        foreach (var chord in replacement)
+            ValidateHarmonySpan(sectionId, chord.Start, chord.DurationBars, TimeSignature);
+        FindSection(sectionId).SetHarmony(replacement);
+        Touch();
+    }
+
     public void SetSyllablePlacement(
         SectionId sectionId,
         LyricLineId lineId,

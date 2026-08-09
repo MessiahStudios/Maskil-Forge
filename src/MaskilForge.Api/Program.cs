@@ -149,14 +149,14 @@ app.MapPost("/api/projects/{id}/commands", async (string id, ProjectCommandReque
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
     if (request.Project is not null && request.Project.Id != projectId)
         return Results.BadRequest(new ApiError("Route and project IDs must match."));
-    var editor = request.Project is null
-        ? await workspace.GetAsync(projectId, cancellationToken)
-        : await workspace.SyncAsync(request.Project, cancellationToken);
-    if (editor is null) return Results.NotFound(new ApiError("Project not found."));
     try
     {
-        ApplyRequest(editor, request);
-        return Results.Ok(ProjectResponse.From(editor));
+        var response = await workspace.UseAsync(projectId, request.Project, editor =>
+        {
+            ApplyRequest(editor, request);
+            return ProjectResponse.From(editor);
+        }, cancellationToken);
+        return response is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(response);
     }
     catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
     {
@@ -168,22 +168,21 @@ app.MapPost("/api/projects/{id}/prosody-score", async (string id, ProsodyScoreRe
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
     if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
-    var editor = await workspace.SyncAsync(request.Project, cancellationToken);
-    if (editor is null) return Results.NotFound(new ApiError("Project not found."));
     try
     {
-        var score = request.RhythmCandidateId is null
-            ? ProsodyScorer.ScoreActivePhrase(
-                editor.Project,
-                request.SectionId,
-                request.LineId,
-                request.PhraseId)
-            : ProsodyScorer.ScoreRhythmCandidate(
-                editor.Project,
-                request.SectionId,
-                request.LineId,
-                request.RhythmCandidateId.Value);
-        return Results.Ok(score);
+        var score = await workspace.UseAsync(projectId, request.Project, editor =>
+            request.RhythmCandidateId is null
+                ? ProsodyScorer.ScoreActivePhrase(
+                    editor.Project,
+                    request.SectionId,
+                    request.LineId,
+                    request.PhraseId)
+                : ProsodyScorer.ScoreRhythmCandidate(
+                    editor.Project,
+                    request.SectionId,
+                    request.LineId,
+                    request.RhythmCandidateId.Value), cancellationToken);
+        return score is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(score);
     }
     catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
     {
@@ -195,11 +194,14 @@ app.MapPost("/api/projects/{id}/lyric-timeline", async (string id, LyricTimeline
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
     if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
-    var editor = await workspace.SyncAsync(request.Project, cancellationToken);
-    if (editor is null) return Results.NotFound(new ApiError("Project not found."));
     try
     {
-        return Results.Ok(LyricTimelineProjector.Project(editor.Project, request.RhythmCandidateId));
+        var view = await workspace.UseAsync(
+            projectId,
+            request.Project,
+            editor => LyricTimelineProjector.Project(editor.Project, request.RhythmCandidateId),
+            cancellationToken);
+        return view is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(view);
     }
     catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
     {
@@ -211,20 +213,38 @@ app.MapPost("/api/projects/{id}/undo", async (string id, EditorStateRequest requ
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
     if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
-    var editor = await workspace.SyncAsync(request.Project, cancellationToken);
-    if (editor is null) return Results.NotFound(new ApiError("Project not found."));
-    if (!editor.Undo()) return Results.Conflict(new ApiError("Nothing to undo."));
-    return Results.Ok(ProjectResponse.From(editor));
+    var response = await workspace.UseAsync(projectId, request.Project, editor =>
+    {
+        if (!editor.Undo()) return null;
+        return ProjectResponse.From(editor);
+    }, cancellationToken);
+    if (response is null)
+    {
+        var exists = await workspace.GetAsync(projectId, cancellationToken);
+        return exists is null
+            ? Results.NotFound(new ApiError("Project not found."))
+            : Results.Conflict(new ApiError("Nothing to undo."));
+    }
+    return Results.Ok(response);
 });
 
 app.MapPost("/api/projects/{id}/redo", async (string id, EditorStateRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
     if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
-    var editor = await workspace.SyncAsync(request.Project, cancellationToken);
-    if (editor is null) return Results.NotFound(new ApiError("Project not found."));
-    if (!editor.Redo()) return Results.Conflict(new ApiError("Nothing to redo."));
-    return Results.Ok(ProjectResponse.From(editor));
+    var response = await workspace.UseAsync(projectId, request.Project, editor =>
+    {
+        if (!editor.Redo()) return null;
+        return ProjectResponse.From(editor);
+    }, cancellationToken);
+    if (response is null)
+    {
+        var exists = await workspace.GetAsync(projectId, cancellationToken);
+        return exists is null
+            ? Results.NotFound(new ApiError("Project not found."))
+            : Results.Conflict(new ApiError("Nothing to redo."));
+    }
+    return Results.Ok(response);
 });
 
 app.Run();
