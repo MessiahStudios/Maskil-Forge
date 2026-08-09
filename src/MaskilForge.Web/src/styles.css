@@ -123,6 +123,17 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .harmony-symbol small { color: #9aa093; text-transform: uppercase; letter-spacing: .05em; font-size: .68rem; }
 .harmony-card label { display: grid; gap: .2rem; color: #c7c0b1; font-size: .7rem; }
 .harmony-card input, .harmony-card select { width: 100%; min-width: 0; padding: .38rem .4rem; color: #fff7e7; background: #111410; border: 1px solid #70684f; }
+.voice-leading-review { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .45rem 1rem; align-items: end; padding: .65rem .7rem; background: #181c17; border: 1px solid #3f453b; border-radius: .35rem; }
+.voice-leading-review > div:first-child { display: grid; gap: .15rem; }
+.voice-leading-review > div:first-child small { color: #9aa093; max-width: 48rem; }
+.voice-leading-review > .harmony-empty, .voice-leading-results { grid-column: 1 / -1; }
+.voice-leading-results { display: grid; gap: .4rem; }
+.voice-leading-results > p { margin: .15rem 0; color: #cfc6b3; }
+.voice-leading-results article { display: grid; grid-template-columns: minmax(6rem, auto) auto 1fr; gap: .5rem; align-items: baseline; padding: .45rem .55rem; border-left: 3px solid #8b7c55; background: #111410; }
+.voice-leading-results article > span { color: #e5cf98; font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; }
+.voice-leading-results article > small { color: #9aa093; }
+.voice-leading-results .motion-smooth { border-left-color: #6f956b; }
+.voice-leading-results .motion-wide { border-left-color: #a67b55; }
 .harmony-candidate-capture, .harmony-candidate-card { display: flex; gap: .55rem; align-items: end; flex-wrap: wrap; }
 .harmony-candidate-capture label, .harmony-candidate-card label { display: grid; gap: .2rem; color: #c7c0b1; font-size: .7rem; }
 .harmony-candidate-capture input, .harmony-candidate-card input { padding: .38rem .4rem; color: #fff7e7; background: #111410; border: 1px solid #70684f; }
@@ -262,6 +273,10 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .harmony-card { grid-template-columns: 1fr 1fr; }
   .harmony-symbol, .harmony-card > button { grid-column: 1 / -1; }
   .harmony-candidate-card { grid-template-columns: 1fr; }
+  .voice-leading-review { grid-template-columns: 1fr; }
+  .voice-leading-review > button { width: 100%; }
+  .voice-leading-results article { grid-template-columns: 1fr auto; }
+  .voice-leading-results article > small { grid-column: 1 / -1; }
   .harmony-candidate-actions button { flex: 1; }
   .settings-grid { grid-template-columns: 1fr; }
   .description-field { grid-column: auto; }

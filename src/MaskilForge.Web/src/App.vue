@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type Accidental, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary } from './api'
+import { projectsApi, type Accidental, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 
 const response = ref<ProjectResponse | null>(null)
@@ -42,6 +42,7 @@ const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
 const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
+const voiceLeadingReviews = reactive<Record<string, VoiceLeadingReview>>({})
 const lyricTimeline = ref<LyricTimelineView | null>(null)
 const timelineOverlayCandidateId = ref('')
 const selectedTimelineMarkerKey = ref('')
@@ -52,6 +53,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
   Object.keys(placementDrafts).forEach(key => delete placementDrafts[key])
   Object.keys(harmonyCandidateLabelDrafts).forEach(key => delete harmonyCandidateLabelDrafts[key])
   Object.keys(prosodyScores).forEach(key => delete prosodyScores[key])
+  Object.keys(voiceLeadingReviews).forEach(key => delete voiceLeadingReviews[key])
   projectId.value = next.project.id
   localStorage.setItem('maskilForge.projectId', next.project.id)
   status.value = message
@@ -682,6 +684,32 @@ function formatHarmonyCandidateEvent(item: SongProject['sections'][number]['harm
   const duration = item.durationBars === 1 ? '1 bar' : `${item.durationBars} bars`
   return `${formatChord(item.chord)} · ${start} · ${duration}`
 }
+function chordLabel(sectionId: string, chordId: string) {
+  const section = project.value?.sections.find(item => item.id === sectionId)
+  const chord = section?.harmony.find(item => item.id === chordId)
+  return chord ? formatChord(chord.chord) : 'Chord'
+}
+function motionExplanation(motion: string) {
+  if (motion === 'Smooth') return 'Several notes can stay or move a short distance.'
+  if (motion === 'Moderate') return 'The notes connect with a noticeable but manageable shift.'
+  return 'The notes make a wider shift; this may sound bold rather than wrong.'
+}
+async function reviewVoiceLeading(sectionId: string) {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'harmony.movement.review', 'Chord movement review requested.', { sectionId })
+  try {
+    const review = await projectsApi.reviewVoiceLeading(project.value.id, project.value, sectionId)
+    voiceLeadingReviews[sectionId] = review
+    status.value = `${review.smoothTransitionCount} of ${review.transitions.length} chord changes connect smoothly.`
+    activityLog.write('success', 'harmony.movement.review', status.value, { sectionId, transitionCount: review.transitions.length })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The chord movement review failed.'
+    activityLog.write('error', 'harmony.movement.review', status.value, { sectionId })
+  } finally {
+    busy.value = false
+  }
+}
 function addHarmonyChord(sectionId: string) {
   if (!project.value) return
   return run(
@@ -1094,6 +1122,22 @@ onBeforeUnmount(() => {
                   </label>
                   <button class="danger" :disabled="busy" @click="removeHarmonyChord(section.id, item.id)">Remove</button>
                 </article>
+              </div>
+              <div class="voice-leading-review">
+                <div>
+                  <strong>How smoothly do these chords connect?</strong>
+                  <small>This optional check looks for notes the chords share or can move by a short distance. A wider move is a color choice, not an error.</small>
+                </div>
+                <button type="button" class="quiet" :disabled="busy || section.harmony.length < 2" @click="reviewVoiceLeading(section.id)">Check chord movement</button>
+                <p v-if="section.harmony.length < 2" class="harmony-empty">Add at least two chords to review how they connect.</p>
+                <div v-else-if="voiceLeadingReviews[section.id]" class="voice-leading-results">
+                  <p><strong>{{ voiceLeadingReviews[section.id].smoothTransitionCount }} of {{ voiceLeadingReviews[section.id].transitions.length }}</strong> changes connect smoothly · average movement {{ voiceLeadingReviews[section.id].averageMotionSemitones }} semitones</p>
+                  <article v-for="transition in voiceLeadingReviews[section.id].transitions" :key="`${transition.fromChordId}:${transition.toChordId}`" :class="`motion-${transition.motion.toLowerCase()}`">
+                    <strong>{{ chordLabel(section.id, transition.fromChordId) }} → {{ chordLabel(section.id, transition.toChordId) }}</strong>
+                    <span>{{ transition.motion }}</span>
+                    <small>{{ motionExplanation(transition.motion) }} {{ transition.commonToneCount }} shared {{ transition.commonToneCount === 1 ? 'note' : 'notes' }}.</small>
+                  </article>
+                </div>
               </div>
               <form class="harmony-candidate-capture" @submit.prevent="captureHarmonyCandidate(section.id)">
                 <label>Option name

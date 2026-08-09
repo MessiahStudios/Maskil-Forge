@@ -160,6 +160,12 @@ This slice does not generate, rank, score, audition, or automatically accept har
 
 **Deliverable:** an artist can preserve and explicitly compare multiple durable chord progressions for a section.
 
+### Milestone 3.4 — Voice-leading analysis foundation
+
+The current slice begins a derived, non-persistent review of adjacent harmony chords. It measures shared pitch classes, shortest circular root motion, and average nearest chord-tone motion, then classifies each transition as smooth, moderate, or wide. The analysis references stable harmony-chord identities and does not alter or select the artist's progression.
+
+This pitch-class review does not claim octave/register voicings, parallel-motion detection, instrument assignments, range checks, generation, audition, MIDI, playback, or audio.
+
 ## Milestone 3 — Theory and harmony
 
 Build music primitives, keys/scales/chords, progressions, transposition, voice leading, range checks, harmony candidates, and simple chord audition.

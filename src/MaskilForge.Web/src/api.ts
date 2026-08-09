@@ -50,6 +50,24 @@ export interface HarmonyCandidate {
   events: HarmonyCandidateEvent[]
 }
 
+export type VoiceLeadingMotion = 'Smooth' | 'Moderate' | 'Wide'
+
+export interface VoiceLeadingTransition {
+  fromChordId: string
+  toChordId: string
+  commonToneCount: number
+  averageNearestMotionSemitones: number
+  rootMotionSemitones: number
+  motion: VoiceLeadingMotion
+}
+
+export interface VoiceLeadingReview {
+  sectionId: string
+  transitions: VoiceLeadingTransition[]
+  smoothTransitionCount: number
+  averageMotionSemitones: number
+}
+
 export interface LyricLine {
   id: string
   text: string
@@ -374,6 +392,10 @@ export const projectsApi = {
     method: 'POST',
     body: JSON.stringify({ project, rhythmCandidateId: rhythmCandidateId ?? null }),
   }),
+  reviewVoiceLeading: (id: string, project: SongProject, sectionId: string) =>
+    request<VoiceLeadingReview>(`/api/projects/${id}/voice-leading-review`, {
+      method: 'POST', body: JSON.stringify({ project, sectionId }),
+    }),
   undo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST', body: JSON.stringify({ project }) }),
   redo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/redo`, { method: 'POST', body: JSON.stringify({ project }) }),
 }
