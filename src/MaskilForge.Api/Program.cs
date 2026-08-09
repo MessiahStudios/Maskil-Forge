@@ -209,6 +209,25 @@ app.MapPost("/api/projects/{id}/lyric-timeline", async (string id, LyricTimeline
     }
 });
 
+app.MapPost("/api/projects/{id}/voice-leading-review", async (string id, VoiceLeadingReviewRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var review = await workspace.UseAsync(
+            projectId,
+            request.Project,
+            editor => VoiceLeadingAnalyzer.ReviewSection(editor.Project, request.SectionId),
+            cancellationToken);
+        return review is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(review);
+    }
+    catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/undo", async (string id, EditorStateRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -442,6 +461,7 @@ public sealed record ProsodyScoreRequest(
     LyricLineId LineId,
     LyricPhraseId PhraseId,
     RhythmCandidateId? RhythmCandidateId = null);
+public sealed record VoiceLeadingReviewRequest(SongProject Project, SectionId SectionId);
 public sealed record LyricTimelineRequest(
     SongProject Project,
     RhythmCandidateId? RhythmCandidateId = null);
