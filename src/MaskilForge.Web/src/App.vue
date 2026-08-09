@@ -4,6 +4,7 @@ import { projectsApi, type Accidental, type BeatPosition, type ChordQuality, typ
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import type { RegisteredPitch } from './api'
+import { ChordAudition } from './chordAudition'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -45,12 +46,15 @@ const candidateLabelDrafts = reactive<Record<string, string>>({})
 const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
 const voiceLeadingReviews = reactive<Record<string, VoiceLeadingReview>>({})
+const chordAudition = new ChordAudition()
+const auditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const lyricTimeline = ref<LyricTimelineView | null>(null)
 const timelineOverlayCandidateId = ref('')
 const selectedTimelineMarkerKey = ref('')
 let timelineRefreshToken = 0
 
 function accept(next: ProjectResponse, message: string, markPersisted = false) {
+  stopChordAudition()
   response.value = next
   Object.keys(placementDrafts).forEach(key => delete placementDrafts[key])
   Object.keys(harmonyCandidateLabelDrafts).forEach(key => delete harmonyCandidateLabelDrafts[key])
@@ -727,6 +731,36 @@ function motionExplanation(motion: string) {
   if (motion === 'Moderate') return 'The notes connect with a noticeable but manageable shift.'
   return 'The notes make a wider shift; this may sound bold rather than wrong.'
 }
+function stopChordAudition(message = '') {
+  chordAudition.stop()
+  const stoppedSectionId = auditionState.sectionId
+  auditionState.sectionId = ''
+  auditionState.messageSectionId = message ? stoppedSectionId : ''
+  auditionState.message = message
+}
+async function hearProgression(sectionId: string) {
+  if (!project.value) return
+  const section = project.value.sections.find(item => item.id === sectionId)
+  if (!section?.harmony.length) return
+  const tempo = project.value.timeline.tempoMap.events[0].beatsPerMinute
+  const meter = project.value.timeline.timeSignatureMap.events[0]
+  auditionState.sectionId = sectionId
+  auditionState.messageSectionId = sectionId
+  auditionState.message = 'Preparing your progression…'
+  try {
+    const result = await chordAudition.play(section.harmony, {
+      beatsPerMinute: tempo,
+      beatsPerBar: meter.numerator,
+      beatUnit: meter.denominator,
+      ticksPerQuarterNote: project.value.timeline.ticksPerQuarterNote,
+    }, () => stopChordAudition('Progression preview finished.'))
+    auditionState.message = result.usedPreviewVoicings
+      ? `Playing at ${tempo} BPM. Chords without your notes use temporary preview voicings.`
+      : `Playing your registered voicings at ${tempo} BPM.`
+  } catch (error) {
+    stopChordAudition(error instanceof Error ? error.message : 'The progression could not be played.')
+  }
+}
 async function reviewVoiceLeading(sectionId: string) {
   if (!project.value) return
   busy.value = true
@@ -875,7 +909,8 @@ watch(serializedProject, () => {
 
 watch(
   () => [view.value, project.value?.id, project.value?.sections.length ?? 0] as const,
-  ([nextView]) => {
+  ([nextView, nextProjectId], previous) => {
+    if (previous && (nextView !== previous[0] || nextProjectId !== previous[1])) stopChordAudition()
     if (nextView === 'structure') void refreshLyricTimeline()
   })
 
@@ -888,6 +923,7 @@ onMounted(async () => {
   }
 })
 onBeforeUnmount(() => {
+  stopChordAudition()
   window.removeEventListener('beforeunload', warnBeforeClose)
   if (recoveryTimer) clearTimeout(recoveryTimer)
 })
@@ -1151,7 +1187,16 @@ onBeforeUnmount(() => {
                 <button class="quiet" :disabled="busy" @click="addHarmonyChord(section.id)">+ Add chord</button>
               </div>
               <p v-if="!section.harmony?.length" class="harmony-empty">No chords yet. Add one to begin this section’s progression.</p>
-              <div v-else class="harmony-list">
+              <div v-if="section.harmony?.length" class="chord-audition" :aria-label="`Hear ${section.title} progression`">
+                <div>
+                  <strong>Hear this progression</strong>
+                  <small>Listen first, then explore why the chords feel connected. Uses your saved tempo and timing.</small>
+                </div>
+                <button v-if="auditionState.sectionId !== section.id" type="button" :disabled="busy" @click="hearProgression(section.id)">▶ Hear progression</button>
+                <button v-else type="button" class="quiet" @click="stopChordAudition('Playback stopped.')">■ Stop</button>
+                <p v-if="auditionState.messageSectionId === section.id" role="status">{{ auditionState.message }}</p>
+              </div>
+              <div v-if="section.harmony?.length" class="harmony-list">
                 <article v-for="item in section.harmony" :key="item.id" class="harmony-card">
                   <div class="harmony-symbol">
                     <strong>{{ formatChord(item.chord) }}</strong>
@@ -1218,6 +1263,8 @@ onBeforeUnmount(() => {
                   </form>
                 </article>
               </div>
+              <details class="voice-leading-disclosure">
+                <summary>Musical details</summary>
               <div class="voice-leading-review">
                 <div>
                   <strong>How smoothly do these chords connect?</strong>
@@ -1237,6 +1284,7 @@ onBeforeUnmount(() => {
                   </article>
                 </div>
               </div>
+              </details>
               <form class="harmony-candidate-capture" @submit.prevent="captureHarmonyCandidate(section.id)">
                 <label>Option name
                   <input v-model="harmonyCandidateLabelDrafts[section.id]" maxlength="100" :placeholder="`Option ${(section.harmonyCandidates?.length ?? 0) + 1}`" :disabled="busy || !section.harmony?.length" />

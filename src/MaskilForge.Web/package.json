@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "test": "node --test src/creatorJourney.test.mjs",
+    "test": "node --test src/*.test.mjs",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview"
   },
