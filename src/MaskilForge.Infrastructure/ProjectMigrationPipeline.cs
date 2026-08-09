@@ -423,3 +423,21 @@ internal sealed class V12ToV13ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V13ToV14ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 13;
+    public int ToVersion => 14;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["sections"] is JsonArray sections)
+        {
+            foreach (var section in sections.OfType<JsonObject>())
+                section["harmonyCandidates"] = new JsonArray();
+        }
+
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

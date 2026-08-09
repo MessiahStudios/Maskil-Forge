@@ -15,6 +15,7 @@ public sealed class SongSection
 {
     private readonly List<LyricLine> _lyricLines;
     private readonly List<HarmonyChord> _harmony;
+    private readonly List<HarmonyCandidate> _harmonyCandidates;
 
     [JsonConstructor]
     public SongSection(
@@ -22,7 +23,8 @@ public sealed class SongSection
         SectionKind kind,
         string title,
         IReadOnlyList<LyricLine>? lyricLines = null,
-        IReadOnlyList<HarmonyChord>? harmony = null)
+        IReadOnlyList<HarmonyChord>? harmony = null,
+        IReadOnlyList<HarmonyCandidate>? harmonyCandidates = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A section ID is required.", nameof(id));
         Id = id;
@@ -35,6 +37,9 @@ public sealed class SongSection
         if (_harmony.Select(item => item.Id).Distinct().Count() != _harmony.Count)
             throw new ArgumentException("Harmony chord IDs must be unique.", nameof(harmony));
         SortHarmony();
+        _harmonyCandidates = harmonyCandidates?.ToList() ?? [];
+        if (_harmonyCandidates.Select(item => item.Id).Distinct().Count() != _harmonyCandidates.Count)
+            throw new ArgumentException("Harmony candidate IDs must be unique.", nameof(harmonyCandidates));
     }
 
     public SectionId Id { get; }
@@ -42,6 +47,7 @@ public sealed class SongSection
     public string Title { get; private set; } = string.Empty;
     public IReadOnlyList<LyricLine> LyricLines => _lyricLines;
     public IReadOnlyList<HarmonyChord> Harmony => _harmony;
+    public IReadOnlyList<HarmonyCandidate> HarmonyCandidates => _harmonyCandidates;
 
     public static SongSection Create(SectionKind kind, string? title = null) =>
         new(SectionId.New(), kind, title ?? DefaultTitle(kind));
@@ -119,6 +125,44 @@ public sealed class SongSection
     public HarmonyChord FindHarmonyChord(HarmonyChordId harmonyChordId) =>
         _harmony.SingleOrDefault(item => item.Id == harmonyChordId)
         ?? throw new KeyNotFoundException($"Harmony chord '{harmonyChordId}' was not found.");
+
+    public HarmonyCandidate CaptureHarmonyCandidate(string label, HarmonyProvenance provenance = HarmonyProvenance.Manual)
+    {
+        var events = _harmony.Select((item, position) => new HarmonyCandidateEvent(
+            HarmonyCandidateEventId.New(), position, item.Chord, item.Start, item.DurationBars)).ToList();
+        var candidate = new HarmonyCandidate(HarmonyCandidateId.New(), label, provenance, events);
+        _harmonyCandidates.Add(candidate);
+        return candidate;
+    }
+
+    public void InsertHarmonyCandidate(int index, HarmonyCandidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        if (index < 0 || index > _harmonyCandidates.Count) throw new ArgumentOutOfRangeException(nameof(index));
+        if (_harmonyCandidates.Any(item => item.Id == candidate.Id))
+            throw new InvalidOperationException($"Harmony candidate '{candidate.Id}' already exists.");
+        _harmonyCandidates.Insert(index, candidate);
+    }
+
+    public (HarmonyCandidate Candidate, int Index) RemoveHarmonyCandidate(HarmonyCandidateId candidateId)
+    {
+        var index = _harmonyCandidates.FindIndex(item => item.Id == candidateId);
+        if (index < 0) throw new KeyNotFoundException($"Harmony candidate '{candidateId}' was not found.");
+        var candidate = _harmonyCandidates[index];
+        _harmonyCandidates.RemoveAt(index);
+        return (candidate, index);
+    }
+
+    public void RenameHarmonyCandidate(HarmonyCandidateId candidateId, string label)
+    {
+        var index = _harmonyCandidates.FindIndex(item => item.Id == candidateId);
+        if (index < 0) throw new KeyNotFoundException($"Harmony candidate '{candidateId}' was not found.");
+        _harmonyCandidates[index] = _harmonyCandidates[index].WithLabel(label);
+    }
+
+    public HarmonyCandidate FindHarmonyCandidate(HarmonyCandidateId candidateId) =>
+        _harmonyCandidates.SingleOrDefault(item => item.Id == candidateId)
+        ?? throw new KeyNotFoundException($"Harmony candidate '{candidateId}' was not found.");
 
     public static string DefaultTitle(SectionKind kind) => kind switch
     {

@@ -59,6 +59,7 @@ public sealed class SongProject
         ValidateAllSyllablePlacements(TimeSignature);
         ValidateAllRhythmCandidates(TimeSignature);
         ValidateAllHarmonyChords(TimeSignature);
+        ValidateAllHarmonyCandidates(TimeSignature);
         ValidateLockReferences();
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
@@ -144,6 +145,7 @@ public sealed class SongProject
         ValidateAllSyllablePlacements(proposed);
         ValidateAllRhythmCandidates(proposed);
         ValidateAllHarmonyChords(proposed);
+        ValidateAllHarmonyCandidates(proposed);
         Timeline.TimeSignatureMap.SetInitialTimeSignature(numerator, denominator);
         Touch();
     }
@@ -192,6 +194,8 @@ public sealed class SongProject
             throw new InvalidOperationException("Section duration cannot end before an existing rhythm option. Remove that option first.");
         if (section.Harmony.Any(item => item.Start.Bar > durationBars || item.Start.Bar + item.DurationBars - 1 > durationBars))
             throw new InvalidOperationException("Section duration cannot end before an existing harmony chord. Move or shorten the chord first.");
+        if (section.HarmonyCandidates.SelectMany(item => item.Events).Any(item => item.Start.Bar > durationBars || item.Start.Bar + item.DurationBars - 1 > durationBars))
+            throw new InvalidOperationException("Section duration cannot end before an existing harmony option. Remove that option first.");
         Timeline.SetSectionDuration(sectionId, durationBars, _sections.Select(item => item.Id).ToList());
         Touch();
     }
@@ -242,6 +246,54 @@ public sealed class SongProject
         foreach (var chord in replacement)
             ValidateHarmonySpan(sectionId, chord.Start, chord.DurationBars, TimeSignature);
         FindSection(sectionId).SetHarmony(replacement);
+        Touch();
+    }
+
+    public HarmonyCandidate CaptureHarmonyCandidate(SectionId sectionId, string label)
+    {
+        var section = FindSection(sectionId);
+        if (section.Harmony.Count == 0)
+            throw new InvalidOperationException("Add at least one harmony chord before capturing an option.");
+        var candidate = section.CaptureHarmonyCandidate(label);
+        Touch();
+        return candidate;
+    }
+
+    public void ReinsertHarmonyCandidate(SectionId sectionId, int index, HarmonyCandidate candidate)
+    {
+        ArgumentNullException.ThrowIfNull(candidate);
+        foreach (var item in candidate.Events)
+            ValidateHarmonySpan(sectionId, item.Start, item.DurationBars, TimeSignature);
+        FindSection(sectionId).InsertHarmonyCandidate(index, candidate);
+        Touch();
+    }
+
+    public (HarmonyCandidate Candidate, int Index) RemoveHarmonyCandidate(SectionId sectionId, HarmonyCandidateId candidateId)
+    {
+        var removed = FindSection(sectionId).RemoveHarmonyCandidate(candidateId);
+        Touch();
+        return removed;
+    }
+
+    public void RenameHarmonyCandidate(SectionId sectionId, HarmonyCandidateId candidateId, string label)
+    {
+        FindSection(sectionId).RenameHarmonyCandidate(candidateId, label);
+        Touch();
+    }
+
+    public void ApplyHarmonyCandidate(SectionId sectionId, HarmonyCandidateId candidateId)
+    {
+        var section = FindSection(sectionId);
+        var candidate = section.FindHarmonyCandidate(candidateId);
+        foreach (var item in candidate.Events)
+            ValidateHarmonySpan(sectionId, item.Start, item.DurationBars, TimeSignature);
+        var existing = section.Harmony.ToList();
+        section.SetHarmony(candidate.Events.Select((item, position) => new HarmonyChord(
+            position < existing.Count ? existing[position].Id : HarmonyChordId.New(),
+            item.Chord,
+            item.Start,
+            item.DurationBars,
+            candidate.Provenance)));
         Touch();
     }
 
@@ -454,6 +506,15 @@ public sealed class SongProject
             throw new ArgumentException("Breath point IDs must be unique across the project.");
         if (_locks.Select(item => item.Id).Distinct().Count() != _locks.Count)
             throw new ArgumentException("Creative lock IDs must be unique across the project.");
+        var harmonyChords = _sections.SelectMany(section => section.Harmony).ToList();
+        if (harmonyChords.Select(item => item.Id).Distinct().Count() != harmonyChords.Count)
+            throw new ArgumentException("Harmony chord IDs must be unique across the project.");
+        var harmonyCandidates = _sections.SelectMany(section => section.HarmonyCandidates).ToList();
+        if (harmonyCandidates.Select(item => item.Id).Distinct().Count() != harmonyCandidates.Count)
+            throw new ArgumentException("Harmony candidate IDs must be unique across the project.");
+        var harmonyCandidateEvents = harmonyCandidates.SelectMany(item => item.Events).ToList();
+        if (harmonyCandidateEvents.Select(item => item.Id).Distinct().Count() != harmonyCandidateEvents.Count)
+            throw new ArgumentException("Harmony candidate event IDs must be unique across the project.");
     }
 
     private void ValidateLockReferences()
@@ -518,6 +579,13 @@ public sealed class SongProject
         foreach (var section in _sections)
         foreach (var chord in section.Harmony)
             ValidateHarmonySpan(section.Id, chord.Start, chord.DurationBars, meter);
+    }
+
+    private void ValidateAllHarmonyCandidates(TimeSignatureEvent meter)
+    {
+        foreach (var section in _sections)
+        foreach (var harmonyEvent in section.HarmonyCandidates.SelectMany(item => item.Events))
+            ValidateHarmonySpan(section.Id, harmonyEvent.Start, harmonyEvent.DurationBars, meter);
     }
 
     private void ValidateHarmonySpan(SectionId sectionId, BeatPosition start, int durationBars, TimeSignatureEvent meter)

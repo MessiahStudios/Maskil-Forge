@@ -674,6 +674,102 @@ public sealed class RemoveHarmonyChordCommand(SectionId sectionId, HarmonyChordI
     }
 }
 
+public sealed class CaptureHarmonyCandidateCommand(SectionId sectionId, string label) : IProjectCommand
+{
+    private HarmonyCandidate? _candidate;
+    private int? _index;
+
+    public HarmonyCandidateId? CandidateId => _candidate?.Id;
+
+    public void Execute(SongProject project)
+    {
+        if (_candidate is null)
+        {
+            _candidate = HarmonyCandidateSnapshots.Clone(project.CaptureHarmonyCandidate(sectionId, label));
+            _index = project.FindSection(sectionId).HarmonyCandidates.Count - 1;
+        }
+        else project.ReinsertHarmonyCandidate(sectionId, _index!.Value, _candidate);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_candidate is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RemoveHarmonyCandidate(sectionId, _candidate.Id);
+    }
+}
+
+public sealed class RenameHarmonyCandidateCommand(
+    SectionId sectionId,
+    HarmonyCandidateId candidateId,
+    string label) : IProjectCommand
+{
+    private string? _previousLabel;
+
+    public void Execute(SongProject project)
+    {
+        _previousLabel ??= project.FindSection(sectionId).FindHarmonyCandidate(candidateId).Label;
+        project.RenameHarmonyCandidate(sectionId, candidateId, label);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previousLabel is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RenameHarmonyCandidate(sectionId, candidateId, _previousLabel);
+    }
+}
+
+public sealed class RemoveHarmonyCandidateCommand(SectionId sectionId, HarmonyCandidateId candidateId) : IProjectCommand
+{
+    private HarmonyCandidate? _removed;
+    private int? _index;
+
+    public void Execute(SongProject project)
+    {
+        var removed = project.RemoveHarmonyCandidate(sectionId, candidateId);
+        _removed ??= HarmonyCandidateSnapshots.Clone(removed.Candidate);
+        _index ??= removed.Index;
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_removed is null || _index is null) throw new InvalidOperationException("Command has not been executed.");
+        project.ReinsertHarmonyCandidate(sectionId, _index.Value, _removed);
+    }
+}
+
+public sealed class ApplyHarmonyCandidateCommand(SectionId sectionId, HarmonyCandidateId candidateId) : IProjectCommand
+{
+    private IReadOnlyList<HarmonyChord>? _previous;
+
+    public void Execute(SongProject project)
+    {
+        _previous ??= project.FindSection(sectionId).Harmony.Select(HarmonyChordSnapshots.Clone).ToList();
+        project.ApplyHarmonyCandidate(sectionId, candidateId);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previous is null) throw new InvalidOperationException("Command has not been executed.");
+        project.ReplaceSectionHarmony(sectionId, _previous.Select(HarmonyChordSnapshots.Clone));
+    }
+}
+
+internal static class HarmonyChordSnapshots
+{
+    public static HarmonyChord Clone(HarmonyChord chord) =>
+        new(chord.Id, chord.Chord, chord.Start, chord.DurationBars, chord.Provenance);
+}
+
+internal static class HarmonyCandidateSnapshots
+{
+    public static HarmonyCandidate Clone(HarmonyCandidate candidate) => new(
+        candidate.Id,
+        candidate.Label,
+        candidate.Provenance,
+        candidate.Events.Select(item => new HarmonyCandidateEvent(
+            item.Id, item.Position, item.Chord, item.Start, item.DurationBars)).ToList());
+}
+
 internal static class RhythmCandidateSnapshots
 {
     public static IReadOnlyList<RhythmCandidate> Create(IEnumerable<RhythmCandidate> candidates) =>

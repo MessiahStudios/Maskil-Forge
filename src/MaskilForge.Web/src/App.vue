@@ -25,7 +25,11 @@ const persistedRevision = ref('')
 const recoveryBlocked = ref(false)
 let recoveryTimer: ReturnType<typeof setTimeout> | undefined
 const project = computed(() => response.value?.project ?? null)
-const serializedProject = computed(() => project.value ? JSON.stringify(project.value) : '')
+function projectSnapshot(value: SongProject) {
+  const { lastModifiedUtc: _revision, ...creativeState } = value
+  return JSON.stringify(creativeState)
+}
+const serializedProject = computed(() => project.value ? projectSnapshot(project.value) : '')
 const isDirty = computed(() => Boolean(project.value) && serializedProject.value !== savedSnapshot.value)
 const editorState = computed(() => isDirty.value ? 'Unsaved changes' : cleanLabel.value === 'saved' ? 'Saved' : 'No changes')
 const meters = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8']
@@ -36,6 +40,7 @@ const scaleModes: ScaleMode[] = ['Major', 'NaturalMinor']
 const chordQualities: ChordQuality[] = ['Major', 'Minor', 'Diminished', 'Augmented', 'DominantSeventh']
 const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
+const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
 const lyricTimeline = ref<LyricTimelineView | null>(null)
 const timelineOverlayCandidateId = ref('')
@@ -45,12 +50,13 @@ let timelineRefreshToken = 0
 function accept(next: ProjectResponse, message: string, markPersisted = false) {
   response.value = next
   Object.keys(placementDrafts).forEach(key => delete placementDrafts[key])
+  Object.keys(harmonyCandidateLabelDrafts).forEach(key => delete harmonyCandidateLabelDrafts[key])
   Object.keys(prosodyScores).forEach(key => delete prosodyScores[key])
   projectId.value = next.project.id
   localStorage.setItem('maskilForge.projectId', next.project.id)
   status.value = message
   if (markPersisted) {
-    savedSnapshot.value = JSON.stringify(next.project)
+    savedSnapshot.value = projectSnapshot(next.project)
     persistedRevision.value = next.project.lastModifiedUtc
     recoveryBlocked.value = false
     cleanLabel.value = message.includes('saved') ? 'saved' : 'clean'
@@ -671,6 +677,11 @@ function formatChord(chord: ChordSymbol) {
           : '7'
   return `${chord.root}${accidental}${quality}`
 }
+function formatHarmonyCandidateEvent(item: SongProject['sections'][number]['harmonyCandidates'][number]['events'][number]) {
+  const start = `${item.start.bar}:${item.start.beat}`
+  const duration = item.durationBars === 1 ? '1 bar' : `${item.durationBars} bars`
+  return `${formatChord(item.chord)} · ${start} · ${duration}`
+}
 function addHarmonyChord(sectionId: string) {
   if (!project.value) return
   return run(
@@ -718,6 +729,39 @@ function removeHarmonyChord(sectionId: string, harmonyChordId: string) {
     'harmony.remove',
     { sectionId, harmonyChordId })
 }
+function captureHarmonyCandidate(sectionId: string) {
+  if (!project.value) return
+  const candidateLabel = harmonyCandidateLabelDrafts[sectionId]?.trim() || `Option ${(project.value.sections.find(item => item.id === sectionId)?.harmonyCandidates?.length ?? 0) + 1}`
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'capture-harmony-candidate', sectionId, candidateLabel }),
+    `${candidateLabel} saved for harmony comparison.`,
+    'harmony.candidate.capture',
+    { sectionId, candidateLabel })
+}
+function renameHarmonyCandidate(sectionId: string, harmonyCandidateId: string, candidateLabel: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'rename-harmony-candidate', sectionId, harmonyCandidateId, candidateLabel }),
+    'Harmony option renamed.',
+    'harmony.candidate.rename',
+    { sectionId, harmonyCandidateId })
+}
+function applyHarmonyCandidate(sectionId: string, harmonyCandidateId: string, label: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'apply-harmony-candidate', sectionId, harmonyCandidateId }),
+    `${label} applied to the active progression.`,
+    'harmony.candidate.apply',
+    { sectionId, harmonyCandidateId })
+}
+function removeHarmonyCandidate(sectionId: string, harmonyCandidateId: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'remove-harmony-candidate', sectionId, harmonyCandidateId }),
+    'Harmony option removed.',
+    'harmony.candidate.remove',
+    { sectionId, harmonyCandidateId })
+}
 function meterValue(value: SongProject) { return `${value.timeline.timeSignatureMap.events[0].numerator}/${value.timeline.timeSignatureMap.events[0].denominator}` }
 function placementFor(sectionId: string) { return project.value?.timeline.sectionPlacements.find(item => item.sectionId === sectionId) }
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
@@ -729,7 +773,6 @@ async function saveRecoverySnapshot() {
   if (!project.value || !isDirty.value || !persistedRevision.value || busy.value || recoveryBlocked.value) return
   try {
     await projectsApi.saveRecovery(project.value, persistedRevision.value, sessionId)
-    activityLog.write('info', 'recovery.snapshot', 'Unsaved work protected.', { projectId: project.value.id })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unsaved recovery snapshot failed.'
     status.value = message
@@ -1050,6 +1093,30 @@ onBeforeUnmount(() => {
                       @change="updateHarmonyChord(section.id, item.id, item.chord, item.start, Number(($event.target as HTMLInputElement).value))" />
                   </label>
                   <button class="danger" :disabled="busy" @click="removeHarmonyChord(section.id, item.id)">Remove</button>
+                </article>
+              </div>
+              <form class="harmony-candidate-capture" @submit.prevent="captureHarmonyCandidate(section.id)">
+                <label>Option name
+                  <input v-model="harmonyCandidateLabelDrafts[section.id]" maxlength="100" :placeholder="`Option ${(section.harmonyCandidates?.length ?? 0) + 1}`" :disabled="busy || !section.harmony?.length" />
+                </label>
+                <button type="submit" class="quiet" :disabled="busy || !section.harmony?.length">Save current progression</button>
+              </form>
+              <small class="harmony-candidate-help">Saved options preserve this progression for comparison. Using one replaces the active chords and can be undone.</small>
+              <div v-if="section.harmonyCandidates?.length" class="harmony-candidates">
+                <article v-for="candidate in section.harmonyCandidates" :key="candidate.id" class="harmony-candidate-card">
+                  <div class="harmony-candidate-summary">
+                    <label>Option name
+                      <input :value="candidate.label" maxlength="100" :disabled="busy" @change="renameHarmonyCandidate(section.id, candidate.id, ($event.target as HTMLInputElement).value)" />
+                    </label>
+                    <small>{{ candidate.provenance }} · {{ candidate.events.length }} {{ candidate.events.length === 1 ? 'chord' : 'chords' }}</small>
+                  </div>
+                  <ol class="harmony-candidate-events">
+                    <li v-for="item in candidate.events" :key="item.id">{{ formatHarmonyCandidateEvent(item) }}</li>
+                  </ol>
+                  <div class="harmony-candidate-actions">
+                    <button type="button" :disabled="busy" @click="applyHarmonyCandidate(section.id, candidate.id, candidate.label)">Use this option</button>
+                    <button type="button" class="danger" :disabled="busy" @click="removeHarmonyCandidate(section.id, candidate.id)">Remove option</button>
+                  </div>
                 </article>
               </div>
             </div>

@@ -388,6 +388,27 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
                 RequiredSectionId(request),
                 request.HarmonyChordId ?? throw new ArgumentException("Harmony chord ID is required.")));
             break;
+        case "capture-harmony-candidate":
+            editor.Execute(new CaptureHarmonyCandidateCommand(
+                RequiredSectionId(request),
+                request.CandidateLabel ?? throw new ArgumentException("Harmony option name is required.")));
+            break;
+        case "rename-harmony-candidate":
+            editor.Execute(new RenameHarmonyCandidateCommand(
+                RequiredSectionId(request),
+                request.HarmonyCandidateId ?? throw new ArgumentException("Harmony candidate ID is required."),
+                request.CandidateLabel ?? throw new ArgumentException("Harmony option name is required.")));
+            break;
+        case "remove-harmony-candidate":
+            editor.Execute(new RemoveHarmonyCandidateCommand(
+                RequiredSectionId(request),
+                request.HarmonyCandidateId ?? throw new ArgumentException("Harmony candidate ID is required.")));
+            break;
+        case "apply-harmony-candidate":
+            editor.Execute(new ApplyHarmonyCandidateCommand(
+                RequiredSectionId(request),
+                request.HarmonyCandidateId ?? throw new ArgumentException("Harmony candidate ID is required.")));
+            break;
         case "split-lyric-phrase":
             editor.Execute(new SplitLyricPhraseCommand(
                 RequiredSectionId(request),
@@ -450,6 +471,7 @@ public sealed record ProjectCommandRequest(
     MusicalKey? Key = null,
     ChordSymbol? Chord = null,
     HarmonyChordId? HarmonyChordId = null,
+    HarmonyCandidateId? HarmonyCandidateId = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

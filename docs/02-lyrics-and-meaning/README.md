@@ -67,7 +67,7 @@ Emotional intent maps to musical tendencies. For example, vulnerability may redu
 
 ## Theory foundation
 
-The current foundation implements deterministic theory primitives in code: pitch class, note spelling, intervals, major and natural-minor scales, a small chord vocabulary (major, minor, diminished, augmented, dominant seventh), transposition, an editable song-level `MusicalKey` (schema v12), and section-level ordered `HarmonyChord` progressions with section-relative timing (schema v13). Derived Roman numerals are available for diatonic matches. Progressions generation, cadences, voice leading, instrument range checks, harmony candidates, and chord audition remain later Milestone 3 slices.
+The current foundation implements deterministic theory primitives in code: pitch class, note spelling, intervals, major and natural-minor scales, a small chord vocabulary (major, minor, diminished, augmented, dominant seventh), transposition, an editable song-level `MusicalKey` (schema v12), section-level ordered `HarmonyChord` progressions with section-relative timing (schema v13), and multiple named section harmony alternatives (schema v14). Derived Roman numerals are available for diatonic matches. Progression generation, ranking, cadences, voice leading, instrument range checks, and chord audition remain later Milestone 3 slices.
 
 ## Planned completion gate
 
