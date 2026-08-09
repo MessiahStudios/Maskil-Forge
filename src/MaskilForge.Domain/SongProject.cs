@@ -58,6 +58,7 @@ public sealed class SongProject
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
         ValidateAllSyllablePlacements(TimeSignature);
         ValidateAllRhythmCandidates(TimeSignature);
+        ValidateAllHarmonyChords(TimeSignature);
         ValidateLockReferences();
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
@@ -142,6 +143,7 @@ public sealed class SongProject
         var proposed = new TimeSignatureEvent(0, numerator, denominator);
         ValidateAllSyllablePlacements(proposed);
         ValidateAllRhythmCandidates(proposed);
+        ValidateAllHarmonyChords(proposed);
         Timeline.TimeSignatureMap.SetInitialTimeSignature(numerator, denominator);
         Touch();
     }
@@ -188,7 +190,48 @@ public sealed class SongProject
             throw new InvalidOperationException("Section duration cannot end before an existing syllable placement. Clear or move the placement first.");
         if (section.LyricLines.SelectMany(line => line.RhythmCandidates).SelectMany(item => item.Events).Any(item => item.BeatPosition.Bar > durationBars))
             throw new InvalidOperationException("Section duration cannot end before an existing rhythm option. Remove that option first.");
+        if (section.Harmony.Any(item => item.Start.Bar > durationBars || item.Start.Bar + item.DurationBars - 1 > durationBars))
+            throw new InvalidOperationException("Section duration cannot end before an existing harmony chord. Move or shorten the chord first.");
         Timeline.SetSectionDuration(sectionId, durationBars, _sections.Select(item => item.Id).ToList());
+        Touch();
+    }
+
+    public HarmonyChord AddHarmonyChord(SectionId sectionId, ChordSymbol chord, BeatPosition start, int durationBars = 1)
+    {
+        ValidateHarmonySpan(sectionId, start, durationBars, TimeSignature);
+        var created = FindSection(sectionId).AddHarmonyChord(chord, start, durationBars);
+        Touch();
+        return created;
+    }
+
+    public HarmonyChord SetHarmonyChord(
+        SectionId sectionId,
+        HarmonyChordId harmonyChordId,
+        ChordSymbol chord,
+        BeatPosition start,
+        int durationBars)
+    {
+        ValidateHarmonySpan(sectionId, start, durationBars, TimeSignature);
+        var section = FindSection(sectionId);
+        var existing = section.FindHarmonyChord(harmonyChordId);
+        var updated = existing.With(chord, start, durationBars);
+        section.UpsertHarmonyChord(updated);
+        Touch();
+        return updated;
+    }
+
+    public HarmonyChord RemoveHarmonyChord(SectionId sectionId, HarmonyChordId harmonyChordId)
+    {
+        var removed = FindSection(sectionId).RemoveHarmonyChord(harmonyChordId);
+        Touch();
+        return removed;
+    }
+
+    public void ReinsertHarmonyChord(SectionId sectionId, HarmonyChord chord)
+    {
+        ArgumentNullException.ThrowIfNull(chord);
+        ValidateHarmonySpan(sectionId, chord.Start, chord.DurationBars, TimeSignature);
+        FindSection(sectionId).UpsertHarmonyChord(chord);
         Touch();
     }
 
@@ -458,6 +501,21 @@ public sealed class SongProject
         foreach (var section in _sections)
         foreach (var rhythmEvent in section.LyricLines.SelectMany(line => line.RhythmCandidates).SelectMany(item => item.Events))
             ValidateBeatPosition(section.Id, rhythmEvent.BeatPosition, meter);
+    }
+
+    private void ValidateAllHarmonyChords(TimeSignatureEvent meter)
+    {
+        foreach (var section in _sections)
+        foreach (var chord in section.Harmony)
+            ValidateHarmonySpan(section.Id, chord.Start, chord.DurationBars, meter);
+    }
+
+    private void ValidateHarmonySpan(SectionId sectionId, BeatPosition start, int durationBars, TimeSignatureEvent meter)
+    {
+        ValidateBeatPosition(sectionId, start, meter);
+        var section = Timeline.FindSection(sectionId);
+        if (start.Bar + durationBars - 1 > section.DurationBars)
+            throw new ArgumentOutOfRangeException(nameof(durationBars), "Harmony chord must end within the section duration.");
     }
 
     private void ValidateBeatPosition(SectionId sectionId, BeatPosition position, TimeSignatureEvent meter)

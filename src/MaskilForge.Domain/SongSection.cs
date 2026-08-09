@@ -14,9 +14,15 @@ public enum SectionKind
 public sealed class SongSection
 {
     private readonly List<LyricLine> _lyricLines;
+    private readonly List<HarmonyChord> _harmony;
 
     [JsonConstructor]
-    public SongSection(SectionId id, SectionKind kind, string title, IReadOnlyList<LyricLine>? lyricLines = null)
+    public SongSection(
+        SectionId id,
+        SectionKind kind,
+        string title,
+        IReadOnlyList<LyricLine>? lyricLines = null,
+        IReadOnlyList<HarmonyChord>? harmony = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A section ID is required.", nameof(id));
         Id = id;
@@ -25,12 +31,17 @@ public sealed class SongSection
         _lyricLines = lyricLines?.ToList() ?? [];
         if (_lyricLines.Select(line => line.Id).Distinct().Count() != _lyricLines.Count)
             throw new ArgumentException("Lyric line IDs must be unique.", nameof(lyricLines));
+        _harmony = harmony?.ToList() ?? [];
+        if (_harmony.Select(item => item.Id).Distinct().Count() != _harmony.Count)
+            throw new ArgumentException("Harmony chord IDs must be unique.", nameof(harmony));
+        SortHarmony();
     }
 
     public SectionId Id { get; }
     public SectionKind Kind { get; }
     public string Title { get; private set; } = string.Empty;
     public IReadOnlyList<LyricLine> LyricLines => _lyricLines;
+    public IReadOnlyList<HarmonyChord> Harmony => _harmony;
 
     public static SongSection Create(SectionKind kind, string? title = null) =>
         new(SectionId.New(), kind, title ?? DefaultTitle(kind));
@@ -68,9 +79,46 @@ public sealed class SongSection
         _lyricLines.SingleOrDefault(item => item.Id == lineId)
         ?? throw new KeyNotFoundException($"Lyric line '{lineId}' was not found.");
 
+    public HarmonyChord AddHarmonyChord(ChordSymbol chord, BeatPosition start, int durationBars = 1)
+    {
+        var item = HarmonyChord.Create(chord, start, durationBars);
+        _harmony.Add(item);
+        SortHarmony();
+        return item;
+    }
+
+    public void UpsertHarmonyChord(HarmonyChord chord)
+    {
+        ArgumentNullException.ThrowIfNull(chord);
+        var index = _harmony.FindIndex(item => item.Id == chord.Id);
+        if (index < 0) _harmony.Add(chord);
+        else _harmony[index] = chord;
+        SortHarmony();
+    }
+
+    public HarmonyChord RemoveHarmonyChord(HarmonyChordId harmonyChordId)
+    {
+        var index = _harmony.FindIndex(item => item.Id == harmonyChordId);
+        if (index < 0) throw new KeyNotFoundException($"Harmony chord '{harmonyChordId}' was not found.");
+        var removed = _harmony[index];
+        _harmony.RemoveAt(index);
+        return removed;
+    }
+
+    public HarmonyChord FindHarmonyChord(HarmonyChordId harmonyChordId) =>
+        _harmony.SingleOrDefault(item => item.Id == harmonyChordId)
+        ?? throw new KeyNotFoundException($"Harmony chord '{harmonyChordId}' was not found.");
+
     public static string DefaultTitle(SectionKind kind) => kind switch
     {
         SectionKind.PreChorus => "Pre-Chorus",
         _ => kind.ToString()
     };
+
+    private void SortHarmony() =>
+        _harmony.Sort((left, right) =>
+        {
+            var byStart = left.Start.CompareTo(right.Start);
+            return byStart != 0 ? byStart : left.Id.Value.CompareTo(right.Id.Value);
+        });
 }
