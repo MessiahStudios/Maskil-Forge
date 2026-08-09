@@ -674,6 +674,26 @@ public sealed class RemoveHarmonyChordCommand(SectionId sectionId, HarmonyChordI
     }
 }
 
+public sealed class SetChordVoicingCommand(SectionId sectionId, HarmonyChordId harmonyChordId, IReadOnlyList<RegisteredPitch>? pitches, int minimumMidiNote = 21, int maximumMidiNote = 108) : IProjectCommand
+{
+    private ChordVoicing? _previous;
+    private ChordVoicing? _next;
+    private bool _captured;
+    public void Execute(SongProject project)
+    {
+        if (!_captured) { _previous = project.FindSection(sectionId).FindHarmonyChord(harmonyChordId).Voicing; _captured = true; }
+        if (_next is null)
+            _next = project.SetChordVoicing(sectionId, harmonyChordId, pitches, minimumMidiNote, maximumMidiNote).Voicing;
+        else
+            project.RestoreChordVoicing(sectionId, harmonyChordId, _next);
+    }
+    public void Undo(SongProject project)
+    {
+        if (!_captured) throw new InvalidOperationException("Command has not been executed.");
+        project.RestoreChordVoicing(sectionId, harmonyChordId, _previous);
+    }
+}
+
 public sealed class CaptureHarmonyCandidateCommand(SectionId sectionId, string label) : IProjectCommand
 {
     private HarmonyCandidate? _candidate;
@@ -757,7 +777,7 @@ public sealed class ApplyHarmonyCandidateCommand(SectionId sectionId, HarmonyCan
 internal static class HarmonyChordSnapshots
 {
     public static HarmonyChord Clone(HarmonyChord chord) =>
-        new(chord.Id, chord.Chord, chord.Start, chord.DurationBars, chord.Provenance);
+        new(chord.Id, chord.Chord, chord.Start, chord.DurationBars, chord.Provenance, chord.Voicing);
 }
 
 internal static class HarmonyCandidateSnapshots

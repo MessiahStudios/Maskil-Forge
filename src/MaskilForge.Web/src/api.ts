@@ -33,7 +33,12 @@ export interface HarmonyChord {
   start: BeatPosition
   durationBars: number
   provenance: HarmonyProvenance
+  voicing: ChordVoicing | null
 }
+
+export interface RegisteredPitch { letter: NoteLetter; accidental: Accidental; octave: number }
+export interface ChordVoice { id: string; position: number; pitch: RegisteredPitch; provenance: HarmonyProvenance }
+export interface ChordVoicing { id: string; minimumMidiNote: number; maximumMidiNote: number; voices: ChordVoice[] }
 
 export interface HarmonyCandidateEvent {
   id: string
@@ -328,6 +333,9 @@ export interface ProjectCommand {
   chord?: ChordSymbol
   harmonyChordId?: string
   harmonyCandidateId?: string
+  registeredPitches?: RegisteredPitch[] | null
+  minimumMidiNote?: number
+  maximumMidiNote?: number
   text?: string
   syllables?: string[]
 }

@@ -128,6 +128,20 @@ public readonly record struct HarmonyChordId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(ChordVoicingIdJsonConverter))]
+public readonly record struct ChordVoicingId(Guid Value)
+{
+    public static ChordVoicingId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
+[JsonConverter(typeof(ChordVoiceIdJsonConverter))]
+public readonly record struct ChordVoiceId(Guid Value)
+{
+    public static ChordVoiceId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(HarmonyCandidateIdJsonConverter))]
 public readonly record struct HarmonyCandidateId(Guid Value)
 {
@@ -145,7 +159,7 @@ public readonly record struct HarmonyCandidateEventId(Guid Value)
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(14);
+    public static SchemaVersion Current => new(15);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -284,6 +298,18 @@ internal sealed class HarmonyChordIdJsonConverter : GuidIdJsonConverter<HarmonyC
 {
     protected override HarmonyChordId Create(Guid value) => new(value);
     protected override Guid GetValue(HarmonyChordId value) => value.Value;
+}
+
+internal sealed class ChordVoicingIdJsonConverter : GuidIdJsonConverter<ChordVoicingId>
+{
+    protected override ChordVoicingId Create(Guid value) => new(value);
+    protected override Guid GetValue(ChordVoicingId value) => value.Value;
+}
+
+internal sealed class ChordVoiceIdJsonConverter : GuidIdJsonConverter<ChordVoiceId>
+{
+    protected override ChordVoiceId Create(Guid value) => new(value);
+    protected override Guid GetValue(ChordVoiceId value) => value.Value;
 }
 
 internal sealed class HarmonyCandidateIdJsonConverter : GuidIdJsonConverter<HarmonyCandidateId>

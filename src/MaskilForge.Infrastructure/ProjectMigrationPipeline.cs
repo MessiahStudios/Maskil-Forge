@@ -441,3 +441,19 @@ internal sealed class V13ToV14ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V14ToV15ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 14;
+    public int ToVersion => 15;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["sections"] is JsonArray sections)
+            foreach (var section in sections.OfType<JsonObject>())
+                if (section["harmony"] is JsonArray harmony)
+                    foreach (var chord in harmony.OfType<JsonObject>()) chord["voicing"] = null;
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

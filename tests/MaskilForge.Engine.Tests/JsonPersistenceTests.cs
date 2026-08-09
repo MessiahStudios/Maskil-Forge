@@ -188,7 +188,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV14_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyAndHarmonyContract()
+    public async Task SchemaV15_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyHarmonyAndVoicingContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -224,7 +224,7 @@ public sealed class JsonPersistenceTests
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(14, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(15, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -307,6 +307,7 @@ public sealed class JsonPersistenceTests
             Assert.Equal(1, harmony.GetProperty("start").GetProperty("bar").GetInt32());
             Assert.Equal(2, harmony.GetProperty("durationBars").GetInt32());
             Assert.Equal("Manual", harmony.GetProperty("provenance").GetString());
+            Assert.Equal(JsonValueKind.Null, harmony.GetProperty("voicing").ValueKind);
         }
         finally
         {
