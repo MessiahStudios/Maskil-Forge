@@ -180,9 +180,9 @@ Automatic harmony generation, AI chord suggestions, MIDI export, audio playback,
 
 ### Milestone 3.6 — Advanced voice-leading analysis
 
-Extend the derived harmony review from pitch classes to actual registered voices. Analyze note-by-note movement, spacing, voice crossing, register jumps, common tones, and relevant parallel motion between adjacent voicings. Findings should explain musical consequences in approachable language and remain advisory, inspectable, and non-persistent.
+The current slice extends the derived harmony review from pitch classes to actual registered voices when both adjacent chords have voicings, while preserving the earlier pitch-class fallback. It analyzes ordinal note movement, retained voices, wide leaps, destination spacing, voice-count changes, and relevant similar-direction perfect intervals. Findings explain musical consequences in approachable language and remain advisory, inspectable, and non-persistent.
 
-This slice does not generate or rank replacement progressions, automatically rewrite artist voicings, assign instruments, or add playback, MIDI, or audio.
+This slice does not generate or rank replacement progressions, automatically rewrite artist voicings, claim full contrapuntal analysis, assign instruments, or add playback, MIDI, or audio.
 
 **Deliverable:** an artist can understand how smoothly the actual voices move between chords and why a transition feels stable, open, tense, or abrupt.
 

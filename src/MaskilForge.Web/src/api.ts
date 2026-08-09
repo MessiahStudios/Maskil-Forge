@@ -56,6 +56,16 @@ export interface HarmonyCandidate {
 }
 
 export type VoiceLeadingMotion = 'Smooth' | 'Moderate' | 'Wide'
+export type VoiceLeadingFindingKind = 'RetainedVoice' | 'WideLeap' | 'WideSpacing' | 'ParallelPerfectInterval' | 'VoiceCountChange'
+export type VoiceLeadingFindingSeverity = 'Info' | 'Warning'
+
+export interface VoiceLeadingFinding {
+  kind: VoiceLeadingFindingKind
+  severity: VoiceLeadingFindingSeverity
+  message: string
+  fromVoicePosition: number | null
+  toVoicePosition: number | null
+}
 
 export interface VoiceLeadingTransition {
   fromChordId: string
@@ -64,6 +74,9 @@ export interface VoiceLeadingTransition {
   averageNearestMotionSemitones: number
   rootMotionSemitones: number
   motion: VoiceLeadingMotion
+  usesRegisteredVoices: boolean
+  maximumVoiceMovementSemitones: number
+  findings: VoiceLeadingFinding[]
 }
 
 export interface VoiceLeadingReview {
