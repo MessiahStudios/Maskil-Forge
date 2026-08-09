@@ -166,6 +166,34 @@ The current slice begins a derived, non-persistent review of adjacent harmony ch
 
 This pitch-class review does not claim octave/register voicings, parallel-motion detection, instrument assignments, range checks, generation, audition, MIDI, playback, or audio.
 
+**Deliverable:** an artist can inspect basic movement between adjacent chord symbols without changing the progression.
+
+### Milestone 3.5 — Voicing and register foundation
+
+Represent how an existing chord symbol is physically arranged as explicit, ordered pitches in musical register. A chord such as C major may therefore retain multiple artist-controlled voicings, such as `C3 G3 C4 E4` or `G3 C4 E4 G4`, without changing the harmony chord's identity or meaning.
+
+The slice should establish stable voicing and voice identities, octave-aware pitch representation, deterministic validation against the owning chord, basic configurable register bounds, artist-controlled editing, provenance, persistence, migration, and undo/redo. It may describe spacing, crossings, out-of-range pitches, or unusual register choices, but it must preserve artist authority rather than silently correcting or replacing a voicing.
+
+Automatic harmony generation, AI chord suggestions, MIDI export, audio playback, piano-roll editing, instrument assignment, and rendering remain outside this slice. Detailed instrument profiles and performance technique belong to later arrangement and instrument-intelligence work; this foundation creates the reusable registered-pitch and range rules those systems will evaluate.
+
+**Deliverable:** an artist can state exactly which registered notes realize a harmony chord and preserve that choice as editable Song Graph data.
+
+### Milestone 3.6 — Advanced voice-leading analysis
+
+Extend the derived harmony review from pitch classes to actual registered voices. Analyze note-by-note movement, spacing, voice crossing, register jumps, common tones, and relevant parallel motion between adjacent voicings. Findings should explain musical consequences in approachable language and remain advisory, inspectable, and non-persistent.
+
+This slice does not generate or rank replacement progressions, automatically rewrite artist voicings, assign instruments, or add playback, MIDI, or audio.
+
+**Deliverable:** an artist can understand how smoothly the actual voices move between chords and why a transition feels stable, open, tense, or abrupt.
+
+### Milestone 3.7 — Chord audition foundation
+
+Provide the first narrow audible feedback loop for existing harmony and voicing choices: play an individual chord or a section progression with simple transport controls and a replaceable preview sound. Audition must read the authoritative Song Graph without turning rendered audio into canonical project state.
+
+This is not a DAW, piano roll, production renderer, MIDI export workflow, arrangement engine, or instrument-performance system. Those remain later milestones.
+
+**Deliverable:** an artist can hear a chord progression well enough to compare existing harmony and voicing choices before arrangement begins.
+
 ## Milestone 3 — Theory and harmony
 
 Build music primitives, keys/scales/chords, progressions, transposition, voice leading, range checks, harmony candidates, and simple chord audition.
@@ -226,7 +254,7 @@ Build mixer routing, automation, production recipes, stem/WAV export, DAW handof
 
 ### Prototype
 
-Milestones 0–3: prove structured lyrics, time, prosody, and harmony.
+Milestones 0–3: prove structured lyrics, time, prosody, harmony, registered voicing, advanced voice-leading review, and basic chord audition. Milestones 0–2 and slices 3.1–3.4 are complete; slices 3.5–3.7 close the remaining Prototype boundary.
 
 ### MVP
 
