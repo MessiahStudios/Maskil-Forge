@@ -155,6 +155,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .harmony-heading small, .harmony-empty { color: #9aa093; }
 .harmony-list { display: grid; gap: .55rem; }
 .harmony-card { display: grid; grid-template-columns: minmax(4.5rem, auto) repeat(6, minmax(0, 1fr)) auto; gap: .45rem; align-items: end; padding: .65rem .7rem; background: #1b1f1a; border: 1px solid #4a5044; border-radius: .35rem; }
+.voicing-editor { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(220px, 1fr) auto; gap: .55rem; align-items: end; padding-top: .6rem; border-top: 1px solid #363c33; }
+.voicing-editor small { grid-column: 1 / -1; color: #92988a; }
 .harmony-symbol { display: grid; gap: .15rem; color: #f3e6ca; }
 .harmony-symbol small { color: #9aa093; text-transform: uppercase; letter-spacing: .05em; font-size: .68rem; }
 .harmony-card label { display: grid; gap: .2rem; color: #c7c0b1; font-size: .7rem; }
@@ -312,6 +314,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .lyric-line-actions > button { flex: 1; }
   .lyric-flow-tools { grid-column: 1 / -1; }
   .harmony-card { grid-template-columns: 1fr 1fr; }
+  .voicing-editor { grid-template-columns: 1fr; }
+  .voicing-editor small { grid-column: 1; }
   .harmony-symbol, .harmony-card > button { grid-column: 1 / -1; }
   .harmony-candidate-card { grid-template-columns: 1fr; }
   .voice-leading-review { grid-template-columns: 1fr; }

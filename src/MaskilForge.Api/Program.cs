@@ -407,6 +407,14 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
                 RequiredSectionId(request),
                 request.HarmonyChordId ?? throw new ArgumentException("Harmony chord ID is required.")));
             break;
+        case "set-chord-voicing":
+            editor.Execute(new SetChordVoicingCommand(
+                RequiredSectionId(request),
+                request.HarmonyChordId ?? throw new ArgumentException("Harmony chord ID is required."),
+                request.RegisteredPitches,
+                request.MinimumMidiNote ?? 21,
+                request.MaximumMidiNote ?? 108));
+            break;
         case "capture-harmony-candidate":
             editor.Execute(new CaptureHarmonyCandidateCommand(
                 RequiredSectionId(request),
@@ -492,6 +500,9 @@ public sealed record ProjectCommandRequest(
     ChordSymbol? Chord = null,
     HarmonyChordId? HarmonyChordId = null,
     HarmonyCandidateId? HarmonyCandidateId = null,
+    IReadOnlyList<RegisteredPitch>? RegisteredPitches = null,
+    int? MinimumMidiNote = null,
+    int? MaximumMidiNote = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

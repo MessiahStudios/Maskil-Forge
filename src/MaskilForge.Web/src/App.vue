@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { projectsApi, type Accidental, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
+import type { RegisteredPitch } from './api'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -689,6 +690,33 @@ function formatHarmonyCandidateEvent(item: SongProject['sections'][number]['harm
   const duration = item.durationBars === 1 ? '1 bar' : `${item.durationBars} bars`
   return `${formatChord(item.chord)} · ${start} · ${duration}`
 }
+function formatRegisteredPitch(pitch: RegisteredPitch) {
+  const accidental = pitch.accidental === 'Sharp' ? '#' : pitch.accidental === 'Flat' ? 'b' : ''
+  return `${pitch.letter}${accidental}${pitch.octave}`
+}
+function setChordVoicing(sectionId: string, harmonyChordId: string, event: Event) {
+  if (!project.value) return
+  const form = event.currentTarget as HTMLFormElement
+  const text = String(new FormData(form).get('voicing') ?? '').trim()
+  const tokens = text ? text.split(/[\s,]+/) : []
+  let registeredPitches: RegisteredPitch[]
+  try {
+    registeredPitches = tokens.map(token => {
+      const match = /^([A-Ga-g])([#b]?)(-?\d)$/.exec(token)
+      if (!match) throw new Error(`Use notes such as C3, G3, E4. '${token}' is not recognized.`)
+      return { letter: match[1].toUpperCase() as NoteLetter, accidental: match[2] === '#' ? 'Sharp' : match[2] === 'b' ? 'Flat' : 'Natural', octave: Number(match[3]) }
+    })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The voicing could not be read.'
+    activityLog.write('warning', 'harmony.voicing.set', status.value, { sectionId, harmonyChordId })
+    return
+  }
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-chord-voicing', sectionId, harmonyChordId, registeredPitches, minimumMidiNote: 21, maximumMidiNote: 108 }),
+    registeredPitches.length ? `Voicing set to ${tokens.join(' ')}.` : 'Chord voicing cleared.',
+    'harmony.voicing.set',
+    { sectionId, harmonyChordId, voiceCount: registeredPitches.length })
+}
 function chordLabel(sectionId: string, chordId: string) {
   const section = project.value?.sections.find(item => item.id === sectionId)
   const chord = section?.harmony.find(item => item.id === chordId)
@@ -1181,6 +1209,13 @@ onBeforeUnmount(() => {
                       @change="updateHarmonyChord(section.id, item.id, item.chord, item.start, Number(($event.target as HTMLInputElement).value))" />
                   </label>
                   <button class="danger" :disabled="busy" @click="removeHarmonyChord(section.id, item.id)">Remove</button>
+                  <form class="voicing-editor" @submit.prevent="setChordVoicing(section.id, item.id, $event)">
+                    <label>How the chord is played
+                      <input name="voicing" :value="item.voicing?.voices.map(voice => formatRegisteredPitch(voice.pitch)).join(' ') ?? ''" placeholder="C3 G3 C4 E4" :disabled="busy" />
+                    </label>
+                    <button type="submit" class="quiet" :disabled="busy">Use these notes</button>
+                    <small>Optional · Enter low-to-high notes with octaves. Leave empty to clear.</small>
+                  </form>
                 </article>
               </div>
               <div class="voice-leading-review">

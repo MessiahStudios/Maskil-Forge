@@ -231,6 +231,33 @@ public sealed class SongProject
         return removed;
     }
 
+    public HarmonyChord SetChordVoicing(SectionId sectionId, HarmonyChordId harmonyChordId, IReadOnlyList<RegisteredPitch>? pitches, int minimumMidiNote = 21, int maximumMidiNote = 108)
+    {
+        var section = FindSection(sectionId);
+        var existing = section.FindHarmonyChord(harmonyChordId);
+        ChordVoicing? voicing = null;
+        if (pitches is { Count: > 0 })
+        {
+            var prior = existing.Voicing;
+            var voices = pitches.Select((pitch, position) => new ChordVoice(
+                prior is not null && position < prior.Voices.Count ? prior.Voices[position].Id : ChordVoiceId.New(),
+                position, pitch, HarmonyProvenance.Manual)).ToList();
+            voicing = new ChordVoicing(prior?.Id ?? ChordVoicingId.New(), minimumMidiNote, maximumMidiNote, voices);
+        }
+        var updated = existing.With(voicing: voicing, replaceVoicing: true);
+        section.UpsertHarmonyChord(updated);
+        Touch();
+        return updated;
+    }
+
+    public void RestoreChordVoicing(SectionId sectionId, HarmonyChordId harmonyChordId, ChordVoicing? voicing)
+    {
+        var section = FindSection(sectionId);
+        var existing = section.FindHarmonyChord(harmonyChordId);
+        section.UpsertHarmonyChord(existing.With(voicing: voicing, replaceVoicing: true));
+        Touch();
+    }
+
     public void ReinsertHarmonyChord(SectionId sectionId, HarmonyChord chord)
     {
         ArgumentNullException.ThrowIfNull(chord);
@@ -293,7 +320,8 @@ public sealed class SongProject
             item.Chord,
             item.Start,
             item.DurationBars,
-            candidate.Provenance)));
+            candidate.Provenance,
+            position < existing.Count && existing[position].Chord.PitchClasses.Select(x => x.Value).SequenceEqual(item.Chord.PitchClasses.Select(x => x.Value)) ? existing[position].Voicing : null)));
         Touch();
     }
 

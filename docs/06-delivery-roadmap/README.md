@@ -170,7 +170,7 @@ This pitch-class review does not claim octave/register voicings, parallel-motion
 
 ### Milestone 3.5 — Voicing and register foundation
 
-Represent how an existing chord symbol is physically arranged as explicit, ordered pitches in musical register. A chord such as C major may therefore retain multiple artist-controlled voicings, such as `C3 G3 C4 E4` or `G3 C4 E4 G4`, without changing the harmony chord's identity or meaning.
+The current slice represents how an existing chord symbol is physically arranged as explicit, ordered pitches in musical register. A chord such as C major may therefore retain an artist-controlled voicing such as `C3 G3 C4 E4` without changing the harmony chord's identity or meaning.
 
 The slice should establish stable voicing and voice identities, octave-aware pitch representation, deterministic validation against the owning chord, basic configurable register bounds, artist-controlled editing, provenance, persistence, migration, and undo/redo. It may describe spacing, crossings, out-of-range pitches, or unusual register choices, but it must preserve artist authority rather than silently correcting or replacing a voicing.
 
