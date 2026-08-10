@@ -230,6 +230,15 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .musical-parts { grid-column: 1 / -1; display: grid; gap: .65rem; padding: .75rem; background: #151914; border: 1px solid #56523e; border-radius: .35rem; }
 .musical-parts > div { display: grid; gap: .2rem; }
 .musical-parts > div small { color: #a7aa9f; }
+.low-end-proposal { display: grid; grid-template-columns: 1fr auto; gap: .6rem; align-items: start; padding: .65rem; background: #111711; border: 1px solid #4a5947; border-radius: .35rem; }
+.low-end-proposal > div:first-child { display: grid; gap: .2rem; }
+.low-end-proposal small { color: #9ca798; }
+.low-end-proposal-result { grid-column: 1 / -1; display: grid; gap: .5rem; padding-top: .5rem; border-top: 1px solid #394637; }
+.low-end-proposal-result p { display: grid; gap: .15rem; margin: 0; }
+.low-end-proposal-result ol { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; margin: 0; padding: 0; list-style: none; }
+.low-end-proposal-result li { display: grid; gap: .15rem; padding: .45rem; background: #0d110d; border: 1px solid #354033; }
+.low-end-proposal-result li span { color: #b4baaf; font: .7rem ui-monospace, Consolas, monospace; }
+.low-end-proposal-result > button { justify-self: start; }
 .musical-part-form { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(10rem, .75fr); gap: .55rem; align-items: end; }
 .musical-part-form > label { display: grid; gap: .2rem; color: #bcb8aa; font-size: .72rem; }
 .musical-part-form > fieldset { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; padding: .55rem; border: 1px solid #3e4439; }
@@ -410,6 +419,9 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .musical-parts { grid-column: 1; }
   .musical-part-form { grid-template-columns: 1fr; }
   .musical-part-form > fieldset { grid-column: 1; grid-template-columns: 1fr; }
+  .low-end-proposal { grid-template-columns: 1fr; }
+  .low-end-proposal-result { grid-column: 1; }
+  .low-end-proposal-result ol { grid-template-columns: 1fr; }
   .settings-grid { grid-template-columns: 1fr; }
   .description-field { grid-column: auto; }
   .capture-actions { justify-content: stretch; }

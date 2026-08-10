@@ -266,9 +266,15 @@ Creating and removing a part is explicit and undoable. Referenced notes and role
 
 **Deliverable:** Maskil Forge can preserve the relationship between arrangement purpose and playable material before role realization begins.
 
-**Deliverable:** the blueprint becomes an audible, editable demo.
+### Milestone 5.5 — Low-end support realization
 
-This is the first strong MVP boundary.
+Offer one narrow, deterministic role-aware idea: for each approved-note onset in a section marked **Low-end support**, select the lowest approved note and move that pitch class downward by octaves until it reaches the low register. Existing notes already in that register are reused instead of duplicated. Pitch choices, timing, duration, velocity, and reuse are visible before acceptance.
+
+Preparing or refreshing the idea is transient. Only **Use this idea** creates the necessary stable notes and one role-aware musical part, together as a single undoable decision. The slice does not choose a bass instrument, invent rhythm, alter harmony, replace notes, automatically regenerate after edits, or realize any other arrangement role.
+
+**Deliverable:** the songwriter can hear and export an explainable low-end layer derived from approved material while remaining the final decision-maker.
+
+This completes the first strong MVP boundary: the arrangement blueprint can now begin becoming an audible, editable demo without silently replacing artist intent.
 
 ## Milestone 6 — Voice performance capture
 

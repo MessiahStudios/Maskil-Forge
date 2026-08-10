@@ -96,7 +96,9 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         project.SetRawLyricDraft(update.RawLyricDraft);
         project.SetKey(update.Key);
         project.SetTempo(update.Tempo.BeatsPerMinute);
-        project.SetTimeSignature(update.TimeSignature.Numerator, update.TimeSignature.Denominator);
+        if (project.TimeSignature.Numerator != update.TimeSignature.Numerator
+            || project.TimeSignature.Denominator != update.TimeSignature.Denominator)
+            project.SetTimeSignature(update.TimeSignature.Numerator, update.TimeSignature.Denominator);
         foreach (var updatedSection in update.Sections)
         {
             var section = project.FindSection(updatedSection.Id);

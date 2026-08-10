@@ -8,6 +8,35 @@ namespace MaskilForge.Engine.Tests;
 public sealed class EditorStateWorkflowTests
 {
     [Fact]
+    public async Task SynchronizingUnchangedMeter_PreservesUndoForARealizedMusicalPart()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        try
+        {
+            var workspace = new ProjectWorkspace(new JsonFileProjectRepository(directory));
+            var editor = await workspace.CreateAsync("Undo part", CancellationToken.None);
+            var verse = editor.Project.AddSection(SectionKind.Verse);
+            editor.Project.SetSectionRole(verse.Id, ArrangementRole.LowEndSupport);
+            editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 96);
+            editor.Execute(new UseLowEndSupportProposalCommand(verse.Id));
+
+            var undone = await workspace.UseAsync(
+                editor.Project.Id,
+                editor.Project,
+                current => current.Undo(),
+                CancellationToken.None);
+
+            Assert.True(undone);
+            Assert.Empty(editor.Project.MusicalParts);
+            Assert.Single(editor.Project.NoteEvents);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
     public async Task SynchronizingEditorBeforeSectionCommand_PreservesUnsavedLyrics()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
