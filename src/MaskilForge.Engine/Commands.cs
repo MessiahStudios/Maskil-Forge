@@ -84,9 +84,11 @@ public sealed class RemoveSectionCommand(SectionId sectionId) : IProjectCommand
     private SongSection? _removedSection;
     private int? _removedIndex;
     private int? _removedDurationBars;
+    private SectionArrangement? _removedArrangement;
 
     public void Execute(SongProject project)
     {
+        _removedArrangement ??= project.FindSectionArrangement(sectionId);
         var removed = project.RemoveSection(sectionId);
         _removedSection ??= removed.Section;
         _removedIndex ??= removed.Index;
@@ -98,6 +100,30 @@ public sealed class RemoveSectionCommand(SectionId sectionId) : IProjectCommand
         if (_removedSection is null || _removedIndex is null || _removedDurationBars is null)
             throw new InvalidOperationException("Command has not been executed.");
         project.InsertSection(_removedIndex.Value, _removedSection, _removedDurationBars.Value);
+        if (_removedArrangement is not null) project.RestoreSectionArrangement(sectionId, _removedArrangement);
+    }
+}
+
+public sealed class SetSectionArrangementCommand(
+    SectionId sectionId,
+    SectionEnergy energy,
+    SectionDensity density) : IProjectCommand
+{
+    private SectionArrangement? _previous;
+    private SectionArrangement? _next;
+    private bool _captured;
+
+    public void Execute(SongProject project)
+    {
+        if (!_captured) { _previous = project.FindSectionArrangement(sectionId); _captured = true; }
+        if (_next is null) _next = project.SetSectionArrangement(sectionId, energy, density);
+        else project.RestoreSectionArrangement(sectionId, _next);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (!_captured) throw new InvalidOperationException("Command has not been executed.");
+        project.RestoreSectionArrangement(sectionId, _previous);
     }
 }
 

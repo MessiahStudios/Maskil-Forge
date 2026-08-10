@@ -188,14 +188,15 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV15_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyHarmonyAndVoicingContract()
+    public async Task SchemaV16_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyHarmonyVoicingAndArrangementContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
         {
             var repository = new JsonFileProjectRepository(directory);
             var project = SongProject.Create("Schema Contract");
-            var line = project.AddSection(SectionKind.Verse).AddLyricLine("Words become addressable!");
+            var section = project.AddSection(SectionKind.Verse);
+            var line = section.AddLyricLine("Words become addressable!");
             line.SetSyllables(line.Words[1].Id, ["be", "come"]);
             line.SetStress(line.Words[1].Id, line.Words[1].Syllables[1].Id, StressLevel.Emphasized);
             line.SplitPhraseAfter(line.Words[1].Id);
@@ -220,11 +221,12 @@ public sealed class JsonPersistenceTests
                 new ChordSymbol(NoteLetter.G, Accidental.Natural, ChordQuality.DominantSeventh),
                 new BeatPosition(1, 1, 0),
                 2);
+            var arrangement = project.SetSectionArrangement(section.Id, SectionEnergy.Building, SectionDensity.Light);
             await repository.SaveAsync(project, CancellationToken.None);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(15, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(16, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -308,6 +310,12 @@ public sealed class JsonPersistenceTests
             Assert.Equal(2, harmony.GetProperty("durationBars").GetInt32());
             Assert.Equal("Manual", harmony.GetProperty("provenance").GetString());
             Assert.Equal(JsonValueKind.Null, harmony.GetProperty("voicing").ValueKind);
+            var savedArrangement = Assert.Single(root.GetProperty("arrangement").EnumerateArray());
+            Assert.Equal(arrangement.Id.ToString(), savedArrangement.GetProperty("id").GetString());
+            Assert.Equal(section.Id.ToString(), savedArrangement.GetProperty("sectionId").GetString());
+            Assert.Equal("Building", savedArrangement.GetProperty("energy").GetString());
+            Assert.Equal("Light", savedArrangement.GetProperty("density").GetString());
+            Assert.Equal("Manual", savedArrangement.GetProperty("provenance").GetString());
         }
         finally
         {

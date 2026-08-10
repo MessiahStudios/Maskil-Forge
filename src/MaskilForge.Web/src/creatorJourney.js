@@ -15,7 +15,7 @@ export function creatorProgress(project) {
     shape: Boolean(project?.sections.length),
     music: lines.some(line => line.syllablePlacements.length || line.rhythmCandidates.length),
     harmony: Boolean(project?.sections.some(section => section.harmony.length)),
-    arrangement: false,
+    arrangement: Boolean(project?.arrangement?.length),
   }
 }
 
@@ -25,5 +25,6 @@ export function creatorDestination(stage) {
   if (stage === 'shape') return { view: 'structure', target: 'song-structure', open: false, focus: false }
   if (stage === 'music') return { view: 'structure', target: 'musical-refinement', open: true, focus: false }
   if (stage === 'harmony') return { view: 'structure', target: 'harmony-tools', open: true, focus: false }
+  if (stage === 'arrangement') return { view: 'structure', target: 'arrangement-blueprint', open: false, focus: false }
   return null
 }

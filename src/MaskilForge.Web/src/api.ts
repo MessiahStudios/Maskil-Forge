@@ -14,6 +14,17 @@ export type Accidental = 'Natural' | 'Sharp' | 'Flat'
 export type ScaleMode = 'Major' | 'NaturalMinor'
 export type ChordQuality = 'Major' | 'Minor' | 'Diminished' | 'Augmented' | 'DominantSeventh'
 export type HarmonyProvenance = 'Manual' | 'Analyzer' | 'Imported'
+export type SectionEnergy = 'Intimate' | 'Gentle' | 'Building' | 'Strong' | 'Peak'
+export type SectionDensity = 'Sparse' | 'Light' | 'Balanced' | 'Full' | 'Dense'
+export type ArrangementProvenance = 'Manual' | 'Analyzer' | 'Imported'
+
+export interface SectionArrangement {
+  id: string
+  sectionId: string
+  energy: SectionEnergy
+  density: SectionDensity
+  provenance: ArrangementProvenance
+}
 
 export interface MusicalKey {
   tonic: NoteLetter
@@ -281,6 +292,7 @@ export interface SongProject {
   sections: SongSection[]
   tracks: unknown[]
   locks: CreativeLock[]
+  arrangement: SectionArrangement[]
   key: MusicalKey
 }
 
@@ -349,6 +361,8 @@ export interface ProjectCommand {
   registeredPitches?: RegisteredPitch[] | null
   minimumMidiNote?: number
   maximumMidiNote?: number
+  sectionEnergy?: SectionEnergy
+  sectionDensity?: SectionDensity
   text?: string
   syllables?: string[]
 }

@@ -285,6 +285,10 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "set-section-duration": editor.Execute(new SetSectionDurationCommand(
             RequiredSectionId(request),
             request.DurationBars ?? throw new ArgumentException("Section duration is required."))); break;
+        case "set-section-arrangement": editor.Execute(new SetSectionArrangementCommand(
+            RequiredSectionId(request),
+            request.SectionEnergy ?? throw new ArgumentException("Section energy is required."),
+            request.SectionDensity ?? throw new ArgumentException("Section density is required."))); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
@@ -503,6 +507,8 @@ public sealed record ProjectCommandRequest(
     IReadOnlyList<RegisteredPitch>? RegisteredPitches = null,
     int? MinimumMidiNote = null,
     int? MaximumMidiNote = null,
+    SectionEnergy? SectionEnergy = null,
+    SectionDensity? SectionDensity = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
