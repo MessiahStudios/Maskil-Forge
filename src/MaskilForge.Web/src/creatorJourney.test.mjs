@@ -21,6 +21,17 @@ test('music and harmony reveal their optional panels', () => {
   assert.deepEqual(creatorDestination('arrangement'), { view: 'structure', target: 'arrangement-blueprint', open: false, focus: false })
 })
 
+test('harmony and arrangement guide an empty song toward its first section', () => {
+  assert.deepEqual(creatorDestination('harmony', false), {
+    view: 'structure', target: 'song-structure', open: false, focus: false, stage: 'shape',
+    message: 'Add a section first, then explore harmony.',
+  })
+  assert.deepEqual(creatorDestination('arrangement', false), {
+    view: 'structure', target: 'song-structure', open: false, focus: false, stage: 'shape',
+    message: 'Add a section first, then plan its arrangement.',
+  })
+})
+
 test('arrangement progress reflects artist-authored section plans', () => {
   assert.equal(creatorProgress(project()).arrangement, false)
   assert.equal(creatorProgress(project({ arrangement: [{ sectionId: 'verse' }] })).arrangement, true)

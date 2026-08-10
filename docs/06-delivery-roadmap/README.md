@@ -222,6 +222,14 @@ Schema-v16 projects migrate to an empty role-assignment collection; the engine d
 
 **Deliverable:** an artist can describe what each section needs musically without knowing orchestration vocabulary or committing to a specific instrument.
 
+### Milestone 4.3 — Creator flow validation
+
+Validate the existing Idea-to-Arrangement journey as a complete beginner workflow before expanding the composition model. Fix only reproduced presentation problems: truthful progress language, clear prerequisite guidance when Harmony or Arrangement has no section to work with, visible destinations, and intentional empty states. Workspace navigation remains unlogged because it does not change the song.
+
+This checkpoint changes no domain model, schema, persistence behavior, migration, or API contract. Advanced tools remain available through the existing progressive disclosures.
+
+**Deliverable:** a new creator can move through the current songwriting path without mistaking unavailable context for a broken control.
+
 ## Milestone 5 — MIDI composition and preview
 
 Build melody, bass, drums, voicings, countermelody, and transition generators; add piano-roll editing, transport, simple synthesis, and MIDI export.
