@@ -228,6 +228,25 @@ app.MapPost("/api/projects/{id}/voice-leading-review", async (string id, VoiceLe
     }
 });
 
+app.MapPost("/api/projects/{id}/harmony-note-sketch", async (string id, HarmonyNoteSketchRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var sketch = await workspace.UseAsync(
+            projectId,
+            request.Project,
+            editor => HarmonyNoteSketcher.Project(editor.Project, request.SectionId),
+            cancellationToken);
+        return sketch is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(sketch);
+    }
+    catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/undo", async (string id, EditorStateRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -306,6 +325,7 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             request.Velocity ?? throw new ArgumentException("Velocity is required."))); break;
         case "remove-note-event": editor.Execute(new RemoveNoteEventCommand(
             request.NoteEventId ?? throw new ArgumentException("Note-event ID is required."))); break;
+        case "use-harmony-note-sketch": editor.Execute(new UseHarmonyNoteSketchCommand(RequiredSectionId(request))); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
@@ -491,6 +511,7 @@ public sealed record ProsodyScoreRequest(
     LyricPhraseId PhraseId,
     RhythmCandidateId? RhythmCandidateId = null);
 public sealed record VoiceLeadingReviewRequest(SongProject Project, SectionId SectionId);
+public sealed record HarmonyNoteSketchRequest(SongProject Project, SectionId SectionId);
 public sealed record LyricTimelineRequest(
     SongProject Project,
     RhythmCandidateId? RhythmCandidateId = null);

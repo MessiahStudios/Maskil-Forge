@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type HarmonyNoteSketch, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import type { RegisteredPitch } from './api'
@@ -59,6 +59,7 @@ const candidateLabelDrafts = reactive<Record<string, string>>({})
 const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
 const voiceLeadingReviews = reactive<Record<string, VoiceLeadingReview>>({})
+const harmonyNoteSketches = reactive<Record<string, HarmonyNoteSketch>>({})
 const chordAudition = new ChordAudition()
 const auditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const lyricTimeline = ref<LyricTimelineView | null>(null)
@@ -73,6 +74,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
   Object.keys(harmonyCandidateLabelDrafts).forEach(key => delete harmonyCandidateLabelDrafts[key])
   Object.keys(prosodyScores).forEach(key => delete prosodyScores[key])
   Object.keys(voiceLeadingReviews).forEach(key => delete voiceLeadingReviews[key])
+  Object.keys(harmonyNoteSketches).forEach(key => delete harmonyNoteSketches[key])
   projectId.value = next.project.id
   localStorage.setItem('maskilForge.projectId', next.project.id)
   status.value = message
@@ -823,6 +825,33 @@ async function reviewVoiceLeading(sectionId: string) {
     busy.value = false
   }
 }
+async function prepareHarmonyNoteSketch(sectionId: string) {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'midi.sketch.prepare', 'Playable-note sketch requested.', { sectionId })
+  try {
+    const sketch = await projectsApi.harmonyNoteSketch(project.value.id, project.value, sectionId)
+    harmonyNoteSketches[sectionId] = sketch
+    status.value = `${sketch.events.length} playable notes prepared for review.`
+    activityLog.write('success', 'midi.sketch.prepare', status.value, {
+      sectionId, noteCount: sketch.events.length, usesPreviewVoicings: sketch.usesPreviewVoicings,
+    })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The playable-note sketch could not be prepared.'
+    activityLog.write('error', 'midi.sketch.prepare', status.value, { sectionId })
+  } finally {
+    busy.value = false
+  }
+}
+function useHarmonyNoteSketch(sectionId: string) {
+  if (!project.value) return
+  const noteCount = harmonyNoteSketches[sectionId]?.events.length ?? 0
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'use-harmony-note-sketch', sectionId }),
+    `${noteCount} playable notes added from this harmony sketch.`,
+    'midi.sketch.use',
+    { sectionId, noteCount })
+}
 function addHarmonyChord(sectionId: string) {
   if (!project.value) return
   return run(
@@ -1264,6 +1293,30 @@ onBeforeUnmount(() => {
                 <button v-else type="button" class="quiet" @click="stopChordAudition('Playback stopped.')">■ Stop</button>
                 <p v-if="auditionState.messageSectionId === section.id" role="status">{{ auditionState.message }}</p>
               </div>
+              <section v-if="section.harmony?.length" class="harmony-note-sketch" :aria-label="`Playable-note sketch for ${section.title}`">
+                <div>
+                  <strong>Turn this harmony into playable notes</strong>
+                  <small>Preview the exact notes first. Nothing is added to your song until you choose “Use this sketch.”</small>
+                </div>
+                <button type="button" class="secondary" :disabled="busy" @click="prepareHarmonyNoteSketch(section.id)">
+                  {{ harmonyNoteSketches[section.id] ? 'Refresh note sketch' : 'Prepare note sketch' }}
+                </button>
+                <div v-if="harmonyNoteSketches[section.id]" class="harmony-note-sketch-result">
+                  <p>
+                    <strong>{{ harmonyNoteSketches[section.id].events.length }} notes ready to review</strong>
+                    <span v-if="harmonyNoteSketches[section.id].usesPreviewVoicings">Some chords use temporary preview voicings. Review the pitches before accepting.</span>
+                    <span v-else>Uses your registered chord voicings.</span>
+                  </p>
+                  <ol>
+                    <li v-for="(note, noteIndex) in harmonyNoteSketches[section.id].events" :key="`${note.startTick}:${formatRegisteredPitch(note.pitch)}:${noteIndex}`">
+                      <strong>{{ formatRegisteredPitch(note.pitch) }}</strong>
+                      <span>tick {{ note.startTick }} · {{ note.durationTicks }} ticks</span>
+                      <small>{{ note.usesPreviewVoicing ? 'Preview voicing' : 'Your voicing' }}</small>
+                    </li>
+                  </ol>
+                  <button type="button" :disabled="busy" @click="useHarmonyNoteSketch(section.id)">Use this sketch</button>
+                </div>
+              </section>
               <div v-if="section.harmony?.length" class="harmony-list">
                 <article v-for="item in section.harmony" :key="item.id" class="harmony-card">
                   <div class="harmony-symbol">
@@ -1607,7 +1660,7 @@ onBeforeUnmount(() => {
             <label>Velocity<input name="velocity" type="number" min="1" max="127" value="96" required :disabled="busy" /></label>
             <button type="submit" :disabled="busy">Add playable note</button>
           </form>
-          <p v-if="!project.noteEvents.length" class="note-event-empty">No playable notes yet. Harmony-to-note conversion comes in the next slice; this editor only proves the event foundation.</p>
+          <p v-if="!project.noteEvents.length" class="note-event-empty">No playable notes yet. Prepare a harmony note sketch above, or add notes here when you want precise control.</p>
           <ol v-else class="note-event-list">
             <li v-for="note in project.noteEvents" :key="note.id">
               <strong>{{ formatRegisteredPitch(note.pitch) }}</strong>
