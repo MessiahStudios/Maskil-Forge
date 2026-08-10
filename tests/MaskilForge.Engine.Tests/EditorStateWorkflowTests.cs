@@ -17,6 +17,7 @@ public sealed class EditorStateWorkflowTests
             var editor = await workspace.CreateAsync("Untitled Song", CancellationToken.None);
             var verse = editor.Project.AddSection(SectionKind.Verse);
             var line = verse.AddLyricLine("I have an idea");
+            var note = editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 96);
 
             var clientSnapshot = new SongProject(
                 editor.Project.Id,
@@ -48,6 +49,7 @@ public sealed class EditorStateWorkflowTests
             Assert.Equal(line.Id, reopened!.Sections[0].LyricLines[0].Id);
             Assert.Equal("I have an idea", reopened.Sections[0].LyricLines[0].Text);
             Assert.Equal(12, reopened.Timeline.FindSection(verse.Id).DurationBars);
+            Assert.Equal(note.Id, Assert.Single(reopened.NoteEvents).Id);
         }
         finally
         {

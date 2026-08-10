@@ -711,6 +711,15 @@ function formatRegisteredPitch(pitch: RegisteredPitch) {
   const accidental = pitch.accidental === 'Sharp' ? '#' : pitch.accidental === 'Flat' ? 'b' : ''
   return `${pitch.letter}${accidental}${pitch.octave}`
 }
+function parseRegisteredPitch(token: string): RegisteredPitch {
+  const match = /^([A-Ga-g])([#b]?)(-?\d)$/.exec(token.trim())
+  if (!match) throw new Error(`Use a note such as C4 or Bb3. '${token}' is not recognized.`)
+  return {
+    letter: match[1].toUpperCase() as NoteLetter,
+    accidental: match[2] === '#' ? 'Sharp' : match[2] === 'b' ? 'Flat' : 'Natural',
+    octave: Number(match[3]),
+  }
+}
 function setChordVoicing(sectionId: string, harmonyChordId: string, event: Event) {
   if (!project.value) return
   const form = event.currentTarget as HTMLFormElement
@@ -718,11 +727,7 @@ function setChordVoicing(sectionId: string, harmonyChordId: string, event: Event
   const tokens = text ? text.split(/[\s,]+/) : []
   let registeredPitches: RegisteredPitch[]
   try {
-    registeredPitches = tokens.map(token => {
-      const match = /^([A-Ga-g])([#b]?)(-?\d)$/.exec(token)
-      if (!match) throw new Error(`Use notes such as C3, G3, E4. '${token}' is not recognized.`)
-      return { letter: match[1].toUpperCase() as NoteLetter, accidental: match[2] === '#' ? 'Sharp' : match[2] === 'b' ? 'Flat' : 'Natural', octave: Number(match[3]) }
-    })
+    registeredPitches = tokens.map(parseRegisteredPitch)
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'The voicing could not be read.'
     activityLog.write('warning', 'harmony.voicing.set', status.value, { sectionId, harmonyChordId })
@@ -733,6 +738,34 @@ function setChordVoicing(sectionId: string, harmonyChordId: string, event: Event
     registeredPitches.length ? `Voicing set to ${tokens.join(' ')}.` : 'Chord voicing cleared.',
     'harmony.voicing.set',
     { sectionId, harmonyChordId, voiceCount: registeredPitches.length })
+}
+function addNoteEvent(event: Event) {
+  if (!project.value) return
+  const form = event.currentTarget as HTMLFormElement
+  const data = new FormData(form)
+  try {
+    const notePitch = parseRegisteredPitch(String(data.get('pitch') ?? ''))
+    const startTick = Number(data.get('startTick'))
+    const durationTicks = Number(data.get('durationTicks'))
+    const velocity = Number(data.get('velocity'))
+    return run(
+      () => projectsApi.command(project.value!.id, project.value!, { type: 'add-note-event', notePitch, startTick, durationTicks, velocity }),
+      `${formatRegisteredPitch(notePitch)} added to the playable-note foundation.`,
+      'midi.note.add',
+      { pitch: formatRegisteredPitch(notePitch), startTick, durationTicks, velocity })
+      ?.then(succeeded => { if (succeeded) form.reset() })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The note could not be read.'
+    activityLog.write('warning', 'midi.note.add', status.value)
+  }
+}
+function removeNoteEvent(noteEventId: string, pitch: RegisteredPitch) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'remove-note-event', noteEventId }),
+    `${formatRegisteredPitch(pitch)} removed from the playable-note foundation.`,
+    'midi.note.remove',
+    { noteEventId, pitch: formatRegisteredPitch(pitch) })
 }
 function chordLabel(sectionId: string, chordId: string) {
   const section = project.value?.sections.find(item => item.id === sectionId)
@@ -1559,6 +1592,31 @@ onBeforeUnmount(() => {
         <p v-else class="arrangement-empty">Add a Verse, Chorus, or another section above. Then you can describe how its energy should grow and what musical jobs it needs.</p>
         <p class="arrangement-boundary">Instrument choices, generated parts, and MIDI come in later slices.</p>
       </section>
+
+      <details class="disclosure-panel note-event-foundation">
+        <summary><span>Inspect playable notes</span><small>Advanced · A data foundation for later sketches and MIDI export.</small></summary>
+        <div class="note-event-editor">
+          <div>
+            <strong>Playable-note foundation</strong>
+            <p>These notes are explicit project data. Nothing here selects an instrument, generates a part, starts playback, or exports MIDI.</p>
+          </div>
+          <form class="note-event-form" @submit.prevent="addNoteEvent">
+            <label>Pitch<input name="pitch" required placeholder="C4" :disabled="busy" /></label>
+            <label>Start tick<input name="startTick" type="number" min="0" value="0" required :disabled="busy" /></label>
+            <label>Duration<input name="durationTicks" type="number" min="1" :value="project.timeline.ticksPerQuarterNote" required :disabled="busy" /></label>
+            <label>Velocity<input name="velocity" type="number" min="1" max="127" value="96" required :disabled="busy" /></label>
+            <button type="submit" :disabled="busy">Add playable note</button>
+          </form>
+          <p v-if="!project.noteEvents.length" class="note-event-empty">No playable notes yet. Harmony-to-note conversion comes in the next slice; this editor only proves the event foundation.</p>
+          <ol v-else class="note-event-list">
+            <li v-for="note in project.noteEvents" :key="note.id">
+              <strong>{{ formatRegisteredPitch(note.pitch) }}</strong>
+              <span>tick {{ note.startTick }} · {{ note.durationTicks }} ticks · velocity {{ note.velocity }}</span>
+              <button type="button" class="danger" :disabled="busy" @click="removeNoteEvent(note.id, note.pitch)">Remove</button>
+            </li>
+          </ol>
+        </div>
+      </details>
 
       <details class="song-settings">
         <summary>Song settings</summary>

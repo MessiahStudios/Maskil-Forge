@@ -234,6 +234,14 @@ This checkpoint changes no domain model, schema, persistence behavior, migration
 
 Build melody, bass, drums, voicings, countermelody, and transition generators; add piano-roll editing, transport, simple synthesis, and MIDI export.
 
+### Milestone 5.1 — MIDI event foundation
+
+Represent a playable note as stable project data: registered pitch, absolute start tick, duration in ticks, and velocity. Note events validate MIDI pitch and velocity boundaries, remain ordered in project time, survive save/load, and participate in undo/redo. Existing schema-v17 projects migrate to an empty note-event collection; migration does not invent musical material.
+
+The browser exposes this foundation only through an advanced disclosure so beginners are not asked to work in raw ticks. This slice does not convert harmony, infer notes from arrangement roles, select instruments, create tracks or clips, generate parts, start playback, add transport or piano-roll editing, or write a `.mid` file.
+
+**Deliverable:** Maskil Forge can preserve an explicit playable note without claiming that it generated, performed, or exported it.
+
 **Deliverable:** the blueprint becomes an audible, editable demo.
 
 This is the first strong MVP boundary.
