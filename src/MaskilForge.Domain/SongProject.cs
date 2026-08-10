@@ -23,6 +23,7 @@ public sealed class SongProject
     private readonly List<Track> _tracks;
     private readonly List<CreativeLock> _locks;
     private readonly List<SectionArrangement> _arrangement;
+    private readonly List<SectionRoleAssignment> _arrangementRoles;
 
     [JsonConstructor]
     public SongProject(
@@ -40,7 +41,8 @@ public sealed class SongProject
         DateTimeOffset lastModifiedUtc = default,
         IReadOnlyList<CreativeLock>? locks = null,
         MusicalKey? key = null,
-        IReadOnlyList<SectionArrangement>? arrangement = null)
+        IReadOnlyList<SectionArrangement>? arrangement = null,
+        IReadOnlyList<SectionRoleAssignment>? arrangementRoles = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -56,6 +58,7 @@ public sealed class SongProject
         _tracks = tracks?.ToList() ?? [];
         _locks = locks?.Select(CloneLock).ToList() ?? [];
         _arrangement = arrangement?.ToList() ?? [];
+        _arrangementRoles = arrangementRoles?.ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -87,6 +90,7 @@ public sealed class SongProject
     public IReadOnlyList<Track> Tracks => _tracks;
     public IReadOnlyList<CreativeLock> Locks => _locks;
     public IReadOnlyList<SectionArrangement> Arrangement => _arrangement;
+    public IReadOnlyList<SectionRoleAssignment> ArrangementRoles => _arrangementRoles;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -182,6 +186,7 @@ public sealed class SongProject
         var durationBars = Timeline.FindSection(sectionId).DurationBars;
         _sections.RemoveAt(index);
         _arrangement.RemoveAll(item => item.SectionId == sectionId);
+        _arrangementRoles.RemoveAll(item => item.SectionId == sectionId);
         Timeline.ReflowSections(_sections.Select(item => item.Id).ToList());
         ReconcileLocks();
         Touch();
@@ -210,6 +215,45 @@ public sealed class SongProject
         FindSection(sectionId);
         _arrangement.RemoveAll(item => item.SectionId == sectionId);
         if (arrangement is not null) _arrangement.Add(arrangement);
+        Touch();
+    }
+
+    public SectionRoleAssignment? FindSectionRole(SectionId sectionId, ArrangementRole role) =>
+        _arrangementRoles.SingleOrDefault(item => item.SectionId == sectionId && item.Role == role);
+
+    public SectionRoleAssignment SetSectionRole(SectionId sectionId, ArrangementRole role)
+    {
+        FindSection(sectionId);
+        var existing = FindSectionRole(sectionId, role);
+        if (existing is not null) return existing;
+        var created = new SectionRoleAssignment(SectionRoleAssignmentId.New(), sectionId, role, ArrangementProvenance.Manual);
+        _arrangementRoles.Add(created);
+        Touch();
+        return created;
+    }
+
+    public SectionRoleAssignment RemoveSectionRole(SectionId sectionId, ArrangementRole role)
+    {
+        var existing = FindSectionRole(sectionId, role)
+            ?? throw new KeyNotFoundException($"Arrangement role '{role}' is not assigned to section '{sectionId}'.");
+        _arrangementRoles.Remove(existing);
+        Touch();
+        return existing;
+    }
+
+    public void RestoreSectionRole(SectionRoleAssignment assignment)
+    {
+        FindSection(assignment.SectionId);
+        _arrangementRoles.RemoveAll(item => item.SectionId == assignment.SectionId && item.Role == assignment.Role);
+        _arrangementRoles.Add(assignment);
+        Touch();
+    }
+
+    public void RestoreSectionRoles(SectionId sectionId, IEnumerable<SectionRoleAssignment> assignments)
+    {
+        FindSection(sectionId);
+        _arrangementRoles.RemoveAll(item => item.SectionId == sectionId);
+        _arrangementRoles.AddRange(assignments);
         Touch();
     }
 
@@ -533,6 +577,12 @@ public sealed class SongProject
             throw new ArgumentException("A section can have only one arrangement plan.");
         if (_arrangement.Any(item => _sections.All(section => section.Id != item.SectionId)))
             throw new ArgumentException("Every section arrangement must reference an existing section.");
+        if (_arrangementRoles.Select(item => item.Id).Distinct().Count() != _arrangementRoles.Count)
+            throw new ArgumentException("Section role-assignment IDs must be unique.");
+        if (_arrangementRoles.Select(item => (item.SectionId, item.Role)).Distinct().Count() != _arrangementRoles.Count)
+            throw new ArgumentException("A role can be assigned only once within a section.");
+        if (_arrangementRoles.Any(item => _sections.All(section => section.Id != item.SectionId)))
+            throw new ArgumentException("Every arrangement role must reference an existing section.");
         var lines = _sections.SelectMany(section => section.LyricLines).ToList();
         if (lines.Select(line => line.Id).Distinct().Count() != lines.Count)
             throw new ArgumentException("Lyric line IDs must be unique across the project.");

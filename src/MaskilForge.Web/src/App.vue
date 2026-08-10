@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type Accidental, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import type { RegisteredPitch } from './api'
@@ -43,6 +43,17 @@ const scaleModes: ScaleMode[] = ['Major', 'NaturalMinor']
 const chordQualities: ChordQuality[] = ['Major', 'Minor', 'Diminished', 'Augmented', 'DominantSeventh']
 const sectionEnergies: SectionEnergy[] = ['Intimate', 'Gentle', 'Building', 'Strong', 'Peak']
 const sectionDensities: SectionDensity[] = ['Sparse', 'Light', 'Balanced', 'Full', 'Dense']
+const arrangementRoles: Array<{ id: ArrangementRole; label: string; help: string }> = [
+  { id: 'Foundation', label: 'Foundation', help: 'The grounding layer that makes the section feel settled.' },
+  { id: 'Pulse', label: 'Pulse', help: 'A repeating motion that helps the section move.' },
+  { id: 'Harmony', label: 'Harmony support', help: 'A layer that carries or colors the chords.' },
+  { id: 'LowEndSupport', label: 'Low-end support', help: 'Weight beneath the song without naming a bass instrument.' },
+  { id: 'Texture', label: 'Texture', help: 'Atmosphere, space, or sustained color.' },
+  { id: 'Accent', label: 'Accents', help: 'Selective emphasis around important moments.' },
+  { id: 'Transition', label: 'Transitions', help: 'Movement into or out of this section.' },
+  { id: 'Countermelody', label: 'Countermelody', help: 'A supporting melodic response.' },
+  { id: 'HookReinforcement', label: 'Hook reinforcement', help: 'Extra support for the section’s memorable idea.' },
+]
 const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
 const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
@@ -873,6 +884,18 @@ function setSectionArrangement(sectionId: string, energy: SectionEnergy, density
     'arrangement.section.set',
     { sectionId, energy, density })
 }
+function sectionHasRole(sectionId: string, role: ArrangementRole) {
+  return Boolean(project.value?.arrangementRoles.some(item => item.sectionId === sectionId && item.role === role))
+}
+function setSectionRole(sectionId: string, role: ArrangementRole, present: boolean) {
+  if (!project.value) return
+  const roleLabel = arrangementRoles.find(item => item.id === role)?.label ?? role
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-section-role', sectionId, arrangementRole: role, rolePresent: present }),
+    present ? `${roleLabel} added to this section.` : `${roleLabel} removed from this section.`,
+    'arrangement.role.set',
+    { sectionId, role, present })
+}
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
 type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
 const activeCreatorStage = ref<CreatorStage>('idea')
@@ -1513,9 +1536,26 @@ onBeforeUnmount(() => {
             </label>
             <small v-if="!arrangementFor(section.id)" class="arrangement-prompt">Choose either value to begin shaping this section.</small>
             <small v-else class="arrangement-saved">Saved as an artist decision.</small>
+            <fieldset class="arrangement-role-picker">
+              <legend>What does this section need?</legend>
+              <p>Choose musical jobs now. Instruments can be selected later.</p>
+              <button
+                v-for="role in arrangementRoles"
+                :key="role.id"
+                type="button"
+                class="role-choice"
+                :class="{ selected: sectionHasRole(section.id, role.id) }"
+                :aria-pressed="sectionHasRole(section.id, role.id)"
+                :title="role.help"
+                :disabled="busy"
+                @click="setSectionRole(section.id, role.id, !sectionHasRole(section.id, role.id))">
+                <span>{{ role.label }}</span>
+                <small>{{ role.help }}</small>
+              </button>
+            </fieldset>
           </article>
         </div>
-        <p class="arrangement-boundary">Instrument roles, instrument choices, generated parts, and MIDI come in later slices.</p>
+        <p class="arrangement-boundary">Instrument choices, generated parts, and MIDI come in later slices.</p>
       </section>
 
       <details class="song-settings">

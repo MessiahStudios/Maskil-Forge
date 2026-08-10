@@ -17,12 +17,20 @@ export type HarmonyProvenance = 'Manual' | 'Analyzer' | 'Imported'
 export type SectionEnergy = 'Intimate' | 'Gentle' | 'Building' | 'Strong' | 'Peak'
 export type SectionDensity = 'Sparse' | 'Light' | 'Balanced' | 'Full' | 'Dense'
 export type ArrangementProvenance = 'Manual' | 'Analyzer' | 'Imported'
+export type ArrangementRole = 'Foundation' | 'Pulse' | 'Harmony' | 'LowEndSupport' | 'Texture' | 'Accent' | 'Transition' | 'Countermelody' | 'HookReinforcement'
 
 export interface SectionArrangement {
   id: string
   sectionId: string
   energy: SectionEnergy
   density: SectionDensity
+  provenance: ArrangementProvenance
+}
+
+export interface SectionRoleAssignment {
+  id: string
+  sectionId: string
+  role: ArrangementRole
   provenance: ArrangementProvenance
 }
 
@@ -293,6 +301,7 @@ export interface SongProject {
   tracks: unknown[]
   locks: CreativeLock[]
   arrangement: SectionArrangement[]
+  arrangementRoles: SectionRoleAssignment[]
   key: MusicalKey
 }
 
@@ -363,6 +372,8 @@ export interface ProjectCommand {
   maximumMidiNote?: number
   sectionEnergy?: SectionEnergy
   sectionDensity?: SectionDensity
+  arrangementRole?: ArrangementRole
+  rolePresent?: boolean
   text?: string
   syllables?: string[]
 }

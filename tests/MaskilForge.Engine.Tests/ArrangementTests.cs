@@ -7,6 +7,37 @@ namespace MaskilForge.Engine.Tests;
 public sealed class ArrangementTests
 {
     [Fact]
+    public void SetSectionRoleCommand_PreservesIdentityAcrossUndoRedo()
+    {
+        var project = SongProject.Create("Roles");
+        var section = project.AddSection(SectionKind.Chorus);
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetSectionRoleCommand(section.Id, ArrangementRole.HookReinforcement, true));
+        var assignment = Assert.Single(project.ArrangementRoles);
+        editor.Undo();
+        Assert.Empty(project.ArrangementRoles);
+        editor.Redo();
+
+        Assert.Equal(assignment.Id, Assert.Single(project.ArrangementRoles).Id);
+    }
+
+    [Fact]
+    public void RemoveSectionCommand_UndoRestoresRoleAssignments()
+    {
+        var project = SongProject.Create("Roles");
+        var section = project.AddSection(SectionKind.Bridge);
+        var assignment = project.SetSectionRole(section.Id, ArrangementRole.Transition);
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new RemoveSectionCommand(section.Id));
+        Assert.Empty(project.ArrangementRoles);
+        editor.Undo();
+
+        Assert.Equal(assignment.Id, Assert.Single(project.ArrangementRoles).Id);
+    }
+
+    [Fact]
     public void SetSectionArrangementCommand_PreservesIdentityAcrossUndoRedo()
     {
         var project = SongProject.Create("Energy curve");
@@ -49,6 +80,7 @@ public sealed class ArrangementTests
             var project = SongProject.Create("Energy curve");
             var section = project.AddSection(SectionKind.Bridge);
             var plan = project.SetSectionArrangement(section.Id, SectionEnergy.Strong, SectionDensity.Sparse);
+            var role = project.SetSectionRole(section.Id, ArrangementRole.Texture);
             var repository = new JsonFileProjectRepository(directory);
 
             await repository.SaveAsync(project);
@@ -57,6 +89,9 @@ public sealed class ArrangementTests
             Assert.Equal(plan.Id, restored.Id);
             Assert.Equal(section.Id, restored.SectionId);
             Assert.Equal(ArrangementProvenance.Manual, restored.Provenance);
+            var restoredRole = Assert.Single((await repository.LoadAsync(project.Id))!.ArrangementRoles);
+            Assert.Equal(role.Id, restoredRole.Id);
+            Assert.Equal(ArrangementRole.Texture, restoredRole.Role);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
@@ -87,6 +122,36 @@ public sealed class ArrangementTests
 
             Assert.Equal(SchemaVersion.Current, loaded!.SchemaVersion);
             Assert.Empty(loaded.Arrangement);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task Load_MigratesSchemaV16WithoutInventingRoles()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var projectId = ProjectId.New();
+        try
+        {
+            Directory.CreateDirectory(directory);
+            await File.WriteAllTextAsync(Path.Combine(directory, $"{projectId}.json"), $$"""
+            {
+              "id": "{{projectId}}", "schemaVersion": 16, "title": "Role Migration",
+              "timeline": {
+                "ticksPerQuarterNote": 480,
+                "tempoMap": { "events": [{ "beat": 0, "beatsPerMinute": 120 }] },
+                "timeSignatureMap": { "events": [{ "beat": 0, "numerator": 4, "denominator": 4 }] },
+                "sectionPlacements": []
+              },
+              "sections": [], "tracks": [], "locks": [], "arrangement": [],
+              "key": { "tonic": "C", "accidental": "Natural", "mode": "Major" }
+            }
+            """);
+
+            var loaded = await new JsonFileProjectRepository(directory).LoadAsync(projectId);
+
+            Assert.Equal(SchemaVersion.Current, loaded!.SchemaVersion);
+            Assert.Empty(loaded.ArrangementRoles);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }
