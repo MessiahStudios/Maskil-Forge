@@ -70,6 +70,8 @@ export interface HarmonyNoteSketchEvent extends Omit<NoteEvent, 'id'> { usesPrev
 export interface HarmonyNoteSketch { sectionId: string; events: HarmonyNoteSketchEvent[]; usesPreviewVoicings: boolean }
 export interface LowEndSupportProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
 export interface LowEndSupportProposal { sectionId: string; partLabel: string; events: LowEndSupportProposalEvent[]; reusedNoteCount: number }
+export interface PulseProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
+export interface PulseProposal { sectionId: string; partLabel: string; events: PulseProposalEvent[]; reusedNoteCount: number }
 export interface ChordVoice { id: string; position: number; pitch: RegisteredPitch; provenance: HarmonyProvenance }
 export interface ChordVoicing { id: string; minimumMidiNote: number; maximumMidiNote: number; voices: ChordVoice[] }
 
@@ -484,6 +486,10 @@ export const projectsApi = {
     }),
   lowEndSupportProposal: (id: string, project: SongProject, sectionId: string) =>
     request<LowEndSupportProposal>(`/api/projects/${id}/low-end-support-proposal`, {
+      method: 'POST', body: JSON.stringify({ project, sectionId }),
+    }),
+  pulseProposal: (id: string, project: SongProject, sectionId: string) =>
+    request<PulseProposal>(`/api/projects/${id}/pulse-proposal`, {
       method: 'POST', body: JSON.stringify({ project, sectionId }),
     }),
   exportMidi: (id: string, project: SongProject) =>
