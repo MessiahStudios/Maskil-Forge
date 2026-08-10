@@ -188,7 +188,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV17_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyHarmonyVoicingAndArrangementContract()
+    public async Task SchemaV18_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyHarmonyArrangementAndNoteContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -223,11 +223,12 @@ public sealed class JsonPersistenceTests
                 2);
             var arrangement = project.SetSectionArrangement(section.Id, SectionEnergy.Building, SectionDensity.Light);
             var arrangementRole = project.SetSectionRole(section.Id, ArrangementRole.Pulse);
+            var noteEvent = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 96);
             await repository.SaveAsync(project, CancellationToken.None);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(17, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(18, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -322,6 +323,13 @@ public sealed class JsonPersistenceTests
             Assert.Equal(section.Id.ToString(), savedRole.GetProperty("sectionId").GetString());
             Assert.Equal("Pulse", savedRole.GetProperty("role").GetString());
             Assert.Equal("Manual", savedRole.GetProperty("provenance").GetString());
+            var savedNote = Assert.Single(root.GetProperty("noteEvents").EnumerateArray());
+            Assert.Equal(noteEvent.Id.ToString(), savedNote.GetProperty("id").GetString());
+            Assert.Equal("C", savedNote.GetProperty("pitch").GetProperty("letter").GetString());
+            Assert.Equal(4, savedNote.GetProperty("pitch").GetProperty("octave").GetInt32());
+            Assert.Equal(0, savedNote.GetProperty("startTick").GetInt64());
+            Assert.Equal(480, savedNote.GetProperty("durationTicks").GetInt64());
+            Assert.Equal(96, savedNote.GetProperty("velocity").GetInt32());
         }
         finally
         {

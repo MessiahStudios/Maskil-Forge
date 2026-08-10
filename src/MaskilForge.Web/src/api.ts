@@ -56,6 +56,7 @@ export interface HarmonyChord {
 }
 
 export interface RegisteredPitch { letter: NoteLetter; accidental: Accidental; octave: number }
+export interface NoteEvent { id: string; pitch: RegisteredPitch; startTick: number; durationTicks: number; velocity: number }
 export interface ChordVoice { id: string; position: number; pitch: RegisteredPitch; provenance: HarmonyProvenance }
 export interface ChordVoicing { id: string; minimumMidiNote: number; maximumMidiNote: number; voices: ChordVoice[] }
 
@@ -302,6 +303,7 @@ export interface SongProject {
   locks: CreativeLock[]
   arrangement: SectionArrangement[]
   arrangementRoles: SectionRoleAssignment[]
+  noteEvents: NoteEvent[]
   key: MusicalKey
 }
 
@@ -374,6 +376,11 @@ export interface ProjectCommand {
   sectionDensity?: SectionDensity
   arrangementRole?: ArrangementRole
   rolePresent?: boolean
+  noteEventId?: string
+  notePitch?: RegisteredPitch
+  startTick?: number
+  durationTicks?: number
+  velocity?: number
   text?: string
   syllables?: string[]
 }

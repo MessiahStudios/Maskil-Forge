@@ -217,6 +217,15 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .role-choice small { color: #8f9688; font-weight: 400; }
 .role-choice.selected { color: #f3dfaa; background: #2b2d20; border-color: #b29b5d; box-shadow: inset 0 0 0 1px rgba(214, 184, 109, .18); }
 .role-choice.selected small { color: #b9b39f; }
+.note-event-editor { display: grid; gap: .8rem; padding: .8rem; }
+.note-event-editor p { margin: .2rem 0 0; color: #9fa596; }
+.note-event-form { display: grid; grid-template-columns: repeat(4, minmax(7rem, 1fr)) auto; gap: .55rem; align-items: end; }
+.note-event-form label { display: grid; gap: .2rem; color: #c7c0b1; font-size: .72rem; }
+.note-event-form input { width: 100%; }
+.note-event-empty { padding: .7rem; border: 1px dashed #454b40; border-radius: .35rem; }
+.note-event-list { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.note-event-list li { display: grid; grid-template-columns: minmax(4rem, .25fr) 1fr auto; gap: .6rem; align-items: center; padding: .55rem; background: #161a15; border: 1px solid #3e443a; }
+.note-event-list span { color: #aeb3a7; font: .75rem ui-monospace, Consolas, monospace; }
 .lyric-line { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: .55rem; align-items: start; }
 .lyric-line-number { color: #92988a; text-align: right; font: .78rem ui-monospace, Consolas, monospace; padding-top: .95rem; }
 .lyric-line-actions { display: flex; gap: .4rem; align-items: start; flex-wrap: wrap; justify-content: end; }
@@ -336,6 +345,9 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .creator-journey { grid-template-columns: 1fr; }
   .creator-journey ol { grid-template-columns: repeat(3, 1fr); }
   .creator-journey li::after { display: none; }
+  .note-event-form { grid-template-columns: 1fr 1fr; }
+  .note-event-form button { grid-column: 1 / -1; }
+  .note-event-list li { grid-template-columns: 1fr; }
   .disclosure-panel > summary { grid-template-columns: 1fr auto; }
   .section-toolbar button { flex: 1 1 45%; }
   .section-identity { grid-template-columns: 1fr; }

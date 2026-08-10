@@ -170,6 +170,74 @@ public sealed class SetSectionArrangementCommand(
     }
 }
 
+public sealed class AddNoteEventCommand(
+    RegisteredPitch pitch,
+    long startTick,
+    long durationTicks,
+    int velocity) : IProjectCommand
+{
+    private NoteEvent? _created;
+
+    public NoteEventId? NoteEventId => _created?.Id;
+
+    public void Execute(SongProject project)
+    {
+        if (_created is null) _created = project.AddNoteEvent(pitch, startTick, durationTicks, velocity);
+        else project.RestoreNoteEvent(_created);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_created is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RemoveNoteEvent(_created.Id);
+    }
+}
+
+public sealed class SetNoteEventCommand(
+    NoteEventId noteEventId,
+    RegisteredPitch pitch,
+    long startTick,
+    long durationTicks,
+    int velocity) : IProjectCommand
+{
+    private NoteEvent? _before;
+    private NoteEvent? _after;
+
+    public void Execute(SongProject project)
+    {
+        if (_after is null)
+        {
+            _before = project.NoteEvents.SingleOrDefault(item => item.Id == noteEventId)
+                ?? throw new KeyNotFoundException($"Note event '{noteEventId}' was not found.");
+            _after = project.SetNoteEvent(noteEventId, pitch, startTick, durationTicks, velocity);
+        }
+        else project.RestoreNoteEvent(_after);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_before is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RestoreNoteEvent(_before);
+    }
+}
+
+public sealed class RemoveNoteEventCommand(NoteEventId noteEventId) : IProjectCommand
+{
+    private NoteEvent? _removed;
+
+    public void Execute(SongProject project)
+    {
+        if (_removed is null) _removed = project.RemoveNoteEvent(noteEventId);
+        else project.RemoveNoteEvent(noteEventId);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_removed is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RestoreNoteEvent(_removed);
+    }
+}
+
 public sealed class SplitLyricPhraseCommand(
     SectionId sectionId,
     LyricLineId lineId,

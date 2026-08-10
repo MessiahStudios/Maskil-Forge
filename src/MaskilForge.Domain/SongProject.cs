@@ -24,6 +24,7 @@ public sealed class SongProject
     private readonly List<CreativeLock> _locks;
     private readonly List<SectionArrangement> _arrangement;
     private readonly List<SectionRoleAssignment> _arrangementRoles;
+    private readonly List<NoteEvent> _noteEvents;
 
     [JsonConstructor]
     public SongProject(
@@ -42,7 +43,8 @@ public sealed class SongProject
         IReadOnlyList<CreativeLock>? locks = null,
         MusicalKey? key = null,
         IReadOnlyList<SectionArrangement>? arrangement = null,
-        IReadOnlyList<SectionRoleAssignment>? arrangementRoles = null)
+        IReadOnlyList<SectionRoleAssignment>? arrangementRoles = null,
+        IReadOnlyList<NoteEvent>? noteEvents = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -59,6 +61,7 @@ public sealed class SongProject
         _locks = locks?.Select(CloneLock).ToList() ?? [];
         _arrangement = arrangement?.ToList() ?? [];
         _arrangementRoles = arrangementRoles?.ToList() ?? [];
+        _noteEvents = noteEvents?.OrderBy(item => item.StartTick).ThenBy(item => item.Pitch.MidiNumber).ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -91,6 +94,7 @@ public sealed class SongProject
     public IReadOnlyList<CreativeLock> Locks => _locks;
     public IReadOnlyList<SectionArrangement> Arrangement => _arrangement;
     public IReadOnlyList<SectionRoleAssignment> ArrangementRoles => _arrangementRoles;
+    public IReadOnlyList<NoteEvent> NoteEvents => _noteEvents;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -269,6 +273,42 @@ public sealed class SongProject
         if (section.HarmonyCandidates.SelectMany(item => item.Events).Any(item => item.Start.Bar > durationBars || item.Start.Bar + item.DurationBars - 1 > durationBars))
             throw new InvalidOperationException("Section duration cannot end before an existing harmony option. Remove that option first.");
         Timeline.SetSectionDuration(sectionId, durationBars, _sections.Select(item => item.Id).ToList());
+        Touch();
+    }
+
+    public NoteEvent AddNoteEvent(RegisteredPitch pitch, long startTick, long durationTicks, int velocity)
+    {
+        var created = new NoteEvent(NoteEventId.New(), pitch, startTick, durationTicks, velocity);
+        RestoreNoteEvent(created);
+        return created;
+    }
+
+    public NoteEvent SetNoteEvent(NoteEventId noteEventId, RegisteredPitch pitch, long startTick, long durationTicks, int velocity)
+    {
+        var index = _noteEvents.FindIndex(item => item.Id == noteEventId);
+        if (index < 0) throw new KeyNotFoundException($"Note event '{noteEventId}' was not found.");
+        var updated = _noteEvents[index].With(pitch, startTick, durationTicks, velocity);
+        _noteEvents[index] = updated;
+        SortNoteEvents();
+        Touch();
+        return updated;
+    }
+
+    public NoteEvent RemoveNoteEvent(NoteEventId noteEventId)
+    {
+        var existing = _noteEvents.SingleOrDefault(item => item.Id == noteEventId)
+            ?? throw new KeyNotFoundException($"Note event '{noteEventId}' was not found.");
+        _noteEvents.Remove(existing);
+        Touch();
+        return existing;
+    }
+
+    public void RestoreNoteEvent(NoteEvent noteEvent)
+    {
+        ArgumentNullException.ThrowIfNull(noteEvent);
+        _noteEvents.RemoveAll(item => item.Id == noteEvent.Id);
+        _noteEvents.Add(noteEvent);
+        SortNoteEvents();
         Touch();
     }
 
@@ -571,6 +611,8 @@ public sealed class SongProject
             throw new ArgumentException("Section IDs must be unique.");
         if (_tracks.Select(track => track.Id).Distinct().Count() != _tracks.Count)
             throw new ArgumentException("Track IDs must be unique.");
+        if (_noteEvents.Select(item => item.Id).Distinct().Count() != _noteEvents.Count)
+            throw new ArgumentException("Note-event IDs must be unique.");
         if (_arrangement.Select(item => item.Id).Distinct().Count() != _arrangement.Count)
             throw new ArgumentException("Section arrangement IDs must be unique.");
         if (_arrangement.Select(item => item.SectionId).Distinct().Count() != _arrangement.Count)
@@ -671,6 +713,12 @@ public sealed class SongProject
         lockItem.LineId,
         lockItem.PhraseId,
         lockItem.Provenance);
+
+    private void SortNoteEvents() => _noteEvents.Sort((left, right) =>
+    {
+        var tickComparison = left.StartTick.CompareTo(right.StartTick);
+        return tickComparison != 0 ? tickComparison : left.Pitch.MidiNumber.CompareTo(right.Pitch.MidiNumber);
+    });
 
     private void ValidateAllSyllablePlacements(TimeSignatureEvent meter)
     {

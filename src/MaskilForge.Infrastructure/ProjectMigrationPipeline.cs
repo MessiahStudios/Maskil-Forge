@@ -483,3 +483,16 @@ internal sealed class V16ToV17ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V17ToV18ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 17;
+    public int ToVersion => 18;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        project["noteEvents"] = new JsonArray();
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

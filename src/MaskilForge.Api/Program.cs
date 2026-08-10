@@ -293,6 +293,19 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             RequiredSectionId(request),
             request.ArrangementRole ?? throw new ArgumentException("Arrangement role is required."),
             request.RolePresent ?? throw new ArgumentException("Role presence is required."))); break;
+        case "add-note-event": editor.Execute(new AddNoteEventCommand(
+            request.NotePitch ?? throw new ArgumentException("Note pitch is required."),
+            request.StartTick ?? throw new ArgumentException("Start tick is required."),
+            request.DurationTicks ?? throw new ArgumentException("Duration in ticks is required."),
+            request.Velocity ?? throw new ArgumentException("Velocity is required."))); break;
+        case "set-note-event": editor.Execute(new SetNoteEventCommand(
+            request.NoteEventId ?? throw new ArgumentException("Note-event ID is required."),
+            request.NotePitch ?? throw new ArgumentException("Note pitch is required."),
+            request.StartTick ?? throw new ArgumentException("Start tick is required."),
+            request.DurationTicks ?? throw new ArgumentException("Duration in ticks is required."),
+            request.Velocity ?? throw new ArgumentException("Velocity is required."))); break;
+        case "remove-note-event": editor.Execute(new RemoveNoteEventCommand(
+            request.NoteEventId ?? throw new ArgumentException("Note-event ID is required."))); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
@@ -515,6 +528,11 @@ public sealed record ProjectCommandRequest(
     SectionDensity? SectionDensity = null,
     ArrangementRole? ArrangementRole = null,
     bool? RolePresent = null,
+    NoteEventId? NoteEventId = null,
+    RegisteredPitch? NotePitch = null,
+    long? StartTick = null,
+    long? DurationTicks = null,
+    int? Velocity = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
