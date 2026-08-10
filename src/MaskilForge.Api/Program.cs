@@ -247,6 +247,25 @@ app.MapPost("/api/projects/{id}/harmony-note-sketch", async (string id, HarmonyN
     }
 });
 
+app.MapPost("/api/projects/{id}/low-end-support-proposal", async (string id, LowEndSupportProposalRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var proposal = await workspace.UseAsync(
+            projectId,
+            request.Project,
+            editor => LowEndSupportRealizer.Propose(editor.Project, request.SectionId),
+            cancellationToken);
+        return proposal is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(proposal);
+    }
+    catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/midi-export", async (string id, MidiExportRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -340,6 +359,7 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             request.NoteEventIds ?? throw new ArgumentException("Playable-note IDs are required."))); break;
         case "remove-musical-part": editor.Execute(new RemoveMusicalPartCommand(
             request.MusicalPartId ?? throw new ArgumentException("Musical-part ID is required."))); break;
+        case "use-low-end-support-proposal": editor.Execute(new UseLowEndSupportProposalCommand(RequiredSectionId(request))); break;
         case "add-note-event": editor.Execute(new AddNoteEventCommand(
             request.NotePitch ?? throw new ArgumentException("Note pitch is required."),
             request.StartTick ?? throw new ArgumentException("Start tick is required."),
@@ -540,6 +560,7 @@ public sealed record ProsodyScoreRequest(
     RhythmCandidateId? RhythmCandidateId = null);
 public sealed record VoiceLeadingReviewRequest(SongProject Project, SectionId SectionId);
 public sealed record HarmonyNoteSketchRequest(SongProject Project, SectionId SectionId);
+public sealed record LowEndSupportProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record MidiExportRequest(SongProject Project);
 public sealed record LyricTimelineRequest(
     SongProject Project,

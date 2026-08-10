@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type HarmonyNoteSketch, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type HarmonyNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import type { RegisteredPitch } from './api'
@@ -60,6 +60,7 @@ const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
 const voiceLeadingReviews = reactive<Record<string, VoiceLeadingReview>>({})
 const harmonyNoteSketches = reactive<Record<string, HarmonyNoteSketch>>({})
+const lowEndSupportProposals = reactive<Record<string, LowEndSupportProposal>>({})
 const chordAudition = new ChordAudition()
 const auditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const lyricTimeline = ref<LyricTimelineView | null>(null)
@@ -75,6 +76,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
   Object.keys(prosodyScores).forEach(key => delete prosodyScores[key])
   Object.keys(voiceLeadingReviews).forEach(key => delete voiceLeadingReviews[key])
   Object.keys(harmonyNoteSketches).forEach(key => delete harmonyNoteSketches[key])
+  Object.keys(lowEndSupportProposals).forEach(key => delete lowEndSupportProposals[key])
   projectId.value = next.project.id
   localStorage.setItem('maskilForge.projectId', next.project.id)
   status.value = message
@@ -991,6 +993,34 @@ function notesForSection(sectionId: string) {
 function partsForSection(sectionId: string) {
   return project.value?.musicalParts.filter(part => part.sectionId === sectionId) ?? []
 }
+function hasPartForRole(sectionId: string, role: ArrangementRole) {
+  return partsForSection(sectionId).some(part => part.role === role)
+}
+async function prepareLowEndSupportProposal(sectionId: string) {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'arrangement.low_end.prepare', 'Low-end support idea requested.', { sectionId })
+  try {
+    const proposal = await projectsApi.lowEndSupportProposal(project.value.id, project.value, sectionId)
+    lowEndSupportProposals[sectionId] = proposal
+    status.value = `${proposal.events.length} low-end note${proposal.events.length === 1 ? '' : 's'} prepared for review.`
+    activityLog.write('success', 'arrangement.low_end.prepare', status.value, { sectionId, noteCount: proposal.events.length, reusedNoteCount: proposal.reusedNoteCount })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The low-end support idea could not be prepared.'
+    activityLog.write('error', 'arrangement.low_end.prepare', status.value, { sectionId })
+  } finally {
+    busy.value = false
+  }
+}
+function useLowEndSupportProposal(sectionId: string) {
+  if (!project.value) return
+  const proposal = lowEndSupportProposals[sectionId]
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'use-low-end-support-proposal', sectionId }),
+    `${proposal?.partLabel ?? 'Low-end support'} added as an editable musical part.`,
+    'arrangement.low_end.use',
+    { sectionId, noteCount: proposal?.events.length ?? 0 })
+}
 function addMusicalPart(sectionId: string, event: Event) {
   if (!project.value) return
   const form = event.currentTarget as HTMLFormElement
@@ -1706,9 +1736,29 @@ onBeforeUnmount(() => {
             </fieldset>
             <section v-if="assignedRolesForSection(section.id).length" class="musical-parts" :aria-label="`Musical parts for ${section.title}`">
               <div>
-                <strong>Connect approved notes to a musical job</strong>
-                <small>This explains why existing notes belong here. It does not generate notes or choose an instrument.</small>
+                <strong>Build musical parts</strong>
+                <small>Explore a guided idea or connect approved notes yourself. Previewed ideas add nothing until you decide, and no instrument is chosen for you.</small>
               </div>
+              <section v-if="sectionHasRole(section.id, 'LowEndSupport') && !hasPartForRole(section.id, 'LowEndSupport')" class="low-end-proposal">
+                <div>
+                  <strong>Explore low-end support</strong>
+                  <small>Maskil Forge can follow the lowest approved note at each musical moment and place it in a lower register. Preview every note before deciding.</small>
+                </div>
+                <button type="button" class="secondary" :disabled="busy || !notesForSection(section.id).length" @click="prepareLowEndSupportProposal(section.id)">
+                  {{ lowEndSupportProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
+                </button>
+                <div v-if="lowEndSupportProposals[section.id]" class="low-end-proposal-result">
+                  <p><strong>{{ lowEndSupportProposals[section.id].partLabel }}</strong><span>{{ lowEndSupportProposals[section.id].events.length }} note{{ lowEndSupportProposals[section.id].events.length === 1 ? '' : 's' }} · {{ lowEndSupportProposals[section.id].reusedNoteCount }} already low enough to reuse</span></p>
+                  <ol>
+                    <li v-for="(note, noteIndex) in lowEndSupportProposals[section.id].events" :key="`${note.startTick}:${noteIndex}`">
+                      <strong>{{ formatRegisteredPitch(note.pitch) }}</strong>
+                      <span>tick {{ note.startTick }} · {{ note.durationTicks }} ticks</span>
+                      <small>{{ note.existingNoteEventId ? 'Uses your existing low note' : 'Creates this lower note' }}</small>
+                    </li>
+                  </ol>
+                  <button type="button" :disabled="busy" @click="useLowEndSupportProposal(section.id)">Use this idea</button>
+                </div>
+              </section>
               <form v-if="notesForSection(section.id).length" class="musical-part-form" @submit.prevent="addMusicalPart(section.id, $event)">
                 <label>Part name<input name="label" maxlength="100" placeholder="Chorus foundation" required :disabled="busy" /></label>
                 <label>Musical job<select name="role" required :disabled="busy"><option v-for="role in assignedRolesForSection(section.id)" :key="role.id" :value="role.id">{{ role.label }}</option></select></label>
