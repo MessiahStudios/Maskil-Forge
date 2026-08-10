@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type HarmonyNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type HarmonyNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import type { RegisteredPitch } from './api'
@@ -61,6 +61,7 @@ const prosodyScores = reactive<Record<string, ProsodyScore>>({})
 const voiceLeadingReviews = reactive<Record<string, VoiceLeadingReview>>({})
 const harmonyNoteSketches = reactive<Record<string, HarmonyNoteSketch>>({})
 const lowEndSupportProposals = reactive<Record<string, LowEndSupportProposal>>({})
+const pulseProposals = reactive<Record<string, PulseProposal>>({})
 const chordAudition = new ChordAudition()
 const auditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const lyricTimeline = ref<LyricTimelineView | null>(null)
@@ -77,6 +78,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
   Object.keys(voiceLeadingReviews).forEach(key => delete voiceLeadingReviews[key])
   Object.keys(harmonyNoteSketches).forEach(key => delete harmonyNoteSketches[key])
   Object.keys(lowEndSupportProposals).forEach(key => delete lowEndSupportProposals[key])
+  Object.keys(pulseProposals).forEach(key => delete pulseProposals[key])
   projectId.value = next.project.id
   localStorage.setItem('maskilForge.projectId', next.project.id)
   status.value = message
@@ -1021,6 +1023,31 @@ function useLowEndSupportProposal(sectionId: string) {
     'arrangement.low_end.use',
     { sectionId, noteCount: proposal?.events.length ?? 0 })
 }
+async function preparePulseProposal(sectionId: string) {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'arrangement.pulse.prepare', 'Pulse idea requested.', { sectionId })
+  try {
+    const proposal = await projectsApi.pulseProposal(project.value.id, project.value, sectionId)
+    pulseProposals[sectionId] = proposal
+    status.value = `${proposal.events.length} pulse note${proposal.events.length === 1 ? '' : 's'} prepared for review.`
+    activityLog.write('success', 'arrangement.pulse.prepare', status.value, { sectionId, noteCount: proposal.events.length, reusedNoteCount: proposal.reusedNoteCount })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The pulse idea could not be prepared.'
+    activityLog.write('error', 'arrangement.pulse.prepare', status.value, { sectionId })
+  } finally {
+    busy.value = false
+  }
+}
+function usePulseProposal(sectionId: string) {
+  if (!project.value) return
+  const proposal = pulseProposals[sectionId]
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'use-pulse-proposal', sectionId }),
+    `${proposal?.partLabel ?? 'Pulse'} added as an editable musical part.`,
+    'arrangement.pulse.use',
+    { sectionId, noteCount: proposal?.events.length ?? 0 })
+}
 function addMusicalPart(sectionId: string, event: Event) {
   if (!project.value) return
   const form = event.currentTarget as HTMLFormElement
@@ -1739,7 +1766,27 @@ onBeforeUnmount(() => {
                 <strong>Build musical parts</strong>
                 <small>Explore a guided idea or connect approved notes yourself. Previewed ideas add nothing until you decide, and no instrument is chosen for you.</small>
               </div>
-              <section v-if="sectionHasRole(section.id, 'LowEndSupport') && !hasPartForRole(section.id, 'LowEndSupport')" class="low-end-proposal">
+              <section v-if="sectionHasRole(section.id, 'Pulse') && !hasPartForRole(section.id, 'Pulse')" class="role-proposal">
+                <div>
+                  <strong>Explore pulse</strong>
+                  <small>Maskil Forge can place a short mid-register hit on each approved onset so the section keeps a clear rhythmic motion. Preview every note before deciding.</small>
+                </div>
+                <button type="button" class="secondary" :disabled="busy || !notesForSection(section.id).length" @click="preparePulseProposal(section.id)">
+                  {{ pulseProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
+                </button>
+                <div v-if="pulseProposals[section.id]" class="role-proposal-result">
+                  <p><strong>{{ pulseProposals[section.id].partLabel }}</strong><span>{{ pulseProposals[section.id].events.length }} note{{ pulseProposals[section.id].events.length === 1 ? '' : 's' }} · {{ pulseProposals[section.id].reusedNoteCount }} already match this pulse</span></p>
+                  <ol>
+                    <li v-for="(note, noteIndex) in pulseProposals[section.id].events" :key="`${note.startTick}:${noteIndex}`">
+                      <strong>{{ formatRegisteredPitch(note.pitch) }}</strong>
+                      <span>tick {{ note.startTick }} · {{ note.durationTicks }} ticks</span>
+                      <small>{{ note.existingNoteEventId ? 'Uses your existing pulse note' : 'Creates this pulse note' }}</small>
+                    </li>
+                  </ol>
+                  <button type="button" :disabled="busy" @click="usePulseProposal(section.id)">Use this idea</button>
+                </div>
+              </section>
+              <section v-if="sectionHasRole(section.id, 'LowEndSupport') && !hasPartForRole(section.id, 'LowEndSupport')" class="role-proposal">
                 <div>
                   <strong>Explore low-end support</strong>
                   <small>Maskil Forge can follow the lowest approved note at each musical moment and place it in a lower register. Preview every note before deciding.</small>
@@ -1747,7 +1794,7 @@ onBeforeUnmount(() => {
                 <button type="button" class="secondary" :disabled="busy || !notesForSection(section.id).length" @click="prepareLowEndSupportProposal(section.id)">
                   {{ lowEndSupportProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
                 </button>
-                <div v-if="lowEndSupportProposals[section.id]" class="low-end-proposal-result">
+                <div v-if="lowEndSupportProposals[section.id]" class="role-proposal-result">
                   <p><strong>{{ lowEndSupportProposals[section.id].partLabel }}</strong><span>{{ lowEndSupportProposals[section.id].events.length }} note{{ lowEndSupportProposals[section.id].events.length === 1 ? '' : 's' }} · {{ lowEndSupportProposals[section.id].reusedNoteCount }} already low enough to reuse</span></p>
                   <ol>
                     <li v-for="(note, noteIndex) in lowEndSupportProposals[section.id].events" :key="`${note.startTick}:${noteIndex}`">
