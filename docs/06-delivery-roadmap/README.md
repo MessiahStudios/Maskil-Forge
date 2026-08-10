@@ -258,6 +258,14 @@ Export is transient and does not modify or save the project, create command hist
 
 **Deliverable:** another music application can open an exact portable representation of the songwriter's approved playable notes.
 
+### Milestone 5.4 — Role-aware musical-part foundation
+
+Add stable, artist-authored musical parts that connect one assigned arrangement role in one section to selected approved note-event IDs. A part explains why existing notes belong in the arrangement without generating notes, choosing an instrument, or changing MIDI timing.
+
+Creating and removing a part is explicit and undoable. Referenced notes and roles remain protected until the part is removed; removing a part leaves its notes intact. Section order, duration, and meter changes also ask the artist to remove parts first so absolute note timing cannot drift away from section intent. Schema v19 migrates existing projects to an empty musical-part collection and does not infer assignments from existing notes or roles.
+
+**Deliverable:** Maskil Forge can preserve the relationship between arrangement purpose and playable material before role realization begins.
+
 **Deliverable:** the blueprint becomes an audible, editable demo.
 
 This is the first strong MVP boundary.

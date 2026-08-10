@@ -34,6 +34,15 @@ export interface SectionRoleAssignment {
   provenance: ArrangementProvenance
 }
 
+export interface MusicalPart {
+  id: string
+  sectionId: string
+  role: ArrangementRole
+  label: string
+  noteEventIds: string[]
+  provenance: ArrangementProvenance
+}
+
 export interface MusicalKey {
   tonic: NoteLetter
   accidental: Accidental
@@ -306,6 +315,7 @@ export interface SongProject {
   arrangement: SectionArrangement[]
   arrangementRoles: SectionRoleAssignment[]
   noteEvents: NoteEvent[]
+  musicalParts: MusicalPart[]
   key: MusicalKey
 }
 
@@ -379,6 +389,9 @@ export interface ProjectCommand {
   arrangementRole?: ArrangementRole
   rolePresent?: boolean
   noteEventId?: string
+  musicalPartId?: string
+  partLabel?: string
+  noteEventIds?: string[]
   notePitch?: RegisteredPitch
   startTick?: number
   durationTicks?: number

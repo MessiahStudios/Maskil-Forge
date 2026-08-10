@@ -188,7 +188,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV18_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyHarmonyArrangementAndNoteContract()
+    public async Task SchemaV19_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyHarmonyArrangementNoteAndPartContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -224,11 +224,12 @@ public sealed class JsonPersistenceTests
             var arrangement = project.SetSectionArrangement(section.Id, SectionEnergy.Building, SectionDensity.Light);
             var arrangementRole = project.SetSectionRole(section.Id, ArrangementRole.Pulse);
             var noteEvent = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 96);
+            var musicalPart = project.AddMusicalPart(section.Id, ArrangementRole.Pulse, "Verse pulse", [noteEvent.Id]);
             await repository.SaveAsync(project, CancellationToken.None);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(18, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(19, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -330,6 +331,13 @@ public sealed class JsonPersistenceTests
             Assert.Equal(0, savedNote.GetProperty("startTick").GetInt64());
             Assert.Equal(480, savedNote.GetProperty("durationTicks").GetInt64());
             Assert.Equal(96, savedNote.GetProperty("velocity").GetInt32());
+            var savedPart = Assert.Single(root.GetProperty("musicalParts").EnumerateArray());
+            Assert.Equal(musicalPart.Id.ToString(), savedPart.GetProperty("id").GetString());
+            Assert.Equal(section.Id.ToString(), savedPart.GetProperty("sectionId").GetString());
+            Assert.Equal("Pulse", savedPart.GetProperty("role").GetString());
+            Assert.Equal("Verse pulse", savedPart.GetProperty("label").GetString());
+            Assert.Equal(noteEvent.Id.ToString(), Assert.Single(savedPart.GetProperty("noteEventIds").EnumerateArray()).GetString());
+            Assert.Equal("Manual", savedPart.GetProperty("provenance").GetString());
         }
         finally
         {
