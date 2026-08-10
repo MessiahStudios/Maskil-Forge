@@ -974,6 +974,45 @@ function setSectionArrangement(sectionId: string, energy: SectionEnergy, density
 function sectionHasRole(sectionId: string, role: ArrangementRole) {
   return Boolean(project.value?.arrangementRoles.some(item => item.sectionId === sectionId && item.role === role))
 }
+function assignedRolesForSection(sectionId: string) {
+  return arrangementRoles.filter(role => sectionHasRole(sectionId, role.id))
+}
+function notesForSection(sectionId: string) {
+  if (!project.value) return []
+  const placement = placementFor(sectionId)
+  if (!placement) return []
+  const meter = project.value.timeline.timeSignatureMap.events[0]
+  const ticksPerBeat = project.value.timeline.ticksPerQuarterNote * 4 / meter.denominator
+  const ticksPerBar = meter.numerator * ticksPerBeat
+  const startTick = (placement.start.bar - 1) * ticksPerBar
+  const endTick = startTick + placement.durationBars * ticksPerBar
+  return project.value.noteEvents.filter(note => note.startTick >= startTick && note.startTick < endTick)
+}
+function partsForSection(sectionId: string) {
+  return project.value?.musicalParts.filter(part => part.sectionId === sectionId) ?? []
+}
+function addMusicalPart(sectionId: string, event: Event) {
+  if (!project.value) return
+  const form = event.currentTarget as HTMLFormElement
+  const data = new FormData(form)
+  const arrangementRole = String(data.get('role')) as ArrangementRole
+  const partLabel = String(data.get('label') ?? '').trim()
+  const noteEventIds = data.getAll('noteEventIds').map(String)
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'add-musical-part', sectionId, arrangementRole, partLabel, noteEventIds }),
+    `${partLabel} now connects ${noteEventIds.length} approved note${noteEventIds.length === 1 ? '' : 's'} to the ${arrangementRoles.find(item => item.id === arrangementRole)?.label ?? arrangementRole} role.`,
+    'arrangement.part.add',
+    { sectionId, arrangementRole, noteCount: noteEventIds.length })
+    ?.then(succeeded => { if (succeeded) form.reset() })
+}
+function removeMusicalPart(musicalPartId: string, label: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'remove-musical-part', musicalPartId }),
+    `${label} removed. Its playable notes remain in the song.`,
+    'arrangement.part.remove',
+    { musicalPartId })
+}
 function setSectionRole(sectionId: string, role: ArrangementRole, present: boolean) {
   if (!project.value) return
   const roleLabel = arrangementRoles.find(item => item.id === role)?.label ?? role
@@ -1665,10 +1704,36 @@ onBeforeUnmount(() => {
                 <small>{{ role.help }}</small>
               </button>
             </fieldset>
+            <section v-if="assignedRolesForSection(section.id).length" class="musical-parts" :aria-label="`Musical parts for ${section.title}`">
+              <div>
+                <strong>Connect approved notes to a musical job</strong>
+                <small>This explains why existing notes belong here. It does not generate notes or choose an instrument.</small>
+              </div>
+              <form v-if="notesForSection(section.id).length" class="musical-part-form" @submit.prevent="addMusicalPart(section.id, $event)">
+                <label>Part name<input name="label" maxlength="100" placeholder="Chorus foundation" required :disabled="busy" /></label>
+                <label>Musical job<select name="role" required :disabled="busy"><option v-for="role in assignedRolesForSection(section.id)" :key="role.id" :value="role.id">{{ role.label }}</option></select></label>
+                <fieldset>
+                  <legend>Which approved notes belong to this part?</legend>
+                  <label v-for="note in notesForSection(section.id)" :key="note.id" class="musical-part-note">
+                    <input name="noteEventIds" type="checkbox" :value="note.id" :disabled="busy" />
+                    <span>{{ formatRegisteredPitch(note.pitch) }}</span>
+                    <small>tick {{ note.startTick }} · {{ note.durationTicks }} ticks</small>
+                  </label>
+                </fieldset>
+                <button type="submit" :disabled="busy">Create musical part</button>
+              </form>
+              <p v-else class="arrangement-prompt">Approve a harmony note sketch first. Then you can explain which musical job those notes perform.</p>
+              <ol v-if="partsForSection(section.id).length" class="musical-part-list">
+                <li v-for="part in partsForSection(section.id)" :key="part.id">
+                  <div><strong>{{ part.label }}</strong><small>{{ arrangementRoles.find(item => item.id === part.role)?.label ?? part.role }} · {{ part.noteEventIds.length }} approved note{{ part.noteEventIds.length === 1 ? '' : 's' }}</small></div>
+                  <button type="button" class="danger" :disabled="busy" @click="removeMusicalPart(part.id, part.label)">Remove part</button>
+                </li>
+              </ol>
+            </section>
           </article>
         </div>
         <p v-else class="arrangement-empty">Add a Verse, Chorus, or another section above. Then you can describe how its energy should grow and what musical jobs it needs.</p>
-        <p class="arrangement-boundary">Instrument choices and generated parts come in later slices.</p>
+        <p class="arrangement-boundary">Musical parts connect your approved notes to an arrangement purpose. Instrument choices and automatic realization come later.</p>
       </section>
 
       <section class="midi-export-panel" aria-labelledby="midi-export-title">

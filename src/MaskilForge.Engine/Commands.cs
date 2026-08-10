@@ -86,11 +86,13 @@ public sealed class RemoveSectionCommand(SectionId sectionId) : IProjectCommand
     private int? _removedDurationBars;
     private SectionArrangement? _removedArrangement;
     private IReadOnlyList<SectionRoleAssignment>? _removedRoles;
+    private IReadOnlyList<MusicalPart>? _removedMusicalParts;
 
     public void Execute(SongProject project)
     {
         _removedArrangement ??= project.FindSectionArrangement(sectionId);
         _removedRoles ??= project.ArrangementRoles.Where(item => item.SectionId == sectionId).ToList();
+        _removedMusicalParts ??= project.MusicalParts.Where(item => item.SectionId == sectionId).ToList();
         var removed = project.RemoveSection(sectionId);
         _removedSection ??= removed.Section;
         _removedIndex ??= removed.Index;
@@ -104,6 +106,44 @@ public sealed class RemoveSectionCommand(SectionId sectionId) : IProjectCommand
         project.InsertSection(_removedIndex.Value, _removedSection, _removedDurationBars.Value);
         if (_removedArrangement is not null) project.RestoreSectionArrangement(sectionId, _removedArrangement);
         if (_removedRoles is { Count: > 0 }) project.RestoreSectionRoles(sectionId, _removedRoles);
+        if (_removedMusicalParts is { Count: > 0 }) project.RestoreMusicalParts(sectionId, _removedMusicalParts);
+    }
+}
+
+public sealed class AddMusicalPartCommand(
+    SectionId sectionId,
+    ArrangementRole role,
+    string label,
+    IReadOnlyList<NoteEventId> noteEventIds) : IProjectCommand
+{
+    private MusicalPart? _created;
+
+    public void Execute(SongProject project)
+    {
+        if (_created is null) _created = project.AddMusicalPart(sectionId, role, label, noteEventIds);
+        else project.RestoreMusicalPart(_created);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_created is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RemoveMusicalPart(_created.Id);
+    }
+}
+
+public sealed class RemoveMusicalPartCommand(MusicalPartId musicalPartId) : IProjectCommand
+{
+    private MusicalPart? _removed;
+
+    public void Execute(SongProject project)
+    {
+        _removed = project.RemoveMusicalPart(musicalPartId);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_removed is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RestoreMusicalPart(_removed);
     }
 }
 

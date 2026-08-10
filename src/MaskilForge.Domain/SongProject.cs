@@ -25,6 +25,7 @@ public sealed class SongProject
     private readonly List<SectionArrangement> _arrangement;
     private readonly List<SectionRoleAssignment> _arrangementRoles;
     private readonly List<NoteEvent> _noteEvents;
+    private readonly List<MusicalPart> _musicalParts;
 
     [JsonConstructor]
     public SongProject(
@@ -44,7 +45,8 @@ public sealed class SongProject
         MusicalKey? key = null,
         IReadOnlyList<SectionArrangement>? arrangement = null,
         IReadOnlyList<SectionRoleAssignment>? arrangementRoles = null,
-        IReadOnlyList<NoteEvent>? noteEvents = null)
+        IReadOnlyList<NoteEvent>? noteEvents = null,
+        IReadOnlyList<MusicalPart>? musicalParts = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -62,6 +64,7 @@ public sealed class SongProject
         _arrangement = arrangement?.ToList() ?? [];
         _arrangementRoles = arrangementRoles?.ToList() ?? [];
         _noteEvents = noteEvents?.OrderBy(item => item.StartTick).ThenBy(item => item.Pitch.MidiNumber).ToList() ?? [];
+        _musicalParts = musicalParts?.ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -95,6 +98,7 @@ public sealed class SongProject
     public IReadOnlyList<SectionArrangement> Arrangement => _arrangement;
     public IReadOnlyList<SectionRoleAssignment> ArrangementRoles => _arrangementRoles;
     public IReadOnlyList<NoteEvent> NoteEvents => _noteEvents;
+    public IReadOnlyList<MusicalPart> MusicalParts => _musicalParts;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -153,6 +157,7 @@ public sealed class SongProject
 
     public void SetTimeSignature(int numerator, int denominator)
     {
+        EnsureNoMusicalPartsBeforeTimelineStructureChange();
         var proposed = new TimeSignatureEvent(0, numerator, denominator);
         ValidateAllSyllablePlacements(proposed);
         ValidateAllRhythmCandidates(proposed);
@@ -183,6 +188,7 @@ public sealed class SongProject
 
     public (SongSection Section, int Index, int DurationBars) RemoveSection(SectionId sectionId)
     {
+        EnsureNoMusicalPartsBeforeTimelineStructureChange();
         var index = IndexOf(sectionId);
         var section = _sections[index];
         if (section.LyricLines.Any(line => IsLyricLineLocked(line.Id) || line.Phrases.Any(phrase => IsPhraseRhythmLocked(line.Id, phrase.Id))))
@@ -191,6 +197,7 @@ public sealed class SongProject
         _sections.RemoveAt(index);
         _arrangement.RemoveAll(item => item.SectionId == sectionId);
         _arrangementRoles.RemoveAll(item => item.SectionId == sectionId);
+        _musicalParts.RemoveAll(item => item.SectionId == sectionId);
         Timeline.ReflowSections(_sections.Select(item => item.Id).ToList());
         ReconcileLocks();
         Touch();
@@ -238,6 +245,8 @@ public sealed class SongProject
 
     public SectionRoleAssignment RemoveSectionRole(SectionId sectionId, ArrangementRole role)
     {
+        if (_musicalParts.Any(item => item.SectionId == sectionId && item.Role == role))
+            throw new InvalidOperationException("Remove the musical part using this role before clearing the role from the section.");
         var existing = FindSectionRole(sectionId, role)
             ?? throw new KeyNotFoundException($"Arrangement role '{role}' is not assigned to section '{sectionId}'.");
         _arrangementRoles.Remove(existing);
@@ -261,8 +270,45 @@ public sealed class SongProject
         Touch();
     }
 
+    public MusicalPart AddMusicalPart(SectionId sectionId, ArrangementRole role, string label, IReadOnlyList<NoteEventId> noteEventIds)
+    {
+        FindSection(sectionId);
+        if (FindSectionRole(sectionId, role) is null)
+            throw new InvalidOperationException($"Assign the {role} role to this section before creating its musical part.");
+        var created = new MusicalPart(MusicalPartId.New(), sectionId, role, label, noteEventIds, ArrangementProvenance.Manual);
+        RestoreMusicalPart(created);
+        return created;
+    }
+
+    public MusicalPart RemoveMusicalPart(MusicalPartId musicalPartId)
+    {
+        var existing = _musicalParts.SingleOrDefault(item => item.Id == musicalPartId)
+            ?? throw new KeyNotFoundException($"Musical part '{musicalPartId}' was not found.");
+        _musicalParts.Remove(existing);
+        Touch();
+        return existing;
+    }
+
+    public void RestoreMusicalPart(MusicalPart musicalPart)
+    {
+        ArgumentNullException.ThrowIfNull(musicalPart);
+        ValidateMusicalPartReferences(musicalPart);
+        _musicalParts.RemoveAll(item => item.Id == musicalPart.Id);
+        _musicalParts.Add(musicalPart);
+        Touch();
+    }
+
+    public void RestoreMusicalParts(SectionId sectionId, IEnumerable<MusicalPart> musicalParts)
+    {
+        FindSection(sectionId);
+        _musicalParts.RemoveAll(item => item.SectionId == sectionId);
+        foreach (var musicalPart in musicalParts) RestoreMusicalPart(musicalPart);
+        Touch();
+    }
+
     public void SetSectionDuration(SectionId sectionId, int durationBars)
     {
+        EnsureNoMusicalPartsBeforeTimelineStructureChange();
         var section = FindSection(sectionId);
         if (section.LyricLines.SelectMany(line => line.SyllablePlacements).Any(item => item.Position.Bar > durationBars))
             throw new InvalidOperationException("Section duration cannot end before an existing syllable placement. Clear or move the placement first.");
@@ -296,6 +342,8 @@ public sealed class SongProject
 
     public NoteEvent RemoveNoteEvent(NoteEventId noteEventId)
     {
+        if (_musicalParts.Any(item => item.NoteEventIds.Contains(noteEventId)))
+            throw new InvalidOperationException("Remove this note from its musical part before deleting the note.");
         var existing = _noteEvents.SingleOrDefault(item => item.Id == noteEventId)
             ?? throw new KeyNotFoundException($"Note event '{noteEventId}' was not found.");
         _noteEvents.Remove(existing);
@@ -585,6 +633,7 @@ public sealed class SongProject
 
     public void MoveSection(SectionId sectionId, int targetIndex)
     {
+        EnsureNoMusicalPartsBeforeTimelineStructureChange();
         if (targetIndex < 0 || targetIndex >= _sections.Count) throw new ArgumentOutOfRangeException(nameof(targetIndex));
         var currentIndex = IndexOf(sectionId);
         if (currentIndex == targetIndex) return;
@@ -613,6 +662,8 @@ public sealed class SongProject
             throw new ArgumentException("Track IDs must be unique.");
         if (_noteEvents.Select(item => item.Id).Distinct().Count() != _noteEvents.Count)
             throw new ArgumentException("Note-event IDs must be unique.");
+        if (_musicalParts.Select(item => item.Id).Distinct().Count() != _musicalParts.Count)
+            throw new ArgumentException("Musical-part IDs must be unique.");
         if (_arrangement.Select(item => item.Id).Distinct().Count() != _arrangement.Count)
             throw new ArgumentException("Section arrangement IDs must be unique.");
         if (_arrangement.Select(item => item.SectionId).Distinct().Count() != _arrangement.Count)
@@ -625,6 +676,7 @@ public sealed class SongProject
             throw new ArgumentException("A role can be assigned only once within a section.");
         if (_arrangementRoles.Any(item => _sections.All(section => section.Id != item.SectionId)))
             throw new ArgumentException("Every arrangement role must reference an existing section.");
+        foreach (var musicalPart in _musicalParts) ValidateMusicalPartReferences(musicalPart);
         var lines = _sections.SelectMany(section => section.LyricLines).ToList();
         if (lines.Select(line => line.Id).Distinct().Count() != lines.Count)
             throw new ArgumentException("Lyric line IDs must be unique across the project.");
@@ -694,11 +746,33 @@ public sealed class SongProject
             throw new ArgumentException("A phrase can have only one rhythm lock.");
     }
 
+    private void ValidateMusicalPartReferences(MusicalPart musicalPart)
+    {
+        FindSection(musicalPart.SectionId);
+        if (FindSectionRole(musicalPart.SectionId, musicalPart.Role) is null)
+            throw new ArgumentException("Every musical part must reference an assigned section role.");
+        var notes = musicalPart.NoteEventIds.Select(id => _noteEvents.SingleOrDefault(item => item.Id == id)
+            ?? throw new ArgumentException($"Musical part '{musicalPart.Id}' references a note that does not exist.")).ToList();
+        var placement = Timeline.FindSection(musicalPart.SectionId);
+        var sectionStart = Timeline.ToAbsoluteTicks(placement.Start);
+        var meter = TimeSignature;
+        var ticksPerBeat = checked(Timeline.TicksPerQuarterNote * 4 / meter.Denominator);
+        var sectionEnd = checked(sectionStart + (long)placement.DurationBars * meter.Numerator * ticksPerBeat);
+        if (notes.Any(note => note.StartTick < sectionStart || note.StartTick >= sectionEnd))
+            throw new ArgumentException("Every note in a musical part must begin within its section.");
+    }
+
     private LyricLine FindLine(LyricLineId lineId) =>
         _sections.SelectMany(section => section.LyricLines).SingleOrDefault(line => line.Id == lineId)
         ?? throw new KeyNotFoundException($"Lyric line '{lineId}' was not found.");
 
     private void EnsureLineExists(LyricLineId lineId) => FindLine(lineId);
+
+    private void EnsureNoMusicalPartsBeforeTimelineStructureChange()
+    {
+        if (_musicalParts.Count > 0)
+            throw new InvalidOperationException("Remove musical parts before changing section order, duration, or meter. Their approved notes will remain in the song.");
+    }
 
     private void EnsurePhraseExists(LyricLineId lineId, LyricPhraseId phraseId)
     {
