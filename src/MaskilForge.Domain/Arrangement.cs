@@ -27,6 +27,45 @@ public enum ArrangementProvenance
     Imported
 }
 
+public enum ArrangementRole
+{
+    Foundation,
+    Pulse,
+    Harmony,
+    LowEndSupport,
+    Texture,
+    Accent,
+    Transition,
+    Countermelody,
+    HookReinforcement
+}
+
+/// <summary>An artist's decision that one musical job belongs in one song section.</summary>
+public sealed class SectionRoleAssignment
+{
+    [JsonConstructor]
+    public SectionRoleAssignment(
+        SectionRoleAssignmentId id,
+        SectionId sectionId,
+        ArrangementRole role,
+        ArrangementProvenance provenance)
+    {
+        if (id.Value == Guid.Empty) throw new ArgumentException("A role-assignment ID is required.", nameof(id));
+        if (sectionId.Value == Guid.Empty) throw new ArgumentException("A section ID is required.", nameof(sectionId));
+        if (!Enum.IsDefined(role)) throw new ArgumentOutOfRangeException(nameof(role), "Arrangement role is invalid.");
+        if (!Enum.IsDefined(provenance)) throw new ArgumentOutOfRangeException(nameof(provenance), "Arrangement provenance is invalid.");
+        Id = id;
+        SectionId = sectionId;
+        Role = role;
+        Provenance = provenance;
+    }
+
+    public SectionRoleAssignmentId Id { get; }
+    public SectionId SectionId { get; }
+    public ArrangementRole Role { get; }
+    public ArrangementProvenance Provenance { get; }
+}
+
 /// <summary>An artist-authored arrangement intention for one existing song section.</summary>
 public sealed class SectionArrangement
 {

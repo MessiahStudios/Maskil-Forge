@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { creatorDestination, creatorProgress } from './creatorJourney.js'
 
-const project = (overrides = {}) => ({ rawLyricDraft: '', sections: [], arrangement: [], ...overrides })
+const project = (overrides = {}) => ({ rawLyricDraft: '', sections: [], arrangement: [], arrangementRoles: [], ...overrides })
 
 test('progress is independent from the active workspace', () => {
   assert.deepEqual(creatorProgress(project({ rawLyricDraft: 'A first thought', sections: [{ harmony: [], lyricLines: [] }] })), {
@@ -24,4 +24,5 @@ test('music and harmony reveal their optional panels', () => {
 test('arrangement progress reflects artist-authored section plans', () => {
   assert.equal(creatorProgress(project()).arrangement, false)
   assert.equal(creatorProgress(project({ arrangement: [{ sectionId: 'verse' }] })).arrangement, true)
+  assert.equal(creatorProgress(project({ arrangementRoles: [{ sectionId: 'verse', role: 'Pulse' }] })).arrangement, true)
 })

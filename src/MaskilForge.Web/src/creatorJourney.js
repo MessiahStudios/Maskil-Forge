@@ -15,7 +15,7 @@ export function creatorProgress(project) {
     shape: Boolean(project?.sections.length),
     music: lines.some(line => line.syllablePlacements.length || line.rhythmCandidates.length),
     harmony: Boolean(project?.sections.some(section => section.harmony.length)),
-    arrangement: Boolean(project?.arrangement?.length),
+    arrangement: Boolean(project?.arrangement?.length || project?.arrangementRoles?.length),
   }
 }
 

@@ -289,6 +289,10 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             RequiredSectionId(request),
             request.SectionEnergy ?? throw new ArgumentException("Section energy is required."),
             request.SectionDensity ?? throw new ArgumentException("Section density is required."))); break;
+        case "set-section-role": editor.Execute(new SetSectionRoleCommand(
+            RequiredSectionId(request),
+            request.ArrangementRole ?? throw new ArgumentException("Arrangement role is required."),
+            request.RolePresent ?? throw new ArgumentException("Role presence is required."))); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
@@ -509,6 +513,8 @@ public sealed record ProjectCommandRequest(
     int? MaximumMidiNote = null,
     SectionEnergy? SectionEnergy = null,
     SectionDensity? SectionDensity = null,
+    ArrangementRole? ArrangementRole = null,
+    bool? RolePresent = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

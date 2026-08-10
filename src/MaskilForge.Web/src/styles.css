@@ -209,6 +209,13 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .arrangement-card select { width: 100%; }
 .arrangement-prompt, .arrangement-saved { grid-column: 1 / -1; }
 .arrangement-saved { color: #9fbd8f; }
+.arrangement-role-picker { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; margin: .2rem 0 0; padding: .7rem; border: 1px solid #3d4338; }
+.arrangement-role-picker legend { padding: 0 .3rem; color: #e4d3aa; }
+.arrangement-role-picker > p { grid-column: 1 / -1; margin: 0 0 .15rem; color: #9fa596; font-size: .76rem; }
+.role-choice { display: grid; gap: .2rem; min-height: 4.2rem; padding: .55rem; text-align: left; color: #c6c1b5; background: #121510; border-color: #464d40; }
+.role-choice small { color: #8f9688; font-weight: 400; }
+.role-choice.selected { color: #f3dfaa; background: #2b2d20; border-color: #b29b5d; box-shadow: inset 0 0 0 1px rgba(214, 184, 109, .18); }
+.role-choice.selected small { color: #b9b39f; }
 .lyric-line { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: .55rem; align-items: start; }
 .lyric-line-number { color: #92988a; text-align: right; font: .78rem ui-monospace, Consolas, monospace; padding-top: .95rem; }
 .lyric-line-actions { display: flex; gap: .4rem; align-items: start; flex-wrap: wrap; justify-content: end; }
@@ -352,6 +359,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .harmony-candidate-actions button { flex: 1; }
   .arrangement-card { grid-template-columns: 1fr; }
   .arrangement-prompt, .arrangement-saved { grid-column: 1; }
+  .arrangement-role-picker { grid-column: 1; grid-template-columns: 1fr; }
   .settings-grid { grid-template-columns: 1fr; }
   .description-field { grid-column: auto; }
   .capture-actions { justify-content: stretch; }

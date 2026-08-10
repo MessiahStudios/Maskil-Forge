@@ -188,7 +188,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV16_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyHarmonyVoicingAndArrangementContract()
+    public async Task SchemaV17_WritesStableLyricProsodyBeatMappingRhythmBreathLockKeyHarmonyVoicingAndArrangementContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -222,11 +222,12 @@ public sealed class JsonPersistenceTests
                 new BeatPosition(1, 1, 0),
                 2);
             var arrangement = project.SetSectionArrangement(section.Id, SectionEnergy.Building, SectionDensity.Light);
+            var arrangementRole = project.SetSectionRole(section.Id, ArrangementRole.Pulse);
             await repository.SaveAsync(project, CancellationToken.None);
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(16, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(17, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -316,6 +317,11 @@ public sealed class JsonPersistenceTests
             Assert.Equal("Building", savedArrangement.GetProperty("energy").GetString());
             Assert.Equal("Light", savedArrangement.GetProperty("density").GetString());
             Assert.Equal("Manual", savedArrangement.GetProperty("provenance").GetString());
+            var savedRole = Assert.Single(root.GetProperty("arrangementRoles").EnumerateArray());
+            Assert.Equal(arrangementRole.Id.ToString(), savedRole.GetProperty("id").GetString());
+            Assert.Equal(section.Id.ToString(), savedRole.GetProperty("sectionId").GetString());
+            Assert.Equal("Pulse", savedRole.GetProperty("role").GetString());
+            Assert.Equal("Manual", savedRole.GetProperty("provenance").GetString());
         }
         finally
         {

@@ -85,10 +85,12 @@ public sealed class RemoveSectionCommand(SectionId sectionId) : IProjectCommand
     private int? _removedIndex;
     private int? _removedDurationBars;
     private SectionArrangement? _removedArrangement;
+    private IReadOnlyList<SectionRoleAssignment>? _removedRoles;
 
     public void Execute(SongProject project)
     {
         _removedArrangement ??= project.FindSectionArrangement(sectionId);
+        _removedRoles ??= project.ArrangementRoles.Where(item => item.SectionId == sectionId).ToList();
         var removed = project.RemoveSection(sectionId);
         _removedSection ??= removed.Section;
         _removedIndex ??= removed.Index;
@@ -101,6 +103,47 @@ public sealed class RemoveSectionCommand(SectionId sectionId) : IProjectCommand
             throw new InvalidOperationException("Command has not been executed.");
         project.InsertSection(_removedIndex.Value, _removedSection, _removedDurationBars.Value);
         if (_removedArrangement is not null) project.RestoreSectionArrangement(sectionId, _removedArrangement);
+        if (_removedRoles is { Count: > 0 }) project.RestoreSectionRoles(sectionId, _removedRoles);
+    }
+}
+
+public sealed class SetSectionRoleCommand(
+    SectionId sectionId,
+    ArrangementRole role,
+    bool present) : IProjectCommand
+{
+    private SectionRoleAssignment? _before;
+    private SectionRoleAssignment? _after;
+    private bool _captured;
+
+    public void Execute(SongProject project)
+    {
+        if (!_captured)
+        {
+            _before = project.FindSectionRole(sectionId, role);
+            _captured = true;
+            _after = present
+                ? _before ?? project.SetSectionRole(sectionId, role)
+                : null;
+            if (!present && _before is not null) project.RemoveSectionRole(sectionId, role);
+            return;
+        }
+
+        if (_after is null)
+        {
+            if (project.FindSectionRole(sectionId, role) is not null) project.RemoveSectionRole(sectionId, role);
+        }
+        else project.RestoreSectionRole(_after);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (!_captured) throw new InvalidOperationException("Command has not been executed.");
+        if (_before is null)
+        {
+            if (project.FindSectionRole(sectionId, role) is not null) project.RemoveSectionRole(sectionId, role);
+        }
+        else project.RestoreSectionRole(_before);
     }
 }
 

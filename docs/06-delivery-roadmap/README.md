@@ -214,6 +214,14 @@ The editor presents the resulting song-level energy curve and makes Arrangement 
 
 **Deliverable:** an artist can see and preserve how the song should rise, fall, open up, or become more crowded before choosing any instruments.
 
+### Milestone 4.2 — Arrangement roles foundation
+
+The current slice lets the artist assign musical jobs to each existing section before selecting instruments. Available roles include foundation, pulse, harmony support, low-end support, texture, accents, transitions, countermelody, and hook reinforcement. Every assignment has a stable identity, references an existing section, records provenance, participates in undo/redo, and survives save/load.
+
+Schema-v16 projects migrate to an empty role-assignment collection; the engine does not infer which roles a section needs. This slice does not recommend or assign instruments, generate performances or notes, score candidates, change playback, or export MIDI.
+
+**Deliverable:** an artist can describe what each section needs musically without knowing orchestration vocabulary or committing to a specific instrument.
+
 ## Milestone 5 — MIDI composition and preview
 
 Build melody, bass, drums, voicings, countermelody, and transition generators; add piano-roll editing, transport, simple synthesis, and MIDI export.
