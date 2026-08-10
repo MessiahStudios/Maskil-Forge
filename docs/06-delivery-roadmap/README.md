@@ -242,6 +242,14 @@ The browser exposes this foundation only through an advanced disclosure so begin
 
 **Deliverable:** Maskil Forge can preserve an explicit playable note without claiming that it generated, performed, or exported it.
 
+### Milestone 5.2 — Harmony to playable sketch
+
+Project an existing section’s harmony into a transient, inspectable playable-note sketch on the absolute song timeline. Registered chord voicings are used exactly; chords without registered notes receive clearly labeled temporary preview voicings. Preparing or refreshing a sketch does not modify the Song Graph.
+
+Only the explicit **Use this sketch** decision adds stable note events. Acceptance is additive, preserves unrelated artist-authored notes, and is reversible as one undoable operation. This slice does not regenerate notes when harmony later changes, silently replace existing notes, select instruments, create tracks, export MIDI, or add transport and piano-roll editing.
+
+**Deliverable:** the artist can review how existing harmony becomes concrete notes and decide whether those notes belong in the project.
+
 **Deliverable:** the blueprint becomes an audible, editable demo.
 
 This is the first strong MVP boundary.

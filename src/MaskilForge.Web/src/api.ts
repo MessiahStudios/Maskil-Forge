@@ -57,6 +57,8 @@ export interface HarmonyChord {
 
 export interface RegisteredPitch { letter: NoteLetter; accidental: Accidental; octave: number }
 export interface NoteEvent { id: string; pitch: RegisteredPitch; startTick: number; durationTicks: number; velocity: number }
+export interface HarmonyNoteSketchEvent extends Omit<NoteEvent, 'id'> { usesPreviewVoicing: boolean }
+export interface HarmonyNoteSketch { sectionId: string; events: HarmonyNoteSketchEvent[]; usesPreviewVoicings: boolean }
 export interface ChordVoice { id: string; position: number; pitch: RegisteredPitch; provenance: HarmonyProvenance }
 export interface ChordVoicing { id: string; minimumMidiNote: number; maximumMidiNote: number; voices: ChordVoice[] }
 
@@ -447,6 +449,10 @@ export const projectsApi = {
   }),
   reviewVoiceLeading: (id: string, project: SongProject, sectionId: string) =>
     request<VoiceLeadingReview>(`/api/projects/${id}/voice-leading-review`, {
+      method: 'POST', body: JSON.stringify({ project, sectionId }),
+    }),
+  harmonyNoteSketch: (id: string, project: SongProject, sectionId: string) =>
+    request<HarmonyNoteSketch>(`/api/projects/${id}/harmony-note-sketch`, {
       method: 'POST', body: JSON.stringify({ project, sectionId }),
     }),
   undo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST', body: JSON.stringify({ project }) }),
