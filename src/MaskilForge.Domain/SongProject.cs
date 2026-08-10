@@ -22,6 +22,7 @@ public sealed class SongProject
     private readonly List<SongSection> _sections;
     private readonly List<Track> _tracks;
     private readonly List<CreativeLock> _locks;
+    private readonly List<SectionArrangement> _arrangement;
 
     [JsonConstructor]
     public SongProject(
@@ -38,7 +39,8 @@ public sealed class SongProject
         DateTimeOffset createdUtc = default,
         DateTimeOffset lastModifiedUtc = default,
         IReadOnlyList<CreativeLock>? locks = null,
-        MusicalKey? key = null)
+        MusicalKey? key = null,
+        IReadOnlyList<SectionArrangement>? arrangement = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -53,6 +55,7 @@ public sealed class SongProject
         _sections = sections?.ToList() ?? [];
         _tracks = tracks?.ToList() ?? [];
         _locks = locks?.Select(CloneLock).ToList() ?? [];
+        _arrangement = arrangement?.ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -83,6 +86,7 @@ public sealed class SongProject
     public IReadOnlyList<SongSection> Sections => _sections;
     public IReadOnlyList<Track> Tracks => _tracks;
     public IReadOnlyList<CreativeLock> Locks => _locks;
+    public IReadOnlyList<SectionArrangement> Arrangement => _arrangement;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -177,6 +181,7 @@ public sealed class SongProject
             throw new InvalidOperationException("Unlock the lyric or phrase rhythm in this section before removing it.");
         var durationBars = Timeline.FindSection(sectionId).DurationBars;
         _sections.RemoveAt(index);
+        _arrangement.RemoveAll(item => item.SectionId == sectionId);
         Timeline.ReflowSections(_sections.Select(item => item.Id).ToList());
         ReconcileLocks();
         Touch();
@@ -184,6 +189,29 @@ public sealed class SongProject
     }
 
     public void RenameSection(SectionId sectionId, string title) { FindSection(sectionId).Rename(title); Touch(); }
+
+    public SectionArrangement SetSectionArrangement(SectionId sectionId, SectionEnergy energy, SectionDensity density)
+    {
+        FindSection(sectionId);
+        var index = _arrangement.FindIndex(item => item.SectionId == sectionId);
+        var updated = index < 0
+            ? new SectionArrangement(SectionArrangementId.New(), sectionId, energy, density, ArrangementProvenance.Manual)
+            : new SectionArrangement(_arrangement[index].Id, sectionId, energy, density, ArrangementProvenance.Manual);
+        if (index < 0) _arrangement.Add(updated); else _arrangement[index] = updated;
+        Touch();
+        return updated;
+    }
+
+    public SectionArrangement? FindSectionArrangement(SectionId sectionId) =>
+        _arrangement.SingleOrDefault(item => item.SectionId == sectionId);
+
+    public void RestoreSectionArrangement(SectionId sectionId, SectionArrangement? arrangement)
+    {
+        FindSection(sectionId);
+        _arrangement.RemoveAll(item => item.SectionId == sectionId);
+        if (arrangement is not null) _arrangement.Add(arrangement);
+        Touch();
+    }
 
     public void SetSectionDuration(SectionId sectionId, int durationBars)
     {
@@ -499,6 +527,12 @@ public sealed class SongProject
             throw new ArgumentException("Section IDs must be unique.");
         if (_tracks.Select(track => track.Id).Distinct().Count() != _tracks.Count)
             throw new ArgumentException("Track IDs must be unique.");
+        if (_arrangement.Select(item => item.Id).Distinct().Count() != _arrangement.Count)
+            throw new ArgumentException("Section arrangement IDs must be unique.");
+        if (_arrangement.Select(item => item.SectionId).Distinct().Count() != _arrangement.Count)
+            throw new ArgumentException("A section can have only one arrangement plan.");
+        if (_arrangement.Any(item => _sections.All(section => section.Id != item.SectionId)))
+            throw new ArgumentException("Every section arrangement must reference an existing section.");
         var lines = _sections.SelectMany(section => section.LyricLines).ToList();
         if (lines.Select(line => line.Id).Distinct().Count() != lines.Count)
             throw new ArgumentException("Lyric line IDs must be unique across the project.");

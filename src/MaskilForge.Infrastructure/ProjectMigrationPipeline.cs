@@ -457,3 +457,16 @@ internal sealed class V14ToV15ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V15ToV16ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 15;
+    public int ToVersion => 16;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        project["arrangement"] = new JsonArray();
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}

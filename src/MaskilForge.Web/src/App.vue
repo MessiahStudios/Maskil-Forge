@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type Accidental, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type Accidental, type BeatPosition, type ChordQuality, type ChordSymbol, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import type { RegisteredPitch } from './api'
@@ -41,6 +41,8 @@ const noteLetters: NoteLetter[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B']
 const accidentals: Accidental[] = ['Natural', 'Sharp', 'Flat']
 const scaleModes: ScaleMode[] = ['Major', 'NaturalMinor']
 const chordQualities: ChordQuality[] = ['Major', 'Minor', 'Diminished', 'Augmented', 'DominantSeventh']
+const sectionEnergies: SectionEnergy[] = ['Intimate', 'Gentle', 'Building', 'Strong', 'Peak']
+const sectionDensities: SectionDensity[] = ['Sparse', 'Light', 'Balanced', 'Full', 'Dense']
 const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
 const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
@@ -859,11 +861,23 @@ function removeHarmonyCandidate(sectionId: string, harmonyCandidateId: string) {
 }
 function meterValue(value: SongProject) { return `${value.timeline.timeSignatureMap.events[0].numerator}/${value.timeline.timeSignatureMap.events[0].denominator}` }
 function placementFor(sectionId: string) { return project.value?.timeline.sectionPlacements.find(item => item.sectionId === sectionId) }
+function arrangementFor(sectionId: string) { return project.value?.arrangement.find(item => item.sectionId === sectionId) }
+function arrangementEnergy(sectionId: string) { return arrangementFor(sectionId)?.energy ?? 'Building' }
+function arrangementDensity(sectionId: string) { return arrangementFor(sectionId)?.density ?? 'Balanced' }
+function energyValue(energy: SectionEnergy) { return sectionEnergies.indexOf(energy) + 1 }
+function setSectionArrangement(sectionId: string, energy: SectionEnergy, density: SectionDensity) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-section-arrangement', sectionId, sectionEnergy: energy, sectionDensity: density }),
+    `Arrangement shape set to ${energy.toLowerCase()} energy with ${density.toLowerCase()} density.`,
+    'arrangement.section.set',
+    { sectionId, energy, density })
+}
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
 type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
 const activeCreatorStage = ref<CreatorStage>('idea')
 const creatorCompletion = computed(() => creatorProgress(project.value))
-function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : stage === 'arrangement' ? 'later' : 'upcoming' }
+function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : 'upcoming' }
 async function goToCreatorStage(stage: CreatorStage) {
   const destination = creatorDestination(stage)
   if (!destination) return
@@ -1014,17 +1028,14 @@ onBeforeUnmount(() => {
       <nav class="creator-journey" aria-label="Songwriting workspaces">
         <p><strong>Current workspace</strong><span>Move between creative areas without changing your song.</span></p>
         <ol>
-          <li v-for="stage in creatorStages" :key="stage.id" :class="{ 'stage-active': activeCreatorStage === stage.id, 'stage-later': stage.id === 'arrangement' }">
+          <li v-for="stage in creatorStages" :key="stage.id" :class="{ 'stage-active': activeCreatorStage === stage.id }">
             <button
               type="button"
               class="journey-step"
-              :disabled="stage.id === 'arrangement'"
               :aria-current="activeCreatorStage === stage.id ? 'page' : undefined"
-              :title="stage.id === 'arrangement' ? 'Coming in a future update: instruments, performances, and final song development.' : undefined"
               @click="goToCreatorStage(stage.id)">
               <span class="journey-mark">{{ activeCreatorStage === stage.id ? '✦' : '·' }}</span>
               <span>{{ stage.label }}</span>
-              <small v-if="stage.id === 'arrangement'">Future update</small>
             </button>
           </li>
         </ol>
@@ -1472,6 +1483,39 @@ onBeforeUnmount(() => {
             <details class="developer-details"><summary>Developer details</summary><small>Section ID: {{ section.id }}</small><template v-for="line in section.lyricLines" :key="line.id"><small>Line ID: {{ line.id }}</small><template v-for="word in line.words" :key="word.id"><small>Word ID: {{ word.id }} · {{ word.text }}</small><small v-for="syllable in word.syllables" :key="syllable.id">Syllable ID: {{ syllable.id }} · {{ syllable.position }} · {{ syllable.source }} · {{ syllable.text }} · Stress: {{ syllable.stress ? `${syllable.stress.level} (${syllable.stress.provenance})` : 'Unmarked' }}</small></template><small v-for="mark in line.punctuation" :key="mark.id">Punctuation ID: {{ mark.id }} · {{ mark.start }} · {{ mark.text }}</small><template v-for="phrase in line.phrases" :key="phrase.id"><small>Phrase ID: {{ phrase.id }} · {{ phrase.position }} · {{ phrase.source }} · {{ phrase.wordIds.join(', ') }}</small><small v-if="phrase.prosody">Prosodic Pattern ID: {{ phrase.prosody.id }}</small><small v-for="unit in phrase.prosody?.units ?? []" :key="unit.id">Prosodic Unit ID: {{ unit.id }} · {{ unit.position }} · {{ unit.syllableId }} · {{ unit.weight }} · {{ unit.provenance }}</small></template><small v-for="placement in line.syllablePlacements" :key="placement.id">Syllable Placement ID: {{ placement.id }} · {{ placement.syllableId }} · {{ placement.position.bar }}:{{ placement.position.beat }}:{{ placement.position.tick }} · {{ placement.provenance }}</small><template v-for="candidate in line.rhythmCandidates" :key="candidate.id"><small>Rhythm Candidate ID: {{ candidate.id }} · {{ candidate.phraseId }} · {{ candidate.label }} · {{ candidate.provenance }}</small><small v-for="candidateEvent in candidate.events" :key="candidateEvent.id">Rhythm Event ID: {{ candidateEvent.id }} · {{ candidateEvent.position }} · {{ candidateEvent.syllableId }} · {{ candidateEvent.beatPosition.bar }}:{{ candidateEvent.beatPosition.beat }}:{{ candidateEvent.beatPosition.tick }}</small></template><small v-for="breath in line.breathPoints" :key="breath.id">Breath Point ID: {{ breath.id }} · after {{ breath.afterSyllableId }} · {{ breath.provenance }}</small></template></details>
           </li>
         </ol>
+      </section>
+
+      <section id="arrangement-blueprint" class="arrangement-blueprint" aria-labelledby="arrangement-title">
+        <div class="arrangement-heading">
+          <p class="eyebrow">Arrangement blueprint</p>
+          <h2 id="arrangement-title">Shape the song’s energy</h2>
+          <p>Describe how each section should feel before choosing instruments. These are creative intentions, not generated performances.</p>
+        </div>
+        <div class="energy-curve" aria-label="Song energy curve">
+          <article v-for="section in project.sections" :key="`energy-${section.id}`">
+            <div class="energy-meter" :style="{ '--energy-level': energyValue(arrangementEnergy(section.id)) }" aria-hidden="true"><span /></div>
+            <strong>{{ section.title }}</strong>
+            <small>{{ arrangementFor(section.id) ? arrangementEnergy(section.id) : 'Not shaped yet' }}</small>
+          </article>
+        </div>
+        <div class="arrangement-sections">
+          <article v-for="section in project.sections" :key="`arrangement-${section.id}`" class="arrangement-card">
+            <div><strong>{{ section.title }}</strong><small>{{ label(section.kind) }} · {{ placementFor(section.id)?.durationBars ?? 0 }} bars</small></div>
+            <label>Energy
+              <select :value="arrangementEnergy(section.id)" :disabled="busy" @change="setSectionArrangement(section.id, ($event.target as HTMLSelectElement).value as SectionEnergy, arrangementDensity(section.id))">
+                <option v-for="energy in sectionEnergies" :key="energy" :value="energy">{{ energy }}</option>
+              </select>
+            </label>
+            <label>How much is happening
+              <select :value="arrangementDensity(section.id)" :disabled="busy" @change="setSectionArrangement(section.id, arrangementEnergy(section.id), ($event.target as HTMLSelectElement).value as SectionDensity)">
+                <option v-for="density in sectionDensities" :key="density" :value="density">{{ density }}</option>
+              </select>
+            </label>
+            <small v-if="!arrangementFor(section.id)" class="arrangement-prompt">Choose either value to begin shaping this section.</small>
+            <small v-else class="arrangement-saved">Saved as an artist decision.</small>
+          </article>
+        </div>
+        <p class="arrangement-boundary">Instrument roles, instrument choices, generated parts, and MIDI come in later slices.</p>
       </section>
 
       <details class="song-settings">

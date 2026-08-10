@@ -206,6 +206,14 @@ Build energy curves, role-based arrangement, genre and instrument profiles, sect
 
 **Deliverable:** a complete visual song blueprint with instrument roles.
 
+### Milestone 4.1 — Section energy and density foundation
+
+The current slice lets the artist describe each existing section with songwriter-facing energy and density intentions. These plans have stable identities, reference existing section IDs, survive save/load, and participate in undo/redo. Existing schema-v15 projects migrate to an empty arrangement blueprint; the application does not infer creative decisions during migration.
+
+The editor presents the resulting song-level energy curve and makes Arrangement an available workspace. This slice does not assign instruments or roles, generate parts, create notes, change chord audition, export MIDI, or claim that an arrangement has been performed.
+
+**Deliverable:** an artist can see and preserve how the song should rise, fall, open up, or become more crowded before choosing any instruments.
+
 ## Milestone 5 — MIDI composition and preview
 
 Build melody, bass, drums, voicings, countermelody, and transition generators; add piano-roll editing, transport, simple synthesis, and MIDI export.
