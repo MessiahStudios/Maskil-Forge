@@ -769,6 +769,31 @@ function removeNoteEvent(noteEventId: string, pitch: RegisteredPitch) {
     'midi.note.remove',
     { noteEventId, pitch: formatRegisteredPitch(pitch) })
 }
+async function exportMidi() {
+  if (!project.value) return
+  if (!project.value.noteEvents.length) {
+    status.value = 'Your song does not contain playable notes yet. Create a harmony sketch first.'
+    return
+  }
+  busy.value = true
+  try {
+    const blob = await projectsApi.exportMidi(project.value.id, project.value)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const safeTitle = project.value.title.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'song'
+    link.href = url
+    link.download = `${safeTitle}-maskil-forge.mid`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    status.value = 'MIDI exported successfully. Your musical sketch can now be opened in another music application.'
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'Unable to export MIDI. No changes were made to your project.'
+  } finally {
+    busy.value = false
+  }
+}
 function chordLabel(sectionId: string, chordId: string) {
   const section = project.value?.sections.find(item => item.id === sectionId)
   const chord = section?.harmony.find(item => item.id === chordId)
@@ -1643,15 +1668,25 @@ onBeforeUnmount(() => {
           </article>
         </div>
         <p v-else class="arrangement-empty">Add a Verse, Chorus, or another section above. Then you can describe how its energy should grow and what musical jobs it needs.</p>
-        <p class="arrangement-boundary">Instrument choices, generated parts, and MIDI come in later slices.</p>
+        <p class="arrangement-boundary">Instrument choices and generated parts come in later slices.</p>
+      </section>
+
+      <section class="midi-export-panel" aria-labelledby="midi-export-title">
+        <div>
+          <span class="eyebrow">Take your sketch with you</span>
+          <h2 id="midi-export-title">Export playable notes</h2>
+          <p v-if="project.noteEvents.length">Your {{ project.noteEvents.length }} approved playable note{{ project.noteEvents.length === 1 ? '' : 's' }} can be opened in another music application. Maskil Forge will preserve {{ project.noteEvents.length === 1 ? 'its' : 'their' }} timing and dynamics without choosing an instrument.</p>
+          <p v-else>Your song does not contain playable notes yet. Create and approve a harmony sketch first.</p>
+        </div>
+        <button type="button" :disabled="busy || !project.noteEvents.length" @click="exportMidi">Export MIDI</button>
       </section>
 
       <details class="disclosure-panel note-event-foundation">
-        <summary><span>Inspect playable notes</span><small>Advanced · A data foundation for later sketches and MIDI export.</small></summary>
+        <summary><span>Inspect playable notes</span><small>Advanced · Review the exact events included in MIDI export.</small></summary>
         <div class="note-event-editor">
           <div>
             <strong>Playable-note foundation</strong>
-            <p>These notes are explicit project data. Nothing here selects an instrument, generates a part, starts playback, or exports MIDI.</p>
+            <p>These notes are explicit project data. Export translates them exactly; it does not select an instrument, generate a part, or start playback.</p>
           </div>
           <form class="note-event-form" @submit.prevent="addNoteEvent">
             <label>Pitch<input name="pitch" required placeholder="C4" :disabled="busy" /></label>

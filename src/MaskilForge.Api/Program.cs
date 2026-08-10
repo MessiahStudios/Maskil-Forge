@@ -247,6 +247,27 @@ app.MapPost("/api/projects/{id}/harmony-note-sketch", async (string id, HarmonyN
     }
 });
 
+app.MapPost("/api/projects/{id}/midi-export", async (string id, MidiExportRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var midi = await workspace.UseAsync(
+            projectId,
+            request.Project,
+            editor => MidiFileExporter.Export(editor.Project),
+            cancellationToken);
+        return midi is null
+            ? Results.NotFound(new ApiError("Project not found."))
+            : Results.File(midi, "audio/midi", "maskil-forge-sketch.mid");
+    }
+    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/undo", async (string id, EditorStateRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -512,6 +533,7 @@ public sealed record ProsodyScoreRequest(
     RhythmCandidateId? RhythmCandidateId = null);
 public sealed record VoiceLeadingReviewRequest(SongProject Project, SectionId SectionId);
 public sealed record HarmonyNoteSketchRequest(SongProject Project, SectionId SectionId);
+public sealed record MidiExportRequest(SongProject Project);
 public sealed record LyricTimelineRequest(
     SongProject Project,
     RhythmCandidateId? RhythmCandidateId = null);
