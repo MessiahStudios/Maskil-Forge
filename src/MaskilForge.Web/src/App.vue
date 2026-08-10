@@ -902,10 +902,11 @@ const activeCreatorStage = ref<CreatorStage>('idea')
 const creatorCompletion = computed(() => creatorProgress(project.value))
 function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : 'upcoming' }
 async function goToCreatorStage(stage: CreatorStage) {
-  const destination = creatorDestination(stage)
+  const destination = creatorDestination(stage, Boolean(project.value?.sections.length))
   if (!destination) return
-  activeCreatorStage.value = stage
+  activeCreatorStage.value = (destination.stage ?? stage) as CreatorStage
   view.value = destination.view
+  if (destination.message) status.value = destination.message
   if (destination.view === 'capture') lyricTimeline.value = null
   await nextTick()
   const target = document.getElementById(destination.target)
@@ -1067,7 +1068,7 @@ onBeforeUnmount(() => {
           <ul>
             <li v-for="stage in creatorStages" :key="`progress-${stage.id}`" :class="`progress-${creatorStageState(stage.id)}`">
               <span aria-hidden="true">{{ creatorStageState(stage.id) === 'complete' ? '✓' : '○' }}</span>
-              {{ stage.id === 'idea' ? 'Idea captured' : stage.id === 'words' ? 'Lyrics started' : stage.id === 'shape' ? 'Structure' : stage.id === 'music' ? 'Music exploration' : stage.label }}
+              {{ stage.id === 'idea' ? 'Song started' : stage.id === 'words' ? 'Lyrics started' : stage.id === 'shape' ? 'Structure' : stage.id === 'music' ? 'Music exploration' : stage.label }}
             </li>
           </ul>
         </div>
@@ -1514,14 +1515,14 @@ onBeforeUnmount(() => {
           <h2 id="arrangement-title">Shape the song’s energy</h2>
           <p>Describe how each section should feel before choosing instruments. These are creative intentions, not generated performances.</p>
         </div>
-        <div class="energy-curve" aria-label="Song energy curve">
+        <div v-if="project.sections.length" class="energy-curve" aria-label="Song energy curve">
           <article v-for="section in project.sections" :key="`energy-${section.id}`">
             <div class="energy-meter" :style="{ '--energy-level': energyValue(arrangementEnergy(section.id)) }" aria-hidden="true"><span /></div>
             <strong>{{ section.title }}</strong>
             <small>{{ arrangementFor(section.id) ? arrangementEnergy(section.id) : 'Not shaped yet' }}</small>
           </article>
         </div>
-        <div class="arrangement-sections">
+        <div v-if="project.sections.length" class="arrangement-sections">
           <article v-for="section in project.sections" :key="`arrangement-${section.id}`" class="arrangement-card">
             <div><strong>{{ section.title }}</strong><small>{{ label(section.kind) }} · {{ placementFor(section.id)?.durationBars ?? 0 }} bars</small></div>
             <label>Energy
@@ -1555,6 +1556,7 @@ onBeforeUnmount(() => {
             </fieldset>
           </article>
         </div>
+        <p v-else class="arrangement-empty">Add a Verse, Chorus, or another section above. Then you can describe how its energy should grow and what musical jobs it needs.</p>
         <p class="arrangement-boundary">Instrument choices, generated parts, and MIDI come in later slices.</p>
       </section>
 
