@@ -405,6 +405,18 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return response.status === 204 ? undefined as T : response.json() as Promise<T>
 }
 
+async function requestBlob(url: string, init?: RequestInit): Promise<Blob> {
+  const response = await fetch(url, {
+    ...init,
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+  })
+  if (!response.ok) {
+    const error = await response.json().catch(() => null) as { error?: string } | null
+    throw new Error(error?.error ?? `Request failed with status ${response.status}.`)
+  }
+  return response.blob()
+}
+
 export const projectsApi = {
   list: () => request<ProjectSummary[]>('/api/projects'),
   listRecovery: () => request<RecoverySummary[]>('/api/recovery'),
@@ -454,6 +466,10 @@ export const projectsApi = {
   harmonyNoteSketch: (id: string, project: SongProject, sectionId: string) =>
     request<HarmonyNoteSketch>(`/api/projects/${id}/harmony-note-sketch`, {
       method: 'POST', body: JSON.stringify({ project, sectionId }),
+    }),
+  exportMidi: (id: string, project: SongProject) =>
+    requestBlob(`/api/projects/${id}/midi-export`, {
+      method: 'POST', body: JSON.stringify({ project }),
     }),
   undo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST', body: JSON.stringify({ project }) }),
   redo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/redo`, { method: 'POST', body: JSON.stringify({ project }) }),

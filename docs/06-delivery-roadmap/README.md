@@ -250,6 +250,14 @@ Only the explicit **Use this sketch** decision adds stable note events. Acceptan
 
 **Deliverable:** the artist can review how existing harmony becomes concrete notes and decide whether those notes belong in the project.
 
+### Milestone 5.3 — Minimal MIDI export
+
+Translate the project's approved playable note events into a format-0 Standard MIDI File using the existing 480-PPQ timeline, tempo, and time signature. Pitch, absolute start tick, duration, and velocity are preserved exactly. Same-tick events are deterministic: note-offs precede note-ons, notes are ordered by pitch, and stable note identity is the final tie-breaker.
+
+Export is transient and does not modify or save the project, create command history, or add activity history. The file contains no invented notes, quantization, program changes, instrument assignments, tracks, generated parts, transport state, or piano-roll data.
+
+**Deliverable:** another music application can open an exact portable representation of the songwriter's approved playable notes.
+
 **Deliverable:** the blueprint becomes an audible, editable demo.
 
 This is the first strong MVP boundary.
