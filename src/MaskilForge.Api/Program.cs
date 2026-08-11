@@ -361,6 +361,25 @@ app.MapPost("/api/projects/{id}/countermelody-proposal", async (string id, Count
     }
 });
 
+app.MapPost("/api/projects/{id}/accent-proposal", async (string id, AccentProposalRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var proposal = await workspace.UseAsync(
+            projectId,
+            request.Project,
+            editor => AccentRealizer.Propose(editor.Project, request.SectionId),
+            cancellationToken);
+        return proposal is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(proposal);
+    }
+    catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/midi-export", async (string id, MidiExportRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -460,6 +479,7 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "use-texture-proposal": editor.Execute(new UseTextureProposalCommand(RequiredSectionId(request))); break;
         case "use-hook-reinforcement-proposal": editor.Execute(new UseHookReinforcementProposalCommand(RequiredSectionId(request))); break;
         case "use-countermelody-proposal": editor.Execute(new UseCountermelodyProposalCommand(RequiredSectionId(request))); break;
+        case "use-accent-proposal": editor.Execute(new UseAccentProposalCommand(RequiredSectionId(request))); break;
         case "add-note-event": editor.Execute(new AddNoteEventCommand(
             request.NotePitch ?? throw new ArgumentException("Note pitch is required."),
             request.StartTick ?? throw new ArgumentException("Start tick is required."),
@@ -666,6 +686,7 @@ public sealed record HarmonySupportProposalRequest(SongProject Project, SectionI
 public sealed record TextureProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record HookReinforcementProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record CountermelodyProposalRequest(SongProject Project, SectionId SectionId);
+public sealed record AccentProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record MidiExportRequest(SongProject Project);
 public sealed record LyricTimelineRequest(
     SongProject Project,
