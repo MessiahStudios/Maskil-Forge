@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type HarmonyNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type HarmonyNoteSketch, type HarmonySupportProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import type { RegisteredPitch } from './api'
@@ -62,6 +62,7 @@ const voiceLeadingReviews = reactive<Record<string, VoiceLeadingReview>>({})
 const harmonyNoteSketches = reactive<Record<string, HarmonyNoteSketch>>({})
 const lowEndSupportProposals = reactive<Record<string, LowEndSupportProposal>>({})
 const pulseProposals = reactive<Record<string, PulseProposal>>({})
+const harmonySupportProposals = reactive<Record<string, HarmonySupportProposal>>({})
 const chordAudition = new ChordAudition()
 const auditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const lyricTimeline = ref<LyricTimelineView | null>(null)
@@ -79,6 +80,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
   Object.keys(harmonyNoteSketches).forEach(key => delete harmonyNoteSketches[key])
   Object.keys(lowEndSupportProposals).forEach(key => delete lowEndSupportProposals[key])
   Object.keys(pulseProposals).forEach(key => delete pulseProposals[key])
+  Object.keys(harmonySupportProposals).forEach(key => delete harmonySupportProposals[key])
   projectId.value = next.project.id
   localStorage.setItem('maskilForge.projectId', next.project.id)
   status.value = message
@@ -1048,6 +1050,36 @@ function usePulseProposal(sectionId: string) {
     'arrangement.pulse.use',
     { sectionId, noteCount: proposal?.events.length ?? 0 })
 }
+async function prepareHarmonySupportProposal(sectionId: string) {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'arrangement.harmony_support.prepare', 'Harmony support idea requested.', { sectionId })
+  try {
+    const proposal = await projectsApi.harmonySupportProposal(project.value.id, project.value, sectionId)
+    harmonySupportProposals[sectionId] = proposal
+    status.value = `${proposal.events.length} harmony note${proposal.events.length === 1 ? '' : 's'} prepared for review.`
+    activityLog.write('success', 'arrangement.harmony_support.prepare', status.value, {
+      sectionId,
+      noteCount: proposal.events.length,
+      reusedNoteCount: proposal.reusedNoteCount,
+      usesPreviewVoicings: proposal.usesPreviewVoicings,
+    })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The harmony support idea could not be prepared.'
+    activityLog.write('error', 'arrangement.harmony_support.prepare', status.value, { sectionId })
+  } finally {
+    busy.value = false
+  }
+}
+function useHarmonySupportProposal(sectionId: string) {
+  if (!project.value) return
+  const proposal = harmonySupportProposals[sectionId]
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'use-harmony-support-proposal', sectionId }),
+    `${proposal?.partLabel ?? 'Harmony support'} added as an editable musical part.`,
+    'arrangement.harmony_support.use',
+    { sectionId, noteCount: proposal?.events.length ?? 0 })
+}
 function addMusicalPart(sectionId: string, event: Event) {
   if (!project.value) return
   const form = event.currentTarget as HTMLFormElement
@@ -1766,6 +1798,29 @@ onBeforeUnmount(() => {
                 <strong>Build musical parts</strong>
                 <small>Explore a guided idea or connect approved notes yourself. Previewed ideas add nothing until you decide, and no instrument is chosen for you.</small>
               </div>
+              <section v-if="sectionHasRole(section.id, 'Harmony') && !hasPartForRole(section.id, 'Harmony')" class="role-proposal">
+                <div>
+                  <strong>Explore harmony support</strong>
+                  <small>Maskil Forge can turn this section’s approved chords and voicings into a harmony-support part. Registered voices stay authoritative; missing voices use temporary preview voicings. Preview every note before deciding.</small>
+                </div>
+                <button type="button" class="secondary" :disabled="busy || !section.harmony.length" @click="prepareHarmonySupportProposal(section.id)">
+                  {{ harmonySupportProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
+                </button>
+                <div v-if="harmonySupportProposals[section.id]" class="role-proposal-result">
+                  <p>
+                    <strong>{{ harmonySupportProposals[section.id].partLabel }}</strong>
+                    <span>{{ harmonySupportProposals[section.id].events.length }} note{{ harmonySupportProposals[section.id].events.length === 1 ? '' : 's' }} · {{ harmonySupportProposals[section.id].reusedNoteCount }} already match · {{ harmonySupportProposals[section.id].usesPreviewVoicings ? 'includes temporary preview voicings' : 'uses registered voicings' }}</span>
+                  </p>
+                  <ol>
+                    <li v-for="(note, noteIndex) in harmonySupportProposals[section.id].events" :key="`${note.startTick}:${noteIndex}`">
+                      <strong>{{ formatRegisteredPitch(note.pitch) }}</strong>
+                      <span>tick {{ note.startTick }} · {{ note.durationTicks }} ticks</span>
+                      <small>{{ note.existingNoteEventId ? 'Uses your existing note' : note.usesPreviewVoicing ? 'Creates this temporary-preview note' : 'Creates this registered-voicing note' }}</small>
+                    </li>
+                  </ol>
+                  <button type="button" :disabled="busy" @click="useHarmonySupportProposal(section.id)">Use this idea</button>
+                </div>
+              </section>
               <section v-if="sectionHasRole(section.id, 'Pulse') && !hasPartForRole(section.id, 'Pulse')" class="role-proposal">
                 <div>
                   <strong>Explore pulse</strong>

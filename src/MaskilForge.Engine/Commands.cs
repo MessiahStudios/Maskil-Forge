@@ -225,6 +225,45 @@ public sealed class UsePulseProposalCommand(SectionId sectionId) : IProjectComma
     }
 }
 
+public sealed class UseHarmonySupportProposalCommand(SectionId sectionId) : IProjectCommand
+{
+    private IReadOnlyList<NoteEvent>? _createdNotes;
+    private MusicalPart? _createdPart;
+
+    public void Execute(SongProject project)
+    {
+        if (_createdPart is null)
+        {
+            var proposal = HarmonySupportRealizer.Propose(project, sectionId);
+            var createdNotes = new List<NoteEvent>();
+            var partNoteIds = new List<NoteEventId>();
+            foreach (var item in proposal.Events)
+            {
+                if (item.ExistingNoteEventId is { } existingId) partNoteIds.Add(existingId);
+                else
+                {
+                    var created = project.AddNoteEvent(item.Pitch, item.StartTick, item.DurationTicks, item.Velocity);
+                    createdNotes.Add(created);
+                    partNoteIds.Add(created.Id);
+                }
+            }
+            _createdNotes = createdNotes;
+            _createdPart = project.AddMusicalPart(sectionId, ArrangementRole.Harmony, proposal.PartLabel, partNoteIds);
+            return;
+        }
+
+        foreach (var note in _createdNotes ?? []) project.RestoreNoteEvent(note);
+        project.RestoreMusicalPart(_createdPart);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_createdPart is null || _createdNotes is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RemoveMusicalPart(_createdPart.Id);
+        foreach (var note in _createdNotes) project.RemoveNoteEvent(note.Id);
+    }
+}
+
 public sealed class SetSectionRoleCommand(
     SectionId sectionId,
     ArrangementRole role,
