@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import type { RegisteredPitch } from './api'
@@ -66,6 +66,7 @@ const harmonySupportProposals = reactive<Record<string, HarmonySupportProposal>>
 const textureProposals = reactive<Record<string, TextureProposal>>({})
 const hookReinforcementProposals = reactive<Record<string, HookReinforcementProposal>>({})
 const countermelodyProposals = reactive<Record<string, CountermelodyProposal>>({})
+const accentProposals = reactive<Record<string, AccentProposal>>({})
 const chordAudition = new ChordAudition()
 const auditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const lyricTimeline = ref<LyricTimelineView | null>(null)
@@ -87,6 +88,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
   Object.keys(textureProposals).forEach(key => delete textureProposals[key])
   Object.keys(hookReinforcementProposals).forEach(key => delete hookReinforcementProposals[key])
   Object.keys(countermelodyProposals).forEach(key => delete countermelodyProposals[key])
+  Object.keys(accentProposals).forEach(key => delete accentProposals[key])
   projectId.value = next.project.id
   localStorage.setItem('maskilForge.projectId', next.project.id)
   status.value = message
@@ -1166,6 +1168,31 @@ function useCountermelodyProposal(sectionId: string) {
     'arrangement.countermelody.use',
     { sectionId, noteCount: proposal?.events.length ?? 0 })
 }
+async function prepareAccentProposal(sectionId: string) {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'arrangement.accent.prepare', 'Accent idea requested.', { sectionId })
+  try {
+    const proposal = await projectsApi.accentProposal(project.value.id, project.value, sectionId)
+    accentProposals[sectionId] = proposal
+    status.value = `${proposal.events.length} accent note${proposal.events.length === 1 ? '' : 's'} prepared for review.`
+    activityLog.write('success', 'arrangement.accent.prepare', status.value, { sectionId, noteCount: proposal.events.length, reusedNoteCount: proposal.reusedNoteCount })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The accent idea could not be prepared.'
+    activityLog.write('error', 'arrangement.accent.prepare', status.value, { sectionId })
+  } finally {
+    busy.value = false
+  }
+}
+function useAccentProposal(sectionId: string) {
+  if (!project.value) return
+  const proposal = accentProposals[sectionId]
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'use-accent-proposal', sectionId }),
+    `${proposal?.partLabel ?? 'Accents'} added as an editable musical part.`,
+    'arrangement.accent.use',
+    { sectionId, noteCount: proposal?.events.length ?? 0 })
+}
 function addMusicalPart(sectionId: string, event: Event) {
   if (!project.value) return
   const form = event.currentTarget as HTMLFormElement
@@ -1884,6 +1911,26 @@ onBeforeUnmount(() => {
                 <strong>Build musical parts</strong>
                 <small>Explore a guided idea or connect approved notes yourself. Previewed ideas add nothing until you decide, and no instrument is chosen for you.</small>
               </div>
+              <section v-if="sectionHasRole(section.id, 'Accent') && !hasPartForRole(section.id, 'Accent')" class="role-proposal">
+                <div>
+                  <strong>Explore accents</strong>
+                  <small>Maskil Forge can mark bar downbeats with a short, strong hit on the highest approved note at that moment. Preview every note before deciding.</small>
+                </div>
+                <button type="button" class="secondary" :disabled="busy || !notesForSection(section.id).length" @click="prepareAccentProposal(section.id)">
+                  {{ accentProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
+                </button>
+                <div v-if="accentProposals[section.id]" class="role-proposal-result">
+                  <p><strong>{{ accentProposals[section.id].partLabel }}</strong><span>{{ accentProposals[section.id].events.length }} note{{ accentProposals[section.id].events.length === 1 ? '' : 's' }} · {{ accentProposals[section.id].reusedNoteCount }} already match this accent</span></p>
+                  <ol>
+                    <li v-for="(note, noteIndex) in accentProposals[section.id].events" :key="`${note.startTick}:${noteIndex}`">
+                      <strong>{{ formatRegisteredPitch(note.pitch) }}</strong>
+                      <span>tick {{ note.startTick }} · {{ note.durationTicks }} ticks</span>
+                      <small>{{ note.existingNoteEventId ? 'Uses your existing accent note' : 'Creates this accent note' }}</small>
+                    </li>
+                  </ol>
+                  <button type="button" :disabled="busy" @click="useAccentProposal(section.id)">Use this idea</button>
+                </div>
+              </section>
               <section v-if="sectionHasRole(section.id, 'Countermelody') && !hasPartForRole(section.id, 'Countermelody')" class="role-proposal">
                 <div>
                   <strong>Explore countermelody</strong>
