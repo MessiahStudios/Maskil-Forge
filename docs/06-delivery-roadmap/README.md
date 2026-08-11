@@ -1,6 +1,6 @@
 # 06 — Delivery Roadmap
 
-This is the recommended logical build order for Maskil Forge and its underlying Maskil Engine. The repository has completed the Prototype boundary and the first eight implementation slices of Milestone 5, including four narrow role realizations. A milestone should start only after its dependency gate is reliable.
+This is the recommended logical build order for Maskil Forge and its underlying Maskil Engine. The repository has completed the Prototype boundary and the first nine implementation slices of Milestone 5, including five narrow role realizations. A milestone should start only after its dependency gate is reliable.
 
 ## Milestone 0 — Decisions and skeleton
 
@@ -232,7 +232,7 @@ This checkpoint changes no domain model, schema, persistence behavior, migration
 
 ## Milestone 5 — MIDI composition and preview
 
-Turn approved musical intent into an audible, editable song demo without silently replacing the songwriter's decisions. Slices 5.1–5.8 now provide playable note events, harmony realization, MIDI export, role-aware musical parts, deterministic low-end support, pulse from approved timing, harmony-support realization, and texture realization. The remaining MVP work is intentionally incremental: realize additional roles, audition assembled parts, add basic transport, provide minimal note/part editing, and validate the complete demo loop. Full piano-roll and DAW-style editing are later capabilities, not prerequisites for the MVP boundary.
+Turn approved musical intent into an audible, editable song demo without silently replacing the songwriter's decisions. Slices 5.1–5.9 now provide playable note events, harmony realization, MIDI export, role-aware musical parts, and deterministic low-end, pulse, harmony-support, texture, and hook-reinforcement realizations. The remaining MVP work is intentionally incremental: realize additional roles, audition assembled parts, add basic transport, provide minimal note/part editing, and validate the complete demo loop. Full piano-roll and DAW-style editing are later capabilities, not prerequisites for the MVP boundary.
 
 ### Milestone 5.1 — MIDI event foundation
 
@@ -298,11 +298,19 @@ Preparing or refreshing the idea is transient. Only **Use this idea** creates an
 
 **Deliverable:** the songwriter can accept an explainable texture layer derived from approved harmony while remaining the final decision-maker.
 
+### Milestone 5.9 — Hook reinforcement realization
+
+Offer one narrow, deterministic hook idea from approved timing and pitch: for a section marked **Hook reinforcement**, select the highest approved note at each onset, cap its duration at one beat, and emphasize it with a stronger velocity. Existing notes that already match pitch, onset, and that capped duration are reused instead of duplicated.
+
+Preparing or refreshing the idea is transient. Only **Use this idea** creates any missing stable notes and one role-aware musical part, together as a single undoable decision. The slice does not invent melodies beyond approved notes, choose an instrument, replace notes, automatically regenerate after edits, or realize any other arrangement role.
+
+**Deliverable:** the songwriter can accept an explainable hook-reinforcement layer derived from approved material while remaining the final decision-maker.
+
 ### Remaining editable-demo MVP slices
 
-The current working sequence is approximately five to six focused slices. It may be split or combined as validation reveals the smallest safe boundaries:
+The current working sequence is approximately five focused slices. It may be split or combined as validation reveals the smallest safe boundaries:
 
-1. Hook reinforcement or countermelody realization.
+1. Countermelody realization.
 2. Transition or accent realization.
 3. Audition of assembled musical parts.
 4. Basic playback transport.
@@ -355,7 +363,7 @@ Build mixer routing, automation, production recipes, stem/WAV export, DAW handof
 
 ### MVP
 
-**In progress past the Milestone 5.5 foundation checkpoint.** Milestones 0–4 and slices 5.1–5.8 are complete. The remaining MVP target is to realize enough additional arrangement roles, audition the assembled parts, provide basic transport and minimal editing, and validate a complete editable song-demo workflow. MIDI export already provides an exact handoff of approved notes, but it does not by itself complete the audible demo loop.
+**In progress past the Milestone 5.5 foundation checkpoint.** Milestones 0–4 and slices 5.1–5.9 are complete. The remaining MVP target is to realize enough additional arrangement roles, audition the assembled parts, provide basic transport and minimal editing, and validate a complete editable song-demo workflow. MIDI export already provides an exact handoff of approved notes, but it does not by itself complete the audible demo loop.
 
 ### Artist alpha
 
