@@ -78,6 +78,8 @@ export interface TextureProposalEvent extends Omit<NoteEvent, 'id'> { usesPrevie
 export interface TextureProposal { sectionId: string; partLabel: string; events: TextureProposalEvent[]; reusedNoteCount: number; usesPreviewVoicings: boolean }
 export interface HookReinforcementProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
 export interface HookReinforcementProposal { sectionId: string; partLabel: string; events: HookReinforcementProposalEvent[]; reusedNoteCount: number }
+export interface CountermelodyProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
+export interface CountermelodyProposal { sectionId: string; partLabel: string; events: CountermelodyProposalEvent[]; reusedNoteCount: number }
 export interface ChordVoice { id: string; position: number; pitch: RegisteredPitch; provenance: HarmonyProvenance }
 export interface ChordVoicing { id: string; minimumMidiNote: number; maximumMidiNote: number; voices: ChordVoice[] }
 
@@ -508,6 +510,10 @@ export const projectsApi = {
     }),
   hookReinforcementProposal: (id: string, project: SongProject, sectionId: string) =>
     request<HookReinforcementProposal>(`/api/projects/${id}/hook-reinforcement-proposal`, {
+      method: 'POST', body: JSON.stringify({ project, sectionId }),
+    }),
+  countermelodyProposal: (id: string, project: SongProject, sectionId: string) =>
+    request<CountermelodyProposal>(`/api/projects/${id}/countermelody-proposal`, {
       method: 'POST', body: JSON.stringify({ project, sectionId }),
     }),
   exportMidi: (id: string, project: SongProject) =>

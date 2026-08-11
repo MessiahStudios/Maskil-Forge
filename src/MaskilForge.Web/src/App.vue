@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import type { RegisteredPitch } from './api'
@@ -65,6 +65,7 @@ const pulseProposals = reactive<Record<string, PulseProposal>>({})
 const harmonySupportProposals = reactive<Record<string, HarmonySupportProposal>>({})
 const textureProposals = reactive<Record<string, TextureProposal>>({})
 const hookReinforcementProposals = reactive<Record<string, HookReinforcementProposal>>({})
+const countermelodyProposals = reactive<Record<string, CountermelodyProposal>>({})
 const chordAudition = new ChordAudition()
 const auditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const lyricTimeline = ref<LyricTimelineView | null>(null)
@@ -85,6 +86,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
   Object.keys(harmonySupportProposals).forEach(key => delete harmonySupportProposals[key])
   Object.keys(textureProposals).forEach(key => delete textureProposals[key])
   Object.keys(hookReinforcementProposals).forEach(key => delete hookReinforcementProposals[key])
+  Object.keys(countermelodyProposals).forEach(key => delete countermelodyProposals[key])
   projectId.value = next.project.id
   localStorage.setItem('maskilForge.projectId', next.project.id)
   status.value = message
@@ -1139,6 +1141,31 @@ function useHookReinforcementProposal(sectionId: string) {
     'arrangement.hook.use',
     { sectionId, noteCount: proposal?.events.length ?? 0 })
 }
+async function prepareCountermelodyProposal(sectionId: string) {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'arrangement.countermelody.prepare', 'Countermelody idea requested.', { sectionId })
+  try {
+    const proposal = await projectsApi.countermelodyProposal(project.value.id, project.value, sectionId)
+    countermelodyProposals[sectionId] = proposal
+    status.value = `${proposal.events.length} countermelody note${proposal.events.length === 1 ? '' : 's'} prepared for review.`
+    activityLog.write('success', 'arrangement.countermelody.prepare', status.value, { sectionId, noteCount: proposal.events.length, reusedNoteCount: proposal.reusedNoteCount })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The countermelody idea could not be prepared.'
+    activityLog.write('error', 'arrangement.countermelody.prepare', status.value, { sectionId })
+  } finally {
+    busy.value = false
+  }
+}
+function useCountermelodyProposal(sectionId: string) {
+  if (!project.value) return
+  const proposal = countermelodyProposals[sectionId]
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'use-countermelody-proposal', sectionId }),
+    `${proposal?.partLabel ?? 'Countermelody'} added as an editable musical part.`,
+    'arrangement.countermelody.use',
+    { sectionId, noteCount: proposal?.events.length ?? 0 })
+}
 function addMusicalPart(sectionId: string, event: Event) {
   if (!project.value) return
   const form = event.currentTarget as HTMLFormElement
@@ -1857,6 +1884,26 @@ onBeforeUnmount(() => {
                 <strong>Build musical parts</strong>
                 <small>Explore a guided idea or connect approved notes yourself. Previewed ideas add nothing until you decide, and no instrument is chosen for you.</small>
               </div>
+              <section v-if="sectionHasRole(section.id, 'Countermelody') && !hasPartForRole(section.id, 'Countermelody')" class="role-proposal">
+                <div>
+                  <strong>Explore countermelody</strong>
+                  <small>Maskil Forge can follow the second-highest approved note at moments where more than one note sounds, as a supporting response beneath the top line. Preview every note before deciding.</small>
+                </div>
+                <button type="button" class="secondary" :disabled="busy || !notesForSection(section.id).length" @click="prepareCountermelodyProposal(section.id)">
+                  {{ countermelodyProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
+                </button>
+                <div v-if="countermelodyProposals[section.id]" class="role-proposal-result">
+                  <p><strong>{{ countermelodyProposals[section.id].partLabel }}</strong><span>{{ countermelodyProposals[section.id].events.length }} note{{ countermelodyProposals[section.id].events.length === 1 ? '' : 's' }} · {{ countermelodyProposals[section.id].reusedNoteCount }} already match this response</span></p>
+                  <ol>
+                    <li v-for="(note, noteIndex) in countermelodyProposals[section.id].events" :key="`${note.startTick}:${noteIndex}`">
+                      <strong>{{ formatRegisteredPitch(note.pitch) }}</strong>
+                      <span>tick {{ note.startTick }} · {{ note.durationTicks }} ticks</span>
+                      <small>{{ note.existingNoteEventId ? 'Uses your existing response note' : 'Creates this response note' }}</small>
+                    </li>
+                  </ol>
+                  <button type="button" :disabled="busy" @click="useCountermelodyProposal(section.id)">Use this idea</button>
+                </div>
+              </section>
               <section v-if="sectionHasRole(section.id, 'HookReinforcement') && !hasPartForRole(section.id, 'HookReinforcement')" class="role-proposal">
                 <div>
                   <strong>Explore hook reinforcement</strong>
