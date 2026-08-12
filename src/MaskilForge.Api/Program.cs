@@ -467,6 +467,11 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             RequiredSectionId(request),
             request.SectionDelivery ?? throw new ArgumentException("Section delivery is required."),
             request.PerformanceNotes ?? string.Empty)); break;
+        case "set-section-intent": editor.Execute(new SetSectionIntentCommand(
+            RequiredSectionId(request),
+            request.StructuralFunction ?? throw new ArgumentException("Structural function is required."),
+            request.SectionDelivery ?? throw new ArgumentException("Section delivery is required."),
+            request.PerformanceNotes ?? string.Empty)); break;
         case "set-section-structural-function": editor.Execute(new SetSectionStructuralFunctionCommand(
             RequiredSectionId(request),
             request.StructuralFunction ?? throw new ArgumentException("Structural function is required."))); break;

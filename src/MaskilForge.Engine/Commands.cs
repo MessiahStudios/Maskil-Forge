@@ -119,6 +119,35 @@ public sealed class SetSectionStructuralFunctionCommand(SectionId sectionId, Str
     }
 }
 
+public sealed class SetSectionIntentCommand(
+    SectionId sectionId,
+    StructuralFunction structuralFunction,
+    SectionDelivery delivery,
+    string performanceNotes) : IProjectCommand
+{
+    private StructuralFunction? _previousStructuralFunction;
+    private SectionDelivery? _previousDelivery;
+    private string? _previousNotes;
+
+    public void Execute(SongProject project)
+    {
+        var section = project.FindSection(sectionId);
+        _previousStructuralFunction ??= section.StructuralFunction;
+        _previousDelivery ??= section.Delivery;
+        _previousNotes ??= section.PerformanceNotes;
+        project.SetSectionStructuralFunction(sectionId, structuralFunction);
+        project.SetSectionPerformanceIntent(sectionId, delivery, performanceNotes);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previousStructuralFunction is null || _previousDelivery is null || _previousNotes is null)
+            throw new InvalidOperationException("Command has not been executed.");
+        project.SetSectionStructuralFunction(sectionId, _previousStructuralFunction.Value);
+        project.SetSectionPerformanceIntent(sectionId, _previousDelivery.Value, _previousNotes);
+    }
+}
+
 public sealed class DuplicateSectionCommand(SectionId sourceSectionId) : IProjectCommand
 {
     private SongSection? _duplicate;
