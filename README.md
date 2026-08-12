@@ -109,6 +109,8 @@ Slice 5.21 turns the derived readiness gap into a contextual next-action button 
 
 Slice 5.22 adds an explicit, undoable way to reuse another section’s harmony and arrangement foundation with fresh identities, while preserving the target’s lyrics and performance intent and refusing to overwrite absolute-timed parts.
 
+Slice 5.23 makes unknown bracketed lyric-sheet headings visible structural boundaries: preview lists them for review and keeps their following lines unassigned instead of silently merging them into a neighboring recognized section.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.

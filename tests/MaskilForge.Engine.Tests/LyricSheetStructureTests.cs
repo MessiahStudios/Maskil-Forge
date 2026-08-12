@@ -82,6 +82,19 @@ public sealed class LyricSheetStructureTests
 
         Assert.Single(preview.Sections);
         Assert.Equal(["[Invocation]", "Unknown opening"], preview.UnassignedLines);
+        Assert.Equal(["[Invocation]"], preview.UnrecognizedHeadings);
+    }
+
+    [Fact]
+    public void Parse_UnknownHeadingAfterKnownSection_DoesNotBecomeLyricsOrCaptureFollowingLines()
+    {
+        var preview = LyricSheetStructureParser.Parse("[Verse]\nKnown line\n[Refrain]\nAmbiguous refrain\n[Outro]\nClosing line");
+
+        Assert.Equal(2, preview.Sections.Count);
+        Assert.Equal(["Known line"], preview.Sections[0].Lyrics);
+        Assert.Equal(["Closing line"], preview.Sections[1].Lyrics);
+        Assert.Equal(["[Refrain]"], preview.UnrecognizedHeadings);
+        Assert.Equal(["[Refrain]", "Ambiguous refrain"], preview.UnassignedLines);
     }
 
     [Fact]

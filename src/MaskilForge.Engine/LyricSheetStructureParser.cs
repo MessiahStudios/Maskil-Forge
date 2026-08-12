@@ -12,7 +12,8 @@ public sealed record ProposedSongSection(
 
 public sealed record LyricSheetStructurePreview(
     IReadOnlyList<ProposedSongSection> Sections,
-    IReadOnlyList<string> UnassignedLines);
+    IReadOnlyList<string> UnassignedLines,
+    IReadOnlyList<string> UnrecognizedHeadings);
 
 public static partial class LyricSheetStructureParser
 {
@@ -24,6 +25,7 @@ public static partial class LyricSheetStructureParser
         ArgumentNullException.ThrowIfNull(text);
         var sections = new List<ProposedSongSection>();
         var unassigned = new List<string>();
+        var unrecognizedHeadings = new List<string>();
         Draft? current = null;
 
         foreach (var rawLine in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
@@ -35,6 +37,13 @@ public static partial class LyricSheetStructureParser
                 if (current is not null) sections.Add(current.Build());
                 current = heading;
             }
+            else if (match.Success)
+            {
+                if (current is not null) sections.Add(current.Build());
+                current = null;
+                unrecognizedHeadings.Add(line);
+                unassigned.Add(line);
+            }
             else if (line.Length > 0)
             {
                 if (current is null) unassigned.Add(line);
@@ -43,7 +52,7 @@ public static partial class LyricSheetStructureParser
         }
 
         if (current is not null) sections.Add(current.Build());
-        return new LyricSheetStructurePreview(DisambiguateRepeatedTitles(sections), unassigned);
+        return new LyricSheetStructurePreview(DisambiguateRepeatedTitles(sections), unassigned, unrecognizedHeadings);
     }
 
     private static IReadOnlyList<ProposedSongSection> DisambiguateRepeatedTitles(IReadOnlyList<ProposedSongSection> sections)
