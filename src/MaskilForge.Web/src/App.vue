@@ -1592,7 +1592,9 @@ async function goToNextReadinessStep() {
   void target.getBoundingClientRect()
   target.classList.add('journey-focus')
   window.setTimeout(() => target.classList.remove('journey-focus'), 1_400)
-  if (target instanceof HTMLDetailsElement) target.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true })
+  const action = target.querySelector<HTMLElement>(`[data-readiness-action="${step.action}"]:not(:disabled)`)
+  if (action) action.focus({ preventScroll: true })
+  else if (target instanceof HTMLDetailsElement) target.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true })
 }
 async function goToCreatorStage(stage: CreatorStage) {
   roleReviewActive.value = false
@@ -2043,7 +2045,7 @@ onBeforeUnmount(() => {
                   <strong>Harmony</strong>
                   <small>Section chords in musical time. Roman analysis and generation come later.</small>
                 </div>
-                <button class="quiet" :disabled="busy" @click="addHarmonyChord(section.id)">+ Add chord</button>
+                <button class="quiet" data-readiness-action="harmony" :disabled="busy" @click="addHarmonyChord(section.id)">+ Add chord</button>
               </div>
               <p v-if="!section.harmony?.length" class="harmony-empty">No chords yet. Add one to begin this section’s progression.</p>
               <div v-if="section.harmony?.length" class="chord-audition" :aria-label="`Hear ${section.title} progression`">
@@ -2195,7 +2197,7 @@ onBeforeUnmount(() => {
               </div>
             </details>
             <div class="lyrics-editor">
-              <div class="lyrics-heading"><span>Lyrics</span><button class="quiet" :disabled="busy" @click="addLyricLine(index, true)">+ Add line</button></div>
+              <div class="lyrics-heading"><span>Lyrics</span><button class="quiet" data-readiness-action="lyrics" :disabled="busy" @click="addLyricLine(index, true)">+ Add line</button></div>
               <div v-for="(line, lineIndex) in section.lyricLines" :key="line.id" class="lyric-line">
                 <span class="lyric-line-number">{{ lineIndex + 1 }}</span>
                 <input v-model="line.text" :data-line-id="line.id" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Write a lyric line…" :disabled="busy || Boolean(lyricLineLock(line.id))" @change="editLyricLine(section.id, line.id, line.text)" @keydown.enter.prevent="addLineAfter(index, lineIndex)" @keydown.backspace="handleLineBackspace(index, lineIndex, line.text)" />
@@ -2420,6 +2422,7 @@ onBeforeUnmount(() => {
                 :key="role.id"
                 type="button"
                 class="role-choice"
+                data-readiness-action="role"
                 :class="{ selected: sectionHasRole(section.id, role.id) }"
                 :aria-pressed="sectionHasRole(section.id, role.id)"
                 :title="role.help"
@@ -2439,7 +2442,7 @@ onBeforeUnmount(() => {
                   <strong>Explore accents</strong>
                   <small>Maskil Forge can mark bar downbeats with a short, strong hit on the highest approved note at that moment. Preview every note before deciding.</small>
                 </div>
-                <button type="button" class="secondary" :disabled="busy || !notesForSection(section.id).length" @click="prepareAccentProposal(section.id)">
+                <button type="button" class="secondary" data-readiness-action="part" :disabled="busy || !notesForSection(section.id).length" @click="prepareAccentProposal(section.id)">
                   {{ accentProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
                 </button>
                 <div v-if="accentProposals[section.id]" class="role-proposal-result">
@@ -2459,7 +2462,7 @@ onBeforeUnmount(() => {
                   <strong>Explore countermelody</strong>
                   <small>Maskil Forge can follow the second-highest approved note at moments where more than one note sounds, as a supporting response beneath the top line. Preview every note before deciding.</small>
                 </div>
-                <button type="button" class="secondary" :disabled="busy || !notesForSection(section.id).length" @click="prepareCountermelodyProposal(section.id)">
+                <button type="button" class="secondary" data-readiness-action="part" :disabled="busy || !notesForSection(section.id).length" @click="prepareCountermelodyProposal(section.id)">
                   {{ countermelodyProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
                 </button>
                 <div v-if="countermelodyProposals[section.id]" class="role-proposal-result">
@@ -2479,7 +2482,7 @@ onBeforeUnmount(() => {
                   <strong>Explore hook reinforcement</strong>
                   <small>Maskil Forge can emphasize the highest approved note at each musical moment with a clearer, beat-capped hit. Preview every note before deciding.</small>
                 </div>
-                <button type="button" class="secondary" :disabled="busy || !notesForSection(section.id).length" @click="prepareHookReinforcementProposal(section.id)">
+                <button type="button" class="secondary" data-readiness-action="part" :disabled="busy || !notesForSection(section.id).length" @click="prepareHookReinforcementProposal(section.id)">
                   {{ hookReinforcementProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
                 </button>
                 <div v-if="hookReinforcementProposals[section.id]" class="role-proposal-result">
@@ -2499,7 +2502,7 @@ onBeforeUnmount(() => {
                   <strong>Explore texture</strong>
                   <small>Maskil Forge can keep the upper half of each approved chord voicing as softer sustained color. Registered voices stay authoritative; missing voices use temporary preview voicings. Preview every note before deciding.</small>
                 </div>
-                <button type="button" class="secondary" :disabled="busy || !section.harmony.length" @click="prepareTextureProposal(section.id)">
+                <button type="button" class="secondary" data-readiness-action="part" :disabled="busy || !section.harmony.length" @click="prepareTextureProposal(section.id)">
                   {{ textureProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
                 </button>
                 <div v-if="textureProposals[section.id]" class="role-proposal-result">
@@ -2522,7 +2525,7 @@ onBeforeUnmount(() => {
                   <strong>Explore harmony support</strong>
                   <small>Maskil Forge can turn this section’s approved chords and voicings into a harmony-support part. Registered voices stay authoritative; missing voices use temporary preview voicings. Preview every note before deciding.</small>
                 </div>
-                <button type="button" class="secondary" :disabled="busy || !section.harmony.length" @click="prepareHarmonySupportProposal(section.id)">
+                <button type="button" class="secondary" data-readiness-action="part" :disabled="busy || !section.harmony.length" @click="prepareHarmonySupportProposal(section.id)">
                   {{ harmonySupportProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
                 </button>
                 <div v-if="harmonySupportProposals[section.id]" class="role-proposal-result">
@@ -2545,7 +2548,7 @@ onBeforeUnmount(() => {
                   <strong>Explore pulse</strong>
                   <small>Maskil Forge can place a short mid-register hit on each approved onset so the section keeps a clear rhythmic motion. Preview every note before deciding.</small>
                 </div>
-                <button type="button" class="secondary" :disabled="busy || !notesForSection(section.id).length" @click="preparePulseProposal(section.id)">
+                <button type="button" class="secondary" data-readiness-action="part" :disabled="busy || !notesForSection(section.id).length" @click="preparePulseProposal(section.id)">
                   {{ pulseProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
                 </button>
                 <div v-if="pulseProposals[section.id]" class="role-proposal-result">
@@ -2565,7 +2568,7 @@ onBeforeUnmount(() => {
                   <strong>Explore low-end support</strong>
                   <small>Maskil Forge can follow the lowest approved note at each musical moment and place it in a lower register. Preview every note before deciding.</small>
                 </div>
-                <button type="button" class="secondary" :disabled="busy || !notesForSection(section.id).length" @click="prepareLowEndSupportProposal(section.id)">
+                <button type="button" class="secondary" data-readiness-action="part" :disabled="busy || !notesForSection(section.id).length" @click="prepareLowEndSupportProposal(section.id)">
                   {{ lowEndSupportProposals[section.id] ? 'Refresh this idea' : 'Explore this idea' }}
                 </button>
                 <div v-if="lowEndSupportProposals[section.id]" class="role-proposal-result">
@@ -2581,7 +2584,7 @@ onBeforeUnmount(() => {
                 </div>
               </section>
               <form v-if="notesForSection(section.id).length" class="musical-part-form" @submit.prevent="addMusicalPart(section.id, $event)">
-                <label>Part name<input name="label" maxlength="100" placeholder="Chorus foundation" required :disabled="busy" /></label>
+                <label>Part name<input name="label" data-readiness-action="part" maxlength="100" placeholder="Chorus foundation" required :disabled="busy" /></label>
                 <label>Musical job<select name="role" required :disabled="busy"><option v-for="role in assignedRolesForSection(section.id)" :key="role.id" :value="role.id">{{ role.label }}</option></select></label>
                 <fieldset>
                   <legend>Which approved notes belong to this part?</legend>

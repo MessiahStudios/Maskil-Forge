@@ -486,6 +486,12 @@ Show the owning chord's pitch classes beside manual voicing entry and validate c
 
 **Deliverable:** artists can author valid chord voicings from visible musical constraints instead of learning note membership or register rules through server errors.
 
+### Milestone 5.35 — Direct readiness action focus
+
+Identify the concrete artist action behind each hear–revise readiness gap and move focus to its first enabled control after opening the relevant section and workspace. Preserve the workspace highlight and fall back safely when no enabled action is available.
+
+**Deliverable:** readiness guidance completes its navigation promise for lyrics, harmony, arrangement jobs, and playable parts without requiring an extra search or keyboard step.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

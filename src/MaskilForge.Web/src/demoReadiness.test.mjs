@@ -10,7 +10,7 @@ test('demo readiness reports the first artist-actionable gap', () => {
   const review = demoReadiness(project({ sections: [section('verse', 'Verse')] }))
   assert.equal(review.complete, false)
   assert.equal(review.nextAction, 'Write a lyric line in Verse.')
-  assert.deepEqual(review.nextStep, { sectionId: 'verse', stage: 'shape', label: 'Write Verse lyrics' })
+  assert.deepEqual(review.nextStep, { sectionId: 'verse', stage: 'shape', action: 'lyrics', label: 'Write Verse lyrics' })
 })
 
 test('next step targets the first incomplete section and its required workspace', () => {
@@ -23,7 +23,7 @@ test('next step targets the first incomplete section and its required workspace'
     musicalParts: [{ sectionId: 'verse', noteEventIds: ['note'] }],
     noteEvents: [{ id: 'note' }],
   }))
-  assert.deepEqual(review.nextStep, { sectionId: 'chorus', stage: 'harmony', label: 'Open Chorus harmony' })
+  assert.deepEqual(review.nextStep, { sectionId: 'chorus', stage: 'harmony', action: 'harmony', label: 'Open Chorus harmony' })
 })
 
 test('demo readiness requires resolved playable part notes in every section', () => {
@@ -48,4 +48,18 @@ test('orphaned part references do not count as an audible section', () => {
   }))
   assert.equal(review.sections[0].hasPlayablePart, false)
   assert.equal(review.nextAction, 'Accept or create a playable part for Chorus.')
+  assert.equal(review.nextStep.action, 'part')
+})
+
+test('arrangement gaps distinguish choosing a job from building its part', () => {
+  const needsRole = demoReadiness(project({
+    sections: [section('bridge', 'Bridge', 'A turn', [{ id: 'chord' }])],
+  }))
+  assert.equal(needsRole.nextStep.action, 'role')
+
+  const needsPart = demoReadiness(project({
+    sections: [section('bridge', 'Bridge', 'A turn', [{ id: 'chord' }])],
+    arrangementRoles: [{ sectionId: 'bridge', role: 'Harmony' }],
+  }))
+  assert.equal(needsPart.nextStep.action, 'part')
 })
