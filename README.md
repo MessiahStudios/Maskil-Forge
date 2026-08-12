@@ -105,6 +105,8 @@ Slice 5.19 adds a transient focused-section workspace with previous/next navigat
 
 Slice 5.20 makes the first absolute-timed musical part an explicit timeline commitment. The editor warns before accepting it, consistently protects structural controls afterward, explains how to unlock them without losing approved notes, requires whole-song harmony and arrangement coverage for journey completion, and numbers repeated imported section titles for unambiguous navigation.
 
+Slice 5.21 turns the derived readiness gap into a contextual next-action button that opens the first incomplete section in focused mode at the lyrics, harmony, arrangement-job, or playable-part workspace it needs.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.

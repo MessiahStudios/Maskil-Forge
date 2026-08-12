@@ -1,5 +1,5 @@
 export function demoReadiness(project) {
-  if (!project) return { readySectionCount: 0, sectionCount: 0, complete: false, nextAction: 'Open or create a song.', sections: [] }
+  if (!project) return { readySectionCount: 0, sectionCount: 0, complete: false, nextAction: 'Open or create a song.', nextStep: null, sections: [] }
   const noteIds = new Set(project.noteEvents.map(note => note.id))
   const sections = project.sections.map(section => {
     const roles = project.arrangementRoles.filter(item => item.sectionId === section.id)
@@ -21,16 +21,27 @@ export function demoReadiness(project) {
   const readySectionCount = sections.filter(section => section.ready).length
   const firstGap = sections.find(section => !section.ready)
   let nextAction = 'Your structured demo is ready to hear, revise, save, and export.'
+  let nextStep = null
   if (!sections.length) nextAction = 'Add the first song section.'
-  else if (firstGap && !firstGap.hasLyrics) nextAction = `Write a lyric line in ${firstGap.title}.`
-  else if (firstGap && !firstGap.hasHarmony) nextAction = `Add harmony to ${firstGap.title}.`
-  else if (firstGap && !firstGap.hasRole) nextAction = `Choose an arrangement job for ${firstGap.title}.`
-  else if (firstGap && !firstGap.hasPlayablePart) nextAction = `Accept or create a playable part for ${firstGap.title}.`
+  else if (firstGap && !firstGap.hasLyrics) {
+    nextAction = `Write a lyric line in ${firstGap.title}.`
+    nextStep = { sectionId: firstGap.sectionId, stage: 'shape', label: `Write ${firstGap.title} lyrics` }
+  } else if (firstGap && !firstGap.hasHarmony) {
+    nextAction = `Add harmony to ${firstGap.title}.`
+    nextStep = { sectionId: firstGap.sectionId, stage: 'harmony', label: `Open ${firstGap.title} harmony` }
+  } else if (firstGap && !firstGap.hasRole) {
+    nextAction = `Choose an arrangement job for ${firstGap.title}.`
+    nextStep = { sectionId: firstGap.sectionId, stage: 'arrangement', label: `Choose ${firstGap.title} job` }
+  } else if (firstGap && !firstGap.hasPlayablePart) {
+    nextAction = `Accept or create a playable part for ${firstGap.title}.`
+    nextStep = { sectionId: firstGap.sectionId, stage: 'arrangement', label: `Build ${firstGap.title} part` }
+  }
   return {
     readySectionCount,
     sectionCount: sections.length,
     complete: sections.length > 0 && readySectionCount === sections.length,
     nextAction,
+    nextStep,
     sections,
   }
 }
