@@ -25,7 +25,7 @@ Phase 1  ✅  Song foundations
          Lyric timeline UI, musical key / theory primitives
          Section harmony progressions (timed chords)
 
-Phase 2  🚧  Harmony → audible demo
+Phase 2  ✅  Harmony → editable audible demo
          Harmony candidates and richer analysis
          Arrangement blueprint and instrument roles
          MIDI generation, piano-roll editing, simple preview
@@ -95,7 +95,7 @@ Future C# code will use `MaskilForge` as its namespace root. The repository is n
 
 ## Current project status
 
-This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary is complete, and Milestone 5 is in progress past its 5.5 foundation checkpoint through slice 5.14. The application now spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, and minimal note/part editing. It is not yet the complete editable-song-demo MVP: end-to-end validation remains; additional role realization should follow only what a vertical song still needs.
+This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.
 

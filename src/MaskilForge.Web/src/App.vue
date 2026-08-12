@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
+import { demoReadiness } from './demoReadiness.js'
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
 import { PartAudition } from './partAudition'
@@ -1356,6 +1357,7 @@ function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' :
 type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
 const activeCreatorStage = ref<CreatorStage>('idea')
 const creatorCompletion = computed(() => creatorProgress(project.value))
+const editableDemoReview = computed(() => demoReadiness(project.value))
 function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : 'upcoming' }
 async function goToCreatorStage(stage: CreatorStage) {
   const destination = creatorDestination(stage, Boolean(project.value?.sections.length))
@@ -2001,6 +2003,22 @@ onBeforeUnmount(() => {
           <h2 id="arrangement-title">Shape the song’s energy</h2>
           <p>Describe how each section should feel before choosing instruments. These are creative intentions, not generated performances.</p>
         </div>
+        <section v-if="project.sections.length" class="demo-readiness" aria-labelledby="demo-readiness-title">
+          <div>
+            <span class="eyebrow">Hear–revise readiness</span>
+            <h3 id="demo-readiness-title">{{ editableDemoReview.readySectionCount }} of {{ editableDemoReview.sectionCount }} sections ready</h3>
+            <p>{{ editableDemoReview.nextAction }}</p>
+          </div>
+          <ol>
+            <li v-for="sectionReview in editableDemoReview.sections" :key="sectionReview.sectionId" :class="{ ready: sectionReview.ready }">
+              <strong>{{ sectionReview.title }}</strong>
+              <span :class="{ complete: sectionReview.hasLyrics }">Lyrics</span>
+              <span :class="{ complete: sectionReview.hasHarmony }">Harmony</span>
+              <span :class="{ complete: sectionReview.hasRole }">Job</span>
+              <span :class="{ complete: sectionReview.hasPlayablePart }">Playable part</span>
+            </li>
+          </ol>
+        </section>
         <section v-if="project.musicalParts.length" class="song-transport" aria-label="Song playback transport">
           <div>
             <strong>Song transport</strong>

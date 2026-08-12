@@ -174,6 +174,15 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .song-transport small, .song-transport p { color: #a7b19c; margin: 0; }
 .song-transport .transport-position { justify-self: end; font: .95rem ui-monospace, Consolas, monospace; color: #dce6cf; }
 .song-transport > p:last-child { grid-column: 1 / -1; font-size: .76rem; }
+.demo-readiness { display: grid; grid-template-columns: minmax(14rem, .6fr) minmax(0, 1.4fr); gap: .75rem 1rem; padding: .8rem; background: #11150f; border: 1px solid #4f5948; border-radius: .4rem; }
+.demo-readiness > div { display: grid; align-content: start; gap: .2rem; }
+.demo-readiness h3, .demo-readiness p { margin: 0; }
+.demo-readiness p { color: #a9b0a3; font-size: .78rem; }
+.demo-readiness ol { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
+.demo-readiness li { display: grid; grid-template-columns: minmax(7rem, 1fr) repeat(4, auto); gap: .45rem; align-items: center; padding: .45rem; background: #171b15; border: 1px solid #3b4237; }
+.demo-readiness li.ready { border-color: #657958; }
+.demo-readiness li span { padding: .18rem .35rem; color: #7f877a; border: 1px solid #3e453a; border-radius: 999px; font-size: .65rem; }
+.demo-readiness li span.complete { color: #c3d8b4; border-color: #627657; background: #20291d; }
 .voice-leading-disclosure { border: 1px solid #3f453b; border-radius: .35rem; background: #181c17; }
 .voice-leading-disclosure > summary { padding: .65rem .7rem; color: #d5c69f; cursor: pointer; }
 .voice-leading-disclosure[open] > summary { border-bottom: 1px solid #3f453b; }
@@ -402,6 +411,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .midi-export-panel button { justify-self: start; }
   .note-event-form button { grid-column: 1 / -1; }
   .note-event-list li { grid-template-columns: 1fr; }
+  .demo-readiness, .demo-readiness li { grid-template-columns: 1fr; }
   .musical-part-edit-form, .musical-part-edit-form fieldset { grid-template-columns: 1fr; }
   .musical-part-edit-form fieldset { grid-column: 1; }
   .harmony-note-sketch { grid-template-columns: 1fr; }
