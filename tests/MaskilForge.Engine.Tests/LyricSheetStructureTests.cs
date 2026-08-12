@@ -46,6 +46,8 @@ public sealed class LyricSheetStructureTests
         Assert.Equal(SectionDelivery.Spoken, preview.Sections[7].Delivery);
         Assert.Equal(SectionDelivery.Whispered, preview.Sections[9].Delivery);
         Assert.Equal("Final Chorus", preview.Sections[8].Title);
+        Assert.Equal("Chorus 1", preview.Sections[3].Title);
+        Assert.Equal("Chorus 2", preview.Sections[6].Title);
         Assert.Equal("Controlled build, no soaring", preview.Sections[8].PerformanceNotes);
         Assert.Equal(["Essence of Shadows"], preview.UnassignedLines);
     }

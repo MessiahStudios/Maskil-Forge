@@ -43,7 +43,22 @@ public static partial class LyricSheetStructureParser
         }
 
         if (current is not null) sections.Add(current.Build());
-        return new LyricSheetStructurePreview(sections, unassigned);
+        return new LyricSheetStructurePreview(DisambiguateRepeatedTitles(sections), unassigned);
+    }
+
+    private static IReadOnlyList<ProposedSongSection> DisambiguateRepeatedTitles(IReadOnlyList<ProposedSongSection> sections)
+    {
+        var repeatedTitles = sections.GroupBy(section => section.Title, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var ordinals = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        return sections.Select(section =>
+        {
+            if (!repeatedTitles.Contains(section.Title)) return section;
+            ordinals[section.Title] = ordinals.GetValueOrDefault(section.Title) + 1;
+            return section with { Title = $"{section.Title} {ordinals[section.Title]}" };
+        }).ToList();
     }
 
     private static bool TryParseHeading(string value, out Draft draft)
