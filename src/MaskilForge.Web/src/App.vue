@@ -5,6 +5,8 @@ import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
+import { PartAudition } from './partAudition'
+import { assemblePartNotes, scheduleAssembledNotes } from './partAuditionModel.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -68,7 +70,9 @@ const hookReinforcementProposals = reactive<Record<string, HookReinforcementProp
 const countermelodyProposals = reactive<Record<string, CountermelodyProposal>>({})
 const accentProposals = reactive<Record<string, AccentProposal>>({})
 const chordAudition = new ChordAudition()
+const partAudition = new PartAudition()
 const auditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
+const partAuditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const lyricTimeline = ref<LyricTimelineView | null>(null)
 const timelineOverlayCandidateId = ref('')
 const selectedTimelineMarkerKey = ref('')
@@ -76,6 +80,7 @@ let timelineRefreshToken = 0
 
 function accept(next: ProjectResponse, message: string, markPersisted = false) {
   stopChordAudition()
+  stopPartAudition()
   response.value = next
   Object.keys(placementDrafts).forEach(key => delete placementDrafts[key])
   Object.keys(harmonyCandidateLabelDrafts).forEach(key => delete harmonyCandidateLabelDrafts[key])
@@ -825,10 +830,18 @@ function stopChordAudition(message = '') {
   auditionState.messageSectionId = message ? stoppedSectionId : ''
   auditionState.message = message
 }
+function stopPartAudition(message = '') {
+  partAudition.stop()
+  const stoppedSectionId = partAuditionState.sectionId
+  partAuditionState.sectionId = ''
+  partAuditionState.messageSectionId = message ? stoppedSectionId : ''
+  partAuditionState.message = message
+}
 async function hearProgression(sectionId: string) {
   if (!project.value) return
   const section = project.value.sections.find(item => item.id === sectionId)
   if (!section?.harmony.length) return
+  stopPartAudition()
   const tempo = project.value.timeline.tempoMap.events[0].beatsPerMinute
   const meter = project.value.timeline.timeSignatureMap.events[0]
   auditionState.sectionId = sectionId
@@ -846,6 +859,30 @@ async function hearProgression(sectionId: string) {
       : `Playing your registered voicings at ${tempo} BPM.`
   } catch (error) {
     stopChordAudition(error instanceof Error ? error.message : 'The progression could not be played.')
+  }
+}
+async function hearAssembledParts(sectionId: string) {
+  if (!project.value) return
+  const parts = partsForSection(sectionId)
+  if (!parts.length) return
+  stopChordAudition()
+  const tempo = project.value.timeline.tempoMap.events[0].beatsPerMinute
+  const notes = assemblePartNotes(project.value.musicalParts, project.value.noteEvents, sectionId)
+  partAuditionState.sectionId = sectionId
+  partAuditionState.messageSectionId = sectionId
+  partAuditionState.message = 'Preparing your assembled parts…'
+  try {
+    const scheduled = scheduleAssembledNotes(notes, {
+      beatsPerMinute: tempo,
+      ticksPerQuarterNote: project.value.timeline.ticksPerQuarterNote,
+    })
+    const result = await partAudition.play(scheduled, () => stopPartAudition('Assembled-part preview finished.'))
+    partAuditionState.message = `Playing ${result.noteCount} assembled note${result.noteCount === 1 ? '' : 's'} at ${tempo} BPM.`
+    activityLog.write('success', 'arrangement.parts.hear', partAuditionState.message, { sectionId, noteCount: result.noteCount, partCount: parts.length })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The assembled parts could not be played.'
+    stopPartAudition(message)
+    activityLog.write('error', 'arrangement.parts.hear', message, { sectionId })
   }
 }
 async function reviewVoiceLeading(sectionId: string) {
@@ -1276,7 +1313,10 @@ watch(serializedProject, () => {
 watch(
   () => [view.value, project.value?.id, project.value?.sections.length ?? 0] as const,
   ([nextView, nextProjectId], previous) => {
-    if (previous && (nextView !== previous[0] || nextProjectId !== previous[1])) stopChordAudition()
+    if (previous && (nextView !== previous[0] || nextProjectId !== previous[1])) {
+      stopChordAudition()
+      stopPartAudition()
+    }
     if (nextView === 'structure') void refreshLyricTimeline()
   })
 
@@ -1290,6 +1330,7 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   stopChordAudition()
+  stopPartAudition()
   window.removeEventListener('beforeunload', warnBeforeClose)
   if (recoveryTimer) clearTimeout(recoveryTimer)
 })
@@ -2077,6 +2118,15 @@ onBeforeUnmount(() => {
                   <button type="button" class="danger" :disabled="busy" @click="removeMusicalPart(part.id, part.label)">Remove part</button>
                 </li>
               </ol>
+              <section v-if="partsForSection(section.id).length" class="part-audition" :aria-label="`Hear assembled parts for ${section.title}`">
+                <div>
+                  <strong>Hear assembled parts</strong>
+                  <small>Play the notes already connected to musical parts in this section. This preview does not change the song.</small>
+                </div>
+                <button v-if="partAuditionState.sectionId !== section.id" type="button" :disabled="busy" @click="hearAssembledParts(section.id)">▶ Hear assembled parts</button>
+                <button v-else type="button" class="quiet" @click="stopPartAudition('Playback stopped.')">■ Stop</button>
+                <p v-if="partAuditionState.messageSectionId === section.id && partAuditionState.message">{{ partAuditionState.message }}</p>
+              </section>
             </section>
           </article>
         </div>

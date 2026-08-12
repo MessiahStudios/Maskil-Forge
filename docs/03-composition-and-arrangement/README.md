@@ -1,6 +1,6 @@
 # 03 — Composition and Arrangement
 
-This Maskil Engine layer is now partially implemented. Section energy and density, arrangement-role assignments, registered harmony voicings, playable note events, MIDI export, role-aware musical parts, and deterministic low-end, pulse, harmony-support, texture, hook-reinforcement, countermelody, and accent realizations all preserve the artist's locks and choices. Transition realization and complete editable-demo playback remain planned.
+This Maskil Engine layer is now partially implemented. Section energy and density, arrangement-role assignments, registered harmony voicings, playable note events, MIDI export, role-aware musical parts, deterministic role realizations through accents, and assembled-part audition all preserve the artist's locks and choices. Basic transport, minimal editing, and complete editable-demo polish remain planned.
 
 ## Build roles before instruments
 
@@ -38,7 +38,7 @@ Use a simple preview renderer before VST hosting. MIDI is the initial interchang
 
 ## Current boundary and completion gate
 
-The current implementation can derive inspectable low-end support, pulse, harmony-support, texture, hook-reinforcement, countermelody, and accent ideas from approved material, accept each as one reversible musical part, audition existing harmony, and export approved notes as MIDI. It does not yet generate a complete arrangement.
+The current implementation can derive inspectable role ideas from approved material, accept each as one reversible musical part, audition existing harmony, audition assembled musical parts together, and export approved notes as MIDI. It does not yet provide transport or a complete arrangement.
 
 The broader completion gate will be met when:
 
