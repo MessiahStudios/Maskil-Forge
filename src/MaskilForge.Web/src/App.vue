@@ -1710,7 +1710,12 @@ onBeforeUnmount(() => {
             <strong>{{ structurePreview.sections.length }} section{{ structurePreview.sections.length === 1 ? '' : 's' }}</strong>
           </div>
           <p v-if="project.sections.length" class="preview-warning">These sections will be appended after your {{ project.sections.length }} existing section{{ project.sections.length === 1 ? '' : 's' }}.</p>
-          <p v-if="structurePreview.unassignedLines.length" class="preview-warning">{{ structurePreview.unassignedLines.length }} line{{ structurePreview.unassignedLines.length === 1 ? '' : 's' }} before a recognized heading will remain only in the raw draft.</p>
+          <aside v-if="structurePreview.unrecognizedHeadings.length" class="heading-warning" role="alert">
+            <strong>{{ structurePreview.unrecognizedHeadings.length }} heading{{ structurePreview.unrecognizedHeadings.length === 1 ? ' needs' : 's need' }} review</strong>
+            <p>Maskil Forge did not guess their section types. These headings and the lines beneath them remain safely in the raw draft and will not be inserted into a neighboring section.</p>
+            <ul><li v-for="heading in structurePreview.unrecognizedHeadings" :key="heading">{{ heading }}</li></ul>
+          </aside>
+          <p v-if="structurePreview.unassignedLines.length" class="preview-warning">{{ structurePreview.unassignedLines.length }} unassigned line{{ structurePreview.unassignedLines.length === 1 ? '' : 's' }} will remain only in the preserved raw draft.</p>
           <ol v-if="structurePreview.sections.length" class="proposed-sections">
             <li v-for="(section, index) in structurePreview.sections" :key="index">
               <span class="section-number">{{ String(index + 1).padStart(2, '0') }}</span>

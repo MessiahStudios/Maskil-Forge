@@ -414,6 +414,12 @@ Let an artist explicitly start one section from another section’s musical foun
 
 **Deliverable:** repeated choruses and related sections can share an intentional starting point without collapsing into linked data or requiring repetitive reconstruction.
 
+### Milestone 5.23 — Unknown-heading import safety
+
+Treat every bracketed lyric-sheet heading as a structural boundary even when its section type is unknown. Unknown headings are listed explicitly in preview, and their following lines remain unassigned in the preserved raw draft rather than being silently attached to the preceding recognized section. The parser does not invent new section kinds or guess the artist’s intent.
+
+**Deliverable:** uncommon forms such as post-choruses, refrains, interludes, and custom headings fail visibly and safely during preview.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

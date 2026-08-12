@@ -432,6 +432,7 @@ export interface ProposedSongSection {
 export interface LyricSheetStructurePreview {
   sections: ProposedSongSection[]
   unassignedLines: string[]
+  unrecognizedHeadings: string[]
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
