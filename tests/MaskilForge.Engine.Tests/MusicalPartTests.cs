@@ -32,6 +32,32 @@ public sealed class MusicalPartTests
     }
 
     [Fact]
+    public void Commands_EditPartNameAndMembershipWithStableUndoRedo()
+    {
+        var editor = new ProjectEditor(SongProject.Create("Edit parts"));
+        var section = editor.Project.AddSection(SectionKind.Chorus);
+        editor.Project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        var c4 = editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 96);
+        var g4 = editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.G, Accidental.Natural, 4), 480, 480, 88);
+        var part = editor.Project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Old name", [c4.Id]);
+
+        editor.Execute(new SetMusicalPartCommand(part.Id, "Revised foundation", [c4.Id, g4.Id]));
+        var revised = Assert.Single(editor.Project.MusicalParts);
+        Assert.Equal(part.Id, revised.Id);
+        Assert.Equal("Revised foundation", revised.Label);
+        Assert.Equal([c4.Id, g4.Id], revised.NoteEventIds);
+
+        editor.Undo();
+        var restored = Assert.Single(editor.Project.MusicalParts);
+        Assert.Equal(part.Id, restored.Id);
+        Assert.Equal("Old name", restored.Label);
+        Assert.Equal([c4.Id], restored.NoteEventIds);
+
+        editor.Redo();
+        Assert.Equal("Revised foundation", Assert.Single(editor.Project.MusicalParts).Label);
+    }
+
+    [Fact]
     public void PartProtectsItsRoleAndNotesUntilPartIsRemoved()
     {
         var project = SongProject.Create("Part references");

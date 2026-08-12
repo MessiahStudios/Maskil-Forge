@@ -61,6 +61,20 @@ public sealed class MidiEventTests
     }
 
     [Fact]
+    public void EditingPartNoteCannotMoveItOutsideItsSection()
+    {
+        var project = SongProject.Create("Bounded edits");
+        var section = project.AddSection(SectionKind.Verse);
+        project.SetSectionRole(section.Id, ArrangementRole.Pulse);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 90);
+        project.AddMusicalPart(section.Id, ArrangementRole.Pulse, "Verse pulse", [note.Id]);
+
+        Assert.Throws<ArgumentException>(() => project.SetNoteEvent(note.Id, note.Pitch, 20_000, 480, 90));
+        var unchanged = Assert.Single(project.NoteEvents);
+        Assert.Equal(note.StartTick, unchanged.StartTick);
+    }
+
+    [Fact]
     public async Task SaveLoad_PreservesPlayableNoteEvents()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { assemblePartNotes, formatTransportPosition, midiNumber, musicalPositionFromTicks, scheduleAbsoluteNotes, scheduleAssembledNotes, tickFromSeconds } from './partAuditionModel.js'
+import { assemblePartNotes, formatTransportPosition, midiNumber, musicalPositionFromTicks, peakPolyphony, scheduleAbsoluteNotes, scheduleAssembledNotes, tickFromSeconds } from './partAuditionModel.js'
 
 const pitch = (letter, octave, accidental = 'Natural') => ({ letter, accidental, octave })
 const note = (id, letter, octave, startTick, durationTicks = 480, velocity = 96) => ({
@@ -65,4 +65,13 @@ test('musicalPositionFromTicks converts absolute ticks with constant meter', () 
 
 test('tickFromSeconds reverses the tempo conversion', () => {
   assert.equal(tickFromSeconds(1, { beatsPerMinute: 120, ticksPerQuarterNote: 480 }), 960)
+})
+
+test('peakPolyphony measures overlap instead of total song length', () => {
+  assert.equal(peakPolyphony([
+    { midi: 60, startSeconds: 0, durationSeconds: 1, velocity: 90 },
+    { midi: 64, startSeconds: 0, durationSeconds: 0.5, velocity: 90 },
+    { midi: 67, startSeconds: 0.5, durationSeconds: 0.5, velocity: 90 },
+    { midi: 72, startSeconds: 2, durationSeconds: 0.01, velocity: 90 },
+  ]), 2)
 })

@@ -21,3 +21,6 @@ export function tickFromSeconds(
   seconds: number,
   timing: { beatsPerMinute: number; ticksPerQuarterNote: number },
 ): number
+export function peakPolyphony(
+  notes: Array<{ midi: number; startSeconds: number; durationSeconds: number; velocity: number }>,
+): number

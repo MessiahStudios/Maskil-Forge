@@ -792,6 +792,25 @@ function removeNoteEvent(noteEventId: string, pitch: RegisteredPitch) {
     'midi.note.remove',
     { noteEventId, pitch: formatRegisteredPitch(pitch) })
 }
+function setNoteEvent(noteEventId: string, event: Event) {
+  if (!project.value) return
+  const form = event.currentTarget as HTMLFormElement
+  const data = new FormData(form)
+  try {
+    const notePitch = parseRegisteredPitch(String(data.get('pitch') ?? ''))
+    const startTick = Number(data.get('startTick'))
+    const durationTicks = Number(data.get('durationTicks'))
+    const velocity = Number(data.get('velocity'))
+    return run(
+      () => projectsApi.command(project.value!.id, project.value!, { type: 'set-note-event', noteEventId, notePitch, startTick, durationTicks, velocity }),
+      `${formatRegisteredPitch(notePitch)} updated. Hear the song again to review the change.`,
+      'midi.note.set',
+      { noteEventId, pitch: formatRegisteredPitch(notePitch), startTick, durationTicks, velocity })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The note could not be read.'
+    activityLog.write('warning', 'midi.note.set', status.value, { noteEventId })
+  }
+}
 async function exportMidi() {
   if (!project.value) return
   if (!project.value.noteEvents.length) {
@@ -1311,6 +1330,18 @@ function removeMusicalPart(musicalPartId: string, label: string) {
     `${label} removed. Its playable notes remain in the song.`,
     'arrangement.part.remove',
     { musicalPartId })
+}
+function setMusicalPart(musicalPartId: string, event: Event) {
+  if (!project.value) return
+  const form = event.currentTarget as HTMLFormElement
+  const data = new FormData(form)
+  const partLabel = String(data.get('label') ?? '').trim()
+  const noteEventIds = data.getAll('noteEventIds').map(String)
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-musical-part', musicalPartId, partLabel, noteEventIds }),
+    `${partLabel} updated. Hear the section or song again to review the change.`,
+    'arrangement.part.set',
+    { musicalPartId, noteCount: noteEventIds.length })
 }
 function setSectionRole(sectionId: string, role: ArrangementRole, present: boolean) {
   if (!project.value) return
@@ -2186,7 +2217,19 @@ onBeforeUnmount(() => {
               <p v-else class="arrangement-prompt">Approve a harmony note sketch first. Then you can explain which musical job those notes perform.</p>
               <ol v-if="partsForSection(section.id).length" class="musical-part-list">
                 <li v-for="part in partsForSection(section.id)" :key="part.id">
-                  <div><strong>{{ part.label }}</strong><small>{{ arrangementRoles.find(item => item.id === part.role)?.label ?? part.role }} · {{ part.noteEventIds.length }} approved note{{ part.noteEventIds.length === 1 ? '' : 's' }}</small></div>
+                  <form class="musical-part-edit-form" @submit.prevent="setMusicalPart(part.id, $event)">
+                    <label>Part name<input name="label" maxlength="100" :value="part.label" required :disabled="busy" /></label>
+                    <small>{{ arrangementRoles.find(item => item.id === part.role)?.label ?? part.role }} · choose at least one note</small>
+                    <fieldset>
+                      <legend>Approved notes in this part</legend>
+                      <label v-for="note in notesForSection(section.id)" :key="`${part.id}-${note.id}`" class="musical-part-note">
+                        <input name="noteEventIds" type="checkbox" :value="note.id" :checked="part.noteEventIds.includes(note.id)" :disabled="busy" />
+                        <span>{{ formatRegisteredPitch(note.pitch) }}</span>
+                        <small>tick {{ note.startTick }} · {{ note.durationTicks }} ticks</small>
+                      </label>
+                    </fieldset>
+                    <button type="submit" :disabled="busy">Save part</button>
+                  </form>
                   <button type="button" class="danger" :disabled="busy" @click="removeMusicalPart(part.id, part.label)">Remove part</button>
                 </li>
               </ol>
@@ -2233,8 +2276,13 @@ onBeforeUnmount(() => {
           <p v-if="!project.noteEvents.length" class="note-event-empty">No playable notes yet. Prepare a harmony note sketch above, or add notes here when you want precise control.</p>
           <ol v-else class="note-event-list">
             <li v-for="note in project.noteEvents" :key="note.id">
-              <strong>{{ formatRegisteredPitch(note.pitch) }}</strong>
-              <span>tick {{ note.startTick }} · {{ note.durationTicks }} ticks · velocity {{ note.velocity }}</span>
+              <form class="note-event-form note-event-edit-form" @submit.prevent="setNoteEvent(note.id, $event)">
+                <label>Pitch<input name="pitch" required :value="formatRegisteredPitch(note.pitch)" :disabled="busy" /></label>
+                <label>Start tick<input name="startTick" type="number" min="0" :value="note.startTick" required :disabled="busy" /></label>
+                <label>Duration<input name="durationTicks" type="number" min="1" :value="note.durationTicks" required :disabled="busy" /></label>
+                <label>Velocity<input name="velocity" type="number" min="1" max="127" :value="note.velocity" required :disabled="busy" /></label>
+                <button type="submit" :disabled="busy">Save note</button>
+              </form>
               <button type="button" class="danger" :disabled="busy" @click="removeNoteEvent(note.id, note.pitch)">Remove</button>
             </li>
           </ol>
