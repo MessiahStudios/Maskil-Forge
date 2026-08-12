@@ -46,6 +46,34 @@ public sealed class ReleasedSongCaseStudyTests
     }
 
     [Fact]
+    public void SectionIntent_SavesRoleAndPerformanceAsOneUndoableDecision()
+    {
+        var project = SongProject.Create("Essence of Shadows");
+        var bridge = project.AddSection(SectionKind.Bridge);
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetSectionIntentCommand(
+            bridge.Id,
+            StructuralFunction.Contrast,
+            SectionDelivery.Spoken,
+            "Drop drums, near spoken"));
+
+        Assert.Equal(StructuralFunction.Contrast, bridge.StructuralFunction);
+        Assert.Equal(SectionDelivery.Spoken, bridge.Delivery);
+        Assert.Equal("Drop drums, near spoken", bridge.PerformanceNotes);
+
+        editor.Undo();
+        Assert.Equal(StructuralFunction.Unspecified, bridge.StructuralFunction);
+        Assert.Equal(SectionDelivery.Sung, bridge.Delivery);
+        Assert.Empty(bridge.PerformanceNotes);
+
+        editor.Redo();
+        Assert.Equal(StructuralFunction.Contrast, bridge.StructuralFunction);
+        Assert.Equal(SectionDelivery.Spoken, bridge.Delivery);
+        Assert.Equal("Drop drums, near spoken", bridge.PerformanceNotes);
+    }
+
+    [Fact]
     public void DuplicateSection_CopiesReusableIntentWithFreshIdentitiesAndStableUndoRedo()
     {
         var project = SongProject.Create("Essence of Shadows");

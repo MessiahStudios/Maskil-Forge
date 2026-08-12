@@ -277,6 +277,7 @@ async function restoreRecovery(id: string) {
     timelineOverlayCandidateId.value = ''
     selectedTimelineMarkerKey.value = ''
     view.value = recovered.project.sections.length ? 'structure' : 'capture'
+    activeCreatorStage.value = recovered.project.sections.length ? 'shape' : 'idea'
     status.value = 'Recovered unsaved work. Save the song when you are ready.'
     activityLog.write('success', 'recovery.restore', 'Unsaved work restored.', { projectId: id })
     void refreshLyricTimeline()
@@ -461,25 +462,17 @@ function reuseSectionFoundation(targetSectionId: string) {
     'section.foundation.reuse',
     { sourceSectionId, targetSectionId })
 }
-function setSectionPerformanceIntent(sectionId: string, event: Event) {
+function setSectionIntent(sectionId: string, event: Event) {
   if (!project.value) return
   const form = event.currentTarget as HTMLFormElement
+  const structuralFunction = (form.elements.namedItem('structuralFunction') as HTMLSelectElement).value as StructuralFunction
   const delivery = (form.elements.namedItem('delivery') as HTMLSelectElement).value as SectionDelivery
   const performanceNotes = (form.elements.namedItem('performanceNotes') as HTMLTextAreaElement).value
   return run(
-    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-section-performance-intent', sectionId, sectionDelivery: delivery, performanceNotes }),
-    'Vocal and performance intent saved.',
-    'section.performance-intent',
-    { sectionId, delivery })
-}
-function setSectionStructuralFunction(sectionId: string, structuralFunction: StructuralFunction) {
-  if (!project.value) return
-  const choice = structuralFunctions.find(item => item.id === structuralFunction)
-  return run(
-    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-section-structural-function', sectionId, structuralFunction }),
-    structuralFunction === 'Unspecified' ? 'Structural function left open.' : `${choice?.label ?? structuralFunction} saved as this section’s song-level function.`,
-    'section.structural-function',
-    { sectionId, structuralFunction })
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-section-intent', sectionId, structuralFunction, sectionDelivery: delivery, performanceNotes }),
+    'Section role and performance intent saved.',
+    'section.intent',
+    { sectionId, structuralFunction, delivery })
 }
 function editLyricLine(sectionId: string, lineId: string, text: string) {
   if (!project.value) return
@@ -1899,13 +1892,13 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <aside v-if="structureLocked" class="structure-lock-notice" role="status">
+        <aside v-if="structureLocked" class="structure-lock-notice">
           <div>
-            <p class="eyebrow">Timeline protected</p>
-            <strong>{{ project.musicalParts.length }} musical part{{ project.musicalParts.length === 1 ? ' now uses' : 's now use' }} absolute song timing.</strong>
-            <p>Lyrics, harmony, delivery, and section names remain editable. To change section order, length, deletion, duplication, or meter, remove all musical parts in Arrangement first; your approved notes will remain.</p>
+            <p class="eyebrow">Structure timing locked</p>
+            <strong>{{ project.musicalParts.length }} musical part{{ project.musicalParts.length === 1 ? ' uses' : 's use' }} the song timeline.</strong>
+            <p>Lyrics, harmony, section role, delivery, and direction remain editable. Manage musical parts to unlock order, length, meter, duplication, and deletion.</p>
           </div>
-          <button type="button" class="secondary" @click="goToCreatorStage('arrangement')">Review musical parts</button>
+          <button type="button" class="quiet" @click="goToCreatorStage('arrangement')">Manage timing →</button>
         </aside>
 
         <p v-if="project.sections.length === 0" class="empty-song">Choose a section above and start writing your first line.</p>
@@ -1952,9 +1945,9 @@ onBeforeUnmount(() => {
                 <button class="danger" :disabled="busy || structureLocked" :title="structureLocked ? 'Remove all musical parts before deleting sections.' : undefined" @click="removeSection(section.id)">Delete section</button>
               </div>
             </div>
-            <form class="section-performance-intent" @submit.prevent="setSectionPerformanceIntent(section.id, $event)">
-              <label>Song-level function
-                <select :value="section.structuralFunction" :title="structuralFunctions.find(item => item.id === section.structuralFunction)?.help" :disabled="busy" @change="setSectionStructuralFunction(section.id, ($event.target as HTMLSelectElement).value as StructuralFunction)">
+            <form class="section-performance-intent" @submit.prevent="setSectionIntent(section.id, $event)">
+              <label>Role in song
+                <select name="structuralFunction" :value="section.structuralFunction" :title="structuralFunctions.find(item => item.id === section.structuralFunction)?.help" :disabled="busy">
                   <option v-for="item in structuralFunctions" :key="item.id" :value="item.id">{{ item.label }}</option>
                 </select>
               </label>
