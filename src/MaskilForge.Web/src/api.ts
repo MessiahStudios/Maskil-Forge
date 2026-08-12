@@ -376,6 +376,7 @@ export interface ProjectCommand {
   type: string
   project?: SongProject
   sectionId?: string
+  sourceSectionId?: string
   kind?: SectionKind
   sectionDelivery?: SectionDelivery
   title?: string

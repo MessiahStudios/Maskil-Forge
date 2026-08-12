@@ -408,6 +408,12 @@ Turn the existing derived hear–revise readiness result into direct navigation.
 
 **Deliverable:** an artist can move through a complete multi-section song without repeatedly searching for the next unfinished control.
 
+### Milestone 5.22 — Reusable section foundations
+
+Let an artist explicitly start one section from another section’s musical foundation. The operation replaces harmony, registered voicings, energy, density, and musical jobs with fresh identities in one undoable command. It never copies lyrics, delivery, performance direction, approved notes, or absolute-timed musical parts, and it rejects targets that already own parts.
+
+**Deliverable:** repeated choruses and related sections can share an intentional starting point without collapsing into linked data or requiring repetitive reconstruction.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

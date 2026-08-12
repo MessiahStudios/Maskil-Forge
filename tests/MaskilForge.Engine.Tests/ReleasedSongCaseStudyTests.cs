@@ -82,6 +82,55 @@ public sealed class ReleasedSongCaseStudyTests
     }
 
     [Fact]
+    public void ReuseSectionFoundation_ReplacesOnlyMusicalIntentWithFreshIdentitiesAndUndoRedo()
+    {
+        var project = SongProject.Create("Essence of Shadows");
+        var source = project.AddSection(SectionKind.Chorus, "Chorus 1");
+        var target = project.AddSection(SectionKind.Chorus, "Chorus 2");
+        target.AddLyricLine("The second chorus keeps its own words");
+        var sourceChord = project.AddHarmonyChord(source.Id, new ChordSymbol(NoteLetter.C), new BeatPosition(1, 1, 0), 2);
+        project.SetChordVoicing(source.Id, sourceChord.Id, [new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4)]);
+        project.SetSectionArrangement(source.Id, SectionEnergy.Strong, SectionDensity.Full);
+        project.SetSectionRole(source.Id, ArrangementRole.HookReinforcement);
+        project.AddHarmonyChord(target.Id, new ChordSymbol(NoteLetter.G), new BeatPosition(1, 1, 0));
+        var previousChordId = target.Harmony[0].Id;
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new ReuseSectionFoundationCommand(source.Id, target.Id));
+
+        Assert.Equal("The second chorus keeps its own words", Assert.Single(target.LyricLines).Text);
+        Assert.Equal(sourceChord.Chord, Assert.Single(target.Harmony).Chord);
+        Assert.NotEqual(sourceChord.Id, target.Harmony[0].Id);
+        Assert.NotEqual(source.Harmony[0].Voicing!.Id, target.Harmony[0].Voicing!.Id);
+        Assert.Equal(SectionEnergy.Strong, project.FindSectionArrangement(target.Id)!.Energy);
+        Assert.Contains(project.ArrangementRoles, role => role.SectionId == target.Id && role.Role == ArrangementRole.HookReinforcement);
+
+        var reusedChordId = target.Harmony[0].Id;
+        editor.Undo();
+        Assert.Equal(previousChordId, Assert.Single(target.Harmony).Id);
+        Assert.Null(project.FindSectionArrangement(target.Id));
+        Assert.DoesNotContain(project.ArrangementRoles, role => role.SectionId == target.Id);
+        editor.Redo();
+        Assert.Equal(reusedChordId, Assert.Single(target.Harmony).Id);
+    }
+
+    [Fact]
+    public void ReuseSectionFoundation_RejectsTargetWithAbsoluteTimedPart()
+    {
+        var project = SongProject.Create("Essence of Shadows");
+        var source = project.AddSection(SectionKind.Chorus, "Chorus 1");
+        var target = project.AddSection(SectionKind.Chorus, "Chorus 2");
+        var targetStartTick = project.Timeline.ToAbsoluteTicks(project.Timeline.FindSection(target.Id).Start);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), targetStartTick, 480, 96);
+        project.SetSectionRole(target.Id, ArrangementRole.Foundation);
+        project.AddMusicalPart(target.Id, ArrangementRole.Foundation, "Existing part", [note.Id]);
+
+        var error = Assert.Throws<InvalidOperationException>(() => new ReuseSectionFoundationCommand(source.Id, target.Id).Execute(project));
+
+        Assert.Contains("Remove this section's musical parts", error.Message);
+    }
+
+    [Fact]
     public async Task SchemaV19_MigratesSectionPerformanceIntentWithoutGuessing()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");

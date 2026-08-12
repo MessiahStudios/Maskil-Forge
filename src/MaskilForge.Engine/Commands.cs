@@ -165,6 +165,64 @@ public sealed class DuplicateSectionCommand(SectionId sourceSectionId) : IProjec
     }
 }
 
+public sealed class ReuseSectionFoundationCommand(SectionId sourceSectionId, SectionId targetSectionId) : IProjectCommand
+{
+    private IReadOnlyList<HarmonyChord>? _previousHarmony;
+    private SectionArrangement? _previousArrangement;
+    private IReadOnlyList<SectionRoleAssignment>? _previousRoles;
+    private IReadOnlyList<HarmonyChord>? _reusedHarmony;
+    private SectionArrangement? _reusedArrangement;
+    private IReadOnlyList<SectionRoleAssignment>? _reusedRoles;
+
+    public void Execute(SongProject project)
+    {
+        if (sourceSectionId == targetSectionId)
+            throw new InvalidOperationException("Choose a different section to reuse as a foundation.");
+        if (project.MusicalParts.Any(part => part.SectionId == targetSectionId))
+            throw new InvalidOperationException("Remove this section's musical parts before replacing its musical foundation.");
+
+        var source = project.FindSection(sourceSectionId);
+        project.FindSection(targetSectionId);
+        if (_reusedHarmony is null)
+        {
+            _previousHarmony = project.FindSection(targetSectionId).Harmony.Select(HarmonyChordSnapshots.Clone).ToList();
+            _previousArrangement = project.FindSectionArrangement(targetSectionId);
+            _previousRoles = project.ArrangementRoles.Where(role => role.SectionId == targetSectionId).ToList();
+            _reusedHarmony = source.Harmony.Select(CloneWithFreshIdentity).ToList();
+            var sourceArrangement = project.FindSectionArrangement(sourceSectionId);
+            _reusedArrangement = sourceArrangement is null ? null : new SectionArrangement(
+                SectionArrangementId.New(), targetSectionId, sourceArrangement.Energy, sourceArrangement.Density, ArrangementProvenance.Manual);
+            _reusedRoles = project.ArrangementRoles.Where(role => role.SectionId == sourceSectionId)
+                .Select(role => new SectionRoleAssignment(SectionRoleAssignmentId.New(), targetSectionId, role.Role, ArrangementProvenance.Manual))
+                .ToList();
+        }
+
+        project.ReplaceSectionHarmony(targetSectionId, _reusedHarmony.Select(HarmonyChordSnapshots.Clone));
+        project.RestoreSectionArrangement(targetSectionId, _reusedArrangement);
+        project.RestoreSectionRoles(targetSectionId, _reusedRoles!);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previousHarmony is null || _previousRoles is null)
+            throw new InvalidOperationException("Command has not been executed.");
+        project.ReplaceSectionHarmony(targetSectionId, _previousHarmony.Select(HarmonyChordSnapshots.Clone));
+        project.RestoreSectionArrangement(targetSectionId, _previousArrangement);
+        project.RestoreSectionRoles(targetSectionId, _previousRoles);
+    }
+
+    private static HarmonyChord CloneWithFreshIdentity(HarmonyChord chord)
+    {
+        var voicing = chord.Voicing is null ? null : new ChordVoicing(
+            ChordVoicingId.New(),
+            chord.Voicing.MinimumMidiNote,
+            chord.Voicing.MaximumMidiNote,
+            chord.Voicing.Voices.Select((voice, position) => new ChordVoice(
+                ChordVoiceId.New(), position, voice.Pitch, HarmonyProvenance.Manual)).ToList());
+        return new HarmonyChord(HarmonyChordId.New(), chord.Chord, chord.Start, chord.DurationBars, HarmonyProvenance.Manual, voicing);
+    }
+}
+
 public sealed class MoveSectionCommand(SectionId sectionId, int targetIndex) : IProjectCommand
 {
     private int? _previousIndex;
