@@ -8,7 +8,8 @@ public sealed record ProposedSongSection(
     string Title,
     SectionDelivery Delivery,
     string PerformanceNotes,
-    IReadOnlyList<string> Lyrics);
+    IReadOnlyList<string> Lyrics,
+    StructuralFunction StructuralFunction = StructuralFunction.Unspecified);
 
 public sealed record LyricSheetStructurePreview(
     IReadOnlyList<ProposedSongSection> Sections,
@@ -120,7 +121,7 @@ public static partial class LyricSheetStructureParser
     private sealed record Draft(SectionKind Kind, string Title, SectionDelivery Delivery, string Notes)
     {
         public List<string> Lyrics { get; } = [];
-        public ProposedSongSection Build() => new(Kind, Title, Delivery, Notes, Lyrics.ToList());
+        public ProposedSongSection Build() => new(Kind, Title, Delivery, Notes, Lyrics.ToList(), StructuralFunction.Unspecified);
     }
 
     private sealed record UnknownDraft(string Heading, SectionDelivery Delivery, string Notes, int InsertionIndex)

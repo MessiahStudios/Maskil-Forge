@@ -190,7 +190,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .preview-warning { margin: 0; padding: .7rem .85rem; color: #e0c987; background: #292416; border-radius: .4rem; }
 .proposed-sections { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
 .proposed-sections > li { display: grid; grid-template-columns: auto 1fr auto; gap: .8rem; align-items: start; padding: .85rem; background: #10130f; border: 1px solid #33392f; border-radius: .55rem; }
-.proposed-section-fields { display: grid; grid-template-columns: .7fr 1.2fr .8fr 2fr; gap: .6rem; }
+.proposed-section-fields { display: grid; grid-template-columns: .65fr 1.1fr .9fr .8fr 1.6fr; gap: .6rem; }
 .proposed-section-fields label { display: grid; gap: .3rem; color: #c9c3b6; font-size: .76rem; }
 .proposed-section-fields small { grid-column: 1 / -1; overflow: hidden; color: #aeb4a6; text-overflow: ellipsis; white-space: nowrap; }
 .proposed-section-actions { display: flex; gap: .35rem; }

@@ -16,6 +16,7 @@ export function songOutline(project, readiness) {
       title: section.title,
       kind: section.kind,
       delivery: section.delivery,
+      structuralFunction: section.structuralFunction,
       durationBars: placements.get(section.id)?.durationBars ?? 0,
       lyricLineCount: section.lyricLines.length,
       ready: Boolean(review?.ready),

@@ -399,6 +399,7 @@ function resolveUnrecognizedSection(index: number) {
     delivery: unresolved.delivery,
     performanceNotes: unresolved.performanceNotes,
     lyrics: [...unresolved.lyrics],
+    structuralFunction: 'Unspecified',
   })
   preview.unrecognizedSections.forEach((item, itemIndex) => {
     if (itemIndex !== index && item.insertionIndex >= insertionIndex) item.insertionIndex += 1
@@ -1488,6 +1489,9 @@ function setSectionRole(sectionId: string, role: ArrangementRole, present: boole
 }
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
 function deliveryLabel(delivery: SectionDelivery) { return delivery === 'TalkSung' ? 'Talk-sung' : delivery }
+function structuralFunctionLabel(structuralFunction: StructuralFunction) {
+  return structuralFunctions.find(item => item.id === structuralFunction)?.label ?? structuralFunction
+}
 type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
 const activeCreatorStage = ref<CreatorStage>('idea')
 const focusedSectionId = ref('')
@@ -1764,6 +1768,7 @@ onBeforeUnmount(() => {
               <div class="proposed-section-fields">
                 <label>Type<select v-model="section.kind"><option v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" :value="kind">{{ label(kind) }}</option></select></label>
                 <label>Title<input v-model="section.title" maxlength="100" /></label>
+                <label>Role in song<select v-model="section.structuralFunction"><option v-for="item in structuralFunctions" :key="item.id" :value="item.id">{{ item.label }}</option></select></label>
                 <label>Delivery<select v-model="section.delivery"><option v-for="delivery in (['Sung','TalkSung','Spoken','Whispered'] as SectionDelivery[])" :key="delivery" :value="delivery">{{ deliveryLabel(delivery) }}</option></select></label>
                 <label class="proposed-direction">Performance direction<input v-model="section.performanceNotes" maxlength="1000" placeholder="Optional direction" /></label>
                 <small>{{ section.lyrics.length }} lyric line{{ section.lyrics.length === 1 ? '' : 's' }} · {{ section.lyrics.slice(0, 2).join(' / ') || 'No lyric lines' }}</small>
@@ -1915,7 +1920,7 @@ onBeforeUnmount(() => {
             <li v-for="(section, index) in project.sections" :key="`outline-${section.id}`">
               <button type="button" :class="{ active: focusedSectionId === section.id, ready: songOutlineItems[index]?.ready }" :aria-current="focusedSectionId === section.id ? 'location' : undefined" @click="focusSongSection(section.id)">
                 <span class="outline-order">{{ String(index + 1).padStart(2, '0') }}</span>
-                <span class="outline-copy"><strong>{{ section.title }}</strong><small>{{ label(section.kind) }} · {{ deliveryLabel(section.delivery) }} · {{ placementFor(section.id)?.durationBars ?? 0 }} bars · {{ section.lyricLines.length }} line{{ section.lyricLines.length === 1 ? '' : 's' }}</small></span>
+                <span class="outline-copy"><strong>{{ section.title }}</strong><small><template v-if="section.structuralFunction !== 'Unspecified'">{{ structuralFunctionLabel(section.structuralFunction) }} · </template>{{ label(section.kind) }} · {{ deliveryLabel(section.delivery) }} · {{ placementFor(section.id)?.durationBars ?? 0 }} bars · {{ section.lyricLines.length }} line{{ section.lyricLines.length === 1 ? '' : 's' }}</small></span>
                 <span class="outline-progress">{{ songOutlineItems[index]?.progress }}</span>
               </button>
             </li>

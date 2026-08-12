@@ -5,8 +5,8 @@ import { adjacentSectionId, songOutline } from './songOutline.js'
 test('song outline keeps song order and summarizes navigation context', () => {
   const project = {
     sections: [
-      { id: 'intro', title: 'Intro', kind: 'Intro', delivery: 'Spoken', lyricLines: [{ id: 'l1' }] },
-      { id: 'chorus', title: 'Final Chorus', kind: 'Chorus', delivery: 'Sung', lyricLines: [{ id: 'l2' }, { id: 'l3' }] },
+      { id: 'intro', title: 'Intro', kind: 'Intro', delivery: 'Spoken', structuralFunction: 'Setup', lyricLines: [{ id: 'l1' }] },
+      { id: 'chorus', title: 'Final Chorus', kind: 'Chorus', delivery: 'Sung', structuralFunction: 'Payoff', lyricLines: [{ id: 'l2' }, { id: 'l3' }] },
     ],
     timeline: { sectionPlacements: [
       { sectionId: 'intro', durationBars: 4 },
@@ -19,17 +19,17 @@ test('song outline keeps song order and summarizes navigation context', () => {
   ] }
 
   assert.deepEqual(songOutline(project, readiness), [
-    { sectionId: 'intro', order: 1, title: 'Intro', kind: 'Intro', delivery: 'Spoken', durationBars: 4, lyricLineCount: 1, ready: false, progress: 'Needs harmony' },
-    { sectionId: 'chorus', order: 2, title: 'Final Chorus', kind: 'Chorus', delivery: 'Sung', durationBars: 8, lyricLineCount: 2, ready: true, progress: 'Ready to hear' },
+    { sectionId: 'intro', order: 1, title: 'Intro', kind: 'Intro', delivery: 'Spoken', structuralFunction: 'Setup', durationBars: 4, lyricLineCount: 1, ready: false, progress: 'Needs harmony' },
+    { sectionId: 'chorus', order: 2, title: 'Final Chorus', kind: 'Chorus', delivery: 'Sung', structuralFunction: 'Payoff', durationBars: 8, lyricLineCount: 2, ready: true, progress: 'Ready to hear' },
   ])
 })
 
 test('song outline reports the first actionable gap for each section', () => {
   const project = {
     sections: [
-      { id: 'a', title: 'A', kind: 'Verse', delivery: 'Sung', lyricLines: [] },
-      { id: 'b', title: 'B', kind: 'Verse', delivery: 'Sung', lyricLines: [] },
-      { id: 'c', title: 'C', kind: 'Verse', delivery: 'Sung', lyricLines: [] },
+      { id: 'a', title: 'A', kind: 'Verse', delivery: 'Sung', structuralFunction: 'Unspecified', lyricLines: [] },
+      { id: 'b', title: 'B', kind: 'Verse', delivery: 'Sung', structuralFunction: 'Development', lyricLines: [] },
+      { id: 'c', title: 'C', kind: 'Verse', delivery: 'Sung', structuralFunction: 'Transition', lyricLines: [] },
     ],
     timeline: { sectionPlacements: [] },
   }
