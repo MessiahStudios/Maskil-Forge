@@ -18,6 +18,7 @@ export interface DemoReadiness {
   nextStep: {
     sectionId: string
     stage: 'shape' | 'harmony' | 'arrangement'
+    action: 'lyrics' | 'harmony' | 'role' | 'part'
     label: string
   } | null
   sections: DemoSectionReadiness[]

@@ -25,16 +25,16 @@ export function demoReadiness(project) {
   if (!sections.length) nextAction = 'Add the first song section.'
   else if (firstGap && !firstGap.hasLyrics) {
     nextAction = `Write a lyric line in ${firstGap.title}.`
-    nextStep = { sectionId: firstGap.sectionId, stage: 'shape', label: `Write ${firstGap.title} lyrics` }
+    nextStep = { sectionId: firstGap.sectionId, stage: 'shape', action: 'lyrics', label: `Write ${firstGap.title} lyrics` }
   } else if (firstGap && !firstGap.hasHarmony) {
     nextAction = `Add harmony to ${firstGap.title}.`
-    nextStep = { sectionId: firstGap.sectionId, stage: 'harmony', label: `Open ${firstGap.title} harmony` }
+    nextStep = { sectionId: firstGap.sectionId, stage: 'harmony', action: 'harmony', label: `Open ${firstGap.title} harmony` }
   } else if (firstGap && !firstGap.hasRole) {
     nextAction = `Choose an arrangement job for ${firstGap.title}.`
-    nextStep = { sectionId: firstGap.sectionId, stage: 'arrangement', label: `Choose ${firstGap.title} job` }
+    nextStep = { sectionId: firstGap.sectionId, stage: 'arrangement', action: 'role', label: `Choose ${firstGap.title} job` }
   } else if (firstGap && !firstGap.hasPlayablePart) {
     nextAction = `Accept or create a playable part for ${firstGap.title}.`
-    nextStep = { sectionId: firstGap.sectionId, stage: 'arrangement', label: `Build ${firstGap.title} part` }
+    nextStep = { sectionId: firstGap.sectionId, stage: 'arrangement', action: 'part', label: `Build ${firstGap.title} part` }
   }
   return {
     readySectionCount,
