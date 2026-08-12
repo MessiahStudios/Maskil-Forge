@@ -99,6 +99,10 @@ Released-song validation continues in slice 5.16. Schema v20 makes Intro a first
 
 Slice 5.17 adds review-first lyric-sheet structuring. Bracketed section headings are parsed deterministically into an editable proposal, unassigned lines remain visible, and acceptance creates the reviewed sections as one undoable operation while preserving the original raw draft.
 
+Slice 5.18 adds a compact, derived song outline for navigating long forms. It summarizes each section’s delivery, duration, lyric count, and next readiness gap and jumps to the authoritative full editor without creating a second persisted representation.
+
+Slice 5.19 adds a transient focused-section workspace with previous/next navigation and an immediate return to the complete song. Focus state is UI-only and never changes the Song Graph.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.
