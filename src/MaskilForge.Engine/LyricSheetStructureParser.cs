@@ -13,7 +13,15 @@ public sealed record ProposedSongSection(
 public sealed record LyricSheetStructurePreview(
     IReadOnlyList<ProposedSongSection> Sections,
     IReadOnlyList<string> UnassignedLines,
-    IReadOnlyList<string> UnrecognizedHeadings);
+    IReadOnlyList<string> UnrecognizedHeadings,
+    IReadOnlyList<UnrecognizedSongSection> UnrecognizedSections);
+
+public sealed record UnrecognizedSongSection(
+    string Heading,
+    SectionDelivery Delivery,
+    string PerformanceNotes,
+    IReadOnlyList<string> Lyrics,
+    int InsertionIndex);
 
 public static partial class LyricSheetStructureParser
 {
@@ -26,33 +34,39 @@ public static partial class LyricSheetStructureParser
         var sections = new List<ProposedSongSection>();
         var unassigned = new List<string>();
         var unrecognizedHeadings = new List<string>();
+        var unrecognizedSections = new List<UnrecognizedSongSection>();
         Draft? current = null;
+        UnknownDraft? unknown = null;
 
         foreach (var rawLine in text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
         {
             var line = rawLine.Trim();
             var match = HeadingPattern().Match(line);
-            if (match.Success && TryParseHeading(match.Groups["heading"].Value, out var heading))
+            if (match.Success)
             {
                 if (current is not null) sections.Add(current.Build());
-                current = heading;
-            }
-            else if (match.Success)
-            {
-                if (current is not null) sections.Add(current.Build());
+                if (unknown is not null) unrecognizedSections.Add(unknown.Build());
                 current = null;
-                unrecognizedHeadings.Add(line);
-                unassigned.Add(line);
+                unknown = null;
+                if (TryParseHeading(match.Groups["heading"].Value, out var heading)) current = heading;
+                else
+                {
+                    var (title, notes, delivery) = ParseHeadingDetails(match.Groups["heading"].Value);
+                    unrecognizedHeadings.Add(line);
+                    unknown = new UnknownDraft(title, delivery, notes, sections.Count);
+                }
             }
             else if (line.Length > 0)
             {
-                if (current is null) unassigned.Add(line);
-                else current.Lyrics.Add(line);
+                if (current is not null) current.Lyrics.Add(line);
+                else if (unknown is not null) unknown.Lyrics.Add(line);
+                else unassigned.Add(line);
             }
         }
 
         if (current is not null) sections.Add(current.Build());
-        return new LyricSheetStructurePreview(DisambiguateRepeatedTitles(sections), unassigned, unrecognizedHeadings);
+        if (unknown is not null) unrecognizedSections.Add(unknown.Build());
+        return new LyricSheetStructurePreview(DisambiguateRepeatedTitles(sections), unassigned, unrecognizedHeadings, unrecognizedSections);
     }
 
     private static IReadOnlyList<ProposedSongSection> DisambiguateRepeatedTitles(IReadOnlyList<ProposedSongSection> sections)
@@ -72,9 +86,7 @@ public static partial class LyricSheetStructureParser
 
     private static bool TryParseHeading(string value, out Draft draft)
     {
-        var pieces = Regex.Split(value, @"\s+[–—-]\s+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
-        if (pieces.Length > 2) pieces = [pieces[0], string.Join(" – ", pieces.Skip(1))];
-        var title = pieces[0].Trim();
+        var (title, notes, delivery) = ParseHeadingDetails(value);
         var normalized = title.ToLowerInvariant().Replace("-", string.Empty, StringComparison.Ordinal).Replace(" ", string.Empty, StringComparison.Ordinal);
         var kind = normalized switch
         {
@@ -87,20 +99,33 @@ public static partial class LyricSheetStructureParser
             _ => (SectionKind?)null
         };
         if (kind is null) { draft = null!; return false; }
+        draft = new Draft(kind.Value, title, delivery, notes);
+        return true;
+    }
 
+    private static (string Title, string Notes, SectionDelivery Delivery) ParseHeadingDetails(string value)
+    {
+        var pieces = Regex.Split(value, @"\s+[–—-]\s+", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+        if (pieces.Length > 2) pieces = [pieces[0], string.Join(" – ", pieces.Skip(1))];
+        var title = pieces[0].Trim();
         var notes = pieces.Length > 1 ? pieces[1].Trim() : string.Empty;
         var intent = notes.ToLowerInvariant();
         var delivery = intent.Contains("whisper", StringComparison.Ordinal) ? SectionDelivery.Whispered
             : intent.Contains("talk-sung", StringComparison.Ordinal) || intent.Contains("talk sung", StringComparison.Ordinal) ? SectionDelivery.TalkSung
             : intent.Contains("spoken", StringComparison.Ordinal) || intent.Contains("near spoken", StringComparison.Ordinal) ? SectionDelivery.Spoken
             : SectionDelivery.Sung;
-        draft = new Draft(kind.Value, title, delivery, notes);
-        return true;
+        return (title, notes, delivery);
     }
 
     private sealed record Draft(SectionKind Kind, string Title, SectionDelivery Delivery, string Notes)
     {
         public List<string> Lyrics { get; } = [];
         public ProposedSongSection Build() => new(Kind, Title, Delivery, Notes, Lyrics.ToList());
+    }
+
+    private sealed record UnknownDraft(string Heading, SectionDelivery Delivery, string Notes, int InsertionIndex)
+    {
+        public List<string> Lyrics { get; } = [];
+        public UnrecognizedSongSection Build() => new(Heading, Delivery, Notes, Lyrics.ToList(), InsertionIndex);
     }
 }

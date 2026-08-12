@@ -377,6 +377,25 @@ async function previewPastedStructure() {
   } finally { busy.value = false }
 }
 function removeProposedSection(index: number) { structurePreview.value?.sections.splice(index, 1) }
+function resolveUnrecognizedSection(index: number) {
+  const preview = structurePreview.value
+  const unresolved = preview?.unrecognizedSections[index]
+  if (!preview || !unresolved?.resolutionKind) return
+  const insertionIndex = Math.min(unresolved.insertionIndex, preview.sections.length)
+  preview.sections.splice(insertionIndex, 0, {
+    kind: unresolved.resolutionKind,
+    title: unresolved.heading,
+    delivery: unresolved.delivery,
+    performanceNotes: unresolved.performanceNotes,
+    lyrics: [...unresolved.lyrics],
+  })
+  preview.unrecognizedSections.forEach((item, itemIndex) => {
+    if (itemIndex !== index && item.insertionIndex >= insertionIndex) item.insertionIndex += 1
+  })
+  preview.unrecognizedSections.splice(index, 1)
+  preview.unrecognizedHeadings.splice(index, 1)
+  status.value = `${unresolved.heading} added to the proposal as ${label(unresolved.resolutionKind)}. Review it before creating sections.`
+}
 function moveProposedSection(index: number, offset: number) {
   const sections = structurePreview.value?.sections
   if (!sections) return
@@ -1712,8 +1731,19 @@ onBeforeUnmount(() => {
           <p v-if="project.sections.length" class="preview-warning">These sections will be appended after your {{ project.sections.length }} existing section{{ project.sections.length === 1 ? '' : 's' }}.</p>
           <aside v-if="structurePreview.unrecognizedHeadings.length" class="heading-warning" role="alert">
             <strong>{{ structurePreview.unrecognizedHeadings.length }} heading{{ structurePreview.unrecognizedHeadings.length === 1 ? ' needs' : 's need' }} review</strong>
-            <p>Maskil Forge did not guess their section types. These headings and the lines beneath them remain safely in the raw draft and will not be inserted into a neighboring section.</p>
-            <ul><li v-for="heading in structurePreview.unrecognizedHeadings" :key="heading">{{ heading }}</li></ul>
+            <p>Maskil Forge did not guess their section types. Choose a type to include each block in song order, or leave it unresolved in the preserved raw draft.</p>
+            <ol class="unrecognized-sections">
+              <li v-for="(unresolved, index) in structurePreview.unrecognizedSections" :key="`${unresolved.heading}:${unresolved.insertionIndex}`">
+                <div><strong>[{{ unresolved.heading }}]</strong><small>{{ unresolved.lyrics.length }} lyric line{{ unresolved.lyrics.length === 1 ? '' : 's' }} · {{ unresolved.lyrics.slice(0, 2).join(' / ') || 'No lyric lines' }}</small></div>
+                <label>Use as
+                  <select v-model="unresolved.resolutionKind">
+                    <option :value="undefined">Choose type…</option>
+                    <option v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" :value="kind">{{ label(kind) }}</option>
+                  </select>
+                </label>
+                <button type="button" class="secondary" :disabled="!unresolved.resolutionKind" @click="resolveUnrecognizedSection(index)">Include section</button>
+              </li>
+            </ol>
           </aside>
           <p v-if="structurePreview.unassignedLines.length" class="preview-warning">{{ structurePreview.unassignedLines.length }} unassigned line{{ structurePreview.unassignedLines.length === 1 ? '' : 's' }} will remain only in the preserved raw draft.</p>
           <ol v-if="structurePreview.sections.length" class="proposed-sections">
