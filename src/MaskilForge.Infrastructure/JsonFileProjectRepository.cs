@@ -162,7 +162,13 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
                     snapshot.Project.Id,
                     snapshot.Project.Title,
                     snapshot.Project.Artist,
-                    snapshot.CapturedAtUtc));
+                    snapshot.CapturedAtUtc,
+                    snapshot.Project.Sections.Count,
+                    snapshot.Project.Sections.Count > 0
+                        ? snapshot.Project.Sections.Sum(section => section.LyricLines.Count)
+                        : snapshot.Project.RawLyricDraft.Split('\n').Count(line => !string.IsNullOrWhiteSpace(line)),
+                    !string.IsNullOrWhiteSpace(snapshot.Project.RawLyricDraft),
+                    snapshot.Project.Sections.Select(section => section.Title).ToList()));
             }
             catch (ProjectPersistenceException) { }
         }

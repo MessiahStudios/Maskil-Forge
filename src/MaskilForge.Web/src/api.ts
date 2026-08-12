@@ -366,6 +366,10 @@ export interface RecoverySummary {
   title: string
   artist: string
   capturedAtUtc: string
+  sectionCount: number
+  lyricLineCount: number
+  hasRawLyrics: boolean
+  sectionTitles: string[]
 }
 
 export interface RecoveryProjectResponse {

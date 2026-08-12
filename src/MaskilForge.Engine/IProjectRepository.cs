@@ -42,4 +42,8 @@ public sealed record ProjectRecoverySummary(
     ProjectId Id,
     string Title,
     string Artist,
-    DateTimeOffset CapturedAtUtc);
+    DateTimeOffset CapturedAtUtc,
+    int SectionCount,
+    int LyricLineCount,
+    bool HasRawLyrics,
+    IReadOnlyList<string> SectionTitles);

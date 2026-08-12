@@ -131,6 +131,7 @@ button.journey-step:hover:not(:disabled) { border-color: #6e755f; background: #2
 .trash-card { border-color: #67433e; }
 .recovery-view { width: min(900px, 100%); }
 .recovery-card { border-color: #8e7844; background: #211f18; }
+.recovery-form { overflow-wrap: anywhere; color: #d8c48f; line-height: 1.45; }
 .song-canvas { display: grid; gap: 1.25rem; }
 .structure-lock-notice { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .7rem .85rem; border: 1px solid #62583d; border-left: .22rem solid #c6a96c; border-radius: .45rem; background: linear-gradient(110deg, #24241d, #1d211c); }
 .structure-lock-notice .eyebrow { margin: 0 0 .25rem; }
