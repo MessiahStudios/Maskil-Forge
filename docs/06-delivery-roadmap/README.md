@@ -416,9 +416,15 @@ Let an artist explicitly start one section from another section’s musical foun
 
 ### Milestone 5.23 — Unknown-heading import safety
 
-Treat every bracketed lyric-sheet heading as a structural boundary even when its section type is unknown. Unknown headings are listed explicitly in preview, and their following lines remain unassigned in the preserved raw draft rather than being silently attached to the preceding recognized section. The parser does not invent new section kinds or guess the artist’s intent.
+Treat every bracketed lyric-sheet heading as a structural boundary even when its section type is unknown. Unknown headings are listed explicitly in preview, and their following lines remain isolated in the preserved raw draft rather than being silently attached to the preceding recognized section. The parser does not invent new section kinds or guess the artist’s intent.
 
 **Deliverable:** uncommon forms such as post-choruses, refrains, interludes, and custom headings fail visibly and safely during preview.
+
+### Milestone 5.24 — Resolve custom song-form blocks
+
+Preserve each unknown heading together with its following lyric lines and original insertion position. Structure preview lets the artist explicitly map that block to a supported section type, inserting it back into the proposal in song order with its title, delivery direction, and lyrics intact. Leaving it unresolved keeps it only in the raw draft.
+
+**Deliverable:** a custom heading can move from visible parser uncertainty to an artist-approved section without retyping or losing its place in the song.
 
 ## Milestone 6 — Voice performance capture
 

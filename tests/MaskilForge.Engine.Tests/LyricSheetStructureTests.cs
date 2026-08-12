@@ -81,8 +81,12 @@ public sealed class LyricSheetStructureTests
         var preview = LyricSheetStructureParser.Parse("[Invocation]\nUnknown opening\n[Verse]\nKnown line");
 
         Assert.Single(preview.Sections);
-        Assert.Equal(["[Invocation]", "Unknown opening"], preview.UnassignedLines);
+        Assert.Empty(preview.UnassignedLines);
         Assert.Equal(["[Invocation]"], preview.UnrecognizedHeadings);
+        var unresolved = Assert.Single(preview.UnrecognizedSections);
+        Assert.Equal("Invocation", unresolved.Heading);
+        Assert.Equal(["Unknown opening"], unresolved.Lyrics);
+        Assert.Equal(0, unresolved.InsertionIndex);
     }
 
     [Fact]
@@ -94,7 +98,11 @@ public sealed class LyricSheetStructureTests
         Assert.Equal(["Known line"], preview.Sections[0].Lyrics);
         Assert.Equal(["Closing line"], preview.Sections[1].Lyrics);
         Assert.Equal(["[Refrain]"], preview.UnrecognizedHeadings);
-        Assert.Equal(["[Refrain]", "Ambiguous refrain"], preview.UnassignedLines);
+        Assert.Empty(preview.UnassignedLines);
+        var unresolved = Assert.Single(preview.UnrecognizedSections);
+        Assert.Equal("Refrain", unresolved.Heading);
+        Assert.Equal(["Ambiguous refrain"], unresolved.Lyrics);
+        Assert.Equal(1, unresolved.InsertionIndex);
     }
 
     [Fact]

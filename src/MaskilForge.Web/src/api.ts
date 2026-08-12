@@ -433,6 +433,14 @@ export interface LyricSheetStructurePreview {
   sections: ProposedSongSection[]
   unassignedLines: string[]
   unrecognizedHeadings: string[]
+  unrecognizedSections: Array<{
+    heading: string
+    delivery: SectionDelivery
+    performanceNotes: string
+    lyrics: string[]
+    insertionIndex: number
+    resolutionKind?: SectionKind
+  }>
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
