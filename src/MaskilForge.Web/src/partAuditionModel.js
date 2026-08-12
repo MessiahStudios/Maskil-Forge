@@ -23,17 +23,58 @@ export function assemblePartNotes(parts, noteEvents, sectionId = null) {
     || left.id.localeCompare(right.id))
 }
 
+function secondsPerTick(timing) {
+  return (60 / timing.beatsPerMinute) / timing.ticksPerQuarterNote
+}
+
+function ticksPerBeat(timing) {
+  return timing.ticksPerQuarterNote * 4 / timing.beatUnit
+}
+
 /** Convert absolute-tick notes into a one-shot schedule starting at time zero. */
 export function scheduleAssembledNotes(notes, timing) {
   if (!notes.length) return []
-  const secondsPerTick = (60 / timing.beatsPerMinute) / timing.ticksPerQuarterNote
+  const tickSeconds = secondsPerTick(timing)
   const originTick = Math.min(...notes.map(note => note.startTick))
   return [...notes]
     .sort((left, right) => left.startTick - right.startTick || midiNumber(left.pitch) - midiNumber(right.pitch))
     .map(note => ({
       midi: midiNumber(note.pitch),
-      startSeconds: (note.startTick - originTick) * secondsPerTick,
-      durationSeconds: Math.max(secondsPerTick, note.durationTicks * secondsPerTick),
+      startSeconds: (note.startTick - originTick) * tickSeconds,
+      durationSeconds: Math.max(tickSeconds, note.durationTicks * tickSeconds),
       velocity: note.velocity,
     }))
+}
+
+/** Convert absolute-tick notes into a song-timeline schedule from tick zero. */
+export function scheduleAbsoluteNotes(notes, timing) {
+  if (!notes.length) return []
+  const tickSeconds = secondsPerTick(timing)
+  return [...notes]
+    .sort((left, right) => left.startTick - right.startTick || midiNumber(left.pitch) - midiNumber(right.pitch))
+    .map(note => ({
+      midi: midiNumber(note.pitch),
+      startSeconds: note.startTick * tickSeconds,
+      durationSeconds: Math.max(tickSeconds, note.durationTicks * tickSeconds),
+      velocity: note.velocity,
+    }))
+}
+
+export function musicalPositionFromTicks(absoluteTick, timing) {
+  const beatTicks = ticksPerBeat(timing)
+  const barTicks = timing.beatsPerBar * beatTicks
+  const safeTick = Math.max(0, absoluteTick)
+  const bar = Math.floor(safeTick / barTicks) + 1
+  const inBar = safeTick % barTicks
+  const beat = Math.floor(inBar / beatTicks) + 1
+  const tick = Math.floor(inBar % beatTicks)
+  return { bar, beat, tick }
+}
+
+export function formatTransportPosition(position) {
+  return `Bar ${position.bar} · Beat ${position.beat}`
+}
+
+export function tickFromSeconds(seconds, timing) {
+  return Math.max(0, seconds / secondsPerTick(timing))
 }

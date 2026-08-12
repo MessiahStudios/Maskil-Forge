@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { assemblePartNotes, midiNumber, scheduleAssembledNotes } from './partAuditionModel.js'
+import { assemblePartNotes, formatTransportPosition, midiNumber, musicalPositionFromTicks, scheduleAbsoluteNotes, scheduleAssembledNotes, tickFromSeconds } from './partAuditionModel.js'
 
 const pitch = (letter, octave, accidental = 'Natural') => ({ letter, accidental, octave })
 const note = (id, letter, octave, startTick, durationTicks = 480, velocity = 96) => ({
@@ -44,4 +44,25 @@ test('scheduleAssembledNotes converts absolute ticks and normalizes the earliest
     { midi: 60, startSeconds: 0, durationSeconds: 0.5, velocity: 80 },
     { midi: 67, startSeconds: 0.5, durationSeconds: 0.25, velocity: 100 },
   ])
+})
+
+test('scheduleAbsoluteNotes keeps song-timeline silence before the first note', () => {
+  const scheduled = scheduleAbsoluteNotes([
+    note('late', 'G', 4, 960, 240, 100),
+  ], { beatsPerMinute: 120, ticksPerQuarterNote: 480 })
+  assert.deepEqual(scheduled, [
+    { midi: 67, startSeconds: 1, durationSeconds: 0.25, velocity: 100 },
+  ])
+})
+
+test('musicalPositionFromTicks converts absolute ticks with constant meter', () => {
+  const position = musicalPositionFromTicks(2_400, {
+    beatsPerBar: 4, beatUnit: 4, ticksPerQuarterNote: 480,
+  })
+  assert.deepEqual(position, { bar: 2, beat: 2, tick: 0 })
+  assert.equal(formatTransportPosition(position), 'Bar 2 · Beat 2')
+})
+
+test('tickFromSeconds reverses the tempo conversion', () => {
+  assert.equal(tickFromSeconds(1, { beatsPerMinute: 120, ticksPerQuarterNote: 480 }), 960)
 })
