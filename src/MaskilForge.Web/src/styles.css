@@ -144,6 +144,9 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .section-position label { display: flex; flex-direction: row; gap: .4rem; align-items: center; color: #c9c3b6; }
 .section-position input { width: 4.5rem; padding: .35rem .5rem; color: #fff7e7; background: #111410; border-color: #666d5d; }
 .section-actions { display: flex; gap: .4rem; }
+.section-performance-intent { display: grid; grid-template-columns: minmax(8rem, .35fr) minmax(16rem, 1fr) auto; gap: .75rem; align-items: end; padding: .85rem 1rem; background: #111410; border: 1px solid #33392f; border-radius: .65rem; }
+.section-performance-intent label { display: grid; gap: .35rem; color: #c9c3b6; font-size: .76rem; }
+.section-performance-intent textarea { resize: vertical; min-height: 3.2rem; }
 .lyrics-editor { display: grid; gap: .65rem; }
 .lyrics-heading { display: flex; justify-content: space-between; align-items: center; color: #ccc5b7; font-size: .83rem; letter-spacing: .04em; }
 .harmony-editor { display: grid; gap: .65rem; padding: .85rem .9rem; background: #151813; border: 1px solid #3f453b; border-radius: .4rem; }
@@ -392,6 +395,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-toolbar { justify-content: start; }
   .section-heading { grid-template-columns: auto 1fr; }
   .section-actions { grid-column: 2; flex-wrap: wrap; }
+  .section-performance-intent { grid-template-columns: 1fr 2fr; }
+  .section-performance-intent button { grid-column: 2; justify-self: start; }
   .settings-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 620px) {
@@ -423,6 +428,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-actions { grid-column: 1 / -1; }
   .section-actions button { flex: 1; }
   .section-actions button span { display: none; }
+  .section-performance-intent { grid-template-columns: 1fr; }
+  .section-performance-intent button { grid-column: 1; }
   .rhythm-candidate-heading { grid-template-columns: 1fr; }
   .candidate-capture { grid-template-columns: 1fr; }
   .lyric-line { grid-template-columns: 24px 1fr; }

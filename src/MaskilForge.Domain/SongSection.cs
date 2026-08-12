@@ -4,11 +4,20 @@ namespace MaskilForge.Domain;
 
 public enum SectionKind
 {
+    Intro,
     Verse,
     Chorus,
     PreChorus,
     Bridge,
     Outro
+}
+
+public enum SectionDelivery
+{
+    Sung,
+    TalkSung,
+    Spoken,
+    Whispered
 }
 
 public sealed class SongSection
@@ -24,7 +33,9 @@ public sealed class SongSection
         string title,
         IReadOnlyList<LyricLine>? lyricLines = null,
         IReadOnlyList<HarmonyChord>? harmony = null,
-        IReadOnlyList<HarmonyCandidate>? harmonyCandidates = null)
+        IReadOnlyList<HarmonyCandidate>? harmonyCandidates = null,
+        SectionDelivery delivery = SectionDelivery.Sung,
+        string performanceNotes = "")
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A section ID is required.", nameof(id));
         Id = id;
@@ -40,6 +51,7 @@ public sealed class SongSection
         _harmonyCandidates = harmonyCandidates?.ToList() ?? [];
         if (_harmonyCandidates.Select(item => item.Id).Distinct().Count() != _harmonyCandidates.Count)
             throw new ArgumentException("Harmony candidate IDs must be unique.", nameof(harmonyCandidates));
+        SetPerformanceIntent(delivery, performanceNotes);
     }
 
     public SectionId Id { get; }
@@ -48,6 +60,8 @@ public sealed class SongSection
     public IReadOnlyList<LyricLine> LyricLines => _lyricLines;
     public IReadOnlyList<HarmonyChord> Harmony => _harmony;
     public IReadOnlyList<HarmonyCandidate> HarmonyCandidates => _harmonyCandidates;
+    public SectionDelivery Delivery { get; private set; }
+    public string PerformanceNotes { get; private set; } = string.Empty;
 
     public static SongSection Create(SectionKind kind, string? title = null) =>
         new(SectionId.New(), kind, title ?? DefaultTitle(kind));
@@ -57,6 +71,16 @@ public sealed class SongSection
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Section title is required.", nameof(title));
         if (title.Trim().Length > 100) throw new ArgumentOutOfRangeException(nameof(title), "Section title cannot exceed 100 characters.");
         Title = title.Trim();
+    }
+
+    public void SetPerformanceIntent(SectionDelivery delivery, string performanceNotes)
+    {
+        if (!Enum.IsDefined(delivery)) throw new ArgumentOutOfRangeException(nameof(delivery));
+        ArgumentNullException.ThrowIfNull(performanceNotes);
+        if (performanceNotes.Trim().Length > 1_000)
+            throw new ArgumentOutOfRangeException(nameof(performanceNotes), "Section performance notes cannot exceed 1,000 characters.");
+        Delivery = delivery;
+        PerformanceNotes = performanceNotes.Trim();
     }
 
     public LyricLine AddLyricLine(string text = "")

@@ -453,7 +453,12 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             request.Denominator ?? throw new ArgumentException("Denominator is required.")); break;
         case "add-section": editor.Execute(new AddSectionCommand(
             request.Kind ?? throw new ArgumentException("Section kind is required."), request.Title)); break;
+        case "duplicate-section": editor.Execute(new DuplicateSectionCommand(RequiredSectionId(request))); break;
         case "rename-section": editor.Execute(new RenameSectionCommand(RequiredSectionId(request), Required(request.Title, "title"))); break;
+        case "set-section-performance-intent": editor.Execute(new SetSectionPerformanceIntentCommand(
+            RequiredSectionId(request),
+            request.SectionDelivery ?? throw new ArgumentException("Section delivery is required."),
+            request.PerformanceNotes ?? string.Empty)); break;
         case "move-section": editor.Execute(new MoveSectionCommand(RequiredSectionId(request), request.TargetIndex ?? throw new ArgumentException("Target index is required."))); break;
         case "set-section-duration": editor.Execute(new SetSectionDurationCommand(
             RequiredSectionId(request),
@@ -700,7 +705,9 @@ public sealed record ProjectCommandRequest(
     SongProject? Project = null,
     SectionId? SectionId = null,
     SectionKind? Kind = null,
+    SectionDelivery? SectionDelivery = null,
     string? Title = null,
+    string? PerformanceNotes = null,
     decimal? Tempo = null,
     int? Numerator = null,
     int? Denominator = null,

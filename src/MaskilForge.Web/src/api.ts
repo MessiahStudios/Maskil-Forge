@@ -1,4 +1,5 @@
-export type SectionKind = 'Verse' | 'Chorus' | 'PreChorus' | 'Bridge' | 'Outro'
+export type SectionKind = 'Intro' | 'Verse' | 'Chorus' | 'PreChorus' | 'Bridge' | 'Outro'
+export type SectionDelivery = 'Sung' | 'TalkSung' | 'Spoken' | 'Whispered'
 export type SongGenre = 'Unspecified' | 'Pop' | 'Rock' | 'Folk' | 'Country' | 'RAndB' | 'HipHop' | 'Electronic' | 'Cinematic' | 'Alternative' | 'Other'
 export type SyllableSource = 'Manual' | 'Analyzer' | 'Imported'
 export type PhraseSource = 'Default' | 'Manual' | 'Analyzer' | 'Imported'
@@ -302,6 +303,8 @@ export interface SongSection {
   lyricLines: LyricLine[]
   harmony: HarmonyChord[]
   harmonyCandidates: HarmonyCandidate[]
+  delivery: SectionDelivery
+  performanceNotes: string
 }
 
 export interface SongProject {
@@ -374,7 +377,9 @@ export interface ProjectCommand {
   project?: SongProject
   sectionId?: string
   kind?: SectionKind
+  sectionDelivery?: SectionDelivery
   title?: string
+  performanceNotes?: string
   numerator?: number
   denominator?: number
   targetIndex?: number

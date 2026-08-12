@@ -362,6 +362,14 @@ This slice adds no persisted readiness flags, automatic acceptance, instruments,
 
 **Complete.** Minimal editing and end-to-end validation now close the hear–revise loop. Transition realization was not required to prove the vertical workflow and remains a future artist-driven addition. Further work must continue the existing preview-first, explicit-acceptance, reversible-decision model; MVP completion does not imply full piano-roll editing, automatic orchestration, instrument libraries, recording, mixing, or DAW replacement.
 
+### Milestone 5.16 — Released-song structure validation
+
+Use “Essence of Shadows” as the first released-song case study. Add Intro as a first-class section and preserve section delivery (spoken, talk-sung, sung, or whispered) plus concise performance direction in schema v20. Let an artist duplicate a repeated section before musical parts exist, copying lyrics, harmony, registered voicings, duration, arrangement, and roles with fresh identities.
+
+Duplication does not copy detailed lyric timing, saved candidates, creative locks, note events, or musical parts. Once parts exist, duplication is blocked until they are removed so absolute timeline timing cannot silently drift.
+
+**Deliverable:** the complete ten-section form of “Essence of Shadows” can be represented honestly, including its spoken intro, restrained delivery changes, repeated choruses, final chorus, and whispered outro, before deeper musical realization begins.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

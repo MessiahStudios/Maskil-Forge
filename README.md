@@ -95,6 +95,8 @@ Future C# code will use `MaskilForge` as its namespace root. The repository is n
 
 ## Current project status
 
+Released-song validation continues in slice 5.16. Schema v20 makes Intro a first-class section kind and stores section delivery (spoken, talk-sung, sung, or whispered) plus free-form performance direction. Before absolute-timeline musical parts exist, an artist can duplicate a section: lyrics, harmony, registered voicings, duration, arrangement, and roles are copied with fresh identities, while detailed lyric timing, candidates, locks, and accepted musical parts are intentionally not inferred.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.

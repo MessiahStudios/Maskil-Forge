@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import { demoReadiness } from './demoReadiness.js'
@@ -340,6 +340,25 @@ function setSectionDuration(sectionId: string, durationBars: number) {
 function removeSection(sectionId: string) {
   if (!project.value) return
   return run(() => projectsApi.command(project.value!.id, project.value!, { type: 'remove-section', sectionId }), 'Section removed.', 'section.remove', { sectionId })
+}
+function duplicateSection(sectionId: string, title: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'duplicate-section', sectionId }),
+    `${title} duplicated. Review its timing before building musical parts.`,
+    'section.duplicate',
+    { sectionId })
+}
+function setSectionPerformanceIntent(sectionId: string, event: Event) {
+  if (!project.value) return
+  const form = event.currentTarget as HTMLFormElement
+  const delivery = (form.elements.namedItem('delivery') as HTMLSelectElement).value as SectionDelivery
+  const performanceNotes = (form.elements.namedItem('performanceNotes') as HTMLTextAreaElement).value
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-section-performance-intent', sectionId, sectionDelivery: delivery, performanceNotes }),
+    'Vocal and performance intent saved.',
+    'section.performance-intent',
+    { sectionId, delivery })
 }
 function editLyricLine(sectionId: string, lineId: string, text: string) {
   if (!project.value) return
@@ -1354,6 +1373,7 @@ function setSectionRole(sectionId: string, role: ArrangementRole, present: boole
     { sectionId, role, present })
 }
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
+function deliveryLabel(delivery: SectionDelivery) { return delivery === 'TalkSung' ? 'Talk-sung' : delivery }
 type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
 const activeCreatorStage = ref<CreatorStage>('idea')
 const creatorCompletion = computed(() => creatorProgress(project.value))
@@ -1652,7 +1672,7 @@ onBeforeUnmount(() => {
         <div class="canvas-heading">
           <div><p class="eyebrow">Song structure</p><h1>Shape the song</h1></div>
           <div class="section-toolbar" aria-label="Add song section">
-            <button v-for="kind in (['Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" class="secondary add-section" :disabled="busy" @click="addSection(kind)">+ {{ label(kind) }}</button>
+            <button v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" class="secondary add-section" :disabled="busy" @click="addSection(kind)">+ {{ label(kind) }}</button>
           </div>
         </div>
 
@@ -1672,9 +1692,21 @@ onBeforeUnmount(() => {
               <div class="section-actions">
                 <button class="quiet" :disabled="busy || index === 0" @click="moveSection(section.id, index - 1)">↑ <span>Move up</span></button>
                 <button class="quiet" :disabled="busy || index === project.sections.length - 1" @click="moveSection(section.id, index + 1)">↓ <span>Move down</span></button>
+                <button class="quiet" :disabled="busy || project.musicalParts.length > 0" :title="project.musicalParts.length ? 'Remove musical parts before duplicating sections so absolute note timing stays trustworthy.' : 'Copy this section with fresh identities.'" @click="duplicateSection(section.id, section.title)">Duplicate</button>
                 <button class="danger" :disabled="busy" @click="removeSection(section.id)">Delete section</button>
               </div>
             </div>
+            <form class="section-performance-intent" @submit.prevent="setSectionPerformanceIntent(section.id, $event)">
+              <label>Delivery
+                <select name="delivery" :value="section.delivery" :disabled="busy">
+                  <option v-for="delivery in (['Sung','TalkSung','Spoken','Whispered'] as SectionDelivery[])" :key="delivery" :value="delivery">{{ deliveryLabel(delivery) }}</option>
+                </select>
+              </label>
+              <label>Performance direction
+                <textarea name="performanceNotes" :value="section.performanceNotes" maxlength="1000" rows="2" placeholder="Ambient piano + distant pad; grounded, restrained, no lift" :disabled="busy" />
+              </label>
+              <button type="submit" class="secondary" :disabled="busy">Save intent</button>
+            </form>
             <details :id="index === 0 ? 'harmony-tools' : `harmony-tools-${section.id}`" class="disclosure-panel harmony-disclosure">
               <summary><span>Explore musical ideas</span><small>Optional · Add chords, compare options, and review how changes connect.</small></summary>
               <div class="harmony-editor" :aria-label="`Harmony for ${section.title}`">
