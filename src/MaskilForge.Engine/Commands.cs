@@ -45,6 +45,126 @@ public sealed class RenameSectionCommand(SectionId sectionId, string title) : IP
     }
 }
 
+public sealed class ImportSongStructureCommand(IReadOnlyList<ProposedSongSection> proposals) : IProjectCommand
+{
+    private IReadOnlyList<SongSection>? _sections;
+    private int? _startIndex;
+
+    public void Execute(SongProject project)
+    {
+        ArgumentNullException.ThrowIfNull(proposals);
+        if (proposals.Count == 0) throw new ArgumentException("At least one proposed section is required.", nameof(proposals));
+        if (project.MusicalParts.Count > 0)
+            throw new InvalidOperationException("Import song structure before accepting musical parts so timeline timing stays explicit.");
+
+        _startIndex ??= project.Sections.Count;
+        _sections ??= proposals.Select(CreateSection).ToList();
+        for (var index = 0; index < _sections.Count; index++)
+            project.InsertSection(_startIndex.Value + index, _sections[index]);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_sections is null) throw new InvalidOperationException("Command has not been executed.");
+        foreach (var section in _sections.Reverse()) project.RemoveSection(section.Id);
+    }
+
+    private static SongSection CreateSection(ProposedSongSection proposal)
+    {
+        var section = SongSection.Create(proposal.Kind, proposal.Title);
+        section.SetPerformanceIntent(proposal.Delivery, proposal.PerformanceNotes);
+        foreach (var lyric in proposal.Lyrics.Where(line => !string.IsNullOrWhiteSpace(line))) section.AddLyricLine(lyric);
+        return section;
+    }
+}
+
+public sealed class SetSectionPerformanceIntentCommand(
+    SectionId sectionId,
+    SectionDelivery delivery,
+    string performanceNotes) : IProjectCommand
+{
+    private SectionDelivery? _previousDelivery;
+    private string? _previousNotes;
+
+    public void Execute(SongProject project)
+    {
+        var section = project.FindSection(sectionId);
+        _previousDelivery ??= section.Delivery;
+        _previousNotes ??= section.PerformanceNotes;
+        project.SetSectionPerformanceIntent(sectionId, delivery, performanceNotes);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previousDelivery is null || _previousNotes is null)
+            throw new InvalidOperationException("Command has not been executed.");
+        project.SetSectionPerformanceIntent(sectionId, _previousDelivery.Value, _previousNotes);
+    }
+}
+
+public sealed class DuplicateSectionCommand(SectionId sourceSectionId) : IProjectCommand
+{
+    private SongSection? _duplicate;
+    private int? _insertIndex;
+    private int? _durationBars;
+    private SectionArrangement? _arrangement;
+    private IReadOnlyList<SectionRoleAssignment>? _roles;
+
+    public SectionId? DuplicateSectionId => _duplicate?.Id;
+
+    public void Execute(SongProject project)
+    {
+        if (project.MusicalParts.Count > 0)
+            throw new InvalidOperationException("Duplicate song sections before accepting musical parts. Remove the parts first so timeline timing stays explicit.");
+
+        if (_duplicate is null)
+        {
+            var source = project.FindSection(sourceSectionId);
+            _insertIndex = project.IndexOf(sourceSectionId) + 1;
+            _durationBars = project.Timeline.FindSection(sourceSectionId).DurationBars;
+            _duplicate = SongSection.Create(source.Kind, $"{source.Title} Copy");
+            _duplicate.SetPerformanceIntent(source.Delivery, source.PerformanceNotes);
+            foreach (var line in source.LyricLines) _duplicate.AddLyricLine(line.Text);
+
+            project.InsertSection(_insertIndex.Value, _duplicate, _durationBars.Value);
+            foreach (var sourceChord in source.Harmony)
+            {
+                var chord = project.AddHarmonyChord(
+                    _duplicate.Id,
+                    sourceChord.Chord,
+                    sourceChord.Start,
+                    sourceChord.DurationBars);
+                if (sourceChord.Voicing is not null)
+                    project.SetChordVoicing(
+                        _duplicate.Id,
+                        chord.Id,
+                        sourceChord.Voicing.Voices.Select(voice => voice.Pitch).ToList(),
+                        sourceChord.Voicing.MinimumMidiNote,
+                        sourceChord.Voicing.MaximumMidiNote);
+            }
+
+            var sourceArrangement = project.FindSectionArrangement(sourceSectionId);
+            if (sourceArrangement is not null)
+                _arrangement = project.SetSectionArrangement(_duplicate.Id, sourceArrangement.Energy, sourceArrangement.Density);
+            _roles = project.ArrangementRoles
+                .Where(role => role.SectionId == sourceSectionId)
+                .Select(role => project.SetSectionRole(_duplicate.Id, role.Role))
+                .ToList();
+            return;
+        }
+
+        project.InsertSection(_insertIndex!.Value, _duplicate, _durationBars!.Value);
+        if (_arrangement is not null) project.RestoreSectionArrangement(_duplicate.Id, _arrangement);
+        if (_roles is { Count: > 0 }) project.RestoreSectionRoles(_duplicate.Id, _roles);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_duplicate is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RemoveSection(_duplicate.Id);
+    }
+}
+
 public sealed class MoveSectionCommand(SectionId sectionId, int targetIndex) : IProjectCommand
 {
     private int? _previousIndex;

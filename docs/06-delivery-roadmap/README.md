@@ -1,6 +1,6 @@
 # 06 — Delivery Roadmap
 
-This is the recommended logical build order for Maskil Forge and its underlying Maskil Engine. The repository has completed the Prototype boundary and Milestone 5 through minimal note and part editing (slice 5.14). A milestone should start only after its dependency gate is reliable.
+This is the recommended logical build order for Maskil Forge and its underlying Maskil Engine. The repository has completed the Prototype boundary and the editable-demo MVP through end-to-end creator validation (slice 5.15). A milestone should start only after its dependency gate is reliable.
 
 ## Milestone 0 — Decisions and skeleton
 
@@ -232,7 +232,7 @@ This checkpoint changes no domain model, schema, persistence behavior, migration
 
 ## Milestone 5 — MIDI composition and preview
 
-Turn approved musical intent into an audible, editable song demo without silently replacing the songwriter's decisions. Slices 5.1–5.14 now provide playable note events, harmony realization, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, and minimal note/part editing. The remaining MVP work is intentionally incremental: optional remaining roles only as a vertical song needs them and end-to-end validation. Full piano-roll and DAW-style editing are later capabilities, not prerequisites for the MVP boundary.
+Turn approved musical intent into an audible, editable song demo without silently replacing the songwriter's decisions. Slices 5.1–5.15 provide playable note events, harmony realization, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and end-to-end readiness review. Full piano-roll and DAW-style editing are later capabilities, not prerequisites for the MVP boundary.
 
 ### Milestone 5.1 — MIDI event foundation
 
@@ -348,15 +348,35 @@ This slice does not add a piano roll, drag editing, quantization, instrument ass
 
 **Deliverable:** after hearing an assembled section or song, an artist can revise its exact approved notes and part membership, then listen again without rebuilding the musical part.
 
-### Remaining editable-demo MVP slices
+### Milestone 5.15 — End-to-end editable-demo validation
 
-The current working sequence is approximately two to three focused slices. It may be split or combined as validation reveals the smallest safe boundaries:
+Add a derived, non-persistent hear–revise readiness review to the Arrangement workspace. Each section reports whether it has lyrics, harmony, an arrangement job, and a playable musical part whose note references resolve. The review identifies the first artist-actionable gap and declares the structured demo ready only when every section can participate in the audible flow.
 
-1. Minimal note and part editing.
-2. Transition or foundation realization only if a vertical song slice still feels thin.
-3. End-to-end creator validation and release polish.
+An integration test exercises the recommended multi-section vertical path through lyric and harmony authoring, explicit part realization, stable note and part revision, undo/redo, MIDI export, validated JSON persistence, and reopening with identities intact. Browser validation confirms the incomplete-state guidance and layout without runtime warnings or errors.
 
-These slices must continue the existing preview-first, explicit-acceptance, reversible-decision model. They do not imply full piano-roll editing, automatic orchestration, instrument libraries, recording, mixing, or DAW replacement.
+This slice adds no persisted readiness flags, automatic acceptance, instruments, new realization roles, piano roll, recording, or schema changes. Transition realization remains deferred until a real song demonstrates that it is required rather than merely available to build.
+
+**Deliverable:** Maskil Forge can explain what prevents each section from joining an editable audible demo, and the complete hear–revise–save–export path is covered as one vertical workflow.
+
+### Editable-demo MVP boundary
+
+**Complete.** Minimal editing and end-to-end validation now close the hear–revise loop. Transition realization was not required to prove the vertical workflow and remains a future artist-driven addition. Further work must continue the existing preview-first, explicit-acceptance, reversible-decision model; MVP completion does not imply full piano-roll editing, automatic orchestration, instrument libraries, recording, mixing, or DAW replacement.
+
+### Milestone 5.16 — Released-song structure validation
+
+Use “Essence of Shadows” as the first released-song case study. Add Intro as a first-class section and preserve section delivery (spoken, talk-sung, sung, or whispered) plus concise performance direction in schema v20. Let an artist duplicate a repeated section before musical parts exist, copying lyrics, harmony, registered voicings, duration, arrangement, and roles with fresh identities.
+
+Duplication does not copy detailed lyric timing, saved candidates, creative locks, note events, or musical parts. Once parts exist, duplication is blocked until they are removed so absolute timeline timing cannot silently drift.
+
+**Deliverable:** the complete ten-section form of “Essence of Shadows” can be represented honestly, including its spoken intro, restrained delivery changes, repeated choruses, final chorus, and whispered outro, before deeper musical realization begins.
+
+### Milestone 5.17 — Review-first lyric-sheet structuring
+
+Let an artist paste a familiar bracket-headed lyric sheet and preview a deterministic structural proposal. Recognized headings become editable section types and titles; explicit delivery words and heading directions remain visible for correction. Unassigned lines are reported instead of guessed, and the artist can reorder or remove proposed sections before acceptance.
+
+Creating the reviewed structure is one undoable command with stable identities across redo. The raw lyric sheet remains authoritative source material, and a changed draft invalidates a stale preview.
+
+**Deliverable:** “Essence of Shadows” can move from one pasted lyric sheet to ten reviewed, editable song sections without repetitive line-by-line setup or silent interpretation.
 
 ## Milestone 6 — Voice performance capture
 
@@ -402,7 +422,7 @@ Build mixer routing, automation, production recipes, stem/WAV export, DAW handof
 
 ### MVP
 
-**In progress past the Milestone 5.5 foundation checkpoint.** Milestones 0–4 and slices 5.1–5.14 are complete. The remaining MVP target is end-to-end validation of the hear-revise loop. Additional role realization should follow only what a complete vertical song still needs.
+**Complete.** Milestones 0–4 and slices 5.1–5.15 prove the structured hear–revise–save–export loop. Additional role realization should follow only when artist validation shows that a complete vertical song needs it.
 
 ### Artist alpha
 

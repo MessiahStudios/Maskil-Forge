@@ -120,6 +120,9 @@ app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectWorkspa
     }
 });
 
+app.MapPost("/api/structure-preview", (StructurePreviewRequest request) =>
+    Results.Ok(LyricSheetStructureParser.Parse(request.Text)));
+
 app.MapGet("/api/projects/{id}", async (string id, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -453,7 +456,14 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             request.Denominator ?? throw new ArgumentException("Denominator is required.")); break;
         case "add-section": editor.Execute(new AddSectionCommand(
             request.Kind ?? throw new ArgumentException("Section kind is required."), request.Title)); break;
+        case "import-song-structure": editor.Execute(new ImportSongStructureCommand(
+            request.ProposedSections ?? throw new ArgumentException("Proposed sections are required."))); break;
+        case "duplicate-section": editor.Execute(new DuplicateSectionCommand(RequiredSectionId(request))); break;
         case "rename-section": editor.Execute(new RenameSectionCommand(RequiredSectionId(request), Required(request.Title, "title"))); break;
+        case "set-section-performance-intent": editor.Execute(new SetSectionPerformanceIntentCommand(
+            RequiredSectionId(request),
+            request.SectionDelivery ?? throw new ArgumentException("Section delivery is required."),
+            request.PerformanceNotes ?? string.Empty)); break;
         case "move-section": editor.Execute(new MoveSectionCommand(RequiredSectionId(request), request.TargetIndex ?? throw new ArgumentException("Target index is required."))); break;
         case "set-section-duration": editor.Execute(new SetSectionDurationCommand(
             RequiredSectionId(request),
@@ -695,18 +705,22 @@ public sealed record MidiExportRequest(SongProject Project);
 public sealed record LyricTimelineRequest(
     SongProject Project,
     RhythmCandidateId? RhythmCandidateId = null);
+public sealed record StructurePreviewRequest(string Text);
 public sealed record ProjectCommandRequest(
     string Type,
     SongProject? Project = null,
     SectionId? SectionId = null,
     SectionKind? Kind = null,
+    SectionDelivery? SectionDelivery = null,
     string? Title = null,
+    string? PerformanceNotes = null,
     decimal? Tempo = null,
     int? Numerator = null,
     int? Denominator = null,
     int? TargetIndex = null,
     int? DurationBars = null,
     IReadOnlyList<string>? Lyrics = null,
+    IReadOnlyList<ProposedSongSection>? ProposedSections = null,
     LyricLineId? LineId = null,
     LyricWordId? WordId = null,
     SyllableId? SyllableId = null,

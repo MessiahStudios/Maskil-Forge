@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
+import { demoReadiness } from './demoReadiness.js'
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
 import { PartAudition } from './partAudition'
@@ -18,6 +19,8 @@ const trashedProjects = ref<TrashedProjectSummary[]>([])
 const libraryBusy = ref(true)
 const status = ref('Begin a new song or open an existing project.')
 const busy = ref(false)
+const structurePreview = ref<LyricSheetStructurePreview | null>(null)
+const previewedLyricSheet = ref('')
 const savedSnapshot = ref('')
 const cleanLabel = ref<'clean' | 'saved'>('clean')
 const confirmationOpen = ref(false)
@@ -339,6 +342,70 @@ function setSectionDuration(sectionId: string, durationBars: number) {
 function removeSection(sectionId: string) {
   if (!project.value) return
   return run(() => projectsApi.command(project.value!.id, project.value!, { type: 'remove-section', sectionId }), 'Section removed.', 'section.remove', { sectionId })
+}
+async function previewPastedStructure() {
+  if (!project.value?.rawLyricDraft.trim()) {
+    status.value = 'Paste a lyric sheet before previewing its structure.'
+    return
+  }
+  busy.value = true
+  try {
+    structurePreview.value = await projectsApi.previewStructure(project.value.rawLyricDraft)
+    previewedLyricSheet.value = project.value.rawLyricDraft
+    status.value = structurePreview.value.sections.length
+      ? `${structurePreview.value.sections.length} sections detected. Review them before creating anything.`
+      : 'No familiar section headings were detected. Keep the text as a raw draft or add bracketed headings such as [Verse 1].'
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The lyric sheet could not be analyzed.'
+  } finally { busy.value = false }
+}
+function removeProposedSection(index: number) { structurePreview.value?.sections.splice(index, 1) }
+function moveProposedSection(index: number, offset: number) {
+  const sections = structurePreview.value?.sections
+  if (!sections) return
+  const target = index + offset
+  if (target < 0 || target >= sections.length) return
+  const [section] = sections.splice(index, 1)
+  sections.splice(target, 0, section)
+}
+async function acceptStructurePreview() {
+  if (!project.value || !structurePreview.value?.sections.length) return
+  if (project.value.rawLyricDraft !== previewedLyricSheet.value) {
+    status.value = 'The lyric sheet changed after this preview. Preview it again before creating sections.'
+    return
+  }
+  if (isDirty.value && !(await saveProject())) return
+  const proposedSections = structurePreview.value.sections.map(section => ({ ...section, lyrics: [...section.lyrics] }))
+  const succeeded = await run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'import-song-structure', proposedSections }),
+    `${proposedSections.length} sections created. Your original lyric sheet remains preserved.`,
+    'section.import',
+    { sectionCount: proposedSections.length })
+  if (succeeded) {
+    structurePreview.value = null
+    view.value = 'structure'
+    activeCreatorStage.value = 'shape'
+  }
+}
+function cancelStructurePreview() { structurePreview.value = null; previewedLyricSheet.value = ''; status.value = 'Your lyric sheet remains unchanged.' }
+function duplicateSection(sectionId: string, title: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'duplicate-section', sectionId }),
+    `${title} duplicated. Review its timing before building musical parts.`,
+    'section.duplicate',
+    { sectionId })
+}
+function setSectionPerformanceIntent(sectionId: string, event: Event) {
+  if (!project.value) return
+  const form = event.currentTarget as HTMLFormElement
+  const delivery = (form.elements.namedItem('delivery') as HTMLSelectElement).value as SectionDelivery
+  const performanceNotes = (form.elements.namedItem('performanceNotes') as HTMLTextAreaElement).value
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-section-performance-intent', sectionId, sectionDelivery: delivery, performanceNotes }),
+    'Vocal and performance intent saved.',
+    'section.performance-intent',
+    { sectionId, delivery })
 }
 function editLyricLine(sectionId: string, lineId: string, text: string) {
   if (!project.value) return
@@ -1353,9 +1420,11 @@ function setSectionRole(sectionId: string, role: ArrangementRole, present: boole
     { sectionId, role, present })
 }
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
+function deliveryLabel(delivery: SectionDelivery) { return delivery === 'TalkSung' ? 'Talk-sung' : delivery }
 type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
 const activeCreatorStage = ref<CreatorStage>('idea')
 const creatorCompletion = computed(() => creatorProgress(project.value))
+const editableDemoReview = computed(() => demoReadiness(project.value))
 function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : 'upcoming' }
 async function goToCreatorStage(stage: CreatorStage) {
   const destination = creatorDestination(stage, Boolean(project.value?.sections.length))
@@ -1539,7 +1608,34 @@ onBeforeUnmount(() => {
       <section v-if="view === 'capture'" class="capture-workspace" aria-labelledby="capture-title">
         <div class="capture-heading"><p class="eyebrow">Start with the words</p><h1 id="capture-title">Capture the idea</h1><p>Write lyrics, fragments, images, themes, or plain thoughts. You do not need to know the song structure yet.</p></div>
         <label class="raw-lyrics">Raw lyric draft<textarea id="raw-lyric-draft" v-model="project.rawLyricDraft" maxlength="100000" rows="18" autofocus placeholder="Write whatever is on your mind…&#10;&#10;A complete song is not required. Fragments are welcome." /></label>
-        <div class="capture-actions"><button :disabled="busy || !isDirty" @click="saveDraft">Save draft</button><button class="secondary" :disabled="busy" @click="beginStructuring">Shape these words</button></div>
+        <div class="capture-actions"><button :disabled="busy || !isDirty" @click="saveDraft">Save draft</button><button class="secondary" :disabled="busy" @click="beginStructuring">Shape manually</button><button :disabled="busy || !project.rawLyricDraft.trim()" @click="previewPastedStructure">Preview song structure</button></div>
+        <section v-if="structurePreview" class="structure-preview" aria-labelledby="structure-preview-title">
+          <div class="structure-preview-heading">
+            <div><p class="eyebrow">Nothing created yet</p><h2 id="structure-preview-title">Review detected sections</h2><p>Correct the proposal, then create every section as one undoable decision. Your original lyric sheet remains preserved.</p></div>
+            <strong>{{ structurePreview.sections.length }} section{{ structurePreview.sections.length === 1 ? '' : 's' }}</strong>
+          </div>
+          <p v-if="project.sections.length" class="preview-warning">These sections will be appended after your {{ project.sections.length }} existing section{{ project.sections.length === 1 ? '' : 's' }}.</p>
+          <p v-if="structurePreview.unassignedLines.length" class="preview-warning">{{ structurePreview.unassignedLines.length }} line{{ structurePreview.unassignedLines.length === 1 ? '' : 's' }} before a recognized heading will remain only in the raw draft.</p>
+          <ol v-if="structurePreview.sections.length" class="proposed-sections">
+            <li v-for="(section, index) in structurePreview.sections" :key="index">
+              <span class="section-number">{{ String(index + 1).padStart(2, '0') }}</span>
+              <div class="proposed-section-fields">
+                <label>Type<select v-model="section.kind"><option v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" :value="kind">{{ label(kind) }}</option></select></label>
+                <label>Title<input v-model="section.title" maxlength="100" /></label>
+                <label>Delivery<select v-model="section.delivery"><option v-for="delivery in (['Sung','TalkSung','Spoken','Whispered'] as SectionDelivery[])" :key="delivery" :value="delivery">{{ deliveryLabel(delivery) }}</option></select></label>
+                <label class="proposed-direction">Performance direction<input v-model="section.performanceNotes" maxlength="1000" placeholder="Optional direction" /></label>
+                <small>{{ section.lyrics.length }} lyric line{{ section.lyrics.length === 1 ? '' : 's' }} · {{ section.lyrics.slice(0, 2).join(' / ') || 'No lyric lines' }}</small>
+              </div>
+              <div class="proposed-section-actions">
+                <button type="button" class="quiet" :disabled="index === 0" @click="moveProposedSection(index, -1)">↑</button>
+                <button type="button" class="quiet" :disabled="index === structurePreview.sections.length - 1" @click="moveProposedSection(index, 1)">↓</button>
+                <button type="button" class="danger" @click="removeProposedSection(index)">Remove</button>
+              </div>
+            </li>
+          </ol>
+          <p v-else class="preview-warning">No recognized sections are ready to create.</p>
+          <div class="capture-actions"><button :disabled="busy || !structurePreview.sections.length" @click="acceptStructurePreview">Create sections</button><button class="secondary" :disabled="busy" @click="cancelStructurePreview">Cancel preview</button></div>
+        </section>
         <p class="preservation-note">Your raw draft remains preserved when you begin creating Verse, Chorus, and other sections.</p>
       </section>
 
@@ -1650,7 +1746,7 @@ onBeforeUnmount(() => {
         <div class="canvas-heading">
           <div><p class="eyebrow">Song structure</p><h1>Shape the song</h1></div>
           <div class="section-toolbar" aria-label="Add song section">
-            <button v-for="kind in (['Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" class="secondary add-section" :disabled="busy" @click="addSection(kind)">+ {{ label(kind) }}</button>
+            <button v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" class="secondary add-section" :disabled="busy" @click="addSection(kind)">+ {{ label(kind) }}</button>
           </div>
         </div>
 
@@ -1670,9 +1766,21 @@ onBeforeUnmount(() => {
               <div class="section-actions">
                 <button class="quiet" :disabled="busy || index === 0" @click="moveSection(section.id, index - 1)">↑ <span>Move up</span></button>
                 <button class="quiet" :disabled="busy || index === project.sections.length - 1" @click="moveSection(section.id, index + 1)">↓ <span>Move down</span></button>
+                <button class="quiet" :disabled="busy || project.musicalParts.length > 0" :title="project.musicalParts.length ? 'Remove musical parts before duplicating sections so absolute note timing stays trustworthy.' : 'Copy this section with fresh identities.'" @click="duplicateSection(section.id, section.title)">Duplicate</button>
                 <button class="danger" :disabled="busy" @click="removeSection(section.id)">Delete section</button>
               </div>
             </div>
+            <form class="section-performance-intent" @submit.prevent="setSectionPerformanceIntent(section.id, $event)">
+              <label>Delivery
+                <select name="delivery" :value="section.delivery" :disabled="busy">
+                  <option v-for="delivery in (['Sung','TalkSung','Spoken','Whispered'] as SectionDelivery[])" :key="delivery" :value="delivery">{{ deliveryLabel(delivery) }}</option>
+                </select>
+              </label>
+              <label>Performance direction
+                <textarea name="performanceNotes" :value="section.performanceNotes" maxlength="1000" rows="2" placeholder="Ambient piano + distant pad; grounded, restrained, no lift" :disabled="busy" />
+              </label>
+              <button type="submit" class="secondary" :disabled="busy">Save intent</button>
+            </form>
             <details :id="index === 0 ? 'harmony-tools' : `harmony-tools-${section.id}`" class="disclosure-panel harmony-disclosure">
               <summary><span>Explore musical ideas</span><small>Optional · Add chords, compare options, and review how changes connect.</small></summary>
               <div class="harmony-editor" :aria-label="`Harmony for ${section.title}`">
@@ -2001,6 +2109,22 @@ onBeforeUnmount(() => {
           <h2 id="arrangement-title">Shape the song’s energy</h2>
           <p>Describe how each section should feel before choosing instruments. These are creative intentions, not generated performances.</p>
         </div>
+        <section v-if="project.sections.length" class="demo-readiness" aria-labelledby="demo-readiness-title">
+          <div>
+            <span class="eyebrow">Hear–revise readiness</span>
+            <h3 id="demo-readiness-title">{{ editableDemoReview.readySectionCount }} of {{ editableDemoReview.sectionCount }} sections ready</h3>
+            <p>{{ editableDemoReview.nextAction }}</p>
+          </div>
+          <ol>
+            <li v-for="sectionReview in editableDemoReview.sections" :key="sectionReview.sectionId" :class="{ ready: sectionReview.ready }">
+              <strong>{{ sectionReview.title }}</strong>
+              <span :class="{ complete: sectionReview.hasLyrics }">Lyrics</span>
+              <span :class="{ complete: sectionReview.hasHarmony }">Harmony</span>
+              <span :class="{ complete: sectionReview.hasRole }">Job</span>
+              <span :class="{ complete: sectionReview.hasPlayablePart }">Playable part</span>
+            </li>
+          </ol>
+        </section>
         <section v-if="project.musicalParts.length" class="song-transport" aria-label="Song playback transport">
           <div>
             <strong>Song transport</strong>

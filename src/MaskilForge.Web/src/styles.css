@@ -144,6 +144,20 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .section-position label { display: flex; flex-direction: row; gap: .4rem; align-items: center; color: #c9c3b6; }
 .section-position input { width: 4.5rem; padding: .35rem .5rem; color: #fff7e7; background: #111410; border-color: #666d5d; }
 .section-actions { display: flex; gap: .4rem; }
+.section-performance-intent { display: grid; grid-template-columns: minmax(8rem, .35fr) minmax(16rem, 1fr) auto; gap: .75rem; align-items: end; padding: .85rem 1rem; background: #111410; border: 1px solid #33392f; border-radius: .65rem; }
+.section-performance-intent label { display: grid; gap: .35rem; color: #c9c3b6; font-size: .76rem; }
+.section-performance-intent textarea { resize: vertical; min-height: 3.2rem; }
+.structure-preview { display: grid; gap: 1rem; margin-top: 1rem; padding: 1.2rem; background: #171a16; border: 1px solid #706344; border-radius: .75rem; }
+.structure-preview-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: start; }
+.structure-preview-heading h2 { margin: .2rem 0; font: 1.65rem Georgia, serif; }
+.structure-preview-heading p { margin: .25rem 0 0; color: #bcb6aa; }
+.preview-warning { margin: 0; padding: .7rem .85rem; color: #e0c987; background: #292416; border-radius: .4rem; }
+.proposed-sections { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
+.proposed-sections > li { display: grid; grid-template-columns: auto 1fr auto; gap: .8rem; align-items: start; padding: .85rem; background: #10130f; border: 1px solid #33392f; border-radius: .55rem; }
+.proposed-section-fields { display: grid; grid-template-columns: .7fr 1.2fr .8fr 2fr; gap: .6rem; }
+.proposed-section-fields label { display: grid; gap: .3rem; color: #c9c3b6; font-size: .76rem; }
+.proposed-section-fields small { grid-column: 1 / -1; overflow: hidden; color: #aeb4a6; text-overflow: ellipsis; white-space: nowrap; }
+.proposed-section-actions { display: flex; gap: .35rem; }
 .lyrics-editor { display: grid; gap: .65rem; }
 .lyrics-heading { display: flex; justify-content: space-between; align-items: center; color: #ccc5b7; font-size: .83rem; letter-spacing: .04em; }
 .harmony-editor { display: grid; gap: .65rem; padding: .85rem .9rem; background: #151813; border: 1px solid #3f453b; border-radius: .4rem; }
@@ -174,6 +188,15 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .song-transport small, .song-transport p { color: #a7b19c; margin: 0; }
 .song-transport .transport-position { justify-self: end; font: .95rem ui-monospace, Consolas, monospace; color: #dce6cf; }
 .song-transport > p:last-child { grid-column: 1 / -1; font-size: .76rem; }
+.demo-readiness { display: grid; grid-template-columns: minmax(14rem, .6fr) minmax(0, 1.4fr); gap: .75rem 1rem; padding: .8rem; background: #11150f; border: 1px solid #4f5948; border-radius: .4rem; }
+.demo-readiness > div { display: grid; align-content: start; gap: .2rem; }
+.demo-readiness h3, .demo-readiness p { margin: 0; }
+.demo-readiness p { color: #a9b0a3; font-size: .78rem; }
+.demo-readiness ol { display: grid; gap: .35rem; margin: 0; padding: 0; list-style: none; }
+.demo-readiness li { display: grid; grid-template-columns: minmax(7rem, 1fr) repeat(4, auto); gap: .45rem; align-items: center; padding: .45rem; background: #171b15; border: 1px solid #3b4237; }
+.demo-readiness li.ready { border-color: #657958; }
+.demo-readiness li span { padding: .18rem .35rem; color: #7f877a; border: 1px solid #3e453a; border-radius: 999px; font-size: .65rem; }
+.demo-readiness li span.complete { color: #c3d8b4; border-color: #627657; background: #20291d; }
 .voice-leading-disclosure { border: 1px solid #3f453b; border-radius: .35rem; background: #181c17; }
 .voice-leading-disclosure > summary { padding: .65rem .7rem; color: #d5c69f; cursor: pointer; }
 .voice-leading-disclosure[open] > summary { border-bottom: 1px solid #3f453b; }
@@ -383,6 +406,9 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-toolbar { justify-content: start; }
   .section-heading { grid-template-columns: auto 1fr; }
   .section-actions { grid-column: 2; flex-wrap: wrap; }
+  .section-performance-intent { grid-template-columns: 1fr 2fr; }
+  .section-performance-intent button { grid-column: 2; justify-self: start; }
+  .proposed-section-fields { grid-template-columns: 1fr 1fr; }
   .settings-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 620px) {
@@ -402,6 +428,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .midi-export-panel button { justify-self: start; }
   .note-event-form button { grid-column: 1 / -1; }
   .note-event-list li { grid-template-columns: 1fr; }
+  .demo-readiness, .demo-readiness li { grid-template-columns: 1fr; }
   .musical-part-edit-form, .musical-part-edit-form fieldset { grid-template-columns: 1fr; }
   .musical-part-edit-form fieldset { grid-column: 1; }
   .harmony-note-sketch { grid-template-columns: 1fr; }
@@ -413,6 +440,13 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-actions { grid-column: 1 / -1; }
   .section-actions button { flex: 1; }
   .section-actions button span { display: none; }
+  .section-performance-intent { grid-template-columns: 1fr; }
+  .section-performance-intent button { grid-column: 1; }
+  .structure-preview-heading { display: grid; }
+  .proposed-sections > li { grid-template-columns: auto 1fr; }
+  .proposed-section-fields { grid-template-columns: 1fr; }
+  .proposed-direction, .proposed-section-fields small { grid-column: 1; }
+  .proposed-section-actions { grid-column: 2; }
   .rhythm-candidate-heading { grid-template-columns: 1fr; }
   .candidate-capture { grid-template-columns: 1fr; }
   .lyric-line { grid-template-columns: 24px 1fr; }

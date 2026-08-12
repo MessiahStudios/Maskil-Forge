@@ -206,6 +206,12 @@ public sealed class SongProject
 
     public void RenameSection(SectionId sectionId, string title) { FindSection(sectionId).Rename(title); Touch(); }
 
+    public void SetSectionPerformanceIntent(SectionId sectionId, SectionDelivery delivery, string performanceNotes)
+    {
+        FindSection(sectionId).SetPerformanceIntent(delivery, performanceNotes);
+        Touch();
+    }
+
     public SectionArrangement SetSectionArrangement(SectionId sectionId, SectionEnergy energy, SectionDensity density)
     {
         FindSection(sectionId);
