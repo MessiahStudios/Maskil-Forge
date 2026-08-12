@@ -459,6 +459,9 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "import-song-structure": editor.Execute(new ImportSongStructureCommand(
             request.ProposedSections ?? throw new ArgumentException("Proposed sections are required."))); break;
         case "duplicate-section": editor.Execute(new DuplicateSectionCommand(RequiredSectionId(request))); break;
+        case "reuse-section-foundation": editor.Execute(new ReuseSectionFoundationCommand(
+            request.SourceSectionId ?? throw new ArgumentException("Source section ID is required."),
+            RequiredSectionId(request))); break;
         case "rename-section": editor.Execute(new RenameSectionCommand(RequiredSectionId(request), Required(request.Title, "title"))); break;
         case "set-section-performance-intent": editor.Execute(new SetSectionPerformanceIntentCommand(
             RequiredSectionId(request),
@@ -710,6 +713,7 @@ public sealed record ProjectCommandRequest(
     string Type,
     SongProject? Project = null,
     SectionId? SectionId = null,
+    SectionId? SourceSectionId = null,
     SectionKind? Kind = null,
     SectionDelivery? SectionDelivery = null,
     string? Title = null,

@@ -66,6 +66,7 @@ const arrangementRoles: Array<{ id: ArrangementRole; label: string; help: string
 const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
 const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
+const foundationSourceDrafts = reactive<Record<string, string>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
 const voiceLeadingReviews = reactive<Record<string, VoiceLeadingReview>>({})
 const harmonyNoteSketches = reactive<Record<string, HarmonyNoteSketch>>({})
@@ -411,6 +412,25 @@ function duplicateSection(sectionId: string, title: string) {
     `${title} duplicated. Review its timing before building musical parts.`,
     'section.duplicate',
     { sectionId })
+}
+function reusableFoundationSources(targetSectionId: string) {
+  if (!project.value) return []
+  return project.value.sections.filter(section => section.id !== targetSectionId && (
+    section.harmony.length > 0
+    || project.value!.arrangement.some(item => item.sectionId === section.id)
+    || project.value!.arrangementRoles.some(item => item.sectionId === section.id)))
+}
+function reuseSectionFoundation(targetSectionId: string) {
+  if (!project.value) return
+  const sourceSectionId = foundationSourceDrafts[targetSectionId]
+  const source = project.value.sections.find(section => section.id === sourceSectionId)
+  const target = project.value.sections.find(section => section.id === targetSectionId)
+  if (!source || !target) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'reuse-section-foundation', sectionId: targetSectionId, sourceSectionId }),
+    `${target.title} now starts from ${source.title}'s harmony and arrangement foundation. Lyrics and performance intent were not changed.`,
+    'section.foundation.reuse',
+    { sourceSectionId, targetSectionId })
 }
 function setSectionPerformanceIntent(sectionId: string, event: Event) {
   if (!project.value) return
@@ -1889,6 +1909,19 @@ onBeforeUnmount(() => {
               </label>
               <button type="submit" class="secondary" :disabled="busy">Save intent</button>
             </form>
+            <details v-if="reusableFoundationSources(section.id).length" class="reuse-foundation">
+              <summary>Start from another section’s musical foundation</summary>
+              <div>
+                <p>Explicitly replace this section’s harmony, chord voicings, energy, density, and musical jobs. Lyrics, delivery, performance direction, approved notes, and musical parts are never copied.</p>
+                <label>Source section
+                  <select v-model="foundationSourceDrafts[section.id]" :disabled="busy || partsForSection(section.id).length > 0">
+                    <option value="">Choose a section…</option>
+                    <option v-for="source in reusableFoundationSources(section.id)" :key="source.id" :value="source.id">{{ source.title }}</option>
+                  </select>
+                </label>
+                <button type="button" class="secondary" :disabled="busy || !foundationSourceDrafts[section.id] || partsForSection(section.id).length > 0" :title="partsForSection(section.id).length ? 'Remove this section’s musical parts before replacing its foundation.' : undefined" @click="reuseSectionFoundation(section.id)">Use musical foundation</button>
+              </div>
+            </details>
             <details :id="index === 0 ? 'harmony-tools' : `harmony-tools-${section.id}`" class="disclosure-panel harmony-disclosure">
               <summary><span>Explore musical ideas</span><small>Optional · Add chords, compare options, and review how changes connect.</small></summary>
               <div class="harmony-editor" :aria-label="`Harmony for ${section.title}`">
