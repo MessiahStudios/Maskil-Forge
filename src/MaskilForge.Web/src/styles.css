@@ -125,6 +125,10 @@ button.journey-step:hover:not(:disabled) { border-color: #6e755f; background: #2
 .recovery-view { width: min(900px, 100%); }
 .recovery-card { border-color: #8e7844; background: #211f18; }
 .song-canvas { display: grid; gap: 1.25rem; }
+.structure-lock-notice { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; padding: 1rem 1.1rem; border: 1px solid #746442; border-left: .3rem solid #d6b86d; border-radius: .45rem; background: linear-gradient(110deg, #28271f, #20231f); }
+.structure-lock-notice .eyebrow { margin: 0 0 .25rem; }
+.structure-lock-notice p:last-child { max-width: 72ch; margin: .35rem 0 0; color: #c8c1b3; }
+.structure-lock-notice button { flex: 0 0 auto; }
 .canvas-heading { display: flex; justify-content: space-between; gap: 1.5rem; align-items: end; }
 .canvas-heading h1 { margin: .2rem 0 0; font: 2.3rem Georgia, serif; }
 .section-toolbar { display: flex; justify-content: end; gap: .45rem; flex-wrap: wrap; }
@@ -413,6 +417,13 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .load-dialog { width: min(520px, 100%); padding: 1.5rem; background: #1a1d19; border: 1px solid #6b6048; border-radius: .55rem; box-shadow: 0 24px 80px rgb(0 0 0 / .55); }
 .load-dialog h2 { margin: .35rem 0 .7rem; font: 2rem Georgia, serif; }
 .load-dialog > p:not(.eyebrow) { color: #c8c1b3; }
+.timeline-boundary-dialog { border-color: #d6b86d; }
+.timeline-boundary-dialog strong { color: #f0d48e; }
+
+@media (max-width: 680px) {
+  .structure-lock-notice { align-items: stretch; flex-direction: column; }
+  .structure-lock-notice button { width: 100%; }
+}
 .delete-dialog { border-color: #9b544b; }
 .dialog-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.25rem; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

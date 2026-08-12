@@ -28,6 +28,7 @@ const confirmationOpen = ref(false)
 const deleteConfirmationOpen = ref(false)
 const deleteTarget = ref<{ id: string; title: string } | null>(null)
 const permanentDeleteTarget = ref<{ id: string; title: string } | null>(null)
+const firstPartConfirmation = ref<{ label: string; proceed: () => void } | null>(null)
 const pendingAction = ref<'load' | 'new' | 'home'>('load')
 const pendingLoadId = ref('')
 const sessionId = crypto.randomUUID()
@@ -35,6 +36,7 @@ const persistedRevision = ref('')
 const recoveryBlocked = ref(false)
 let recoveryTimer: ReturnType<typeof setTimeout> | undefined
 const project = computed(() => response.value?.project ?? null)
+const structureLocked = computed(() => Boolean(project.value?.musicalParts.length))
 function projectSnapshot(value: SongProject) {
   const { lastModifiedUtc: _revision, ...creativeState } = value
   return JSON.stringify(creativeState)
@@ -308,6 +310,19 @@ async function confirmPermanentDelete() {
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'The song could not be permanently deleted.'
   } finally { busy.value = false }
+}
+function requestFirstPartCommit(label: string, proceed: () => void) {
+  if (project.value?.musicalParts.length) { proceed(); return }
+  firstPartConfirmation.value = { label, proceed }
+}
+function cancelFirstPartCommit() {
+  firstPartConfirmation.value = null
+  status.value = 'Part creation cancelled. The song structure remains fully editable.'
+}
+function confirmFirstPartCommit() {
+  const target = firstPartConfirmation.value
+  firstPartConfirmation.value = null
+  target?.proceed()
 }
 async function refreshLibrary() {
   libraryBusy.value = true
@@ -1211,11 +1226,11 @@ async function prepareLowEndSupportProposal(sectionId: string) {
 function useLowEndSupportProposal(sectionId: string) {
   if (!project.value) return
   const proposal = lowEndSupportProposals[sectionId]
-  return run(
+  return requestFirstPartCommit(proposal?.partLabel ?? 'Low-end support', () => void run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'use-low-end-support-proposal', sectionId }),
     `${proposal?.partLabel ?? 'Low-end support'} added as an editable musical part.`,
     'arrangement.low_end.use',
-    { sectionId, noteCount: proposal?.events.length ?? 0 })
+    { sectionId, noteCount: proposal?.events.length ?? 0 }))
 }
 async function preparePulseProposal(sectionId: string) {
   if (!project.value) return
@@ -1236,11 +1251,11 @@ async function preparePulseProposal(sectionId: string) {
 function usePulseProposal(sectionId: string) {
   if (!project.value) return
   const proposal = pulseProposals[sectionId]
-  return run(
+  return requestFirstPartCommit(proposal?.partLabel ?? 'Pulse', () => void run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'use-pulse-proposal', sectionId }),
     `${proposal?.partLabel ?? 'Pulse'} added as an editable musical part.`,
     'arrangement.pulse.use',
-    { sectionId, noteCount: proposal?.events.length ?? 0 })
+    { sectionId, noteCount: proposal?.events.length ?? 0 }))
 }
 async function prepareHarmonySupportProposal(sectionId: string) {
   if (!project.value) return
@@ -1266,11 +1281,11 @@ async function prepareHarmonySupportProposal(sectionId: string) {
 function useHarmonySupportProposal(sectionId: string) {
   if (!project.value) return
   const proposal = harmonySupportProposals[sectionId]
-  return run(
+  return requestFirstPartCommit(proposal?.partLabel ?? 'Harmony support', () => void run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'use-harmony-support-proposal', sectionId }),
     `${proposal?.partLabel ?? 'Harmony support'} added as an editable musical part.`,
     'arrangement.harmony_support.use',
-    { sectionId, noteCount: proposal?.events.length ?? 0 })
+    { sectionId, noteCount: proposal?.events.length ?? 0 }))
 }
 async function prepareTextureProposal(sectionId: string) {
   if (!project.value) return
@@ -1296,11 +1311,11 @@ async function prepareTextureProposal(sectionId: string) {
 function useTextureProposal(sectionId: string) {
   if (!project.value) return
   const proposal = textureProposals[sectionId]
-  return run(
+  return requestFirstPartCommit(proposal?.partLabel ?? 'Texture', () => void run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'use-texture-proposal', sectionId }),
     `${proposal?.partLabel ?? 'Texture'} added as an editable musical part.`,
     'arrangement.texture.use',
-    { sectionId, noteCount: proposal?.events.length ?? 0 })
+    { sectionId, noteCount: proposal?.events.length ?? 0 }))
 }
 async function prepareHookReinforcementProposal(sectionId: string) {
   if (!project.value) return
@@ -1321,11 +1336,11 @@ async function prepareHookReinforcementProposal(sectionId: string) {
 function useHookReinforcementProposal(sectionId: string) {
   if (!project.value) return
   const proposal = hookReinforcementProposals[sectionId]
-  return run(
+  return requestFirstPartCommit(proposal?.partLabel ?? 'Hook reinforcement', () => void run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'use-hook-reinforcement-proposal', sectionId }),
     `${proposal?.partLabel ?? 'Hook reinforcement'} added as an editable musical part.`,
     'arrangement.hook.use',
-    { sectionId, noteCount: proposal?.events.length ?? 0 })
+    { sectionId, noteCount: proposal?.events.length ?? 0 }))
 }
 async function prepareCountermelodyProposal(sectionId: string) {
   if (!project.value) return
@@ -1346,11 +1361,11 @@ async function prepareCountermelodyProposal(sectionId: string) {
 function useCountermelodyProposal(sectionId: string) {
   if (!project.value) return
   const proposal = countermelodyProposals[sectionId]
-  return run(
+  return requestFirstPartCommit(proposal?.partLabel ?? 'Countermelody', () => void run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'use-countermelody-proposal', sectionId }),
     `${proposal?.partLabel ?? 'Countermelody'} added as an editable musical part.`,
     'arrangement.countermelody.use',
-    { sectionId, noteCount: proposal?.events.length ?? 0 })
+    { sectionId, noteCount: proposal?.events.length ?? 0 }))
 }
 async function prepareAccentProposal(sectionId: string) {
   if (!project.value) return
@@ -1371,11 +1386,11 @@ async function prepareAccentProposal(sectionId: string) {
 function useAccentProposal(sectionId: string) {
   if (!project.value) return
   const proposal = accentProposals[sectionId]
-  return run(
+  return requestFirstPartCommit(proposal?.partLabel ?? 'Accents', () => void run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'use-accent-proposal', sectionId }),
     `${proposal?.partLabel ?? 'Accents'} added as an editable musical part.`,
     'arrangement.accent.use',
-    { sectionId, noteCount: proposal?.events.length ?? 0 })
+    { sectionId, noteCount: proposal?.events.length ?? 0 }))
 }
 function addMusicalPart(sectionId: string, event: Event) {
   if (!project.value) return
@@ -1384,12 +1399,12 @@ function addMusicalPart(sectionId: string, event: Event) {
   const arrangementRole = String(data.get('role')) as ArrangementRole
   const partLabel = String(data.get('label') ?? '').trim()
   const noteEventIds = data.getAll('noteEventIds').map(String)
-  return run(
-    () => projectsApi.command(project.value!.id, project.value!, { type: 'add-musical-part', sectionId, arrangementRole, partLabel, noteEventIds }),
-    `${partLabel} now connects ${noteEventIds.length} approved note${noteEventIds.length === 1 ? '' : 's'} to the ${arrangementRoles.find(item => item.id === arrangementRole)?.label ?? arrangementRole} role.`,
-    'arrangement.part.add',
-    { sectionId, arrangementRole, noteCount: noteEventIds.length })
-    ?.then(succeeded => { if (succeeded) form.reset() })
+  return requestFirstPartCommit(partLabel, () => void run(
+      () => projectsApi.command(project.value!.id, project.value!, { type: 'add-musical-part', sectionId, arrangementRole, partLabel, noteEventIds }),
+      `${partLabel} now connects ${noteEventIds.length} approved note${noteEventIds.length === 1 ? '' : 's'} to the ${arrangementRoles.find(item => item.id === arrangementRole)?.label ?? arrangementRole} role.`,
+      'arrangement.part.add',
+      { sectionId, arrangementRole, noteCount: noteEventIds.length })
+    .then(succeeded => { if (succeeded) form.reset() }))
 }
 function removeMusicalPart(musicalPartId: string, label: string) {
   if (!project.value) return
@@ -1788,6 +1803,15 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
+        <aside v-if="structureLocked" class="structure-lock-notice" role="status">
+          <div>
+            <p class="eyebrow">Timeline protected</p>
+            <strong>{{ project.musicalParts.length }} musical part{{ project.musicalParts.length === 1 ? ' now uses' : 's now use' }} absolute song timing.</strong>
+            <p>Lyrics, harmony, delivery, and section names remain editable. To change section order, length, deletion, duplication, or meter, remove all musical parts in Arrangement first; your approved notes will remain.</p>
+          </div>
+          <button type="button" class="secondary" @click="goToCreatorStage('arrangement')">Review musical parts</button>
+        </aside>
+
         <p v-if="project.sections.length === 0" class="empty-song">Choose a section above and start writing your first line.</p>
         <nav v-else class="song-outline" aria-label="Song section outline">
           <div class="song-outline-heading">
@@ -1822,14 +1846,14 @@ onBeforeUnmount(() => {
                 <label><span class="sr-only">Section title</span><input :value="section.title" maxlength="100" @change="renameSection(section.id, ($event.target as HTMLInputElement).value)" /></label>
                 <div v-if="placementFor(section.id)" class="section-position">
                   <span>Bars {{ placementFor(section.id)!.start.bar }}–{{ placementFor(section.id)!.start.bar + placementFor(section.id)!.durationBars - 1 }}</span>
-                  <label>Length <input :value="placementFor(section.id)!.durationBars" type="number" min="1" max="128" :aria-label="`${section.title} length in bars`" @change="setSectionDuration(section.id, Number(($event.target as HTMLInputElement).value))" /> bars</label>
+                  <label>Length <input :value="placementFor(section.id)!.durationBars" type="number" min="1" max="128" :aria-label="`${section.title} length in bars`" :disabled="busy || structureLocked" :title="structureLocked ? 'Remove all musical parts before changing section length.' : undefined" @change="setSectionDuration(section.id, Number(($event.target as HTMLInputElement).value))" /> bars</label>
                 </div>
               </div>
               <div class="section-actions">
-                <button class="quiet" :disabled="busy || index === 0" @click="moveSection(section.id, index - 1)">↑ <span>Move up</span></button>
-                <button class="quiet" :disabled="busy || index === project.sections.length - 1" @click="moveSection(section.id, index + 1)">↓ <span>Move down</span></button>
-                <button class="quiet" :disabled="busy || project.musicalParts.length > 0" :title="project.musicalParts.length ? 'Remove musical parts before duplicating sections so absolute note timing stays trustworthy.' : 'Copy this section with fresh identities.'" @click="duplicateSection(section.id, section.title)">Duplicate</button>
-                <button class="danger" :disabled="busy" @click="removeSection(section.id)">Delete section</button>
+                <button class="quiet" :disabled="busy || structureLocked || index === 0" :title="structureLocked ? 'Remove all musical parts before reordering sections.' : undefined" @click="moveSection(section.id, index - 1)">↑ <span>Move up</span></button>
+                <button class="quiet" :disabled="busy || structureLocked || index === project.sections.length - 1" :title="structureLocked ? 'Remove all musical parts before reordering sections.' : undefined" @click="moveSection(section.id, index + 1)">↓ <span>Move down</span></button>
+                <button class="quiet" :disabled="busy || structureLocked" :title="structureLocked ? 'Remove all musical parts before duplicating sections so absolute note timing stays trustworthy.' : 'Copy this section with fresh identities.'" @click="duplicateSection(section.id, section.title)">Duplicate</button>
+                <button class="danger" :disabled="busy || structureLocked" :title="structureLocked ? 'Remove all musical parts before deleting sections.' : undefined" @click="removeSection(section.id)">Delete section</button>
               </div>
             </div>
             <form class="section-performance-intent" @submit.prevent="setSectionPerformanceIntent(section.id, $event)">
@@ -2481,7 +2505,7 @@ onBeforeUnmount(() => {
           <label>Artist<input v-model="project.artist" maxlength="200" placeholder="Artist or songwriter" /></label>
           <label>Genre<select v-model="project.genre"><option v-for="genre in genres" :key="genre" :value="genre">{{ genre === 'RAndB' ? 'R&B' : genre }}</option></select></label>
           <label>Tempo<input v-model.number="project.timeline.tempoMap.events[0].beatsPerMinute" type="number" min="20" max="300" /></label>
-          <label>Time signature<select :value="meterValue(project)" @change="setMeter(($event.target as HTMLSelectElement).value)"><option v-for="meter in meters" :key="meter">{{ meter }}</option></select></label>
+          <label>Time signature<select :value="meterValue(project)" :disabled="busy || structureLocked" :title="structureLocked ? 'Remove all musical parts before changing the time signature.' : undefined" @change="setMeter(($event.target as HTMLSelectElement).value)"><option v-for="meter in meters" :key="meter">{{ meter }}</option></select></label>
           <label>Key tonic<select :value="project.key.tonic" :disabled="busy" @change="setKey({ tonic: ($event.target as HTMLSelectElement).value as NoteLetter })"><option v-for="letter in noteLetters" :key="letter" :value="letter">{{ letter }}</option></select></label>
           <label>Accidental<select :value="project.key.accidental" :disabled="busy" @change="setKey({ accidental: ($event.target as HTMLSelectElement).value as Accidental })"><option v-for="accidental in accidentals" :key="accidental" :value="accidental">{{ accidental }}</option></select></label>
           <label>Mode<select :value="project.key.mode" :disabled="busy" @change="setKey({ mode: ($event.target as HTMLSelectElement).value as ScaleMode })"><option v-for="mode in scaleModes" :key="mode" :value="mode">{{ mode === 'NaturalMinor' ? 'Natural minor' : mode }}</option></select></label>
@@ -2490,6 +2514,19 @@ onBeforeUnmount(() => {
       </details>
       </template>
     </template>
+
+    <div v-if="firstPartConfirmation" class="modal-backdrop" role="presentation" @click.self="cancelFirstPartCommit">
+      <section class="load-dialog timeline-boundary-dialog" role="dialog" aria-modal="true" aria-labelledby="timeline-boundary-title" aria-describedby="timeline-boundary-description">
+        <p class="eyebrow">First musical part</p>
+        <h2 id="timeline-boundary-title">Ready to anchor the arrangement?</h2>
+        <p id="timeline-boundary-description">Accepting <strong>{{ firstPartConfirmation.label }}</strong> gives its notes absolute positions in the song. Afterward, section order, length, deletion, duplication, and time signature are protected until every musical part is removed.</p>
+        <p>Your lyrics, harmony, performance direction, section names, and approved notes remain editable.</p>
+        <div class="dialog-actions">
+          <button class="secondary" :disabled="busy" autofocus @click="cancelFirstPartCommit">Review structure first</button>
+          <button :disabled="busy" @click="confirmFirstPartCommit">Accept first part</button>
+        </div>
+      </section>
+    </div>
 
     <div v-if="confirmationOpen" class="modal-backdrop" role="presentation" @click.self="cancelConfirmation">
       <section class="load-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmation-title">

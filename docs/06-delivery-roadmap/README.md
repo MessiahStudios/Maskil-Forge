@@ -394,6 +394,14 @@ This is a view preference only. It does not create alternate section data, alter
 
 **Deliverable:** after navigating a long song, an artist can work deeply on one section without visual overload and move through the complete form sequentially.
 
+### Milestone 5.20 — Timeline commitment boundary UX
+
+Make the transition from flexible song structure to absolute-timed musical parts explicit. Before accepting the first musical part, the artist sees which structural operations will become protected. Once parts exist, the structure workspace explains why section order, length, deletion, duplication, and meter are unavailable and provides a direct route to review and remove parts. Lyrics, harmony, performance intent, section names, and approved notes remain editable.
+
+Whole-song journey progress also requires harmony and arrangement coverage for every section rather than treating work on a single section as completion. Repeated imported section titles are disambiguated in song order so a full released-song form remains easy to navigate.
+
+**Deliverable:** creating the first part is an informed commitment instead of a silent lock, and the UI always exposes a safe path back to structural editing.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

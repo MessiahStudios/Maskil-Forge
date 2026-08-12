@@ -32,8 +32,18 @@ test('harmony and arrangement guide an empty song toward its first section', () 
   })
 })
 
-test('arrangement progress reflects artist-authored section plans', () => {
+test('harmony and arrangement require coverage across the whole song', () => {
   assert.equal(creatorProgress(project()).arrangement, false)
-  assert.equal(creatorProgress(project({ arrangement: [{ sectionId: 'verse' }] })).arrangement, true)
-  assert.equal(creatorProgress(project({ arrangementRoles: [{ sectionId: 'verse', role: 'Pulse' }] })).arrangement, true)
+  const sections = [
+    { id: 'verse', harmony: [{}], lyricLines: [] },
+    { id: 'chorus', harmony: [], lyricLines: [] },
+  ]
+  assert.equal(creatorProgress(project({ sections, arrangementRoles: [{ sectionId: 'verse', role: 'Pulse' }] })).harmony, false)
+  assert.equal(creatorProgress(project({ sections, arrangementRoles: [{ sectionId: 'verse', role: 'Pulse' }] })).arrangement, false)
+  sections[1].harmony.push({})
+  const progress = creatorProgress(project({ sections, arrangementRoles: [
+    { sectionId: 'verse', role: 'Pulse' }, { sectionId: 'chorus', role: 'HookReinforcement' },
+  ] }))
+  assert.equal(progress.harmony, true)
+  assert.equal(progress.arrangement, true)
 })

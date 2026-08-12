@@ -9,13 +9,15 @@ export const creatorStages = [
 
 export function creatorProgress(project) {
   const lines = project?.sections.flatMap(section => section.lyricLines) ?? []
+  const sections = project?.sections ?? []
+  const sectionIdsWithRoles = new Set(project?.arrangementRoles?.map(item => item.sectionId) ?? [])
   return {
     idea: Boolean(project),
     words: Boolean(project?.rawLyricDraft.trim()) || lines.some(line => line.text.trim()),
     shape: Boolean(project?.sections.length),
     music: lines.some(line => line.syllablePlacements.length || line.rhythmCandidates.length),
-    harmony: Boolean(project?.sections.some(section => section.harmony.length)),
-    arrangement: Boolean(project?.arrangement?.length || project?.arrangementRoles?.length),
+    harmony: sections.length > 0 && sections.every(section => section.harmony.length),
+    arrangement: sections.length > 0 && sections.every(section => sectionIdsWithRoles.has(section.id)),
   }
 }
 
