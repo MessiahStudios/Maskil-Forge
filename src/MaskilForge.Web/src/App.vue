@@ -5,6 +5,7 @@ import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import { demoReadiness } from './demoReadiness.js'
 import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
+import { structuralRole, structuralRoles } from './structuralRoles.js'
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
 import { PartAudition } from './partAudition'
@@ -52,16 +53,6 @@ const scaleModes: ScaleMode[] = ['Major', 'NaturalMinor']
 const chordQualities: ChordQuality[] = ['Major', 'Minor', 'Diminished', 'Augmented', 'DominantSeventh']
 const sectionEnergies: SectionEnergy[] = ['Intimate', 'Gentle', 'Building', 'Strong', 'Peak']
 const sectionDensities: SectionDensity[] = ['Sparse', 'Light', 'Balanced', 'Full', 'Dense']
-const structuralFunctions: Array<{ id: StructuralFunction; label: string; help: string }> = [
-  { id: 'Unspecified', label: 'Not decided', help: 'Leave the section’s larger song job open.' },
-  { id: 'Setup', label: 'Setup', help: 'Establish the world, premise, groove, or musical language.' },
-  { id: 'Development', label: 'Development', help: 'Advance the story, idea, harmony, or musical material.' },
-  { id: 'Lift', label: 'Lift', help: 'Increase anticipation or momentum toward a payoff.' },
-  { id: 'Payoff', label: 'Payoff', help: 'Deliver a primary lyrical, melodic, rhythmic, or energy peak.' },
-  { id: 'Contrast', label: 'Contrast', help: 'Create meaningful difference from surrounding material.' },
-  { id: 'Transition', label: 'Transition', help: 'Move the listener between larger song states.' },
-  { id: 'Resolution', label: 'Resolution', help: 'Settle, release, conclude, or reframe the song.' },
-]
 const arrangementRoles: Array<{ id: ArrangementRole; label: string; help: string }> = [
   { id: 'Foundation', label: 'Foundation', help: 'The grounding layer that makes the section feel settled.' },
   { id: 'Pulse', label: 'Pulse', help: 'A repeating motion that helps the section move.' },
@@ -77,6 +68,7 @@ const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
 const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
 const foundationSourceDrafts = reactive<Record<string, string>>({})
+const structuralRoleDrafts = reactive<Record<string, StructuralFunction>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
 const voiceLeadingReviews = reactive<Record<string, VoiceLeadingReview>>({})
 const harmonyNoteSketches = reactive<Record<string, HarmonyNoteSketch>>({})
@@ -474,6 +466,7 @@ async function setSectionIntent(sectionId: string, event: Event) {
     'Section role and performance intent saved.',
     'section.intent',
     { sectionId, structuralFunction, delivery })
+  if (succeeded) delete structuralRoleDrafts[sectionId]
   if (!succeeded || !roleReviewActive.value || structuralFunction === 'Unspecified') return succeeded
   if (roleReview.value.nextSectionId) await reviewNextOpenRole()
   else {
@@ -1497,7 +1490,7 @@ function setSectionRole(sectionId: string, role: ArrangementRole, present: boole
 function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' : kind }
 function deliveryLabel(delivery: SectionDelivery) { return delivery === 'TalkSung' ? 'Talk-sung' : delivery }
 function structuralFunctionLabel(structuralFunction: StructuralFunction) {
-  return structuralFunctions.find(item => item.id === structuralFunction)?.label ?? structuralFunction
+  return structuralRole(structuralFunction).label
 }
 type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
 const activeCreatorStage = ref<CreatorStage>('idea')
@@ -1788,7 +1781,7 @@ onBeforeUnmount(() => {
               <div class="proposed-section-fields">
                 <label>Type<select v-model="section.kind"><option v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" :value="kind">{{ label(kind) }}</option></select></label>
                 <label>Title<input v-model="section.title" maxlength="100" /></label>
-                <label>Role in song<select v-model="section.structuralFunction"><option v-for="item in structuralFunctions" :key="item.id" :value="item.id">{{ item.label }}</option></select></label>
+                <label class="structural-role-field">Role in song<select v-model="section.structuralFunction" :aria-describedby="`preview-role-help-${index}`"><option v-for="item in structuralRoles" :key="item.id" :value="item.id">{{ item.label }}</option></select><small :id="`preview-role-help-${index}`" class="structural-role-help">{{ structuralRole(section.structuralFunction).help }}</small></label>
                 <label>Delivery<select v-model="section.delivery"><option v-for="delivery in (['Sung','TalkSung','Spoken','Whispered'] as SectionDelivery[])" :key="delivery" :value="delivery">{{ deliveryLabel(delivery) }}</option></select></label>
                 <label class="proposed-direction">Performance direction<input v-model="section.performanceNotes" maxlength="1000" placeholder="Optional direction" /></label>
                 <small>{{ section.lyrics.length }} lyric line{{ section.lyrics.length === 1 ? '' : 's' }} · {{ section.lyrics.slice(0, 2).join(' / ') || 'No lyric lines' }}</small>
@@ -1977,10 +1970,11 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <form class="section-performance-intent" @submit.prevent="setSectionIntent(section.id, $event)">
-              <label>Role in song
-                <select name="structuralFunction" :value="section.structuralFunction" :title="structuralFunctions.find(item => item.id === section.structuralFunction)?.help" :disabled="busy">
-                  <option v-for="item in structuralFunctions" :key="item.id" :value="item.id">{{ item.label }}</option>
+              <label class="structural-role-field">Role in song
+                <select name="structuralFunction" :value="structuralRoleDrafts[section.id] ?? section.structuralFunction" :disabled="busy" :aria-describedby="`role-help-${section.id}`" @change="structuralRoleDrafts[section.id] = ($event.target as HTMLSelectElement).value as StructuralFunction">
+                  <option v-for="item in structuralRoles" :key="item.id" :value="item.id">{{ item.label }}</option>
                 </select>
+                <small :id="`role-help-${section.id}`" class="structural-role-help">{{ structuralRole(structuralRoleDrafts[section.id] ?? section.structuralFunction).help }}</small>
               </label>
               <label>Delivery
                 <select name="delivery" :value="section.delivery" :disabled="busy">

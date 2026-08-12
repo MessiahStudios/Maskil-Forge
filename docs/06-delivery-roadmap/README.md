@@ -450,6 +450,12 @@ Carry an explicitly started role-review session through the remaining undecided 
 
 **Deliverable:** an artist can review a long song's functional arc as one calm sequence of explicit decisions instead of repeatedly returning to the outline.
 
+### Milestone 5.29 — Visible structural role guidance
+
+Show the selected structural role's genre-neutral meaning directly beneath the role control in both lyric-sheet preview and section editing. Guidance updates with the unsaved selection, is programmatically associated with its control, and explains rather than recommends. The shared vocabulary has one presentation source so review and editing cannot drift apart.
+
+**Deliverable:** artists can make informed role decisions with mouse, keyboard, or touch without relying on hidden hover text or genre conventions.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.
