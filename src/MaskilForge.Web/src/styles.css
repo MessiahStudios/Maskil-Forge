@@ -169,6 +169,11 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .part-audition > div { display: grid; gap: .15rem; }
 .part-audition small, .part-audition p { color: #9ca798; }
 .part-audition p { grid-column: 1 / -1; margin: 0; font-size: .76rem; }
+.song-transport { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .45rem 1rem; align-items: center; margin: 0 0 1rem; padding: .75rem; color: #e4ecd8; background: #171c16; border: 1px solid #5a684f; border-radius: .4rem; }
+.song-transport > div { display: grid; gap: .15rem; }
+.song-transport small, .song-transport p { color: #a7b19c; margin: 0; }
+.song-transport .transport-position { justify-self: end; font: .95rem ui-monospace, Consolas, monospace; color: #dce6cf; }
+.song-transport > p:last-child { grid-column: 1 / -1; font-size: .76rem; }
 .voice-leading-disclosure { border: 1px solid #3f453b; border-radius: .35rem; background: #181c17; }
 .voice-leading-disclosure > summary { padding: .65rem .7rem; color: #d5c69f; cursor: pointer; }
 .voice-leading-disclosure[open] > summary { border-bottom: 1px solid #3f453b; }

@@ -1,6 +1,6 @@
 # 06 — Delivery Roadmap
 
-This is the recommended logical build order for Maskil Forge and its underlying Maskil Engine. The repository has completed the Prototype boundary and eleven Milestone 5 implementation slices through accent realization, plus assembled-part audition. A milestone should start only after its dependency gate is reliable.
+This is the recommended logical build order for Maskil Forge and its underlying Maskil Engine. The repository has completed the Prototype boundary and Milestone 5 through basic playback transport (slice 5.13). A milestone should start only after its dependency gate is reliable.
 
 ## Milestone 0 — Decisions and skeleton
 
@@ -232,7 +232,7 @@ This checkpoint changes no domain model, schema, persistence behavior, migration
 
 ## Milestone 5 — MIDI composition and preview
 
-Turn approved musical intent into an audible, editable song demo without silently replacing the songwriter's decisions. Slices 5.1–5.12 now provide playable note events, harmony realization, MIDI export, role-aware musical parts, deterministic role realizations through accents, and assembled-part audition. The remaining MVP work is intentionally incremental: realize remaining roles only as a vertical song needs them, add basic transport, provide minimal note/part editing, and validate the complete demo loop. Full piano-roll and DAW-style editing are later capabilities, not prerequisites for the MVP boundary.
+Turn approved musical intent into an audible, editable song demo without silently replacing the songwriter's decisions. Slices 5.1–5.13 now provide playable note events, harmony realization, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, and basic song transport. The remaining MVP work is intentionally incremental: minimal note/part editing, optional remaining roles only as a vertical song needs them, and end-to-end validation. Full piano-roll and DAW-style editing are later capabilities, not prerequisites for the MVP boundary.
 
 ### Milestone 5.1 — MIDI event foundation
 
@@ -330,14 +330,21 @@ This slice does not add a transport clock, seeking, pause/resume, looping, instr
 
 **Deliverable:** an artist can hear how accepted role parts sound together before deciding what to change next.
 
+### Milestone 5.13 — Basic playback transport
+
+Add a song-level play/stop transport over assembled musical-part notes on the absolute timeline. Playback starts from tick zero, keeps a live bar/beat playhead, and stops cleanly without writing project data. Section assembled-part audition remains available as a normalized local preview.
+
+This slice does not add seeking, pause/resume, looping, tempo automation, instrument selection, schema changes, or piano-roll editing.
+
+**Deliverable:** an artist can start and stop song playback while seeing where they are in musical time.
+
 ### Remaining editable-demo MVP slices
 
-The current working sequence is approximately three to four focused slices. It may be split or combined as validation reveals the smallest safe boundaries:
+The current working sequence is approximately two to three focused slices. It may be split or combined as validation reveals the smallest safe boundaries:
 
-1. Basic playback transport.
-2. Minimal note and part editing.
-3. Transition or foundation realization only if a vertical song slice still feels thin.
-4. End-to-end creator validation and release polish.
+1. Minimal note and part editing.
+2. Transition or foundation realization only if a vertical song slice still feels thin.
+3. End-to-end creator validation and release polish.
 
 These slices must continue the existing preview-first, explicit-acceptance, reversible-decision model. They do not imply full piano-roll editing, automatic orchestration, instrument libraries, recording, mixing, or DAW replacement.
 
@@ -385,7 +392,7 @@ Build mixer routing, automation, production recipes, stem/WAV export, DAW handof
 
 ### MVP
 
-**In progress past the Milestone 5.5 foundation checkpoint.** Milestones 0–4 and slices 5.1–5.12 are complete. The remaining MVP target is a hear-revise loop with basic transport and minimal editing, then end-to-end validation. Additional role realization should follow only what a complete vertical song still needs.
+**In progress past the Milestone 5.5 foundation checkpoint.** Milestones 0–4 and slices 5.1–5.13 are complete. The remaining MVP target is minimal editing and end-to-end validation of the hear-revise loop. Additional role realization should follow only what a complete vertical song still needs.
 
 ### Artist alpha
 

@@ -6,7 +6,8 @@ import { creatorDestination, creatorProgress, creatorStages } from './creatorJou
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
 import { PartAudition } from './partAudition'
-import { assemblePartNotes, scheduleAssembledNotes } from './partAuditionModel.js'
+import { assemblePartNotes, formatTransportPosition, musicalPositionFromTicks, scheduleAbsoluteNotes, scheduleAssembledNotes, tickFromSeconds } from './partAuditionModel.js'
+import { PlaybackTransport } from './playbackTransport'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -71,8 +72,10 @@ const countermelodyProposals = reactive<Record<string, CountermelodyProposal>>({
 const accentProposals = reactive<Record<string, AccentProposal>>({})
 const chordAudition = new ChordAudition()
 const partAudition = new PartAudition()
+const playbackTransport = new PlaybackTransport()
 const auditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const partAuditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
+const transportState = reactive({ playing: false, positionLabel: 'Bar 1 · Beat 1', message: '', noteCount: 0 })
 const lyricTimeline = ref<LyricTimelineView | null>(null)
 const timelineOverlayCandidateId = ref('')
 const selectedTimelineMarkerKey = ref('')
@@ -81,6 +84,7 @@ let timelineRefreshToken = 0
 function accept(next: ProjectResponse, message: string, markPersisted = false) {
   stopChordAudition()
   stopPartAudition()
+  stopTransport()
   response.value = next
   Object.keys(placementDrafts).forEach(key => delete placementDrafts[key])
   Object.keys(harmonyCandidateLabelDrafts).forEach(key => delete harmonyCandidateLabelDrafts[key])
@@ -837,11 +841,33 @@ function stopPartAudition(message = '') {
   partAuditionState.messageSectionId = message ? stoppedSectionId : ''
   partAuditionState.message = message
 }
+function stopTransport(message = '') {
+  playbackTransport.stop()
+  transportState.playing = false
+  transportState.positionLabel = 'Bar 1 · Beat 1'
+  transportState.noteCount = 0
+  transportState.message = message
+}
+function updateTransportPosition(seconds: number) {
+  if (!project.value) return
+  const tempo = project.value.timeline.tempoMap.events[0].beatsPerMinute
+  const meter = project.value.timeline.timeSignatureMap.events[0]
+  const tick = tickFromSeconds(seconds, {
+    beatsPerMinute: tempo,
+    ticksPerQuarterNote: project.value.timeline.ticksPerQuarterNote,
+  })
+  transportState.positionLabel = formatTransportPosition(musicalPositionFromTicks(tick, {
+    beatsPerBar: meter.numerator,
+    beatUnit: meter.denominator,
+    ticksPerQuarterNote: project.value.timeline.ticksPerQuarterNote,
+  }))
+}
 async function hearProgression(sectionId: string) {
   if (!project.value) return
   const section = project.value.sections.find(item => item.id === sectionId)
   if (!section?.harmony.length) return
   stopPartAudition()
+  stopTransport()
   const tempo = project.value.timeline.tempoMap.events[0].beatsPerMinute
   const meter = project.value.timeline.timeSignatureMap.events[0]
   auditionState.sectionId = sectionId
@@ -866,6 +892,7 @@ async function hearAssembledParts(sectionId: string) {
   const parts = partsForSection(sectionId)
   if (!parts.length) return
   stopChordAudition()
+  stopTransport()
   const tempo = project.value.timeline.tempoMap.events[0].beatsPerMinute
   const notes = assemblePartNotes(project.value.musicalParts, project.value.noteEvents, sectionId)
   partAuditionState.sectionId = sectionId
@@ -883,6 +910,39 @@ async function hearAssembledParts(sectionId: string) {
     const message = error instanceof Error ? error.message : 'The assembled parts could not be played.'
     stopPartAudition(message)
     activityLog.write('error', 'arrangement.parts.hear', message, { sectionId })
+  }
+}
+async function startTransport() {
+  if (!project.value) return
+  const parts = project.value.musicalParts
+  if (!parts.length) return
+  stopChordAudition()
+  stopPartAudition()
+  const tempo = project.value.timeline.tempoMap.events[0].beatsPerMinute
+  const notes = assemblePartNotes(parts, project.value.noteEvents)
+  transportState.playing = true
+  transportState.message = 'Preparing song playback…'
+  transportState.positionLabel = 'Bar 1 · Beat 1'
+  try {
+    const scheduled = scheduleAbsoluteNotes(notes, {
+      beatsPerMinute: tempo,
+      ticksPerQuarterNote: project.value.timeline.ticksPerQuarterNote,
+    })
+    const result = await playbackTransport.play(
+      scheduled,
+      seconds => updateTransportPosition(seconds),
+      () => {
+        transportState.playing = false
+        transportState.message = 'Playback finished.'
+        activityLog.write('success', 'transport.play', 'Song playback finished.', { noteCount: result.noteCount })
+      })
+    transportState.noteCount = result.noteCount
+    transportState.message = `Playing ${result.noteCount} assembled note${result.noteCount === 1 ? '' : 's'} across the song at ${tempo} BPM.`
+    activityLog.write('success', 'transport.play', transportState.message, { noteCount: result.noteCount, partCount: parts.length })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Song playback could not start.'
+    stopTransport(message)
+    activityLog.write('error', 'transport.play', message)
   }
 }
 async function reviewVoiceLeading(sectionId: string) {
@@ -1316,6 +1376,7 @@ watch(
     if (previous && (nextView !== previous[0] || nextProjectId !== previous[1])) {
       stopChordAudition()
       stopPartAudition()
+      stopTransport()
     }
     if (nextView === 'structure') void refreshLyricTimeline()
   })
@@ -1331,6 +1392,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   stopChordAudition()
   stopPartAudition()
+  stopTransport()
   window.removeEventListener('beforeunload', warnBeforeClose)
   if (recoveryTimer) clearTimeout(recoveryTimer)
 })
@@ -1908,6 +1970,16 @@ onBeforeUnmount(() => {
           <h2 id="arrangement-title">Shape the song’s energy</h2>
           <p>Describe how each section should feel before choosing instruments. These are creative intentions, not generated performances.</p>
         </div>
+        <section v-if="project.musicalParts.length" class="song-transport" aria-label="Song playback transport">
+          <div>
+            <strong>Song transport</strong>
+            <small>Play assembled musical parts across the song timeline. This does not change the project.</small>
+          </div>
+          <p class="transport-position" aria-live="polite">{{ transportState.positionLabel }}</p>
+          <button v-if="!transportState.playing" type="button" :disabled="busy" @click="startTransport()">▶ Play song</button>
+          <button v-else type="button" class="quiet" @click="stopTransport('Playback stopped.')">■ Stop</button>
+          <p v-if="transportState.message">{{ transportState.message }}</p>
+        </section>
         <div v-if="project.sections.length" class="energy-curve" aria-label="Song energy curve">
           <article v-for="section in project.sections" :key="`energy-${section.id}`">
             <div class="energy-meter" :style="{ '--energy-level': energyValue(arrangementEnergy(section.id)) }" aria-hidden="true"><span /></div>
