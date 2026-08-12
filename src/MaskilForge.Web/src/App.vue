@@ -4,6 +4,7 @@ import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import { demoReadiness } from './demoReadiness.js'
+import { noteOwners, noteRemovalGuidance } from './noteOwnership.js'
 import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 import { structuralRole, structuralRoles } from './structuralRoles.js'
 import type { RegisteredPitch } from './api'
@@ -2652,7 +2653,10 @@ onBeforeUnmount(() => {
                 <label>Velocity<input name="velocity" type="number" min="1" max="127" :value="note.velocity" required :disabled="busy" /></label>
                 <button type="submit" :disabled="busy">Save note</button>
               </form>
-              <button type="button" class="danger" :disabled="busy" @click="removeNoteEvent(note.id, note.pitch)">Remove</button>
+              <div class="note-event-removal">
+                <button type="button" class="danger" :disabled="busy || noteOwners(project.musicalParts, note.id).length > 0" :aria-describedby="noteOwners(project.musicalParts, note.id).length ? `note-owner-${note.id}` : undefined" @click="removeNoteEvent(note.id, note.pitch)">Remove</button>
+                <small v-if="noteOwners(project.musicalParts, note.id).length" :id="`note-owner-${note.id}`">{{ noteRemovalGuidance(project.musicalParts, note.id) }}</small>
+              </div>
             </li>
           </ol>
         </div>

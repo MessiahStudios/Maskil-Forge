@@ -474,6 +474,12 @@ Move undo and redo entries between history stacks only after their operation suc
 
 **Deliverable:** a rejected undo or redo never silently consumes history, and the client receives the actual constraint that prevented the action.
 
+### Milestone 5.33 — Visible note ownership constraints
+
+Derive which musical parts reference each playable note and prevent invalid removal directly in the advanced note editor. Keep referenced notes editable, disable only deletion, and name every owning part with the action needed to release the note.
+
+**Deliverable:** artists understand why a playable note cannot be deleted before attempting the action, without weakening referential integrity or hiding precise note editing.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.
