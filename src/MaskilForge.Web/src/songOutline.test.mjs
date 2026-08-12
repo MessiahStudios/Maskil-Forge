@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { songOutline } from './songOutline.js'
+
+test('song outline keeps song order and summarizes navigation context', () => {
+  const project = {
+    sections: [
+      { id: 'intro', title: 'Intro', kind: 'Intro', delivery: 'Spoken', lyricLines: [{ id: 'l1' }] },
+      { id: 'chorus', title: 'Final Chorus', kind: 'Chorus', delivery: 'Sung', lyricLines: [{ id: 'l2' }, { id: 'l3' }] },
+    ],
+    timeline: { sectionPlacements: [
+      { sectionId: 'intro', durationBars: 4 },
+      { sectionId: 'chorus', durationBars: 8 },
+    ] },
+  }
+  const readiness = { sections: [
+    { sectionId: 'intro', hasLyrics: true, hasHarmony: false, hasRole: false, hasPlayablePart: false, ready: false },
+    { sectionId: 'chorus', hasLyrics: true, hasHarmony: true, hasRole: true, hasPlayablePart: true, ready: true },
+  ] }
+
+  assert.deepEqual(songOutline(project, readiness), [
+    { sectionId: 'intro', order: 1, title: 'Intro', kind: 'Intro', delivery: 'Spoken', durationBars: 4, lyricLineCount: 1, ready: false, progress: 'Needs harmony' },
+    { sectionId: 'chorus', order: 2, title: 'Final Chorus', kind: 'Chorus', delivery: 'Sung', durationBars: 8, lyricLineCount: 2, ready: true, progress: 'Ready to hear' },
+  ])
+})
+
+test('song outline reports the first actionable gap for each section', () => {
+  const project = {
+    sections: [
+      { id: 'a', title: 'A', kind: 'Verse', delivery: 'Sung', lyricLines: [] },
+      { id: 'b', title: 'B', kind: 'Verse', delivery: 'Sung', lyricLines: [] },
+      { id: 'c', title: 'C', kind: 'Verse', delivery: 'Sung', lyricLines: [] },
+    ],
+    timeline: { sectionPlacements: [] },
+  }
+  const readiness = { sections: [
+    { sectionId: 'a', hasLyrics: false, hasHarmony: false, hasRole: false, hasPlayablePart: false, ready: false },
+    { sectionId: 'b', hasLyrics: true, hasHarmony: true, hasRole: false, hasPlayablePart: false, ready: false },
+    { sectionId: 'c', hasLyrics: true, hasHarmony: true, hasRole: true, hasPlayablePart: false, ready: false },
+  ] }
+
+  assert.deepEqual(songOutline(project, readiness).map(item => item.progress), [
+    'Needs lyrics', 'Needs a musical job', 'Needs a playable part',
+  ])
+})

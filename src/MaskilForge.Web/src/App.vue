@@ -4,6 +4,7 @@ import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import { demoReadiness } from './demoReadiness.js'
+import { songOutline } from './songOutline.js'
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
 import { PartAudition } from './partAudition'
@@ -1423,8 +1424,22 @@ function label(kind: SectionKind) { return kind === 'PreChorus' ? 'Pre-Chorus' :
 function deliveryLabel(delivery: SectionDelivery) { return delivery === 'TalkSung' ? 'Talk-sung' : delivery }
 type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
 const activeCreatorStage = ref<CreatorStage>('idea')
+const focusedSectionId = ref('')
 const creatorCompletion = computed(() => creatorProgress(project.value))
 const editableDemoReview = computed(() => demoReadiness(project.value))
+const songOutlineItems = computed(() => songOutline(project.value, editableDemoReview.value))
+async function focusSongSection(sectionId: string) {
+  focusedSectionId.value = sectionId
+  await nextTick()
+  const target = document.getElementById(`section-${sectionId}`)
+  if (!target) return
+  target.classList.remove('section-focus')
+  void target.getBoundingClientRect()
+  target.classList.add('section-focus')
+  window.setTimeout(() => target.classList.remove('section-focus'), 1_600)
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  target.querySelector<HTMLInputElement>('.section-identity input')?.focus({ preventScroll: true })
+}
 function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : 'upcoming' }
 async function goToCreatorStage(stage: CreatorStage) {
   const destination = creatorDestination(stage, Boolean(project.value?.sections.length))
@@ -1751,8 +1766,23 @@ onBeforeUnmount(() => {
         </div>
 
         <p v-if="project.sections.length === 0" class="empty-song">Choose a section above and start writing your first line.</p>
+        <nav v-else class="song-outline" aria-label="Song section outline">
+          <div class="song-outline-heading">
+            <div><strong>Song outline</strong><small>Jump between {{ project.sections.length }} sections without losing the full song.</small></div>
+            <span>{{ editableDemoReview.readySectionCount }}/{{ editableDemoReview.sectionCount }} ready to hear</span>
+          </div>
+          <ol>
+            <li v-for="(section, index) in project.sections" :key="`outline-${section.id}`">
+              <button type="button" :class="{ active: focusedSectionId === section.id, ready: songOutlineItems[index]?.ready }" :aria-current="focusedSectionId === section.id ? 'location' : undefined" @click="focusSongSection(section.id)">
+                <span class="outline-order">{{ String(index + 1).padStart(2, '0') }}</span>
+                <span class="outline-copy"><strong>{{ section.title }}</strong><small>{{ label(section.kind) }} · {{ deliveryLabel(section.delivery) }} · {{ placementFor(section.id)?.durationBars ?? 0 }} bars · {{ section.lyricLines.length }} line{{ section.lyricLines.length === 1 ? '' : 's' }}</small></span>
+                <span class="outline-progress">{{ songOutlineItems[index]?.progress }}</span>
+              </button>
+            </li>
+          </ol>
+        </nav>
         <ol class="sections">
-          <li v-for="(section, index) in project.sections" :key="section.id" class="section-card">
+          <li v-for="(section, index) in project.sections" :id="`section-${section.id}`" :key="section.id" class="section-card">
             <div class="section-heading">
               <span class="section-number">{{ String(index + 1).padStart(2, '0') }}</span>
               <div class="section-identity">

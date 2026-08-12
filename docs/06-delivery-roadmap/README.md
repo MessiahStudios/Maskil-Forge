@@ -378,6 +378,14 @@ Creating the reviewed structure is one undoable command with stable identities a
 
 **Deliverable:** “Essence of Shadows” can move from one pasted lyric sheet to ten reviewed, editable song sections without repetitive line-by-line setup or silent interpretation.
 
+### Milestone 5.18 — Compact song-outline navigation
+
+Add a derived, non-persistent outline above the full section editor so long-form songs remain navigable. Each outline entry preserves song order and summarizes section title, kind, delivery, duration, lyric-line count, and the first readiness gap. Selecting an entry scrolls to and focuses the authoritative full section card; the outline never becomes a second editing model.
+
+The outline remains compact and horizontally scrollable at narrow widths, stays available while moving through a long song, and visually distinguishes sections ready for audible review. It introduces no schema fields, section hiding, or alternative persistence path.
+
+**Deliverable:** an artist working through the ten-section “Essence of Shadows” form can understand the whole song and jump directly to the next section requiring attention.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.
