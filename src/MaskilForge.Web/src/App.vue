@@ -463,17 +463,24 @@ function reuseSectionFoundation(targetSectionId: string) {
     'section.foundation.reuse',
     { sourceSectionId, targetSectionId })
 }
-function setSectionIntent(sectionId: string, event: Event) {
+async function setSectionIntent(sectionId: string, event: Event) {
   if (!project.value) return
   const form = event.currentTarget as HTMLFormElement
   const structuralFunction = (form.elements.namedItem('structuralFunction') as HTMLSelectElement).value as StructuralFunction
   const delivery = (form.elements.namedItem('delivery') as HTMLSelectElement).value as SectionDelivery
   const performanceNotes = (form.elements.namedItem('performanceNotes') as HTMLTextAreaElement).value
-  return run(
+  const succeeded = await run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'set-section-intent', sectionId, structuralFunction, sectionDelivery: delivery, performanceNotes }),
     'Section role and performance intent saved.',
     'section.intent',
     { sectionId, structuralFunction, delivery })
+  if (!succeeded || !roleReviewActive.value || structuralFunction === 'Unspecified') return succeeded
+  if (roleReview.value.nextSectionId) await reviewNextOpenRole()
+  else {
+    roleReviewActive.value = false
+    status.value = 'Functional arc reviewed. Every section now has an artist-authored role.'
+  }
+  return succeeded
 }
 function editLyricLine(sectionId: string, lineId: string, text: string) {
   if (!project.value) return
@@ -1500,6 +1507,7 @@ const creatorCompletion = computed(() => creatorProgress(project.value))
 const editableDemoReview = computed(() => demoReadiness(project.value))
 const songOutlineItems = computed(() => songOutline(project.value, editableDemoReview.value))
 const roleReview = computed(() => structuralRoleReview(project.value))
+const roleReviewActive = ref(false)
 async function focusSongSection(sectionId: string) {
   focusedSectionId.value = sectionId
   await nextTick()
@@ -1514,6 +1522,7 @@ async function focusSongSection(sectionId: string) {
 }
 async function reviewNextOpenRole() {
   if (!roleReview.value.nextSectionId) return
+  roleReviewActive.value = true
   sectionViewMode.value = 'focused'
   await focusSongSection(roleReview.value.nextSectionId)
   await nextTick()
@@ -1527,6 +1536,7 @@ function showFocusedSection() {
   void focusSongSection(focusedSectionId.value)
 }
 function showAllSections() {
+  roleReviewActive.value = false
   sectionViewMode.value = 'all'
   if (focusedSectionId.value) void focusSongSection(focusedSectionId.value)
 }
@@ -1560,6 +1570,7 @@ async function goToNextReadinessStep() {
   if (target instanceof HTMLDetailsElement) target.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true })
 }
 async function goToCreatorStage(stage: CreatorStage) {
+  roleReviewActive.value = false
   const destination = creatorDestination(stage, Boolean(project.value?.sections.length))
   if (!destination) return
   activeCreatorStage.value = (destination.stage ?? stage) as CreatorStage
@@ -1945,6 +1956,7 @@ onBeforeUnmount(() => {
           <span>Focused workspace · {{ focusedSectionIndex() + 1 }} of {{ project.sections.length }}</span>
           <button type="button" class="quiet" :disabled="focusedSectionIndex() >= project.sections.length - 1" @click="navigateFocusedSection(1)">Next section →</button>
         </div>
+        <p v-if="roleReviewActive" class="role-review-mode" role="status">Role review in progress · saving a decided role continues to the next open section. Choose “Not decided” to stay here.</p>
         <ol class="sections">
           <li v-for="(section, index) in project.sections" v-show="sectionViewMode === 'all' || focusedSectionId === section.id" :id="`section-${section.id}`" :key="section.id" class="section-card">
             <div class="section-heading">

@@ -74,4 +74,14 @@ test('structural role review stays optional and finds the first open decision', 
     nextSectionId: null,
     nextSectionTitle: null,
   })
+  assert.deepEqual(structuralRoleReview({ sections: [
+    { id: 'intro', title: 'Intro', structuralFunction: 'Setup' },
+    { id: 'outro', title: 'Outro', structuralFunction: 'Resolution' },
+  ] }), {
+    sectionCount: 2,
+    decidedCount: 2,
+    complete: true,
+    nextSectionId: null,
+    nextSectionTitle: null,
+  })
 })

@@ -444,6 +444,12 @@ Derive whole-song role coverage from the Song Graph and expose the first section
 
 **Deliverable:** existing and partially reviewed songs can complete their functional arc deliberately without hunting through every section or mistaking genre conventions for rules.
 
+### Milestone 5.28 — Continuous structural role review
+
+Carry an explicitly started role-review session through the remaining undecided sections. Saving a decided role advances to the next open section in song order; leaving the role undecided stays in place, and exiting focused review stops automatic continuation. The session is transient UI state and does not change ordinary intent editing or persist workflow flags.
+
+**Deliverable:** an artist can review a long song's functional arc as one calm sequence of explicit decisions instead of repeatedly returning to the outline.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.
