@@ -23,3 +23,10 @@ export function songOutline(project, readiness) {
     }
   })
 }
+
+export function adjacentSectionId(sections, currentSectionId, offset) {
+  if (offset !== -1 && offset !== 1) return null
+  const index = sections.findIndex(section => section.id === currentSectionId)
+  if (index < 0) return null
+  return sections[index + offset]?.id ?? null
+}

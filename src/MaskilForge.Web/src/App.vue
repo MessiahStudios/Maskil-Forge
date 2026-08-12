@@ -4,7 +4,7 @@ import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import { demoReadiness } from './demoReadiness.js'
-import { songOutline } from './songOutline.js'
+import { adjacentSectionId, songOutline } from './songOutline.js'
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
 import { PartAudition } from './partAudition'
@@ -1425,6 +1425,7 @@ function deliveryLabel(delivery: SectionDelivery) { return delivery === 'TalkSun
 type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
 const activeCreatorStage = ref<CreatorStage>('idea')
 const focusedSectionId = ref('')
+const sectionViewMode = ref<'all' | 'focused'>('all')
 const creatorCompletion = computed(() => creatorProgress(project.value))
 const editableDemoReview = computed(() => demoReadiness(project.value))
 const songOutlineItems = computed(() => songOutline(project.value, editableDemoReview.value))
@@ -1440,6 +1441,22 @@ async function focusSongSection(sectionId: string) {
   target.scrollIntoView({ behavior: 'smooth', block: 'start' })
   target.querySelector<HTMLInputElement>('.section-identity input')?.focus({ preventScroll: true })
 }
+function showFocusedSection() {
+  if (!focusedSectionId.value && project.value?.sections.length) focusedSectionId.value = project.value.sections[0].id
+  if (!focusedSectionId.value) return
+  sectionViewMode.value = 'focused'
+  void focusSongSection(focusedSectionId.value)
+}
+function showAllSections() {
+  sectionViewMode.value = 'all'
+  if (focusedSectionId.value) void focusSongSection(focusedSectionId.value)
+}
+function navigateFocusedSection(offset: number) {
+  if (!project.value) return
+  const targetId = adjacentSectionId(project.value.sections, focusedSectionId.value, offset as -1 | 1)
+  if (targetId) void focusSongSection(targetId)
+}
+function focusedSectionIndex() { return project.value?.sections.findIndex(section => section.id === focusedSectionId.value) ?? -1 }
 function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : 'upcoming' }
 async function goToCreatorStage(stage: CreatorStage) {
   const destination = creatorDestination(stage, Boolean(project.value?.sections.length))
@@ -1492,6 +1509,12 @@ watch(
       stopChordAudition()
       stopPartAudition()
       stopTransport()
+      focusedSectionId.value = ''
+      sectionViewMode.value = 'all'
+    }
+    if (focusedSectionId.value && !project.value?.sections.some(section => section.id === focusedSectionId.value)) {
+      focusedSectionId.value = ''
+      sectionViewMode.value = 'all'
     }
     if (nextView === 'structure') void refreshLyricTimeline()
   })
@@ -1769,7 +1792,11 @@ onBeforeUnmount(() => {
         <nav v-else class="song-outline" aria-label="Song section outline">
           <div class="song-outline-heading">
             <div><strong>Song outline</strong><small>Jump between {{ project.sections.length }} sections without losing the full song.</small></div>
-            <span>{{ editableDemoReview.readySectionCount }}/{{ editableDemoReview.sectionCount }} ready to hear</span>
+            <div class="outline-view-actions">
+              <span>{{ editableDemoReview.readySectionCount }}/{{ editableDemoReview.sectionCount }} ready to hear</span>
+              <button type="button" class="quiet" :disabled="!focusedSectionId || sectionViewMode === 'focused'" @click="showFocusedSection">Focus selected</button>
+              <button type="button" class="quiet" :disabled="sectionViewMode === 'all'" @click="showAllSections">Show all</button>
+            </div>
           </div>
           <ol>
             <li v-for="(section, index) in project.sections" :key="`outline-${section.id}`">
@@ -1781,8 +1808,13 @@ onBeforeUnmount(() => {
             </li>
           </ol>
         </nav>
+        <div v-if="sectionViewMode === 'focused'" class="focused-section-nav" aria-label="Focused section navigation">
+          <button type="button" class="quiet" :disabled="focusedSectionIndex() <= 0" @click="navigateFocusedSection(-1)">← Previous section</button>
+          <span>Focused workspace · {{ focusedSectionIndex() + 1 }} of {{ project.sections.length }}</span>
+          <button type="button" class="quiet" :disabled="focusedSectionIndex() >= project.sections.length - 1" @click="navigateFocusedSection(1)">Next section →</button>
+        </div>
         <ol class="sections">
-          <li v-for="(section, index) in project.sections" :id="`section-${section.id}`" :key="section.id" class="section-card">
+          <li v-for="(section, index) in project.sections" v-show="sectionViewMode === 'all' || focusedSectionId === section.id" :id="`section-${section.id}`" :key="section.id" class="section-card">
             <div class="section-heading">
               <span class="section-number">{{ String(index + 1).padStart(2, '0') }}</span>
               <div class="section-identity">

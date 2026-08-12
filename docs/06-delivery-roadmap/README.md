@@ -386,6 +386,14 @@ The outline remains compact and horizontally scrollable at narrow widths, stays 
 
 **Deliverable:** an artist working through the ten-section “Essence of Shadows” form can understand the whole song and jump directly to the next section requiring attention.
 
+### Milestone 5.19 — Focused section workspace
+
+Let an artist switch the structure editor between the complete song and one selected section without changing project data. Focused mode retains the compact song outline, provides previous/next section movement, and keeps “Show all” immediately available. Removing or changing songs safely resets transient focus state.
+
+This is a view preference only. It does not create alternate section data, alter persistence, collapse creative decisions, or prevent whole-song review.
+
+**Deliverable:** after navigating a long song, an artist can work deeply on one section without visual overload and move through the complete form sequentially.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

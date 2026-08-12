@@ -22,3 +22,8 @@ export function songOutline(project: SongProject | null, readiness: {
     ready: boolean
   }>
 }): SongOutlineItem[]
+export function adjacentSectionId(
+  sections: Array<{ id: string }>,
+  currentSectionId: string,
+  offset: -1 | 1,
+): string | null

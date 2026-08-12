@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { songOutline } from './songOutline.js'
+import { adjacentSectionId, songOutline } from './songOutline.js'
 
 test('song outline keeps song order and summarizes navigation context', () => {
   const project = {
@@ -42,4 +42,13 @@ test('song outline reports the first actionable gap for each section', () => {
   assert.deepEqual(songOutline(project, readiness).map(item => item.progress), [
     'Needs lyrics', 'Needs a musical job', 'Needs a playable part',
   ])
+})
+
+test('focused navigation stays within the known song form', () => {
+  const sections = [{ id: 'intro' }, { id: 'verse' }, { id: 'chorus' }]
+
+  assert.equal(adjacentSectionId(sections, 'verse', -1), 'intro')
+  assert.equal(adjacentSectionId(sections, 'verse', 1), 'chorus')
+  assert.equal(adjacentSectionId(sections, 'intro', -1), null)
+  assert.equal(adjacentSectionId(sections, 'missing', 1), null)
 })
