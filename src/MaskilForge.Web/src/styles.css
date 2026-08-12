@@ -344,6 +344,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .note-event-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .6rem; align-items: center; padding: .55rem; background: #161a15; border: 1px solid #3e443a; }
 .note-event-list span { color: #aeb3a7; font: .75rem ui-monospace, Consolas, monospace; }
 .note-event-edit-form { min-width: 0; grid-template-columns: repeat(4, minmax(6rem, 1fr)) auto; }
+.note-event-removal { display: grid; justify-items: end; gap: .3rem; max-width: 16rem; }
+.note-event-removal small { color: #aeb3a7; font-size: .68rem; line-height: 1.35; text-align: right; }
 .lyric-line { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: .55rem; align-items: start; }
 .lyric-line-number { color: #92988a; text-align: right; font: .78rem ui-monospace, Consolas, monospace; padding-top: .95rem; }
 .lyric-line-actions { display: flex; gap: .4rem; align-items: start; flex-wrap: wrap; justify-content: end; }
