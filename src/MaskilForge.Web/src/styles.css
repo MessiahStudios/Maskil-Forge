@@ -165,6 +165,10 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .chord-audition > div { display: grid; gap: .15rem; }
 .chord-audition small, .chord-audition p { color: #aeb4a7; }
 .chord-audition p { grid-column: 1 / -1; margin: 0; font-size: .76rem; }
+.part-audition { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem 1rem; align-items: center; padding: .65rem; color: #d7e0cf; background: #111711; border: 1px solid #4a5947; border-radius: .35rem; }
+.part-audition > div { display: grid; gap: .15rem; }
+.part-audition small, .part-audition p { color: #9ca798; }
+.part-audition p { grid-column: 1 / -1; margin: 0; font-size: .76rem; }
 .voice-leading-disclosure { border: 1px solid #3f453b; border-radius: .35rem; background: #181c17; }
 .voice-leading-disclosure > summary { padding: .65rem .7rem; color: #d5c69f; cursor: pointer; }
 .voice-leading-disclosure[open] > summary { border-bottom: 1px solid #3f453b; }
