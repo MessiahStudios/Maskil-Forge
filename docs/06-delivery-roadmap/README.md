@@ -468,6 +468,12 @@ Protect recovery snapshots from adjacent-action misclicks with an explicit, acce
 
 **Deliverable:** protected unsaved work cannot be permanently discarded by a single accidental action from the recovery list.
 
+### Milestone 5.32 — Failure-safe command history
+
+Move undo and redo entries between history stacks only after their operation succeeds. Preserve failed entries for retry or diagnosis, and translate artist-actionable command validation failures into structured API responses instead of generic server errors.
+
+**Deliverable:** a rejected undo or redo never silently consumes history, and the client receives the actual constraint that prevented the action.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

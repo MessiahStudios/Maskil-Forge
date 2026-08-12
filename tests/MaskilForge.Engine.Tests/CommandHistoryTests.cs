@@ -5,6 +5,37 @@ namespace MaskilForge.Engine.Tests;
 public sealed class CommandHistoryTests
 {
     [Fact]
+    public void FailedUndo_RemainsAvailableForRetry()
+    {
+        var editor = new ProjectEditor(SongProject.Create("History"));
+        editor.Execute(new FailingUndoCommand());
+
+        Assert.Throws<InvalidOperationException>(() => editor.Undo());
+
+        Assert.True(editor.CanUndo);
+        Assert.False(editor.CanRedo);
+        Assert.True(editor.Undo());
+        Assert.False(editor.CanUndo);
+        Assert.True(editor.CanRedo);
+    }
+
+    [Fact]
+    public void FailedRedo_RemainsAvailableForRetry()
+    {
+        var editor = new ProjectEditor(SongProject.Create("History"));
+        editor.Execute(new FailingRedoCommand());
+        Assert.True(editor.Undo());
+
+        Assert.Throws<InvalidOperationException>(() => editor.Redo());
+
+        Assert.False(editor.CanUndo);
+        Assert.True(editor.CanRedo);
+        Assert.True(editor.Redo());
+        Assert.True(editor.CanUndo);
+        Assert.False(editor.CanRedo);
+    }
+
+    [Fact]
     public void UndoAndRedo_AddSection_PreservesIdentifier()
     {
         var editor = new ProjectEditor(SongProject.Create("History"));
@@ -16,6 +47,29 @@ public sealed class CommandHistoryTests
         Assert.Empty(editor.Project.Sections);
         Assert.True(editor.Redo());
         Assert.Equal(sectionId, Assert.Single(editor.Project.Sections).Id);
+    }
+
+    private sealed class FailingUndoCommand : IProjectCommand
+    {
+        private bool _failed;
+
+        public void Execute(SongProject project) { }
+        public void Undo(SongProject project)
+        {
+            if (!_failed) { _failed = true; throw new InvalidOperationException("Undo rejected."); }
+        }
+    }
+
+    private sealed class FailingRedoCommand : IProjectCommand
+    {
+        private int _executions;
+
+        public void Execute(SongProject project)
+        {
+            if (_executions++ == 1) throw new InvalidOperationException("Redo rejected.");
+        }
+
+        public void Undo(SongProject project) { }
     }
 
     [Fact]
