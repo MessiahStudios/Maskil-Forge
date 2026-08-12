@@ -7,6 +7,7 @@ import { demoReadiness } from './demoReadiness.js'
 import { noteOwners, noteRemovalGuidance } from './noteOwnership.js'
 import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 import { structuralRole, structuralRoles } from './structuralRoles.js'
+import { chordToneNames, voicingIssues } from './voicingValidation.js'
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
 import { PartAudition } from './partAudition'
@@ -73,6 +74,7 @@ const candidateLabelDrafts = reactive<Record<string, string>>({})
 const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
 const foundationSourceDrafts = reactive<Record<string, string>>({})
 const structuralRoleDrafts = reactive<Record<string, StructuralFunction>>({})
+const voicingDrafts = reactive<Record<string, string>>({})
 const prosodyScores = reactive<Record<string, ProsodyScore>>({})
 const voiceLeadingReviews = reactive<Record<string, VoiceLeadingReview>>({})
 const harmonyNoteSketches = reactive<Record<string, HarmonyNoteSketch>>({})
@@ -903,7 +905,7 @@ function parseRegisteredPitch(token: string): RegisteredPitch {
     octave: Number(match[3]),
   }
 }
-function setChordVoicing(sectionId: string, harmonyChordId: string, event: Event) {
+function setChordVoicing(sectionId: string, harmonyChordId: string, chord: ChordSymbol, event: Event) {
   if (!project.value) return
   const form = event.currentTarget as HTMLFormElement
   const text = String(new FormData(form).get('voicing') ?? '').trim()
@@ -916,11 +918,18 @@ function setChordVoicing(sectionId: string, harmonyChordId: string, event: Event
     activityLog.write('warning', 'harmony.voicing.set', status.value, { sectionId, harmonyChordId })
     return
   }
+  const issues = voicingIssues(chord, registeredPitches, 21, 108)
+  if (issues.length) {
+    status.value = `${issues.join(' ')} Chord tones: ${chordToneNames(chord).join(', ')}.`
+    activityLog.write('warning', 'harmony.voicing.set', status.value, { sectionId, harmonyChordId })
+    return
+  }
   return run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'set-chord-voicing', sectionId, harmonyChordId, registeredPitches, minimumMidiNote: 21, maximumMidiNote: 108 }),
     registeredPitches.length ? `Voicing set to ${tokens.join(' ')}.` : 'Chord voicing cleared.',
     'harmony.voicing.set',
     { sectionId, harmonyChordId, voiceCount: registeredPitches.length })
+    ?.then(succeeded => { if (succeeded) delete voicingDrafts[harmonyChordId] })
 }
 function addNoteEvent(event: Event) {
   if (!project.value) return
@@ -2128,12 +2137,12 @@ onBeforeUnmount(() => {
                       @change="updateHarmonyChord(section.id, item.id, item.chord, item.start, Number(($event.target as HTMLInputElement).value))" />
                   </label>
                   <button class="danger" :disabled="busy" @click="removeHarmonyChord(section.id, item.id)">Remove</button>
-                  <form class="voicing-editor" @submit.prevent="setChordVoicing(section.id, item.id, $event)">
+                  <form class="voicing-editor" @submit.prevent="setChordVoicing(section.id, item.id, item.chord, $event)">
                     <label>How the chord is played
-                      <input name="voicing" :value="item.voicing?.voices.map(voice => formatRegisteredPitch(voice.pitch)).join(' ') ?? ''" placeholder="C3 G3 C4 E4" :disabled="busy" />
+                      <input name="voicing" :value="voicingDrafts[item.id] ?? item.voicing?.voices.map(voice => formatRegisteredPitch(voice.pitch)).join(' ') ?? ''" placeholder="C3 G3 C4 E4" :disabled="busy" :aria-describedby="`voicing-help-${item.id}`" @input="voicingDrafts[item.id] = ($event.target as HTMLInputElement).value" />
                     </label>
                     <button type="submit" class="quiet" :disabled="busy">Use these notes</button>
-                    <small>Optional · Enter low-to-high notes with octaves. Leave empty to clear.</small>
+                    <small :id="`voicing-help-${item.id}`">Chord tones: {{ chordToneNames(item.chord).join(' · ') }}. Enter low-to-high notes from A0 to C8. Leave empty to clear.</small>
                   </form>
                 </article>
               </div>
