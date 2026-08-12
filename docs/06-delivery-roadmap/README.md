@@ -438,6 +438,12 @@ Let the artist assign each section's genre-neutral role while reviewing a pasted
 
 **Deliverable:** a complete pasted song can move from detected anatomy to an artist-reviewed functional arc without repetitive post-import editing or hidden genre assumptions.
 
+### Milestone 5.27 — Optional structural role review
+
+Derive whole-song role coverage from the Song Graph and expose the first section whose role remains undecided. The Shape workspace can focus that existing section control directly, while clearly labeling the review as optional and separate from audible readiness. No completion flag is persisted, and no role is generated or required.
+
+**Deliverable:** existing and partially reviewed songs can complete their functional arc deliberately without hunting through every section or mistaking genre conventions for rules.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

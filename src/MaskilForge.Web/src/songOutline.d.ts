@@ -28,3 +28,10 @@ export function adjacentSectionId(
   currentSectionId: string,
   offset: -1 | 1,
 ): string | null
+export function structuralRoleReview(project: SongProject | null): {
+  sectionCount: number
+  decidedCount: number
+  complete: boolean
+  nextSectionId: string | null
+  nextSectionTitle: string | null
+}

@@ -142,9 +142,12 @@ button.journey-step:hover:not(:disabled) { border-color: #6e755f; background: #2
 button.add-section { color: #fff1d3; border-color: #917743; background: #30291d; }
 .empty-song { margin: 0; padding: 4rem 1rem; color: #a9a397; border: 1px dashed #4c5247; border-radius: .5rem; text-align: center; }
 .song-outline { position: sticky; top: .65rem; z-index: 5; display: grid; gap: .65rem; padding: .85rem; background: rgb(17 20 16 / .96); border: 1px solid #555d4e; border-radius: .65rem; box-shadow: 0 12px 36px rgb(0 0 0 / .24); backdrop-filter: blur(8px); }
-.song-outline-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: end; }
+.song-outline-heading { display: grid; grid-template-columns: minmax(12rem, 1fr) auto auto; gap: 1rem; align-items: end; }
 .song-outline-heading > div:first-child { display: grid; gap: .15rem; }
 .song-outline-heading small, .outline-view-actions > span { color: #aeb4a6; font-size: .75rem; }
+.role-review-summary { display: grid; gap: .1rem; padding-left: .85rem; border-left: 1px solid #3e463b; }
+.role-review-summary > span { color: #d8d1c3; font-size: .76rem; }
+.role-review-summary button { width: auto; min-height: 0; justify-self: start; padding: .3rem 0; border-color: transparent; color: #d7bd80; }
 .outline-view-actions { display: flex; gap: .45rem; align-items: center; flex-wrap: wrap; justify-content: end; }
 .outline-view-actions button { width: auto; min-height: 0; display: inline-flex; padding: .4rem .55rem; text-align: center; }
 .song-outline ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .45rem; margin: 0; padding: 0; list-style: none; }
@@ -493,6 +496,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-performance-intent button { grid-column: 1; }
   .structure-preview-heading { display: grid; }
   .song-outline-heading { display: grid; }
+  .role-review-summary { padding: .6rem 0 0; border-top: 1px solid #3e463b; border-left: 0; }
   .song-outline ol { grid-template-columns: 1fr; }
   .outline-view-actions { justify-content: start; }
   .focused-section-nav { grid-template-columns: 1fr 1fr; }

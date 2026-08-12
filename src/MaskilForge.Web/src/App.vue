@@ -4,7 +4,7 @@ import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import { demoReadiness } from './demoReadiness.js'
-import { adjacentSectionId, songOutline } from './songOutline.js'
+import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
 import { PartAudition } from './partAudition'
@@ -1499,6 +1499,7 @@ const sectionViewMode = ref<'all' | 'focused'>('all')
 const creatorCompletion = computed(() => creatorProgress(project.value))
 const editableDemoReview = computed(() => demoReadiness(project.value))
 const songOutlineItems = computed(() => songOutline(project.value, editableDemoReview.value))
+const roleReview = computed(() => structuralRoleReview(project.value))
 async function focusSongSection(sectionId: string) {
   focusedSectionId.value = sectionId
   await nextTick()
@@ -1510,6 +1511,14 @@ async function focusSongSection(sectionId: string) {
   window.setTimeout(() => target.classList.remove('section-focus'), 1_600)
   target.scrollIntoView({ behavior: 'smooth', block: 'start' })
   target.querySelector<HTMLInputElement>('.section-identity input')?.focus({ preventScroll: true })
+}
+async function reviewNextOpenRole() {
+  if (!roleReview.value.nextSectionId) return
+  sectionViewMode.value = 'focused'
+  await focusSongSection(roleReview.value.nextSectionId)
+  await nextTick()
+  document.querySelector<HTMLSelectElement>(`#section-${roleReview.value.nextSectionId} select[name="structuralFunction"]`)?.focus({ preventScroll: true })
+  status.value = `Choose ${roleReview.value.nextSectionTitle}'s role in the song, or leave it open.`
 }
 function showFocusedSection() {
   if (!focusedSectionId.value && project.value?.sections.length) focusedSectionId.value = project.value.sections[0].id
@@ -1910,6 +1919,11 @@ onBeforeUnmount(() => {
         <nav v-else class="song-outline" aria-label="Song section outline">
           <div class="song-outline-heading">
             <div><strong>Song outline</strong><small>Jump between {{ project.sections.length }} sections without losing the full song.</small></div>
+            <div class="role-review-summary">
+              <span><strong>{{ roleReview.decidedCount }}/{{ roleReview.sectionCount }}</strong> roles decided</span>
+              <small>{{ roleReview.complete ? 'Functional arc reviewed.' : 'Optional · roles are never guessed.' }}</small>
+              <button v-if="roleReview.nextSectionId" type="button" class="quiet" @click="reviewNextOpenRole">Review next open role →</button>
+            </div>
             <div class="outline-view-actions">
               <span>{{ editableDemoReview.readySectionCount }}/{{ editableDemoReview.sectionCount }} ready to hear</span>
               <button type="button" class="quiet" :disabled="!focusedSectionId || sectionViewMode === 'focused'" @click="showFocusedSection">Focus selected</button>

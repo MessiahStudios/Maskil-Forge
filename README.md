@@ -117,6 +117,8 @@ Slice 5.25 adds genre-neutral, artist-authored structural function to each secti
 
 Slice 5.26 brings those roles into lyric-sheet review before import and surfaces decided roles in the whole-song outline, without allowing the parser or genre metadata to guess them.
 
+Slice 5.27 adds an optional whole-song role review count and a direct path to the next undecided section, without making structural roles part of audible-readiness completion.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.
