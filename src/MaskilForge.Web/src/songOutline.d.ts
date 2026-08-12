@@ -1,4 +1,4 @@
-import type { SectionDelivery, SectionKind, SongProject } from './api'
+import type { SectionDelivery, SectionKind, SongProject, StructuralFunction } from './api'
 
 export interface SongOutlineItem {
   sectionId: string
@@ -6,6 +6,7 @@ export interface SongOutlineItem {
   title: string
   kind: SectionKind
   delivery: SectionDelivery
+  structuralFunction: StructuralFunction
   durationBars: number
   lyricLineCount: number
   ready: boolean

@@ -73,6 +73,7 @@ public sealed class ImportSongStructureCommand(IReadOnlyList<ProposedSongSection
     {
         var section = SongSection.Create(proposal.Kind, proposal.Title);
         section.SetPerformanceIntent(proposal.Delivery, proposal.PerformanceNotes);
+        section.SetStructuralFunction(proposal.StructuralFunction);
         foreach (var lyric in proposal.Lyrics.Where(line => !string.IsNullOrWhiteSpace(line))) section.AddLyricLine(lyric);
         return section;
     }

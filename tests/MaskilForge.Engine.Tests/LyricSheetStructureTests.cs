@@ -49,6 +49,7 @@ public sealed class LyricSheetStructureTests
         Assert.Equal("Chorus 1", preview.Sections[3].Title);
         Assert.Equal("Chorus 2", preview.Sections[6].Title);
         Assert.Equal("Controlled build, no soaring", preview.Sections[8].PerformanceNotes);
+        Assert.All(preview.Sections, section => Assert.Equal(StructuralFunction.Unspecified, section.StructuralFunction));
         Assert.Equal(["Essence of Shadows"], preview.UnassignedLines);
     }
 
@@ -60,11 +61,17 @@ public sealed class LyricSheetStructureTests
         var preview = LyricSheetStructureParser.Parse(project.RawLyricDraft);
         var editor = new ProjectEditor(project);
 
-        editor.Execute(new ImportSongStructureCommand(preview.Sections));
+        var proposals = preview.Sections.Select((section, index) => section with
+        {
+            StructuralFunction = index == 0 ? StructuralFunction.Setup : StructuralFunction.Payoff
+        }).ToList();
+        editor.Execute(new ImportSongStructureCommand(proposals));
         var identities = project.Sections.Select(section => section.Id).ToList();
 
         Assert.Equal(2, project.Sections.Count);
         Assert.Equal(SectionDelivery.Spoken, project.Sections[0].Delivery);
+        Assert.Equal(StructuralFunction.Setup, project.Sections[0].StructuralFunction);
+        Assert.Equal(StructuralFunction.Payoff, project.Sections[1].StructuralFunction);
         Assert.Equal("I was found.", Assert.Single(project.Sections[0].LyricLines).Text);
         Assert.Equal("[Intro – Spoken]\nI was found.\n[Chorus]\nLight was cast on me.", project.RawLyricDraft);
 

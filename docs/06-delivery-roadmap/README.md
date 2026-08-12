@@ -432,6 +432,12 @@ Add a genre-neutral structural function to every section: unspecified, setup, de
 
 **Deliverable:** a Chorus, Drop-like custom block, instrumental passage, or any supported section can describe the song-level job it performs without genre dictating its anatomy.
 
+### Milestone 5.26 — Structural role review flow
+
+Let the artist assign each section's genre-neutral role while reviewing a pasted lyric-sheet proposal, before any Song Graph sections are created. The parser leaves every role unspecified and never infers function from genre or heading. The accepted import preserves those reviewed roles in the same undoable structure command, while the song outline exposes decided roles as a compact whole-song arc.
+
+**Deliverable:** a complete pasted song can move from detected anatomy to an artist-reviewed functional arc without repetitive post-import editing or hidden genre assumptions.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

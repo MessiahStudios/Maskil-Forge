@@ -430,6 +430,7 @@ export interface ProposedSongSection {
   delivery: SectionDelivery
   performanceNotes: string
   lyrics: string[]
+  structuralFunction: StructuralFunction
 }
 
 export interface LyricSheetStructurePreview {
