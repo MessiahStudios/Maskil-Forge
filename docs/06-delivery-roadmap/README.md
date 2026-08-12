@@ -480,6 +480,12 @@ Derive which musical parts reference each playable note and prevent invalid remo
 
 **Deliverable:** artists understand why a playable note cannot be deleted before attempting the action, without weakening referential integrity or hiding precise note editing.
 
+### Milestone 5.34 — Guided chord voicing entry
+
+Show the owning chord's pitch classes beside manual voicing entry and validate chord membership, playable register, and low-to-high order before sending a command. Keep empty input as the explicit clearing path and retain domain validation as the authoritative boundary.
+
+**Deliverable:** artists can author valid chord voicings from visible musical constraints instead of learning note membership or register rules through server errors.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.
