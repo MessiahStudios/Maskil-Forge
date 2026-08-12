@@ -29,6 +29,9 @@ const confirmationOpen = ref(false)
 const deleteConfirmationOpen = ref(false)
 const deleteTarget = ref<{ id: string; title: string } | null>(null)
 const permanentDeleteTarget = ref<{ id: string; title: string } | null>(null)
+const recoveryDiscardTarget = ref<RecoverySummary | null>(null)
+const recoveryDiscardCancelButton = ref<HTMLButtonElement | null>(null)
+let recoveryDiscardReturnFocus: HTMLElement | null = null
 const firstPartConfirmation = ref<{ label: string; proceed: () => void } | null>(null)
 const pendingAction = ref<'load' | 'new' | 'home'>('load')
 const pendingLoadId = ref('')
@@ -277,11 +280,30 @@ async function restoreRecovery(id: string) {
     status.value = error instanceof Error ? error.message : 'The recovery snapshot could not be restored.'
   } finally { busy.value = false }
 }
-async function discardRecovery(id: string) {
+async function requestRecoveryDiscard(summary: RecoverySummary, event: Event) {
+  recoveryDiscardReturnFocus = event.currentTarget as HTMLElement
+  recoveryDiscardTarget.value = summary
+  activityLog.write('warning', 'recovery.discard', 'Recovery discard confirmation requested.', { projectId: summary.id, title: summary.title })
+  await nextTick()
+  recoveryDiscardCancelButton.value?.focus()
+}
+async function cancelRecoveryDiscard() {
+  recoveryDiscardTarget.value = null
+  activityLog.write('info', 'recovery.discard', 'Recovery discard cancelled.')
+  await nextTick()
+  recoveryDiscardReturnFocus?.focus()
+  recoveryDiscardReturnFocus = null
+}
+async function confirmRecoveryDiscard() {
+  if (!recoveryDiscardTarget.value) return
+  const target = recoveryDiscardTarget.value
   busy.value = true
   try {
-    await projectsApi.discardRecovery(id)
-    activityLog.write('info', 'recovery.discard', 'Recovery snapshot discarded.', { projectId: id })
+    await projectsApi.discardRecovery(target.id)
+    recoveryDiscardTarget.value = null
+    recoveryDiscardReturnFocus = null
+    status.value = `The protected “${target.title}” snapshot was discarded.`
+    activityLog.write('info', 'recovery.discard', 'Recovery snapshot discarded.', { projectId: target.id, title: target.title })
     await refreshRecovery()
     if (recoverySnapshots.value.length === 0) await goHome()
   } catch (error) {
@@ -1682,7 +1704,7 @@ onBeforeUnmount(() => {
             <div v-if="summary.sectionTitles.length"><dt>Song form</dt><dd class="recovery-form">{{ summary.sectionTitles.join(' → ') }}</dd></div>
             <div><dt>Protected</dt><dd>{{ formatModified(summary.capturedAtUtc) }}</dd></div>
           </dl>
-          <div class="card-actions"><button :disabled="busy" @click="restoreRecovery(summary.id)">Restore unsaved work</button><button class="danger" :disabled="busy" @click="discardRecovery(summary.id)">Discard snapshot</button></div>
+          <div class="card-actions"><button :disabled="busy" @click="restoreRecovery(summary.id)">Restore unsaved work</button><button class="danger" :disabled="busy" @click="requestRecoveryDiscard(summary, $event)">Discard snapshot</button></div>
         </article>
       </div>
     </section>
@@ -2698,6 +2720,19 @@ onBeforeUnmount(() => {
         <div class="dialog-actions">
           <button class="secondary" :disabled="busy" autofocus @click="cancelPermanentDelete">Cancel</button>
           <button class="danger" :disabled="busy" @click="confirmPermanentDelete">Yes, permanently delete</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="recoveryDiscardTarget" class="modal-backdrop" role="presentation" @click.self="cancelRecoveryDiscard">
+      <section class="load-dialog delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="recovery-discard-title" aria-describedby="recovery-discard-description">
+        <p class="eyebrow">Protected unsaved work</p>
+        <h2 id="recovery-discard-title">Discard this recovery snapshot?</h2>
+        <p id="recovery-discard-description">This permanently removes the protected “{{ recoveryDiscardTarget.title }}” snapshot. {{ recoveryDiscardTarget.sectionCount ? `${recoveryDiscardTarget.sectionCount} structured section${recoveryDiscardTarget.sectionCount === 1 ? '' : 's'} and ${recoveryDiscardTarget.lyricLineCount} lyric line${recoveryDiscardTarget.lyricLineCount === 1 ? '' : 's'} will no longer be recoverable.` : recoveryDiscardTarget.hasRawLyrics ? `${recoveryDiscardTarget.lyricLineCount} raw lyric line${recoveryDiscardTarget.lyricLineCount === 1 ? '' : 's'} will no longer be recoverable.` : 'Its unsaved idea will no longer be recoverable.' }}</p>
+        <p v-if="recoveryDiscardTarget.sectionTitles.length" class="recovery-form">{{ recoveryDiscardTarget.sectionTitles.join(' → ') }}</p>
+        <div class="dialog-actions">
+          <button ref="recoveryDiscardCancelButton" class="secondary" :disabled="busy" @click="cancelRecoveryDiscard">Keep protected work</button>
+          <button class="danger" :disabled="busy" @click="confirmRecoveryDiscard">Yes, discard snapshot</button>
         </div>
       </section>
     </div>

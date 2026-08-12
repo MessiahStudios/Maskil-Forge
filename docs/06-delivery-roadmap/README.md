@@ -462,6 +462,12 @@ Summarize the actual protected contents on every recovery card: raw-draft state 
 
 **Deliverable:** an artist with several protected drafts can identify the likely song by its contents and form instead of restoring snapshots one at a time.
 
+### Milestone 5.31 — Confirmed recovery discard
+
+Protect recovery snapshots from adjacent-action misclicks with an explicit, accessible confirmation that repeats the snapshot title, content count, and song form before permanent discard. Cancellation remains the initial keyboard focus, and no recovery data changes until confirmation.
+
+**Deliverable:** protected unsaved work cannot be permanently discarded by a single accidental action from the recovery list.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.
