@@ -1,4 +1,5 @@
 import type { ScheduledNote } from './partAudition'
+import { peakPolyphony } from './partAuditionModel.js'
 
 export interface TransportTiming {
   beatsPerMinute: number
@@ -44,10 +45,12 @@ export class PlaybackTransport {
     const startAt = this.context.currentTime + 0.05
     this.startedAt = startAt
     let endAt = startAt
-    const baseLevel = 0.16 / Math.sqrt(notes.length)
+    const baseLevel = 0.16 / Math.sqrt(Math.max(1, peakPolyphony(notes)))
     for (const note of notes) {
       const noteStart = startAt + note.startSeconds
       const noteEnd = noteStart + note.durationSeconds
+      const attackSeconds = Math.min(0.02, note.durationSeconds / 3)
+      const releaseSeconds = Math.min(0.05, note.durationSeconds / 3)
       endAt = Math.max(endAt, noteEnd)
       const level = baseLevel * (0.45 + 0.55 * (note.velocity / 127))
       const oscillator = this.context.createOscillator()
@@ -55,8 +58,8 @@ export class PlaybackTransport {
       oscillator.type = 'sine'
       oscillator.frequency.value = 440 * 2 ** ((note.midi - 69) / 12)
       gain.gain.setValueAtTime(0, noteStart)
-      gain.gain.linearRampToValueAtTime(level, noteStart + 0.02)
-      gain.gain.setValueAtTime(level, Math.max(noteStart + 0.02, noteEnd - 0.05))
+      gain.gain.linearRampToValueAtTime(level, noteStart + attackSeconds)
+      gain.gain.setValueAtTime(level, noteEnd - releaseSeconds)
       gain.gain.linearRampToValueAtTime(0, noteEnd)
       oscillator.connect(gain).connect(this.context.destination)
       oscillator.start(noteStart)

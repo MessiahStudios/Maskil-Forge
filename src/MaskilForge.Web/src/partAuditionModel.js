@@ -78,3 +78,18 @@ export function formatTransportPosition(position) {
 export function tickFromSeconds(seconds, timing) {
   return Math.max(0, seconds / secondsPerTick(timing))
 }
+
+/** Return the peak number of sounding notes; note-offs win ties with note-ons. */
+export function peakPolyphony(notes) {
+  const events = notes.flatMap(note => [
+    { seconds: note.startSeconds, delta: 1 },
+    { seconds: note.startSeconds + note.durationSeconds, delta: -1 },
+  ]).sort((left, right) => left.seconds - right.seconds || left.delta - right.delta)
+  let active = 0
+  let peak = 0
+  for (const event of events) {
+    active += event.delta
+    peak = Math.max(peak, active)
+  }
+  return peak
+}

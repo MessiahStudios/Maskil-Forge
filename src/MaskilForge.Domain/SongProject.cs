@@ -289,6 +289,17 @@ public sealed class SongProject
         return existing;
     }
 
+    public MusicalPart SetMusicalPart(MusicalPartId musicalPartId, string label, IReadOnlyList<NoteEventId> noteEventIds)
+    {
+        var existing = _musicalParts.SingleOrDefault(item => item.Id == musicalPartId)
+            ?? throw new KeyNotFoundException($"Musical part '{musicalPartId}' was not found.");
+        var updated = existing.With(label, noteEventIds);
+        ValidateMusicalPartReferences(updated);
+        _musicalParts[_musicalParts.IndexOf(existing)] = updated;
+        Touch();
+        return updated;
+    }
+
     public void RestoreMusicalPart(MusicalPart musicalPart)
     {
         ArgumentNullException.ThrowIfNull(musicalPart);
@@ -333,8 +344,19 @@ public sealed class SongProject
     {
         var index = _noteEvents.FindIndex(item => item.Id == noteEventId);
         if (index < 0) throw new KeyNotFoundException($"Note event '{noteEventId}' was not found.");
-        var updated = _noteEvents[index].With(pitch, startTick, durationTicks, velocity);
+        var existing = _noteEvents[index];
+        var updated = existing.With(pitch, startTick, durationTicks, velocity);
         _noteEvents[index] = updated;
+        try
+        {
+            foreach (var part in _musicalParts.Where(item => item.NoteEventIds.Contains(noteEventId)))
+                ValidateMusicalPartReferences(part);
+        }
+        catch
+        {
+            _noteEvents[index] = existing;
+            throw;
+        }
         SortNoteEvents();
         Touch();
         return updated;

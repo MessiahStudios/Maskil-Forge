@@ -147,6 +147,32 @@ public sealed class RemoveMusicalPartCommand(MusicalPartId musicalPartId) : IPro
     }
 }
 
+public sealed class SetMusicalPartCommand(
+    MusicalPartId musicalPartId,
+    string label,
+    IReadOnlyList<NoteEventId> noteEventIds) : IProjectCommand
+{
+    private MusicalPart? _before;
+    private MusicalPart? _after;
+
+    public void Execute(SongProject project)
+    {
+        if (_after is null)
+        {
+            _before = project.MusicalParts.SingleOrDefault(item => item.Id == musicalPartId)
+                ?? throw new KeyNotFoundException($"Musical part '{musicalPartId}' was not found.");
+            _after = project.SetMusicalPart(musicalPartId, label, noteEventIds);
+        }
+        else project.RestoreMusicalPart(_after);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_before is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RestoreMusicalPart(_before);
+    }
+}
+
 public sealed class UseLowEndSupportProposalCommand(SectionId sectionId) : IProjectCommand
 {
     private IReadOnlyList<NoteEvent>? _createdNotes;

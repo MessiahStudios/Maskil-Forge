@@ -1,6 +1,6 @@
 # 06 — Delivery Roadmap
 
-This is the recommended logical build order for Maskil Forge and its underlying Maskil Engine. The repository has completed the Prototype boundary and Milestone 5 through basic playback transport (slice 5.13). A milestone should start only after its dependency gate is reliable.
+This is the recommended logical build order for Maskil Forge and its underlying Maskil Engine. The repository has completed the Prototype boundary and Milestone 5 through minimal note and part editing (slice 5.14). A milestone should start only after its dependency gate is reliable.
 
 ## Milestone 0 — Decisions and skeleton
 
@@ -232,7 +232,7 @@ This checkpoint changes no domain model, schema, persistence behavior, migration
 
 ## Milestone 5 — MIDI composition and preview
 
-Turn approved musical intent into an audible, editable song demo without silently replacing the songwriter's decisions. Slices 5.1–5.13 now provide playable note events, harmony realization, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, and basic song transport. The remaining MVP work is intentionally incremental: minimal note/part editing, optional remaining roles only as a vertical song needs them, and end-to-end validation. Full piano-roll and DAW-style editing are later capabilities, not prerequisites for the MVP boundary.
+Turn approved musical intent into an audible, editable song demo without silently replacing the songwriter's decisions. Slices 5.1–5.14 now provide playable note events, harmony realization, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, and minimal note/part editing. The remaining MVP work is intentionally incremental: optional remaining roles only as a vertical song needs them and end-to-end validation. Full piano-roll and DAW-style editing are later capabilities, not prerequisites for the MVP boundary.
 
 ### Milestone 5.1 — MIDI event foundation
 
@@ -338,6 +338,16 @@ This slice does not add seeking, pause/resume, looping, tempo automation, instru
 
 **Deliverable:** an artist can start and stop song playback while seeing where they are in musical time.
 
+### Milestone 5.14 — Minimal note and part editing
+
+Expose the existing stable note-event update command in the advanced playable-note inspector so pitch, onset, duration, and velocity can be revised without replacing note identity. Let an artist rename a musical part and change which approved in-section notes it contains through one undoable command that likewise preserves the part identity and role. Linked-note edits must continue to satisfy the owning section boundary.
+
+Transport preview now uses peak simultaneous polyphony for gain scaling, so longer songs do not become quieter merely because they contain more notes. Attack and release times contract for very short events to keep Web Audio automation ordered.
+
+This slice does not add a piano roll, drag editing, quantization, instrument assignment, seeking, looping, automation, or schema changes.
+
+**Deliverable:** after hearing an assembled section or song, an artist can revise its exact approved notes and part membership, then listen again without rebuilding the musical part.
+
 ### Remaining editable-demo MVP slices
 
 The current working sequence is approximately two to three focused slices. It may be split or combined as validation reveals the smallest safe boundaries:
@@ -392,7 +402,7 @@ Build mixer routing, automation, production recipes, stem/WAV export, DAW handof
 
 ### MVP
 
-**In progress past the Milestone 5.5 foundation checkpoint.** Milestones 0–4 and slices 5.1–5.13 are complete. The remaining MVP target is minimal editing and end-to-end validation of the hear-revise loop. Additional role realization should follow only what a complete vertical song still needs.
+**In progress past the Milestone 5.5 foundation checkpoint.** Milestones 0–4 and slices 5.1–5.14 are complete. The remaining MVP target is end-to-end validation of the hear-revise loop. Additional role realization should follow only what a complete vertical song still needs.
 
 ### Artist alpha
 

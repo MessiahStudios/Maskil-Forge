@@ -105,6 +105,9 @@ public sealed class MusicalPart
     public string Label { get; }
     public IReadOnlyList<NoteEventId> NoteEventIds { get; }
     public ArrangementProvenance Provenance { get; }
+
+    public MusicalPart With(string label, IReadOnlyList<NoteEventId> noteEventIds) =>
+        new(Id, SectionId, Role, label, noteEventIds, Provenance);
 }
 
 /// <summary>An artist-authored arrangement intention for one existing song section.</summary>
