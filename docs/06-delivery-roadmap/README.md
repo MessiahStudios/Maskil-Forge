@@ -402,6 +402,12 @@ Whole-song journey progress also requires harmony and arrangement coverage for e
 
 **Deliverable:** creating the first part is an informed commitment instead of a silent lock, and the UI always exposes a safe path back to structural editing.
 
+### Milestone 5.21 — Actionable readiness queue
+
+Turn the existing derived hear–revise readiness result into direct navigation. The first incomplete section exposes one contextual action that opens that section in focused mode and lands on the workspace required for its next gap: lyrics, harmony, arrangement job, or playable part. The queue remains derived from the Song Graph and never applies creative decisions automatically.
+
+**Deliverable:** an artist can move through a complete multi-section song without repeatedly searching for the next unfinished control.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

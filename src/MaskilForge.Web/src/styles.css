@@ -419,6 +419,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .load-dialog > p:not(.eyebrow) { color: #c8c1b3; }
 .timeline-boundary-dialog { border-color: #d6b86d; }
 .timeline-boundary-dialog strong { color: #f0d48e; }
+.readiness-next-step { align-content: start; }
+.readiness-next-step button { justify-self: start; margin-top: .35rem; }
 
 @media (max-width: 680px) {
   .structure-lock-notice { align-items: stretch; flex-direction: column; }

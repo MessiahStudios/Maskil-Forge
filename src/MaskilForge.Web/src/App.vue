@@ -1473,6 +1473,28 @@ function navigateFocusedSection(offset: number) {
 }
 function focusedSectionIndex() { return project.value?.sections.findIndex(section => section.id === focusedSectionId.value) ?? -1 }
 function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : 'upcoming' }
+async function goToNextReadinessStep() {
+  const step = editableDemoReview.value.nextStep
+  if (!step) return
+  activeCreatorStage.value = step.stage as CreatorStage
+  view.value = 'structure'
+  focusedSectionId.value = step.sectionId
+  sectionViewMode.value = 'focused'
+  await nextTick()
+  const target = step.stage === 'harmony'
+    ? document.getElementById(`harmony-tools-${step.sectionId}`) ?? document.getElementById('harmony-tools')
+    : step.stage === 'arrangement'
+      ? document.getElementById(`arrangement-${step.sectionId}`)
+      : document.getElementById(`section-${step.sectionId}`)
+  if (!target) return
+  if (target instanceof HTMLDetailsElement) target.open = true
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  target.classList.remove('journey-focus')
+  void target.getBoundingClientRect()
+  target.classList.add('journey-focus')
+  window.setTimeout(() => target.classList.remove('journey-focus'), 1_400)
+  if (target instanceof HTMLDetailsElement) target.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true })
+}
 async function goToCreatorStage(stage: CreatorStage) {
   const destination = creatorDestination(stage, Boolean(project.value?.sections.length))
   if (!destination) return
@@ -2196,10 +2218,11 @@ onBeforeUnmount(() => {
           <p>Describe how each section should feel before choosing instruments. These are creative intentions, not generated performances.</p>
         </div>
         <section v-if="project.sections.length" class="demo-readiness" aria-labelledby="demo-readiness-title">
-          <div>
+          <div class="readiness-next-step">
             <span class="eyebrow">Hear–revise readiness</span>
             <h3 id="demo-readiness-title">{{ editableDemoReview.readySectionCount }} of {{ editableDemoReview.sectionCount }} sections ready</h3>
             <p>{{ editableDemoReview.nextAction }}</p>
+            <button v-if="editableDemoReview.nextStep" type="button" :disabled="busy" @click="goToNextReadinessStep">{{ editableDemoReview.nextStep.label }} →</button>
           </div>
           <ol>
             <li v-for="sectionReview in editableDemoReview.sections" :key="sectionReview.sectionId" :class="{ ready: sectionReview.ready }">
@@ -2229,7 +2252,7 @@ onBeforeUnmount(() => {
           </article>
         </div>
         <div v-if="project.sections.length" class="arrangement-sections">
-          <article v-for="section in project.sections" :key="`arrangement-${section.id}`" class="arrangement-card">
+          <article v-for="section in project.sections" :id="`arrangement-${section.id}`" :key="`arrangement-${section.id}`" class="arrangement-card">
             <div><strong>{{ section.title }}</strong><small>{{ label(section.kind) }} · {{ placementFor(section.id)?.durationBars ?? 0 }} bars</small></div>
             <label>Energy
               <select :value="arrangementEnergy(section.id)" :disabled="busy" @change="setSectionArrangement(section.id, ($event.target as HTMLSelectElement).value as SectionEnergy, arrangementDensity(section.id))">

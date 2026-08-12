@@ -15,6 +15,11 @@ export interface DemoReadiness {
   sectionCount: number
   complete: boolean
   nextAction: string
+  nextStep: {
+    sectionId: string
+    stage: 'shape' | 'harmony' | 'arrangement'
+    label: string
+  } | null
   sections: DemoSectionReadiness[]
 }
 
