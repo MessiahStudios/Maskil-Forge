@@ -102,6 +102,23 @@ public sealed class SetSectionPerformanceIntentCommand(
     }
 }
 
+public sealed class SetSectionStructuralFunctionCommand(SectionId sectionId, StructuralFunction structuralFunction) : IProjectCommand
+{
+    private StructuralFunction? _previous;
+
+    public void Execute(SongProject project)
+    {
+        _previous ??= project.FindSection(sectionId).StructuralFunction;
+        project.SetSectionStructuralFunction(sectionId, structuralFunction);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previous is null) throw new InvalidOperationException("Command has not been executed.");
+        project.SetSectionStructuralFunction(sectionId, _previous.Value);
+    }
+}
+
 public sealed class DuplicateSectionCommand(SectionId sourceSectionId) : IProjectCommand
 {
     private SongSection? _duplicate;
@@ -124,6 +141,7 @@ public sealed class DuplicateSectionCommand(SectionId sourceSectionId) : IProjec
             _durationBars = project.Timeline.FindSection(sourceSectionId).DurationBars;
             _duplicate = SongSection.Create(source.Kind, $"{source.Title} Copy");
             _duplicate.SetPerformanceIntent(source.Delivery, source.PerformanceNotes);
+            _duplicate.SetStructuralFunction(source.StructuralFunction);
             foreach (var line in source.LyricLines) _duplicate.AddLyricLine(line.Text);
 
             project.InsertSection(_insertIndex.Value, _duplicate, _durationBars.Value);

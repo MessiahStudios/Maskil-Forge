@@ -20,6 +20,18 @@ public enum SectionDelivery
     Whispered
 }
 
+public enum StructuralFunction
+{
+    Unspecified,
+    Setup,
+    Development,
+    Lift,
+    Payoff,
+    Contrast,
+    Transition,
+    Resolution
+}
+
 public sealed class SongSection
 {
     private readonly List<LyricLine> _lyricLines;
@@ -35,7 +47,8 @@ public sealed class SongSection
         IReadOnlyList<HarmonyChord>? harmony = null,
         IReadOnlyList<HarmonyCandidate>? harmonyCandidates = null,
         SectionDelivery delivery = SectionDelivery.Sung,
-        string performanceNotes = "")
+        string performanceNotes = "",
+        StructuralFunction structuralFunction = StructuralFunction.Unspecified)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A section ID is required.", nameof(id));
         Id = id;
@@ -52,6 +65,7 @@ public sealed class SongSection
         if (_harmonyCandidates.Select(item => item.Id).Distinct().Count() != _harmonyCandidates.Count)
             throw new ArgumentException("Harmony candidate IDs must be unique.", nameof(harmonyCandidates));
         SetPerformanceIntent(delivery, performanceNotes);
+        SetStructuralFunction(structuralFunction);
     }
 
     public SectionId Id { get; }
@@ -62,6 +76,7 @@ public sealed class SongSection
     public IReadOnlyList<HarmonyCandidate> HarmonyCandidates => _harmonyCandidates;
     public SectionDelivery Delivery { get; private set; }
     public string PerformanceNotes { get; private set; } = string.Empty;
+    public StructuralFunction StructuralFunction { get; private set; }
 
     public static SongSection Create(SectionKind kind, string? title = null) =>
         new(SectionId.New(), kind, title ?? DefaultTitle(kind));
@@ -81,6 +96,12 @@ public sealed class SongSection
             throw new ArgumentOutOfRangeException(nameof(performanceNotes), "Section performance notes cannot exceed 1,000 characters.");
         Delivery = delivery;
         PerformanceNotes = performanceNotes.Trim();
+    }
+
+    public void SetStructuralFunction(StructuralFunction structuralFunction)
+    {
+        if (!Enum.IsDefined(structuralFunction)) throw new ArgumentOutOfRangeException(nameof(structuralFunction));
+        StructuralFunction = structuralFunction;
     }
 
     public LyricLine AddLyricLine(string text = "")

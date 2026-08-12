@@ -426,6 +426,12 @@ Preserve each unknown heading together with its following lyric lines and origin
 
 **Deliverable:** a custom heading can move from visible parser uncertainty to an artist-approved section without retyping or losing its place in the song.
 
+### Milestone 5.25 — Artist-authored structural function
+
+Add a genre-neutral structural function to every section: unspecified, setup, development, lift, payoff, contrast, transition, or resolution. Function is explicit artist-authored Song Graph data, independent from the section’s conventional name and from genre metadata. Editing participates in undo/redo; schema-v20 projects migrate to unspecified without inference.
+
+**Deliverable:** a Chorus, Drop-like custom block, instrumental passage, or any supported section can describe the song-level job it performs without genre dictating its anatomy.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

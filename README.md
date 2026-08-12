@@ -113,6 +113,8 @@ Slice 5.23 makes unknown bracketed lyric-sheet headings visible structural bound
 
 Slice 5.24 preserves each unknown heading as an ordered lyric block and lets the artist explicitly map it to a supported section type during preview, without retyping or allowing the parser to guess.
 
+Slice 5.25 adds genre-neutral, artist-authored structural function to each section—setup, development, lift, payoff, contrast, transition, or resolution—while schema-v20 songs migrate to an uninferred “not decided” state.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.

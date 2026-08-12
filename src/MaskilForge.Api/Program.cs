@@ -467,6 +467,9 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             RequiredSectionId(request),
             request.SectionDelivery ?? throw new ArgumentException("Section delivery is required."),
             request.PerformanceNotes ?? string.Empty)); break;
+        case "set-section-structural-function": editor.Execute(new SetSectionStructuralFunctionCommand(
+            RequiredSectionId(request),
+            request.StructuralFunction ?? throw new ArgumentException("Structural function is required."))); break;
         case "move-section": editor.Execute(new MoveSectionCommand(RequiredSectionId(request), request.TargetIndex ?? throw new ArgumentException("Target index is required."))); break;
         case "set-section-duration": editor.Execute(new SetSectionDurationCommand(
             RequiredSectionId(request),
@@ -716,6 +719,7 @@ public sealed record ProjectCommandRequest(
     SectionId? SourceSectionId = null,
     SectionKind? Kind = null,
     SectionDelivery? SectionDelivery = null,
+    StructuralFunction? StructuralFunction = null,
     string? Title = null,
     string? PerformanceNotes = null,
     decimal? Tempo = null,
