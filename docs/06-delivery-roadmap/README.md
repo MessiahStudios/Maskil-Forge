@@ -370,6 +370,14 @@ Duplication does not copy detailed lyric timing, saved candidates, creative lock
 
 **Deliverable:** the complete ten-section form of “Essence of Shadows” can be represented honestly, including its spoken intro, restrained delivery changes, repeated choruses, final chorus, and whispered outro, before deeper musical realization begins.
 
+### Milestone 5.17 — Review-first lyric-sheet structuring
+
+Let an artist paste a familiar bracket-headed lyric sheet and preview a deterministic structural proposal. Recognized headings become editable section types and titles; explicit delivery words and heading directions remain visible for correction. Unassigned lines are reported instead of guessed, and the artist can reorder or remove proposed sections before acceptance.
+
+Creating the reviewed structure is one undoable command with stable identities across redo. The raw lyric sheet remains authoritative source material, and a changed draft invalidates a stale preview.
+
+**Deliverable:** “Essence of Shadows” can move from one pasted lyric sheet to ten reviewed, editable song sections without repetitive line-by-line setup or silent interpretation.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

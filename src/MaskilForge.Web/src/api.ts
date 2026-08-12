@@ -385,6 +385,7 @@ export interface ProjectCommand {
   targetIndex?: number
   durationBars?: number
   lyrics?: string[]
+  proposedSections?: ProposedSongSection[]
   lineId?: string
   wordId?: string
   syllableId?: string
@@ -417,6 +418,19 @@ export interface ProjectCommand {
   velocity?: number
   text?: string
   syllables?: string[]
+}
+
+export interface ProposedSongSection {
+  kind: SectionKind
+  title: string
+  delivery: SectionDelivery
+  performanceNotes: string
+  lyrics: string[]
+}
+
+export interface LyricSheetStructurePreview {
+  sections: ProposedSongSection[]
+  unassignedLines: string[]
 }
 
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
@@ -464,6 +478,9 @@ export const projectsApi = {
   permanentlyDelete: (id: string) => request<void>(`/api/trash/${id}`, { method: 'DELETE' }),
   create: (title: string) => request<ProjectResponse>('/api/projects', {
     method: 'POST', body: JSON.stringify({ title }),
+  }),
+  previewStructure: (text: string) => request<LyricSheetStructurePreview>('/api/structure-preview', {
+    method: 'POST', body: JSON.stringify({ text }),
   }),
   load: (id: string) => request<ProjectResponse>(`/api/projects/${id}`),
   save: (project: SongProject, baseProjectLastModifiedUtc: string) => request<ProjectResponse>(`/api/projects/${project.id}`, {

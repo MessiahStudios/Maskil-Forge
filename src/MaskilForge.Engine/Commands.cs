@@ -45,6 +45,39 @@ public sealed class RenameSectionCommand(SectionId sectionId, string title) : IP
     }
 }
 
+public sealed class ImportSongStructureCommand(IReadOnlyList<ProposedSongSection> proposals) : IProjectCommand
+{
+    private IReadOnlyList<SongSection>? _sections;
+    private int? _startIndex;
+
+    public void Execute(SongProject project)
+    {
+        ArgumentNullException.ThrowIfNull(proposals);
+        if (proposals.Count == 0) throw new ArgumentException("At least one proposed section is required.", nameof(proposals));
+        if (project.MusicalParts.Count > 0)
+            throw new InvalidOperationException("Import song structure before accepting musical parts so timeline timing stays explicit.");
+
+        _startIndex ??= project.Sections.Count;
+        _sections ??= proposals.Select(CreateSection).ToList();
+        for (var index = 0; index < _sections.Count; index++)
+            project.InsertSection(_startIndex.Value + index, _sections[index]);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_sections is null) throw new InvalidOperationException("Command has not been executed.");
+        foreach (var section in _sections.Reverse()) project.RemoveSection(section.Id);
+    }
+
+    private static SongSection CreateSection(ProposedSongSection proposal)
+    {
+        var section = SongSection.Create(proposal.Kind, proposal.Title);
+        section.SetPerformanceIntent(proposal.Delivery, proposal.PerformanceNotes);
+        foreach (var lyric in proposal.Lyrics.Where(line => !string.IsNullOrWhiteSpace(line))) section.AddLyricLine(lyric);
+        return section;
+    }
+}
+
 public sealed class SetSectionPerformanceIntentCommand(
     SectionId sectionId,
     SectionDelivery delivery,

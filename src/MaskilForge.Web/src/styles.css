@@ -147,6 +147,17 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .section-performance-intent { display: grid; grid-template-columns: minmax(8rem, .35fr) minmax(16rem, 1fr) auto; gap: .75rem; align-items: end; padding: .85rem 1rem; background: #111410; border: 1px solid #33392f; border-radius: .65rem; }
 .section-performance-intent label { display: grid; gap: .35rem; color: #c9c3b6; font-size: .76rem; }
 .section-performance-intent textarea { resize: vertical; min-height: 3.2rem; }
+.structure-preview { display: grid; gap: 1rem; margin-top: 1rem; padding: 1.2rem; background: #171a16; border: 1px solid #706344; border-radius: .75rem; }
+.structure-preview-heading { display: flex; justify-content: space-between; gap: 1rem; align-items: start; }
+.structure-preview-heading h2 { margin: .2rem 0; font: 1.65rem Georgia, serif; }
+.structure-preview-heading p { margin: .25rem 0 0; color: #bcb6aa; }
+.preview-warning { margin: 0; padding: .7rem .85rem; color: #e0c987; background: #292416; border-radius: .4rem; }
+.proposed-sections { display: grid; gap: .7rem; margin: 0; padding: 0; list-style: none; }
+.proposed-sections > li { display: grid; grid-template-columns: auto 1fr auto; gap: .8rem; align-items: start; padding: .85rem; background: #10130f; border: 1px solid #33392f; border-radius: .55rem; }
+.proposed-section-fields { display: grid; grid-template-columns: .7fr 1.2fr .8fr 2fr; gap: .6rem; }
+.proposed-section-fields label { display: grid; gap: .3rem; color: #c9c3b6; font-size: .76rem; }
+.proposed-section-fields small { grid-column: 1 / -1; overflow: hidden; color: #aeb4a6; text-overflow: ellipsis; white-space: nowrap; }
+.proposed-section-actions { display: flex; gap: .35rem; }
 .lyrics-editor { display: grid; gap: .65rem; }
 .lyrics-heading { display: flex; justify-content: space-between; align-items: center; color: #ccc5b7; font-size: .83rem; letter-spacing: .04em; }
 .harmony-editor { display: grid; gap: .65rem; padding: .85rem .9rem; background: #151813; border: 1px solid #3f453b; border-radius: .4rem; }
@@ -397,6 +408,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-actions { grid-column: 2; flex-wrap: wrap; }
   .section-performance-intent { grid-template-columns: 1fr 2fr; }
   .section-performance-intent button { grid-column: 2; justify-self: start; }
+  .proposed-section-fields { grid-template-columns: 1fr 1fr; }
   .settings-grid { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 620px) {
@@ -430,6 +442,11 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-actions button span { display: none; }
   .section-performance-intent { grid-template-columns: 1fr; }
   .section-performance-intent button { grid-column: 1; }
+  .structure-preview-heading { display: grid; }
+  .proposed-sections > li { grid-template-columns: auto 1fr; }
+  .proposed-section-fields { grid-template-columns: 1fr; }
+  .proposed-direction, .proposed-section-fields small { grid-column: 1; }
+  .proposed-section-actions { grid-column: 2; }
   .rhythm-candidate-heading { grid-template-columns: 1fr; }
   .candidate-capture { grid-template-columns: 1fr; }
   .lyric-line { grid-template-columns: 24px 1fr; }

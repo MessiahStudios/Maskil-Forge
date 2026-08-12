@@ -120,6 +120,9 @@ app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectWorkspa
     }
 });
 
+app.MapPost("/api/structure-preview", (StructurePreviewRequest request) =>
+    Results.Ok(LyricSheetStructureParser.Parse(request.Text)));
+
 app.MapGet("/api/projects/{id}", async (string id, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -453,6 +456,8 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             request.Denominator ?? throw new ArgumentException("Denominator is required.")); break;
         case "add-section": editor.Execute(new AddSectionCommand(
             request.Kind ?? throw new ArgumentException("Section kind is required."), request.Title)); break;
+        case "import-song-structure": editor.Execute(new ImportSongStructureCommand(
+            request.ProposedSections ?? throw new ArgumentException("Proposed sections are required."))); break;
         case "duplicate-section": editor.Execute(new DuplicateSectionCommand(RequiredSectionId(request))); break;
         case "rename-section": editor.Execute(new RenameSectionCommand(RequiredSectionId(request), Required(request.Title, "title"))); break;
         case "set-section-performance-intent": editor.Execute(new SetSectionPerformanceIntentCommand(
@@ -700,6 +705,7 @@ public sealed record MidiExportRequest(SongProject Project);
 public sealed record LyricTimelineRequest(
     SongProject Project,
     RhythmCandidateId? RhythmCandidateId = null);
+public sealed record StructurePreviewRequest(string Text);
 public sealed record ProjectCommandRequest(
     string Type,
     SongProject? Project = null,
@@ -714,6 +720,7 @@ public sealed record ProjectCommandRequest(
     int? TargetIndex = null,
     int? DurationBars = null,
     IReadOnlyList<string>? Lyrics = null,
+    IReadOnlyList<ProposedSongSection>? ProposedSections = null,
     LyricLineId? LineId = null,
     LyricWordId? WordId = null,
     SyllableId? SyllableId = null,
