@@ -31,3 +31,16 @@ export function adjacentSectionId(sections, currentSectionId, offset) {
   if (index < 0) return null
   return sections[index + offset]?.id ?? null
 }
+
+export function structuralRoleReview(project) {
+  const sections = project?.sections ?? []
+  const decidedCount = sections.filter(section => section.structuralFunction !== 'Unspecified').length
+  const nextSection = sections.find(section => section.structuralFunction === 'Unspecified')
+  return {
+    sectionCount: sections.length,
+    decidedCount,
+    complete: sections.length > 0 && decidedCount === sections.length,
+    nextSectionId: nextSection?.id ?? null,
+    nextSectionTitle: nextSection?.title ?? null,
+  }
+}

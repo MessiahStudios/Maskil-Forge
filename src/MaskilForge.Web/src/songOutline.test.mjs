@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { adjacentSectionId, songOutline } from './songOutline.js'
+import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 
 test('song outline keeps song order and summarizes navigation context', () => {
   const project = {
@@ -51,4 +51,27 @@ test('focused navigation stays within the known song form', () => {
   assert.equal(adjacentSectionId(sections, 'verse', 1), 'chorus')
   assert.equal(adjacentSectionId(sections, 'intro', -1), null)
   assert.equal(adjacentSectionId(sections, 'missing', 1), null)
+})
+
+test('structural role review stays optional and finds the first open decision', () => {
+  const project = { sections: [
+    { id: 'intro', title: 'Intro', structuralFunction: 'Setup' },
+    { id: 'verse', title: 'Verse 1', structuralFunction: 'Unspecified' },
+    { id: 'chorus', title: 'Chorus', structuralFunction: 'Payoff' },
+  ] }
+
+  assert.deepEqual(structuralRoleReview(project), {
+    sectionCount: 3,
+    decidedCount: 2,
+    complete: false,
+    nextSectionId: 'verse',
+    nextSectionTitle: 'Verse 1',
+  })
+  assert.deepEqual(structuralRoleReview(null), {
+    sectionCount: 0,
+    decidedCount: 0,
+    complete: false,
+    nextSectionId: null,
+    nextSectionTitle: null,
+  })
 })
