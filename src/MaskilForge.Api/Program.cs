@@ -29,6 +29,11 @@ app.Use(async (context, next) =>
             new ApiError(exception.Message, exception.Code, exception.RecoveryCopyFileName),
             context.RequestAborted);
     }
+    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+    {
+        context.Response.StatusCode = StatusCodes.Status422UnprocessableEntity;
+        await context.Response.WriteAsJsonAsync(new ApiError(exception.Message), context.RequestAborted);
+    }
 });
 app.UseCors();
 

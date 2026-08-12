@@ -21,16 +21,18 @@ public sealed class ProjectEditor(SongProject project)
 
     public bool Undo()
     {
-        if (!_undo.TryPop(out var command)) return false;
+        if (!_undo.TryPeek(out var command)) return false;
         command.Undo(Project);
+        _undo.Pop();
         _redo.Push(command);
         return true;
     }
 
     public bool Redo()
     {
-        if (!_redo.TryPop(out var command)) return false;
+        if (!_redo.TryPeek(out var command)) return false;
         command.Execute(Project);
+        _redo.Pop();
         _undo.Push(command);
         return true;
     }
