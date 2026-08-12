@@ -456,6 +456,12 @@ Show the selected structural role's genre-neutral meaning directly beneath the r
 
 **Deliverable:** artists can make informed role decisions with mouse, keyboard, or touch without relying on hidden hover text or genre conventions.
 
+### Milestone 5.30 — Identifiable recovery snapshots
+
+Summarize the actual protected contents on every recovery card: raw-draft state or structured section and lyric counts, plus the ordered song form when present. Keep recovery metadata compact and read-only so similarly titled drafts can be distinguished before restore without duplicating the editor.
+
+**Deliverable:** an artist with several protected drafts can identify the likely song by its contents and form instead of restoring snapshots one at a time.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

@@ -8,6 +8,57 @@ namespace MaskilForge.Engine.Tests;
 public sealed class SessionRecoveryTests
 {
     [Fact]
+    public async Task RecoverySummary_DescribesSnapshotContentsForIdentification()
+    {
+        var directory = NewDirectory();
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var project = SongProject.Create("Untitled Song");
+            var verse = project.AddSection(SectionKind.Verse);
+            verse.AddLyricLine("First line");
+            verse.AddLyricLine("Second line");
+            project.AddSection(SectionKind.Chorus, "Final Chorus").AddLyricLine("Payoff line");
+            await repository.SaveAsync(project, CancellationToken.None);
+            await repository.SaveRecoverySnapshotAsync(
+                new ProjectRecoverySnapshot(project, DateTimeOffset.UtcNow, project.LastModifiedUtc, "summary-session"),
+                CancellationToken.None);
+
+            var summary = Assert.Single(await repository.ListRecoverySnapshotsAsync(CancellationToken.None));
+
+            Assert.Equal(2, summary.SectionCount);
+            Assert.Equal(3, summary.LyricLineCount);
+            Assert.False(summary.HasRawLyrics);
+            Assert.Equal(["Verse", "Final Chorus"], summary.SectionTitles);
+        }
+        finally { DeleteDirectory(directory); }
+    }
+
+    [Fact]
+    public async Task RecoverySummary_CountsNonEmptyRawDraftLinesBeforeStructuring()
+    {
+        var directory = NewDirectory();
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var project = SongProject.Create("Untitled Song");
+            await repository.SaveAsync(project, CancellationToken.None);
+            var unsaved = Clone(project, project.Title, "First line\n\nSecond line\n  \nThird line");
+            await repository.SaveRecoverySnapshotAsync(
+                new ProjectRecoverySnapshot(unsaved, DateTimeOffset.UtcNow, project.LastModifiedUtc, "raw-summary-session"),
+                CancellationToken.None);
+
+            var summary = Assert.Single(await repository.ListRecoverySnapshotsAsync(CancellationToken.None));
+
+            Assert.Equal(0, summary.SectionCount);
+            Assert.Equal(3, summary.LyricLineCount);
+            Assert.True(summary.HasRawLyrics);
+            Assert.Empty(summary.SectionTitles);
+        }
+        finally { DeleteDirectory(directory); }
+    }
+
+    [Fact]
     public async Task RecoverySnapshot_PreservesUnsavedProjectWithoutReplacingSavedProject()
     {
         var directory = NewDirectory();

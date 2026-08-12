@@ -1677,7 +1677,11 @@ onBeforeUnmount(() => {
       <div v-else class="project-grid">
         <article v-for="summary in recoverySnapshots" :key="summary.id" class="project-card recovery-card">
           <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
-          <dl><div><dt>Protected</dt><dd>{{ formatModified(summary.capturedAtUtc) }}</dd></div></dl>
+          <dl>
+            <div><dt>Contents</dt><dd>{{ summary.sectionCount ? `${summary.sectionCount} structured section${summary.sectionCount === 1 ? '' : 's'} · ${summary.lyricLineCount} lyric line${summary.lyricLineCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? `Raw lyric draft · ${summary.lyricLineCount} non-empty line${summary.lyricLineCount === 1 ? '' : 's'}` : 'New idea' }}</dd></div>
+            <div v-if="summary.sectionTitles.length"><dt>Song form</dt><dd class="recovery-form">{{ summary.sectionTitles.join(' → ') }}</dd></div>
+            <div><dt>Protected</dt><dd>{{ formatModified(summary.capturedAtUtc) }}</dd></div>
+          </dl>
           <div class="card-actions"><button :disabled="busy" @click="restoreRecovery(summary.id)">Restore unsaved work</button><button class="danger" :disabled="busy" @click="discardRecovery(summary.id)">Discard snapshot</button></div>
         </article>
       </div>
