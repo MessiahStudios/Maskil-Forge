@@ -1,5 +1,6 @@
 export type SectionKind = 'Intro' | 'Verse' | 'Chorus' | 'PreChorus' | 'Bridge' | 'Outro'
 export type SectionDelivery = 'Sung' | 'TalkSung' | 'Spoken' | 'Whispered'
+export type StructuralFunction = 'Unspecified' | 'Setup' | 'Development' | 'Lift' | 'Payoff' | 'Contrast' | 'Transition' | 'Resolution'
 export type SongGenre = 'Unspecified' | 'Pop' | 'Rock' | 'Folk' | 'Country' | 'RAndB' | 'HipHop' | 'Electronic' | 'Cinematic' | 'Alternative' | 'Other'
 export type SyllableSource = 'Manual' | 'Analyzer' | 'Imported'
 export type PhraseSource = 'Default' | 'Manual' | 'Analyzer' | 'Imported'
@@ -305,6 +306,7 @@ export interface SongSection {
   harmonyCandidates: HarmonyCandidate[]
   delivery: SectionDelivery
   performanceNotes: string
+  structuralFunction: StructuralFunction
 }
 
 export interface SongProject {
@@ -379,6 +381,7 @@ export interface ProjectCommand {
   sourceSectionId?: string
   kind?: SectionKind
   sectionDelivery?: SectionDelivery
+  structuralFunction?: StructuralFunction
   title?: string
   performanceNotes?: string
   numerator?: number

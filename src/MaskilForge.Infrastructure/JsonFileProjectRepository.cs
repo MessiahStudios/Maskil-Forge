@@ -29,7 +29,8 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         new V16ToV17ProjectMigration(),
         new V17ToV18ProjectMigration(),
         new V18ToV19ProjectMigration(),
-        new V19ToV20ProjectMigration()
+        new V19ToV20ProjectMigration(),
+        new V20ToV21ProjectMigration()
     ]);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {

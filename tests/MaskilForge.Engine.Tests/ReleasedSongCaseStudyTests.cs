@@ -29,6 +29,23 @@ public sealed class ReleasedSongCaseStudyTests
     }
 
     [Fact]
+    public void StructuralFunction_IsArtistAuthoredAndUndoableWithoutChangingSectionKind()
+    {
+        var project = SongProject.Create("Essence of Shadows");
+        var chorus = project.AddSection(SectionKind.Chorus);
+        var editor = new ProjectEditor(project);
+
+        editor.Execute(new SetSectionStructuralFunctionCommand(chorus.Id, StructuralFunction.Payoff));
+
+        Assert.Equal(SectionKind.Chorus, chorus.Kind);
+        Assert.Equal(StructuralFunction.Payoff, chorus.StructuralFunction);
+        editor.Undo();
+        Assert.Equal(StructuralFunction.Unspecified, chorus.StructuralFunction);
+        editor.Redo();
+        Assert.Equal(StructuralFunction.Payoff, chorus.StructuralFunction);
+    }
+
+    [Fact]
     public void DuplicateSection_CopiesReusableIntentWithFreshIdentitiesAndStableUndoRedo()
     {
         var project = SongProject.Create("Essence of Shadows");
@@ -164,6 +181,31 @@ public sealed class ReleasedSongCaseStudyTests
             var migrated = Assert.Single(loaded.Sections);
             Assert.Equal(SectionDelivery.Sung, migrated.Delivery);
             Assert.Empty(migrated.PerformanceNotes);
+        }
+        finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+    }
+
+    [Fact]
+    public async Task SchemaV20_MigratesStructuralFunctionWithoutGenreOrSectionGuessing()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        var project = SongProject.Create("Migration");
+        project.AddSection(SectionKind.Chorus);
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var repository = new JsonFileProjectRepository(directory);
+            await repository.SaveAsync(project, CancellationToken.None);
+            var path = Path.Combine(directory, $"{project.Id}.json");
+            var json = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(path))!.AsObject();
+            json["schemaVersion"] = 20;
+            json["sections"]![0]!.AsObject().Remove("structuralFunction");
+            await File.WriteAllTextAsync(path, json.ToJsonString());
+
+            var loaded = await repository.LoadAsync(project.Id);
+
+            Assert.Equal(SchemaVersion.Current, loaded!.SchemaVersion);
+            Assert.Equal(StructuralFunction.Unspecified, Assert.Single(loaded.Sections).StructuralFunction);
         }
         finally { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
     }

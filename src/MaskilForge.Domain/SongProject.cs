@@ -212,6 +212,12 @@ public sealed class SongProject
         Touch();
     }
 
+    public void SetSectionStructuralFunction(SectionId sectionId, StructuralFunction structuralFunction)
+    {
+        FindSection(sectionId).SetStructuralFunction(structuralFunction);
+        Touch();
+    }
+
     public SectionArrangement SetSectionArrangement(SectionId sectionId, SectionEnergy energy, SectionDensity density)
     {
         FindSection(sectionId);

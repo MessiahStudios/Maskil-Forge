@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import { demoReadiness } from './demoReadiness.js'
@@ -52,6 +52,16 @@ const scaleModes: ScaleMode[] = ['Major', 'NaturalMinor']
 const chordQualities: ChordQuality[] = ['Major', 'Minor', 'Diminished', 'Augmented', 'DominantSeventh']
 const sectionEnergies: SectionEnergy[] = ['Intimate', 'Gentle', 'Building', 'Strong', 'Peak']
 const sectionDensities: SectionDensity[] = ['Sparse', 'Light', 'Balanced', 'Full', 'Dense']
+const structuralFunctions: Array<{ id: StructuralFunction; label: string; help: string }> = [
+  { id: 'Unspecified', label: 'Not decided', help: 'Leave the section’s larger song job open.' },
+  { id: 'Setup', label: 'Setup', help: 'Establish the world, premise, groove, or musical language.' },
+  { id: 'Development', label: 'Development', help: 'Advance the story, idea, harmony, or musical material.' },
+  { id: 'Lift', label: 'Lift', help: 'Increase anticipation or momentum toward a payoff.' },
+  { id: 'Payoff', label: 'Payoff', help: 'Deliver a primary lyrical, melodic, rhythmic, or energy peak.' },
+  { id: 'Contrast', label: 'Contrast', help: 'Create meaningful difference from surrounding material.' },
+  { id: 'Transition', label: 'Transition', help: 'Move the listener between larger song states.' },
+  { id: 'Resolution', label: 'Resolution', help: 'Settle, release, conclude, or reframe the song.' },
+]
 const arrangementRoles: Array<{ id: ArrangementRole; label: string; help: string }> = [
   { id: 'Foundation', label: 'Foundation', help: 'The grounding layer that makes the section feel settled.' },
   { id: 'Pulse', label: 'Pulse', help: 'A repeating motion that helps the section move.' },
@@ -461,6 +471,15 @@ function setSectionPerformanceIntent(sectionId: string, event: Event) {
     'Vocal and performance intent saved.',
     'section.performance-intent',
     { sectionId, delivery })
+}
+function setSectionStructuralFunction(sectionId: string, structuralFunction: StructuralFunction) {
+  if (!project.value) return
+  const choice = structuralFunctions.find(item => item.id === structuralFunction)
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-section-structural-function', sectionId, structuralFunction }),
+    structuralFunction === 'Unspecified' ? 'Structural function left open.' : `${choice?.label ?? structuralFunction} saved as this section’s song-level function.`,
+    'section.structural-function',
+    { sectionId, structuralFunction })
 }
 function editLyricLine(sectionId: string, lineId: string, text: string) {
   if (!project.value) return
@@ -1934,6 +1953,11 @@ onBeforeUnmount(() => {
               </div>
             </div>
             <form class="section-performance-intent" @submit.prevent="setSectionPerformanceIntent(section.id, $event)">
+              <label>Song-level function
+                <select :value="section.structuralFunction" :title="structuralFunctions.find(item => item.id === section.structuralFunction)?.help" :disabled="busy" @change="setSectionStructuralFunction(section.id, ($event.target as HTMLSelectElement).value as StructuralFunction)">
+                  <option v-for="item in structuralFunctions" :key="item.id" :value="item.id">{{ item.label }}</option>
+                </select>
+              </label>
               <label>Delivery
                 <select name="delivery" :value="section.delivery" :disabled="busy">
                   <option v-for="delivery in (['Sung','TalkSung','Spoken','Whispered'] as SectionDelivery[])" :key="delivery" :value="delivery">{{ deliveryLabel(delivery) }}</option>

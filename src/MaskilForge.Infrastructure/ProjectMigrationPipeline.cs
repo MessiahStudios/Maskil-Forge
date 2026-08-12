@@ -529,3 +529,18 @@ internal sealed class V19ToV20ProjectMigration : IProjectMigration
         return project;
     }
 }
+
+internal sealed class V20ToV21ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 20;
+    public int ToVersion => 21;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["sections"] is JsonArray sections)
+            foreach (var section in sections.OfType<JsonObject>())
+                section["structuralFunction"] = nameof(StructuralFunction.Unspecified);
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}
