@@ -15,6 +15,15 @@ label { display: grid; gap: .4rem; color: #c8c2b5; font-size: .83rem; letter-spa
 a { color: #e0be78; }
 main { width: min(1180px, calc(100% - 2rem)); margin: 0 auto; padding: 3rem 0 5rem; }
 main.has-project { padding-top: 1rem; }
+.workspace-connection { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .7rem; align-items: center; padding: .65rem .8rem; color: #c9c3b7; background: #171a16; border: 1px solid #3f463b; border-radius: .5rem; text-align: left; }
+.workspace-connection > div { min-width: 0; display: grid; gap: .12rem; }
+.workspace-connection strong { color: #e8e1d3; font-size: .78rem; }
+.workspace-connection small { color: #969c8f; font-size: .7rem; line-height: 1.4; }
+.workspace-connection button { min-height: 34px; padding: .35rem .65rem; font-size: .72rem; }
+.connection-mark { width: .65rem; height: .65rem; background: #b99b5e; border: 2px solid #312b1f; border-radius: 50%; box-shadow: 0 0 0 2px #75633f; }
+.workspace-connection.ready .connection-mark { background: #8eb58d; border-color: #203120; box-shadow: 0 0 0 2px #486248; }
+.workspace-connection.unavailable { border-color: #795044; background: #211916; }
+.workspace-connection.unavailable .connection-mark { background: #d9806f; border-color: #3c1f1a; box-shadow: 0 0 0 2px #7d473e; }
 .eyebrow { margin: 0; color: #d8ba78; text-transform: uppercase; letter-spacing: .18em; font-size: .7rem; }
 .startup { min-height: 70vh; display: grid; place-content: center; gap: .7rem; text-align: center; }
 .startup > p:last-child { margin: 0; color: #c8c1b3; }
@@ -483,6 +492,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 }
 @media (max-width: 620px) {
   main { width: min(100% - 1rem, 1180px); }
+  .workspace-connection { grid-template-columns: auto minmax(0, 1fr); }
+  .workspace-connection button { grid-column: 1 / -1; width: 100%; }
   .project-bar { grid-template-columns: 1fr auto; }
   .wordmark { font-size: 1.2rem; }
   .editor-state { justify-self: end; }

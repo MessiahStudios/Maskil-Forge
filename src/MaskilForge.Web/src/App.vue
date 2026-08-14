@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type PortableProjectImportPreview, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type PortableProjectImportPreview, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -21,6 +21,9 @@ const projects = ref<ProjectSummary[]>([])
 const recoverySnapshots = ref<RecoverySummary[]>([])
 const trashedProjects = ref<TrashedProjectSummary[]>([])
 const libraryBusy = ref(true)
+const workspaceConnection = ref<'checking' | 'ready' | 'unavailable'>('checking')
+const workspaceHealth = ref<WorkspaceHealth | null>(null)
+const workspaceCheckBusy = ref(false)
 const status = ref('Begin a new song or open an existing project.')
 const busy = ref(false)
 const structurePreview = ref<LyricSheetStructurePreview | null>(null)
@@ -46,6 +49,16 @@ const recoveryBlocked = ref(false)
 let recoveryTimer: ReturnType<typeof setTimeout> | undefined
 const project = computed(() => response.value?.project ?? null)
 const structureLocked = computed(() => Boolean(project.value?.musicalParts.length))
+const workspaceConnectionTitle = computed(() => workspaceConnection.value === 'ready'
+  ? 'Local workspace connected'
+  : workspaceConnection.value === 'unavailable'
+    ? 'Local workspace unavailable'
+    : 'Checking local workspace')
+const workspaceConnectionDetail = computed(() => workspaceConnection.value === 'ready'
+  ? `Project schema ${workspaceHealth.value?.schemaVersion ?? '—'} · Songs are stored by this Maskil Forge host. Portable export moves them between devices.`
+  : workspaceConnection.value === 'unavailable'
+    ? 'This web shell cannot open or save songs until its project service reconnects. Offline editing is not enabled yet.'
+    : 'Confirming that the project service and local song storage are available.')
 function projectSnapshot(value: SongProject) {
   const { lastModifiedUtc: _revision, ...creativeState } = value
   return JSON.stringify(creativeState)
@@ -478,6 +491,30 @@ async function refreshLibrary() {
   catch (error) { status.value = error instanceof Error ? error.message : 'Could not load the song library.' }
   finally { libraryBusy.value = false }
 }
+async function refreshWorkspaceHealth() {
+  if (workspaceCheckBusy.value) return
+  workspaceCheckBusy.value = true
+  const previousConnection = workspaceConnection.value
+  try {
+    workspaceHealth.value = await projectsApi.health()
+    workspaceConnection.value = 'ready'
+    if (previousConnection === 'unavailable') {
+      activityLog.write('success', 'delivery.workspace', 'Local project service reconnected.', {
+        schemaVersion: workspaceHealth.value.schemaVersion,
+        webClientHosted: workspaceHealth.value.webClientHosted,
+      })
+    }
+  } catch {
+    workspaceHealth.value = null
+    workspaceConnection.value = 'unavailable'
+    if (previousConnection !== 'unavailable') {
+      activityLog.write('warning', 'delivery.workspace', 'Local project service is unavailable. Offline editing remains disabled.')
+    }
+  } finally {
+    workspaceCheckBusy.value = false
+  }
+}
+function handleConnectivityChange() { void refreshWorkspaceHealth() }
 function formatModified(value: string) { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
 async function addSection(kind: SectionKind) {
   if (!project.value) return
@@ -1830,7 +1867,9 @@ watch(
 
 onMounted(async () => {
   window.addEventListener('beforeunload', warnBeforeClose)
-  await Promise.all([refreshLibrary(), refreshRecovery()])
+  window.addEventListener('online', handleConnectivityChange)
+  window.addEventListener('offline', handleConnectivityChange)
+  await Promise.all([refreshWorkspaceHealth(), refreshLibrary(), refreshRecovery()])
   if (recoverySnapshots.value.length > 0) {
     view.value = 'recovery'
     status.value = `${recoverySnapshots.value.length} protected editor snapshot${recoverySnapshots.value.length === 1 ? '' : 's'} found.`
@@ -1841,6 +1880,8 @@ onBeforeUnmount(() => {
   stopPartAudition()
   stopTransport()
   window.removeEventListener('beforeunload', warnBeforeClose)
+  window.removeEventListener('online', handleConnectivityChange)
+  window.removeEventListener('offline', handleConnectivityChange)
   if (recoveryTimer) clearTimeout(recoveryTimer)
 })
 </script>
@@ -1848,6 +1889,11 @@ onBeforeUnmount(() => {
 <template>
   <main :class="{ 'has-project': view !== 'home' }">
     <input ref="portableImportInput" hidden type="file" accept=".json,.maskil.json,application/json,application/vnd.maskil-forge.project+json" @change="selectPortableImport" />
+    <aside class="workspace-connection" :class="workspaceConnection" role="status" aria-live="polite">
+      <span class="connection-mark" aria-hidden="true"></span>
+      <div><strong>{{ workspaceConnectionTitle }}</strong><small>{{ workspaceConnectionDetail }}</small></div>
+      <button v-if="workspaceConnection === 'unavailable'" class="quiet" :disabled="workspaceCheckBusy" @click="refreshWorkspaceHealth">{{ workspaceCheckBusy ? 'Checking…' : 'Reconnect' }}</button>
+    </aside>
     <header v-if="view === 'home'" class="welcome library-home">
       <p class="eyebrow">Your songwriting workspace</p>
       <h1>Maskil Forge</h1>
