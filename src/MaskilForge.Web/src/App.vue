@@ -14,12 +14,15 @@ import { PartAudition } from './partAudition'
 import { assemblePartNotes, formatTransportPosition, musicalPositionFromTicks, scheduleAbsoluteNotes, scheduleAssembledNotes, tickFromSeconds } from './partAuditionModel.js'
 import { PlaybackTransport } from './playbackTransport'
 import { activateApplicationShellUpdate, isStandaloneApplication, registerApplicationShell, type InstallPromptEvent } from './pwa'
+import { discardBrowserRecovery, listBrowserRecoveries, loadBrowserRecovery, protectBrowserRecovery, type BrowserRecoveryRecord } from './browserRecovery'
+import { browserRecoveryNotice, summarizeBrowserRecovery } from './browserRecoveryModel.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
 const view = ref<'home' | 'recovery' | 'trash' | 'capture' | 'structure'>('home')
 const projects = ref<ProjectSummary[]>([])
 const recoverySnapshots = ref<RecoverySummary[]>([])
+const browserRecoveries = ref<BrowserRecoveryRecord[]>([])
 const trashedProjects = ref<TrashedProjectSummary[]>([])
 const libraryBusy = ref(true)
 const workspaceConnection = ref<'checking' | 'ready' | 'unavailable'>('checking')
@@ -50,6 +53,8 @@ const portableImportPreview = ref<PortableProjectImportPreview | null>(null)
 const sessionId = crypto.randomUUID()
 const persistedRevision = ref('')
 const recoveryBlocked = ref(false)
+const browserRecoverySyncBusy = ref(false)
+const browserRecoveryNeedsReview = ref(false)
 let recoveryTimer: ReturnType<typeof setTimeout> | undefined
 const project = computed(() => response.value?.project ?? null)
 const structureLocked = computed(() => Boolean(project.value?.musicalParts.length))
@@ -76,6 +81,12 @@ function projectSnapshot(value: SongProject) {
 }
 const serializedProject = computed(() => project.value ? projectSnapshot(project.value) : '')
 const isDirty = computed(() => Boolean(project.value) && serializedProject.value !== savedSnapshot.value)
+const browserRecoverySummaries = computed(() => browserRecoveries.value.map(summarizeBrowserRecovery))
+const recoveryCount = computed(() => recoverySnapshots.value.length + browserRecoveries.value.length)
+const browserRecoveryDetail = computed(() => browserRecoveries.value.length && browserRecoveryNeedsReview.value
+  ? 'Browser-protected work needs review before it can return to the local project service.'
+  : browserRecoveryNotice(browserRecoveries.value.length, workspaceConnection.value === 'ready'))
+const currentProjectBrowserProtected = computed(() => Boolean(project.value && browserRecoveries.value.some(snapshot => snapshot.projectId === project.value?.id)))
 const editorState = computed(() => isDirty.value ? 'Unsaved changes' : cleanLabel.value === 'saved' ? 'Saved' : 'No changes')
 const meters = ['2/4', '3/4', '4/4', '5/4', '6/8', '7/8', '9/8', '12/8']
 const genres: SongGenre[] = ['Unspecified', 'Pop', 'Rock', 'Folk', 'Country', 'RAndB', 'HipHop', 'Electronic', 'Cinematic', 'Alternative', 'Other']
@@ -315,8 +326,14 @@ function clearPendingPortableImport() {
 }
 async function saveProject() {
   if (!project.value || !persistedRevision.value) return
+  const savingProjectId = project.value.id
   const succeeded = await run(() => projectsApi.save(project.value!, persistedRevision.value), 'Song saved.', 'project.save', { projectId: project.value.id, sectionCount: project.value.sections.length }, true)
-  if (succeeded) await refreshRecovery()
+  if (succeeded) {
+    await discardBrowserRecovery(savingProjectId).catch(error => {
+      activityLog.write('warning', 'recovery.browser', error instanceof Error ? error.message : 'A completed browser recovery snapshot could not be cleared.', { projectId: savingProjectId })
+    })
+    await Promise.all([refreshRecovery(), refreshBrowserRecovery()])
+  }
   return succeeded
 }
 async function saveDraft() {
@@ -334,6 +351,14 @@ async function beginStructuring() {
 function returnToDraft() { view.value = 'capture'; activeCreatorStage.value = 'words'; status.value = 'Raw lyric draft.'; lyricTimeline.value = null }
 function requestHome() { if (isDirty.value) return openConfirmation('home'); return goHome() }
 async function goHome() { confirmationOpen.value = false; view.value = 'home'; await Promise.all([refreshLibrary(), refreshRecovery()]) }
+function leaveProtectedOfflineEditor() {
+  response.value = null
+  savedSnapshot.value = ''
+  persistedRevision.value = ''
+  confirmationOpen.value = false
+  view.value = 'home'
+  status.value = browserRecoveryDetail.value
+}
 function openSummary(id: string) { projectId.value = id; return requestLoad() }
 function closeCardMenu(event?: Event) {
   const trigger = event?.currentTarget as HTMLElement | undefined
@@ -374,6 +399,7 @@ async function confirmDelete() {
   busy.value = true
   try {
     await projectsApi.delete(target.id)
+    await discardBrowserRecovery(target.id).catch(() => undefined)
     activityLog.write('success', 'project.delete', 'Song moved to Trash.', { projectId: target.id, title: target.title })
     deleteConfirmationOpen.value = false
     deleteTarget.value = null
@@ -401,9 +427,39 @@ async function refreshRecovery() {
   try { recoverySnapshots.value = await projectsApi.listRecovery() }
   catch (error) { status.value = error instanceof Error ? error.message : 'Could not check recovery snapshots.' }
 }
+async function refreshBrowserRecovery() {
+  try {
+    browserRecoveries.value = await listBrowserRecoveries()
+  } catch (error) {
+    activityLog.write('error', 'recovery.browser', error instanceof Error ? error.message : 'Browser recovery storage could not be read.')
+  }
+}
+async function syncBrowserRecovery() {
+  if (browserRecoverySyncBusy.value || workspaceConnection.value !== 'ready' || browserRecoveries.value.length === 0) return
+  browserRecoverySyncBusy.value = true
+  let synchronized = 0
+  let failed = 0
+  for (const snapshot of [...browserRecoveries.value]) {
+    try {
+      await projectsApi.saveRecovery(snapshot.project, snapshot.baseProjectLastModifiedUtc, snapshot.sessionId)
+      await discardBrowserRecovery(snapshot.projectId)
+      synchronized++
+      activityLog.write('success', 'recovery.browser-sync', 'Browser-protected work returned to the local project service.', { projectId: snapshot.projectId })
+    } catch (error) {
+      failed++
+      activityLog.write('warning', 'recovery.browser-sync', error instanceof Error ? error.message : 'Browser-protected work could not return to the local project service.', { projectId: snapshot.projectId })
+    }
+  }
+  await refreshBrowserRecovery()
+  browserRecoveryNeedsReview.value = failed > 0 && browserRecoveries.value.length > 0
+  if (synchronized) await refreshRecovery()
+  if (browserRecoveries.value.length) status.value = browserRecoveryDetail.value
+  else if (synchronized) status.value = 'Browser-protected work returned to Recovery. Review it before saving.'
+  browserRecoverySyncBusy.value = false
+}
 async function openRecovery() {
   view.value = 'recovery'
-  await refreshRecovery()
+  await Promise.all([refreshRecovery(), refreshBrowserRecovery()])
 }
 async function restoreRecovery(id: string) {
   busy.value = true
@@ -424,6 +480,33 @@ async function restoreRecovery(id: string) {
     void refreshLyricTimeline()
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'The recovery snapshot could not be restored.'
+  } finally { busy.value = false }
+}
+async function restoreBrowserProtectedWork(id: string) {
+  if (workspaceConnection.value !== 'ready') {
+    status.value = 'Reconnect the local project service before restoring browser-protected work.'
+    return
+  }
+  busy.value = true
+  try {
+    const recovered = await loadBrowserRecovery(id)
+    if (!recovered) throw new Error('That browser recovery snapshot is no longer available.')
+    response.value = { project: recovered.project, canUndo: false, canRedo: false }
+    projectId.value = recovered.projectId
+    localStorage.setItem('maskilForge.projectId', recovered.projectId)
+    persistedRevision.value = recovered.baseProjectLastModifiedUtc
+    recoveryBlocked.value = false
+    savedSnapshot.value = ''
+    timelineOverlayCandidateId.value = ''
+    selectedTimelineMarkerKey.value = ''
+    view.value = recovered.project.sections.length ? 'structure' : 'capture'
+    activeCreatorStage.value = recovered.project.sections.length ? 'shape' : 'idea'
+    status.value = 'Browser-protected work restored for review. Saving will proceed only if the saved song revision still matches.'
+    activityLog.write('success', 'recovery.browser-restore', 'Browser-protected work restored for review.', { projectId: id })
+    void refreshLyricTimeline()
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'Browser-protected work could not be restored.'
+    activityLog.write('error', 'recovery.browser-restore', status.value, { projectId: id })
   } finally { busy.value = false }
 }
 async function requestRecoveryDiscard(summary: RecoverySummary, event: Event) {
@@ -475,6 +558,7 @@ async function confirmPermanentDelete() {
   busy.value = true
   try {
     await projectsApi.permanentlyDelete(target.id)
+    await discardBrowserRecovery(target.id).catch(() => undefined)
     permanentDeleteTarget.value = null
     status.value = `“${target.title}” was permanently deleted.`
     activityLog.write('success', 'project.permanent-delete', 'Song permanently deleted.', { projectId: target.id, title: target.title })
@@ -515,6 +599,8 @@ async function refreshWorkspaceHealth() {
         webClientHosted: workspaceHealth.value.webClientHosted,
       })
     }
+    await refreshBrowserRecovery()
+    await syncBrowserRecovery()
   } catch {
     workspaceHealth.value = null
     workspaceConnection.value = 'unavailable'
@@ -1870,16 +1956,40 @@ function warnBeforeClose(event: BeforeUnloadEvent) { if (isDirty.value) event.pr
 
 async function saveRecoverySnapshot() {
   if (!project.value || !isDirty.value || !persistedRevision.value || busy.value || recoveryBlocked.value) return
+  const snapshot: BrowserRecoveryRecord = {
+    projectId: project.value.id,
+    project: JSON.parse(JSON.stringify(project.value)) as SongProject,
+    baseProjectLastModifiedUtc: persistedRevision.value,
+    sessionId,
+    capturedAtUtc: new Date().toISOString(),
+  }
+  let browserProtected = false
   try {
-    await projectsApi.saveRecovery(project.value, persistedRevision.value, sessionId)
+    await protectBrowserRecovery(snapshot)
+    browserProtected = true
+    browserRecoveryNeedsReview.value = false
+    await refreshBrowserRecovery()
+  } catch (error) {
+    activityLog.write('error', 'recovery.browser', error instanceof Error ? error.message : 'Unsaved work could not be protected in browser storage.', { projectId: snapshot.projectId })
+  }
+  try {
+    await projectsApi.saveRecovery(snapshot.project, snapshot.baseProjectLastModifiedUtc, snapshot.sessionId)
+    if (browserProtected) {
+      await discardBrowserRecovery(snapshot.projectId)
+      await refreshBrowserRecovery()
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unsaved recovery snapshot failed.'
-    status.value = message
+    status.value = browserProtected
+      ? 'The local project service is unavailable. Unsaved work is protected in this browser until it reconnects.'
+      : message
     if (message.includes('another session') || message.includes('Reload it before saving')) {
       recoveryBlocked.value = true
-      activityLog.write('error', 'recovery.snapshot', `${message} Automatic recovery paused until you reload.`, { projectId: project.value.id })
+      activityLog.write('error', 'recovery.snapshot', `${message} Automatic host recovery paused; the browser copy remains protected.`, { projectId: snapshot.projectId, browserProtected })
     } else {
-      activityLog.write('error', 'recovery.snapshot', message, { projectId: project.value.id })
+      workspaceConnection.value = 'unavailable'
+      workspaceHealth.value = null
+      activityLog.write(browserProtected ? 'warning' : 'error', 'recovery.snapshot', browserProtected ? `${message} Unsaved work remains protected in this browser.` : message, { projectId: snapshot.projectId, browserProtected })
     }
   }
 }
@@ -1920,10 +2030,11 @@ onMounted(async () => {
   } catch (error) {
     activityLog.write('warning', 'delivery.shell', error instanceof Error ? error.message : 'Application shell registration failed.')
   }
+  await refreshBrowserRecovery()
   await Promise.all([refreshWorkspaceHealth(), refreshLibrary(), refreshRecovery()])
-  if (recoverySnapshots.value.length > 0) {
+  if (workspaceConnection.value === 'ready' && recoveryCount.value > 0) {
     view.value = 'recovery'
-    status.value = `${recoverySnapshots.value.length} protected editor snapshot${recoverySnapshots.value.length === 1 ? '' : 's'} found.`
+    status.value = `${recoveryCount.value} protected editor snapshot${recoveryCount.value === 1 ? '' : 's'} found.`
   }
 })
 onBeforeUnmount(() => {
@@ -1944,7 +2055,7 @@ onBeforeUnmount(() => {
     <input ref="portableImportInput" hidden type="file" accept=".json,.maskil.json,application/json,application/vnd.maskil-forge.project+json" @change="selectPortableImport" />
     <aside class="workspace-connection" :class="workspaceConnection" role="status" aria-live="polite">
       <span class="connection-mark" aria-hidden="true"></span>
-      <div><strong>{{ workspaceConnectionTitle }}</strong><small>{{ workspaceConnectionDetail }}</small><small v-if="applicationShellDetail" class="shell-note">{{ applicationShellDetail }}</small></div>
+      <div><strong>{{ workspaceConnectionTitle }}</strong><small>{{ workspaceConnectionDetail }}</small><small v-if="applicationShellDetail" class="shell-note">{{ applicationShellDetail }}</small><small v-if="browserRecoveryDetail" class="browser-recovery-note">{{ browserRecoveryDetail }}</small></div>
       <div v-if="installPrompt || shellUpdateRegistration || workspaceConnection === 'unavailable'" class="workspace-delivery-actions">
         <button v-if="installPrompt" class="quiet" @click="installApplication">Install app</button>
         <button v-if="shellUpdateRegistration" class="quiet" @click="applyApplicationShellUpdate">Update app</button>
@@ -1955,7 +2066,7 @@ onBeforeUnmount(() => {
       <p class="eyebrow">Your songwriting workspace</p>
       <h1>Maskil Forge</h1>
       <p class="tagline">Understand the words. Forge the music.</p>
-      <div v-if="workspaceConnection !== 'unavailable'" class="welcome-actions">
+      <div v-if="workspaceConnection === 'ready'" class="welcome-actions">
         <button @click="requestNewProject">Begin a new song</button>
         <button class="secondary" :disabled="busy" @click="requestPortableImport">Import project file</button>
         <small class="portable-import-help">Open an artist-owned <code>.maskil.json</code> project from another Maskil Forge installation.</small>
@@ -1965,10 +2076,20 @@ onBeforeUnmount(() => {
           <button class="secondary" :disabled="busy" @click="requestLoad">Open song</button>
         </details>
       </div>
-      <p v-if="workspaceConnection === 'unavailable'" class="offline-home-note">Your songs remain on this device. Reconnect the local project service above to create, open, import, or save work.</p>
+      <p v-if="workspaceConnection === 'unavailable'" class="offline-home-note">Your saved songs remain with the local project service. Reconnect it above to create, open, import, edit, or save work.</p>
+      <p v-else-if="workspaceConnection === 'checking'" class="offline-home-note checking-home-note">Checking the local project service before opening project actions…</p>
       <p v-else class="status home-status" role="status">{{ status }}</p>
-      <section v-if="workspaceConnection !== 'unavailable'" class="project-library" aria-labelledby="library-title">
-        <div class="library-heading"><div><p class="eyebrow">Song library</p><h2 id="library-title">Continue your work</h2></div><div class="library-actions"><button v-if="recoverySnapshots.length" class="recovery-button" @click="openRecovery">Recovery ({{ recoverySnapshots.length }})</button><button class="quiet" @click="openTrash">Trash</button><button class="quiet" :disabled="libraryBusy" @click="refreshLibrary">Refresh</button></div></div>
+      <section v-if="workspaceConnection === 'unavailable' && browserRecoverySummaries.length" class="browser-recovery-vault" aria-labelledby="browser-recovery-title">
+        <div><p class="eyebrow">Protected on this device</p><h2 id="browser-recovery-title">Unsaved work is waiting safely</h2><p>These browser snapshots cannot be edited while the project service is unavailable. Reconnect it to restore them into the normal review-and-save flow.</p></div>
+        <div class="project-grid">
+          <article v-for="summary in browserRecoverySummaries" :key="summary.id" class="project-card recovery-card browser-recovery-card">
+            <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
+            <dl><div><dt>Contents</dt><dd>{{ summary.sectionCount ? `${summary.sectionCount} structured section${summary.sectionCount === 1 ? '' : 's'} · ${summary.lyricLineCount} lyric line${summary.lyricLineCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? `Raw lyric draft · ${summary.lyricLineCount} non-empty line${summary.lyricLineCount === 1 ? '' : 's'}` : 'New idea' }}</dd></div><div><dt>Protected</dt><dd>{{ formatModified(summary.capturedAtUtc) }}</dd></div></dl>
+          </article>
+        </div>
+      </section>
+      <section v-if="workspaceConnection === 'ready'" class="project-library" aria-labelledby="library-title">
+        <div class="library-heading"><div><p class="eyebrow">Song library</p><h2 id="library-title">Continue your work</h2></div><div class="library-actions"><button v-if="recoveryCount" class="recovery-button" @click="openRecovery">Recovery ({{ recoveryCount }})</button><button class="quiet" @click="openTrash">Trash</button><button class="quiet" :disabled="libraryBusy" @click="refreshLibrary">Refresh</button></div></div>
         <p v-if="libraryBusy" class="library-message">Finding your saved songs…</p>
         <p v-else-if="projects.length === 0" class="library-message">No saved songs yet. Begin with any idea, even if it has no structure.</p>
         <div v-else class="project-grid">
@@ -1985,8 +2106,18 @@ onBeforeUnmount(() => {
       <button class="quiet" @click="goHome">← Song library</button>
       <div class="trash-heading"><p class="eyebrow">Protected work</p><h1 id="recovery-title">Recover unsaved songs</h1><p>Maskil Forge found editor snapshots newer than an explicit save. Restore one to inspect it, or discard it without changing the saved song.</p></div>
       <p class="status" role="status">{{ status }}</p>
-      <p v-if="recoverySnapshots.length === 0" class="library-message">No unsaved recovery snapshots remain.</p>
-      <div v-else class="project-grid">
+      <section v-if="browserRecoverySummaries.length" class="browser-recovery-group" aria-labelledby="device-recovery-title">
+        <div class="recovery-group-heading"><div><p class="eyebrow">This browser</p><h2 id="device-recovery-title">Protected during a host interruption</h2></div><p>{{ browserRecoveryDetail }}</p></div>
+        <div class="project-grid">
+          <article v-for="summary in browserRecoverySummaries" :key="summary.id" class="project-card recovery-card browser-recovery-card">
+            <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
+            <dl><div><dt>Contents</dt><dd>{{ summary.sectionCount ? `${summary.sectionCount} structured section${summary.sectionCount === 1 ? '' : 's'} · ${summary.lyricLineCount} lyric line${summary.lyricLineCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? `Raw lyric draft · ${summary.lyricLineCount} non-empty line${summary.lyricLineCount === 1 ? '' : 's'}` : 'New idea' }}</dd></div><div v-if="summary.sectionTitles.length"><dt>Song form</dt><dd class="recovery-form">{{ summary.sectionTitles.join(' → ') }}</dd></div><div><dt>Protected</dt><dd>{{ formatModified(summary.capturedAtUtc) }}</dd></div></dl>
+            <div class="card-actions"><button :disabled="busy || workspaceConnection !== 'ready'" @click="restoreBrowserProtectedWork(summary.id)">Restore protected work</button></div>
+          </article>
+        </div>
+      </section>
+      <p v-if="recoveryCount === 0" class="library-message">No unsaved recovery snapshots remain.</p>
+      <div v-if="recoverySnapshots.length" class="project-grid">
         <article v-for="summary in recoverySnapshots" :key="summary.id" class="project-card recovery-card">
           <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
           <dl>
@@ -2015,7 +2146,14 @@ onBeforeUnmount(() => {
     </section>
 
     <template v-else-if="project">
-      <div class="workspace-surface" :inert="workspaceConnection === 'unavailable'">
+      <section v-if="workspaceConnection === 'unavailable'" class="offline-editor-interruption" aria-labelledby="offline-editor-title">
+        <p class="eyebrow">Editing paused</p>
+        <h1 id="offline-editor-title">{{ project.title }}</h1>
+        <p>{{ currentProjectBrowserProtected ? 'Your latest unsaved state is protected in this browser.' : 'This editor cannot protect new changes until the local project service reconnects.' }}</p>
+        <p>Reconnect the project service before continuing. Maskil Forge will keep server saves revision-checked and will not overwrite a newer song silently.</p>
+        <div class="offline-editor-actions"><button class="quiet" :disabled="workspaceCheckBusy" @click="refreshWorkspaceHealth">{{ workspaceCheckBusy ? 'Checking…' : 'Reconnect' }}</button><button v-if="currentProjectBrowserProtected" class="secondary" @click="leaveProtectedOfflineEditor">View protected recovery</button></div>
+      </section>
+      <div v-else class="workspace-surface">
       <header class="project-bar">
         <a class="wordmark" href="#" aria-label="Maskil Forge home" @click.prevent="requestHome">Maskil Forge</a>
         <label class="title-field"><span>Song title</span><input v-model="project.title" maxlength="200" /></label>
