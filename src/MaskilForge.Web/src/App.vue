@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type PortableProjectImportPreview, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -38,7 +38,8 @@ let recoveryDiscardReturnFocus: HTMLElement | null = null
 const firstPartConfirmation = ref<{ label: string; proceed: () => void } | null>(null)
 const pendingAction = ref<'load' | 'new' | 'home' | 'import'>('load')
 const pendingLoadId = ref('')
-const pendingPortableImport = ref<{ fileName: string; projectJson: string } | null>(null)
+const pendingPortableImport = ref<{ fileName: string; projectJson: string; importAsCopy: boolean } | null>(null)
+const portableImportPreview = ref<PortableProjectImportPreview | null>(null)
 const sessionId = crypto.randomUUID()
 const persistedRevision = ref('')
 const recoveryBlocked = ref(false)
@@ -218,15 +219,49 @@ async function selectPortableImport(event: Event) {
     return
   }
   try {
-    pendingPortableImport.value = { fileName: file.name, projectJson: await file.text() }
+    pendingPortableImport.value = { fileName: file.name, projectJson: await file.text(), importAsCopy: false }
   } catch {
     status.value = 'The selected project file could not be read. Nothing was imported.'
     activityLog.write('error', 'project.portable-import', status.value, { fileName: file.name })
     clearPendingPortableImport()
     return
   }
+  busy.value = true
+  activityLog.write('info', 'project.portable-import.preview', 'Project file preview requested.', { fileName: file.name, fileSize: file.size })
+  try {
+    portableImportPreview.value = await projectsApi.previewPortableProject(pendingPortableImport.value.projectJson)
+    status.value = portableImportPreview.value.identityConflict
+      ? 'This project identity is already stored on this device. Review the safe copy option.'
+      : 'Project file validated. Review it before importing.'
+    activityLog.write('success', 'project.portable-import.preview', status.value, {
+      fileName: file.name,
+      projectId: portableImportPreview.value.id,
+      sourceSchemaVersion: portableImportPreview.value.sourceSchemaVersion,
+      identityConflict: portableImportPreview.value.identityConflict,
+    })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The project file could not be validated. Nothing was imported.'
+    activityLog.write('error', 'project.portable-import.preview', status.value, { fileName: file.name })
+    clearPendingPortableImport()
+  } finally {
+    busy.value = false
+  }
+}
+
+function choosePortableImport(importAsCopy: boolean) {
+  const pending = pendingPortableImport.value
+  const preview = portableImportPreview.value
+  if (!pending || !preview || (preview.identityConflict && !importAsCopy)) return
+  pending.importAsCopy = importAsCopy
+  portableImportPreview.value = null
   if (isDirty.value) return openConfirmation('import')
-  await performPortableImport()
+  return performPortableImport()
+}
+
+function cancelPortableImportPreview() {
+  status.value = 'Import cancelled. No project data was changed.'
+  activityLog.write('info', 'project.portable-import.preview', status.value, { fileName: pendingPortableImport.value?.fileName ?? null })
+  clearPendingPortableImport()
 }
 
 async function performPortableImport() {
@@ -234,10 +269,10 @@ async function performPortableImport() {
   if (!pending) return false
   confirmationOpen.value = false
   const succeeded = await run(
-    () => projectsApi.importPortableProject(pending.projectJson),
-    'Portable project imported and saved to your song library.',
+    () => projectsApi.importPortableProject(pending.projectJson, pending.importAsCopy),
+    pending.importAsCopy ? 'Portable project imported as a new copy.' : 'Portable project imported and saved to your song library.',
     'project.portable-import',
-    { fileName: pending.fileName },
+    { fileName: pending.fileName, importAsCopy: pending.importAsCopy },
     true,
   )
   clearPendingPortableImport()
@@ -251,6 +286,7 @@ async function performPortableImport() {
 
 function clearPendingPortableImport() {
   pendingPortableImport.value = null
+  portableImportPreview.value = null
   if (portableImportInput.value) portableImportInput.value.value = ''
 }
 async function saveProject() {
@@ -2815,6 +2851,29 @@ onBeforeUnmount(() => {
         <div class="dialog-actions">
           <button class="secondary" :disabled="busy" autofocus @click="cancelFirstPartCommit">Review structure first</button>
           <button :disabled="busy" @click="confirmFirstPartCommit">Accept first part</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="portableImportPreview && pendingPortableImport" class="modal-backdrop" role="presentation" @click.self="cancelPortableImportPreview">
+      <section class="load-dialog import-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="import-preview-title" aria-describedby="import-preview-guidance">
+        <p class="eyebrow">Portable project</p>
+        <h2 id="import-preview-title">Review before import</h2>
+        <p class="import-file-name">{{ pendingPortableImport.fileName }}</p>
+        <dl class="import-preview-meta">
+          <div><dt>Song</dt><dd>{{ portableImportPreview.title }}</dd></div>
+          <div><dt>Artist</dt><dd>{{ portableImportPreview.artist || 'Not named' }}</dd></div>
+          <div><dt>Genre</dt><dd>{{ portableImportPreview.genre === 'RAndB' ? 'R&B' : portableImportPreview.genre }}</dd></div>
+          <div><dt>File version</dt><dd>{{ portableImportPreview.sourceSchemaVersion === portableImportPreview.currentSchemaVersion ? `Version ${portableImportPreview.currentSchemaVersion}` : `Version ${portableImportPreview.sourceSchemaVersion} → ${portableImportPreview.currentSchemaVersion}` }}</dd></div>
+          <div><dt>Contents</dt><dd>{{ portableImportPreview.sectionCount ? `${portableImportPreview.sectionCount} section${portableImportPreview.sectionCount === 1 ? '' : 's'} · ${portableImportPreview.lyricLineCount} lyric line${portableImportPreview.lyricLineCount === 1 ? '' : 's'}` : portableImportPreview.hasRawLyrics ? `Raw lyric draft · ${portableImportPreview.lyricLineCount} lyric line${portableImportPreview.lyricLineCount === 1 ? '' : 's'}` : 'New idea' }}</dd></div>
+          <div v-if="portableImportPreview.sectionTitles.length"><dt>Song form</dt><dd>{{ portableImportPreview.sectionTitles.join(' → ') }}</dd></div>
+        </dl>
+        <p v-if="portableImportPreview.identityConflict" id="import-preview-guidance" class="import-conflict"><strong>Project already known.</strong> Import it as a new copy to keep the existing song safe and give this file its own identity.</p>
+        <p v-else id="import-preview-guidance">Import the original to preserve its project identity, or make a separate copy you can change independently.</p>
+        <div class="dialog-actions">
+          <button class="secondary" :disabled="busy" autofocus @click="cancelPortableImportPreview">Cancel</button>
+          <button v-if="!portableImportPreview.identityConflict" :disabled="busy" @click="choosePortableImport(false)">Import project</button>
+          <button :class="{ secondary: !portableImportPreview.identityConflict }" :disabled="busy" @click="choosePortableImport(true)">{{ portableImportPreview.identityConflict ? 'Import as new copy' : 'Import as copy' }}</button>
         </div>
       </section>
     </div>

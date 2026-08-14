@@ -60,7 +60,7 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
         return project;
     }
 
-    private static int ReadVersion(JsonObject project)
+    public static int ReadVersion(JsonObject project)
     {
         if (!project.TryGetPropertyValue("schemaVersion", out var node) || node is null)
             throw new InvalidProjectDataException("The project does not declare a schema version.");

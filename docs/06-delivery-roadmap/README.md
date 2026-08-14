@@ -546,6 +546,12 @@ Import an artist-owned `.maskil.json` file through the same schema migrations an
 
 **Deliverable:** an artist can move a complete project between Maskil Forge installations and reopen it with its identity and creative decisions intact.
 
+### Milestone 5.45 — Portable import preview and copy safety
+
+Validate an artist-owned project before changing the library and present its title, artist, genre, song form, lyric scope, and any schema migration in one review step. Preserve the original identity only when it is available; when that identity already exists anywhere in protected local storage, offer a clearly named independent copy with a new root identity while preserving the nested creative decisions.
+
+**Deliverable:** an artist understands what a portable file contains and can bring back a second version without risking the song already stored on the device.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

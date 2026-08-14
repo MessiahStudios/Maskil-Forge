@@ -344,6 +344,20 @@ export interface ProjectResponse {
   canRedo: boolean
 }
 
+export interface PortableProjectImportPreview {
+  id: string
+  title: string
+  artist: string
+  genre: SongGenre
+  sourceSchemaVersion: number
+  currentSchemaVersion: number
+  sectionCount: number
+  lyricLineCount: number
+  hasRawLyrics: boolean
+  sectionTitles: string[]
+  identityConflict: boolean
+}
+
 export interface ProjectSummary {
   id: string
   title: string
@@ -570,8 +584,11 @@ export const projectsApi = {
     requestBlob(`/api/projects/${id}/portable-export`, {
       method: 'POST', body: JSON.stringify({ project }),
     }),
-  importPortableProject: (projectJson: string) => request<ProjectResponse>('/api/projects/import', {
+  previewPortableProject: (projectJson: string) => request<PortableProjectImportPreview>('/api/projects/import-preview', {
     method: 'POST', body: JSON.stringify({ projectJson }),
+  }),
+  importPortableProject: (projectJson: string, importAsCopy: boolean) => request<ProjectResponse>('/api/projects/import', {
+    method: 'POST', body: JSON.stringify({ projectJson, importAsCopy }),
   }),
   undo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST', body: JSON.stringify({ project }) }),
   redo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/redo`, { method: 'POST', body: JSON.stringify({ project }) }),

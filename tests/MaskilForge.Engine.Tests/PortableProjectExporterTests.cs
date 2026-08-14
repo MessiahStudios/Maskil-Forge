@@ -58,10 +58,37 @@ public sealed class PortableProjectExporterTests
         foreach (var section in document["sections"]!.AsArray().OfType<JsonObject>())
             section.Remove("structuralFunction");
 
-        var imported = PortableProjectImporter.Import(document.ToJsonString());
+        var inspected = PortableProjectImporter.Inspect(document.ToJsonString());
+        var imported = inspected.Project;
 
+        Assert.Equal(20, inspected.SourceSchemaVersion);
         Assert.Equal(SchemaVersion.Current, imported.SchemaVersion);
         Assert.Equal(StructuralFunction.Unspecified, imported.Sections.Single().StructuralFunction);
+    }
+
+    [Fact]
+    public void ImportAsCopy_CreatesAFreshRootIdentityAndPreservesCreativeContent()
+    {
+        var project = SongProject.Create(new string('S', 200));
+        project.SetArtist("Portable Artist");
+        project.SetGenre(SongGenre.Alternative);
+        var section = project.AddSection(SectionKind.Chorus);
+        var line = section.AddLyricLine("Carry this song into a separate future.");
+        var importedAfter = DateTimeOffset.UtcNow;
+
+        var copy = PortableProjectImporter.ImportAsCopy(
+            System.Text.Encoding.UTF8.GetString(PortableProjectExporter.Export(project)));
+
+        Assert.NotEqual(project.Id, copy.Id);
+        Assert.EndsWith(" (Imported Copy)", copy.Title);
+        Assert.True(copy.Title.Length <= 200);
+        Assert.Equal(project.Artist, copy.Artist);
+        Assert.Equal(project.Genre, copy.Genre);
+        Assert.Equal(section.Id, copy.Sections.Single().Id);
+        Assert.Equal(line.Id, copy.Sections.Single().LyricLines.Single().Id);
+        Assert.Equal(line.Text, copy.Sections.Single().LyricLines.Single().Text);
+        Assert.True(copy.CreatedUtc >= importedAfter);
+        Assert.Equal(copy.CreatedUtc, copy.LastModifiedUtc);
     }
 
     [Fact]
@@ -86,6 +113,7 @@ public sealed class PortableProjectExporterTests
             var project = SongProject.Create("Imported original");
             await repository.ImportAsync(project);
             Assert.Equal("Imported original", (await repository.LoadAsync(project.Id))!.Title);
+            Assert.True(await repository.ProjectIdentityExistsAsync(project.Id));
 
             var document = JsonNode.Parse(PortableProjectExporter.Export(project))!.AsObject();
             document["title"] = "Attempted overwrite";
@@ -94,6 +122,16 @@ public sealed class PortableProjectExporterTests
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => repository.ImportAsync(collision));
             Assert.Contains("Nothing was overwritten", exception.Message);
             Assert.Equal("Imported original", (await repository.LoadAsync(project.Id))!.Title);
+
+            var copy = PortableProjectImporter.ImportAsCopy(document.ToJsonString());
+            await repository.ImportAsync(copy);
+            Assert.NotEqual(project.Id, copy.Id);
+            Assert.Equal("Attempted overwrite (Imported Copy)", (await repository.LoadAsync(copy.Id))!.Title);
+
+            Assert.True(await repository.MoveToTrashAsync(project.Id));
+            Assert.True(await repository.ProjectIdentityExistsAsync(project.Id));
+            Assert.True(await repository.PermanentlyDeleteAsync(project.Id));
+            Assert.False(await repository.ProjectIdentityExistsAsync(project.Id));
         }
         finally
         {
