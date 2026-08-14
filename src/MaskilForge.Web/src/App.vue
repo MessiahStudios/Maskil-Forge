@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
-import { demoReadiness, firstWritableEmptyLyricLine } from './demoReadiness.js'
+import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
 import { noteOwners, noteRemovalGuidance } from './noteOwnership.js'
 import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 import { structuralRole, structuralRoles } from './structuralRoles.js'
@@ -1532,7 +1532,8 @@ const activeCreatorStage = ref<CreatorStage>('idea')
 const focusedSectionId = ref('')
 const sectionViewMode = ref<'all' | 'focused'>('all')
 const creatorCompletion = computed(() => creatorProgress(project.value))
-const editableDemoReview = computed(() => demoReadiness(project.value, structurePreview.value))
+const currentStructurePreview = computed(() => matchingLyricSheetPreview(project.value?.rawLyricDraft ?? '', previewedLyricSheet.value, structurePreview.value))
+const editableDemoReview = computed(() => demoReadiness(project.value, currentStructurePreview.value))
 const songOutlineItems = computed(() => songOutline(project.value, editableDemoReview.value))
 const roleReview = computed(() => structuralRoleReview(project.value))
 const roleReviewActive = ref(false)
@@ -1815,8 +1816,8 @@ onBeforeUnmount(() => {
       <section v-if="view === 'capture'" class="capture-workspace" aria-labelledby="capture-title">
         <div class="capture-heading"><p class="eyebrow">Start with the words</p><h1 id="capture-title">Capture the idea</h1><p>Write lyrics, fragments, images, themes, or plain thoughts. You do not need to know the song structure yet.</p></div>
         <label class="raw-lyrics">Raw lyric draft<textarea id="raw-lyric-draft" v-model="project.rawLyricDraft" maxlength="100000" rows="18" autofocus placeholder="Write whatever is on your mind…&#10;&#10;A complete song is not required. Fragments are welcome." /></label>
-        <div id="capture-actions" class="capture-actions"><button :disabled="busy || !isDirty" @click="saveDraft">Save draft</button><button class="secondary" :disabled="busy" @click="beginStructuring">Shape manually</button><button :data-readiness-action="structurePreview ? undefined : 'preview'" :disabled="busy || !project.rawLyricDraft.trim()" @click="previewPastedStructure">Preview song structure</button></div>
-        <section v-if="structurePreview" class="structure-preview" aria-labelledby="structure-preview-title">
+        <div id="capture-actions" class="capture-actions"><button :disabled="busy || !isDirty" @click="saveDraft">Save draft</button><button class="secondary" :disabled="busy" @click="beginStructuring">Shape manually</button><button :data-readiness-action="currentStructurePreview ? undefined : 'preview'" :disabled="busy || !project.rawLyricDraft.trim()" @click="previewPastedStructure">Preview song structure</button></div>
+        <section v-if="structurePreview && currentStructurePreview" class="structure-preview" aria-labelledby="structure-preview-title">
           <div class="structure-preview-heading">
             <div><p class="eyebrow">Nothing created yet</p><h2 id="structure-preview-title">Review detected sections</h2><p>Correct the proposal, then create every section as one undoable decision. Your original lyric sheet remains preserved.</p></div>
             <strong>{{ structurePreview.sections.length }} section{{ structurePreview.sections.length === 1 ? '' : 's' }}</strong>

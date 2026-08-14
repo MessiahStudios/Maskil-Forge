@@ -38,3 +38,4 @@ export function firstWritableEmptyLyricLine(
   lockedLineIds?: Iterable<string>,
 ): { id?: string; text?: string } | null
 export function hasLyricSheetHeadings(draft: string | null | undefined): boolean
+export function matchingLyricSheetPreview<T>(draft: string, previewedDraft: string, preview: T | null): T | null

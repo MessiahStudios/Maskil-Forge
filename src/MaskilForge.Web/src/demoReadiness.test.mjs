@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { demoReadiness, firstWritableEmptyLyricLine, hasLyricSheetHeadings } from './demoReadiness.js'
+import { demoReadiness, firstWritableEmptyLyricLine, hasLyricSheetHeadings, matchingLyricSheetPreview } from './demoReadiness.js'
 
 const line = text => ({ text })
 const section = (id, title, lyrics = '', harmony = []) => ({ id, title, lyricLines: lyrics ? [line(lyrics)] : [], harmony })
@@ -40,6 +40,13 @@ test('unknown lyric-sheet headings are reviewed before creating sections', () =>
   })
   assert.equal(readyToCreate.nextStep.action, 'preview')
   assert.equal(readyToCreate.nextStep.label, 'Create sections')
+})
+
+test('a structure preview is current only while its source lyric sheet is unchanged', () => {
+  const preview = { sections: [{ title: 'Verse 1' }] }
+  assert.equal(matchingLyricSheetPreview('[Verse 1]\nA line', '[Verse 1]\nA line', preview), preview)
+  assert.equal(matchingLyricSheetPreview('[Chorus]\nNew words', '[Verse 1]\nA line', preview), null)
+  assert.equal(matchingLyricSheetPreview('[Verse 1]\nA line', '[Verse 1]\nA line', null), null)
 })
 
 test('writable empty lyric lines are preferred over adding another line', () => {
