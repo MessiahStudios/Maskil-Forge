@@ -1,3 +1,8 @@
+export function firstWritableEmptyLyricLine(section, lockedLineIds = []) {
+  const locked = new Set(lockedLineIds)
+  return (section?.lyricLines ?? []).find(line => !String(line.text ?? '').trim() && !locked.has(line.id)) ?? null
+}
+
 const chordRealizableRoles = new Set(['Harmony', 'Texture'])
 
 function sectionTickRange(project, sectionId) {
@@ -45,7 +50,10 @@ export function demoReadiness(project) {
   const firstGap = sections.find(section => !section.ready)
   let nextAction = 'Your structured demo is ready to hear, revise, save, and export.'
   let nextStep = null
-  if (!sections.length) nextAction = 'Add the first song section.'
+  if (!sections.length) {
+    nextAction = 'Add the first song section.'
+    nextStep = { sectionId: null, stage: 'shape', action: 'section', label: 'Add the first section' }
+  }
   else if (firstGap && !firstGap.hasLyrics) {
     nextAction = `Write a lyric line in ${firstGap.title}.`
     nextStep = { sectionId: firstGap.sectionId, stage: 'shape', action: 'lyrics', label: `Write ${firstGap.title} lyrics` }

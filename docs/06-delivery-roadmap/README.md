@@ -504,6 +504,12 @@ When every section already has lyrics, harmony, an arrangement job, and a resolv
 
 **Deliverable:** finishing the hear–revise checklist takes the artist to listening, not to a dead-end status message.
 
+### Milestone 5.38 — Start-of-song readiness actions
+
+When a project has no sections, the derived queue offers adding the first section and lands on the first enabled add-section control without inventing a form. When the lyrics gap is an existing blank, unlocked line, focus that input instead of Add line; Add line remains the fallback when every line already has text or is locked. The readiness review stays visible for empty songs. This slice adds no schema fields or automatic section or lyric creation.
+
+**Deliverable:** starting a song from the hear–revise queue creates the first section, then writes into the blank line that section already has, instead of adding a second empty line.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.
