@@ -1,6 +1,6 @@
 # 05 — AI Director and Product Workflow
 
-The planned AI director is an interpreter and planner above Maskil Engine. It should arrive only after deterministic tools work through the normal interface. It is not the sole composer and must not replace the artist.
+The planned AI director is an interpreter and planner above Maskil Engine. It should arrive only after deterministic tools work through the normal interface. It is not the sole composer, must not replace the artist, and must not generate a replacement lead vocal.
 
 ## Responsibilities
 
@@ -14,7 +14,7 @@ The planned AI director is an interpreter and planner above Maskil Engine. It sh
 
 The AI creates a proposed change set. The application validates it against the current project, locks, and constraints. The user previews and accepts, modifies, or rejects it. Accepted commands enter normal history.
 
-The model must not directly mutate project JSON, invent entity IDs, bypass validation, or hide a chain of edits behind an irreversible action.
+The model must not directly mutate project JSON, invent entity IDs, bypass validation, hide a chain of edits behind an irreversible action, or generate a replacement for the artist's lead vocal.
 
 ## Tool progression
 

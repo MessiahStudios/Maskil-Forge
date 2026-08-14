@@ -6,7 +6,7 @@ Maskil Forge is a human-driven procedural songwriting and arrangement engine by 
 
 ## Why this project matters
 
-Maskil Forge explores the intersection of music composition, software engineering, and human creativity. Instead of replacing musicians with generated audio, it provides tools that help artists understand and shape their own creative decisions.
+Maskil Forge explores the intersection of music composition, software engineering, and human creativity. Instead of replacing songwriters or generating a lead singer, it provides tools that help artists understand and shape their own creative decisions.
 
 The product sits closer to a **DAW workflow + composition assistant + music theory engine** than to “type a prompt → get an MP3.” The central engineering claim is:
 
@@ -32,23 +32,23 @@ Phase 2  ✅  Harmony → editable audible demo
 
 Phase 3  ○  Performance and sound
          Voice capture / analysis, instrument intelligence
-         Replaceable renderers, VST path, vocal production
-         Mix, export, and AI director over the same Song Graph
+         Human lead-vocal workflow (guidance, takes, reviewable production)
+         Replaceable renderers, VST path, mix, export, and AI director
 ```
 
 Detail lives in the [delivery roadmap](docs/06-delivery-roadmap/README.md). The sections below stay engineering-accurate for contributors and reviewers.
 
 ## Why Maskil Forge exists
 
-Many aspiring and independent singer-songwriters begin with lyrics, a vocal idea, or an emotional direction but do not yet know how prosody, harmony, arrangement, orchestration, MIDI, or instrument technique can express it. Maskil Forge is intended to bridge that gap without taking authorship away from the artist. The artist supplies the words, intent, vocal gestures, taste, revisions, and final lead-vocal performance; the system helps turn those decisions into inspectable musical structure.
+Many aspiring and independent singer-songwriters begin with lyrics, a vocal idea, or an emotional direction but do not yet know how prosody, harmony, arrangement, orchestration, MIDI, or instrument technique can express it. Maskil Forge is intended to bridge that gap without taking authorship away from the artist. The artist supplies the words, intent, vocal gestures, taste, revisions, and the recorded human lead vocal. Maskil Forge may capture and analyze that vocal, provide pitch, timing, and prosody guidance, create guide melodies, preserve takes and comps, suggest or apply reviewable vocal production settings, and use VST or other audio processing to assist the singer. Voice analysis may also drive editable musical or instrument-performance data. The product must not generate or replace the final lead singer.
 
 ## How Maskil Forge differs from AI song generators
 
 Prompt-to-song systems primarily generate a finished audio result. Maskil Forge is designed to construct an editable song project.
 
-The artist supplies the lyrical meaning, creative intent, vocal gestures, choices, revisions, and final lead vocal. The Maskil Engine is designed to analyze and connect those contributions through explicit song structure, prosody, theory, arrangement, MIDI, instrument behavior, and rendering instructions.
+The artist supplies the lyrical meaning, creative intent, vocal gestures, choices, revisions, and the recorded human lead vocal. The Maskil Engine is designed to analyze and connect those contributions through explicit song structure, prosody, theory, arrangement, MIDI, instrument behavior, and rendering instructions.
 
-AI may interpret requests and propose alternatives, but the artist remains the author and performer.
+AI may interpret requests and propose alternatives, but the artist remains the author and the lead performer. Preview tones, guide tracks, and processed vocals may assist that performance; they do not replace it.
 
 The central rule is:
 
@@ -63,7 +63,7 @@ Artist input
     -> procedural music logic
     -> MIDI and automation
     -> replaceable audio rendering
-    -> human vocal recording
+    -> human lead-vocal recording, guidance, and reviewable production
     -> mix, export, and revision
 ```
 
@@ -200,7 +200,7 @@ See the [documentation index](docs/README.md) for the complete progression, or r
 2. [System foundations](docs/01-system-foundations/README.md) - Song Graph, timeline, commands, events, constraints, and scoring.
 3. [Lyrics and musical meaning](docs/02-lyrics-and-meaning/README.md) - lyrics, prosody, narrative, harmony, and energy.
 4. [Composition and arrangement](docs/03-composition-and-arrangement/README.md) - genre data, instrument roles, generators, and MIDI.
-5. [Performance and sound](docs/04-performance-and-sound/README.md) - voice capture, retargeting, rendering, recording, and mixing.
+5. [Performance and sound](docs/04-performance-and-sound/README.md) - human lead-vocal workflow, voice capture, retargeting, rendering, and mixing.
 6. [AI director and product workflow](docs/05-ai-director/README.md) - natural-language direction over deterministic tools.
 7. [Delivery roadmap](docs/06-delivery-roadmap/README.md) - build order, milestones, dependencies, and completion gates.
 

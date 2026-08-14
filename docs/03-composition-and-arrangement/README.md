@@ -34,7 +34,7 @@ Each generator returns multiple scored candidates and declares what source data 
 
 ## First audible target
 
-Use a simple preview renderer before VST hosting. MIDI is the initial interchange and performance-control layer, not the sound itself. The important proof is that the same structured project can drive audible playback through replaceable renderers, not that the first sounds are release quality.
+Use a simple preview renderer before VST hosting. MIDI is the initial interchange and performance-control layer, not the sound itself. Preview tones and later VST rendering realize instrumental and supporting parts; they are not the lead vocal. The important proof is that the same structured project can drive audible playback through replaceable renderers, not that the first sounds are release quality.
 
 ## Current boundary and completion gate
 

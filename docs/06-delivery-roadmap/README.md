@@ -512,9 +512,11 @@ When a project has no sections, the derived queue offers adding the first sectio
 
 ## Milestone 6 — Voice performance capture
 
-Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.
+Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves. Captured gestures may drive editable musical or instrument-performance data. They do not generate or replace the artist's lead vocal.
 
-**Deliverable:** humming or singing can control musical material.
+**Deliverable:** humming or singing can control musical material while the human lead vocal remains the authoritative performance.
+
+## Milestone 7 — Instrument intelligence
 
 ## Milestone 7 — Instrument intelligence
 
@@ -524,15 +526,15 @@ Expand instrument knowledge, recommendations, range checks, articulation maps, a
 
 ## Milestone 8 — Rendering integrations
 
-Add SoundFont or equivalent rendering, external DAW export, plugin scanning, VST3 hosting, presets, automation, and offline rendering in that order.
+Add SoundFont or equivalent rendering, external DAW export, plugin scanning, VST3 hosting, presets, automation, and offline rendering in that order. VST and other audio processors may assist instrumental playback and the artist's recorded vocal; they must not own the Song Graph or replace the lead singer.
 
 **Deliverable:** the same Song Graph can drive multiple sound sources.
 
 ## Milestone 9 — Human vocal production
 
-Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects.
+Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.
 
-**Deliverable:** the artist can complete the lead-vocal workflow inside the product.
+**Deliverable:** the artist can complete the human lead-vocal workflow inside the product without the product becoming the singer.
 
 ## Milestone 10 — AI director
 
@@ -558,7 +560,7 @@ Build mixer routing, automation, production recipes, stem/WAV export, DAW handof
 
 ### Artist alpha
 
-Milestones 6–7 and basic vocal takes: prove voice-driven control and instrument intelligence.
+Milestones 6–7 and basic vocal takes: prove voice-driven control of musical material and instrument intelligence, with the artist's vocal remaining authoritative.
 
 ### Production beta
 
@@ -571,6 +573,7 @@ Milestones 8–11: rendering, AI direction, vocal production, mixing, and export
 - Advanced mixing before arrangement and export are stable
 - Dozens of genres before one vertical slice works end to end
 - Neural final-audio generation as a substitute for the Song Graph
+- Generated or synthesized lead vocals as a substitute for the artist's performance
 
 ## Recommended first vertical slice
 

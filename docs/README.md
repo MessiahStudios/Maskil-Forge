@@ -10,7 +10,7 @@ Maskil Forge is early-stage. These documents define intended behavior and future
 2. [System foundations](01-system-foundations/README.md) - Specifies the canonical Song Graph, musical timeline, commands, events, constraints, locks, and shared scoring.
 3. [Lyrics and musical meaning](02-lyrics-and-meaning/README.md) - Describes the planned connection between lyrics, speech and vocal prosody, narrative movement, energy, rhythm, and harmony.
 4. [Composition and arrangement](03-composition-and-arrangement/README.md) - Describes role-based arrangement, genre and instrument knowledge, procedural candidates, MIDI, and preview rendering.
-5. [Performance and sound](04-performance-and-sound/README.md) - Defines voice performance capture, instrument retargeting, replaceable renderers, human vocal production, and mixing goals.
+5. [Performance and sound](04-performance-and-sound/README.md) - Defines the human lead-vocal workflow, voice capture and retargeting, replaceable renderers, reviewable vocal production, and mixing goals. The artist's recorded vocal remains authoritative.
 6. [AI director and product workflow](05-ai-director/README.md) - Defines AI as an interpreter and director over typed, deterministic Maskil Engine operations.
 7. [Delivery roadmap](06-delivery-roadmap/README.md) - Orders implementation milestones from the project skeleton through composition, performance, rendering, AI direction, and export.
 
