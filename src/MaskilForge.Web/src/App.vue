@@ -19,6 +19,7 @@ import { browserRecoveryNotice, summarizeBrowserRecovery } from './browserRecove
 import { browserProjectNotice, summarizeBrowserProject } from './browserProjectModel.js'
 import { buildRecoveryQueue, recoveryQueueStats, recoveryRecentLimit, recoverySoftCap, recoveryStaleDays, type RecoveryQueueItem } from './recoveryQueueModel.js'
 import { filterProjectLibrary, libraryRecentLimit, libraryResultStats, projectLibraryStage, type ProjectLibraryStage } from './libraryHygieneModel.js'
+import { buildTrashQueue, filterTrashQueue, trashAgeLabel, trashOldDays, trashRecentLimit, trashResultStats } from './trashHygieneModel.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -58,6 +59,14 @@ const libraryCleanupMode = ref(false)
 const selectedLibraryProjectIds = ref<string[]>([])
 const bulkTrashOpen = ref(false)
 const bulkTrashCancelButton = ref<HTMLButtonElement | null>(null)
+const trashQuery = ref('')
+const showAllTrashResults = ref(false)
+const trashSelectionMode = ref(false)
+const selectedTrashProjectIds = ref<string[]>([])
+const bulkRestoreOpen = ref(false)
+const bulkRestoreCancelButton = ref<HTMLButtonElement | null>(null)
+const bulkPermanentDeleteOpen = ref(false)
+const bulkPermanentDeleteCancelButton = ref<HTMLButtonElement | null>(null)
 const portableImportInput = ref<HTMLInputElement | null>(null)
 let recoveryDiscardReturnFocus: HTMLElement | null = null
 const firstPartConfirmation = ref<{ label: string; proceed: () => void } | null>(null)
@@ -110,6 +119,14 @@ const visibleLibraryProjects = computed(() => filteredLibraryProjects.value.slic
 const selectedLibraryProjects = computed(() => {
   const selectedIds = new Set(selectedLibraryProjectIds.value)
   return projects.value.filter(summary => selectedIds.has(summary.id) && projectLibraryStage(summary) === 'empty')
+})
+const trashQueue = computed(() => buildTrashQueue(trashedProjects.value))
+const filteredTrashQueue = computed(() => filterTrashQueue(trashQueue.value, trashQuery.value))
+const trashResults = computed(() => trashResultStats(filteredTrashQueue.value, showAllTrashResults.value))
+const visibleTrashQueue = computed(() => filteredTrashQueue.value.slice(0, trashResults.value.visibleCount))
+const selectedTrashProjects = computed(() => {
+  const selectedIds = new Set(selectedTrashProjectIds.value)
+  return trashQueue.value.filter(summary => selectedIds.has(summary.id))
 })
 const browserRecoveryDetail = computed(() => browserRecoveries.value.length && browserRecoveryNeedsReview.value
   ? 'Browser-protected work needs review before it can return to the local project service.'
@@ -483,6 +500,13 @@ async function confirmDelete() {
 }
 async function openTrash() {
   view.value = 'trash'
+  trashQuery.value = ''
+  showAllTrashResults.value = false
+  trashSelectionMode.value = false
+  selectedTrashProjectIds.value = []
+  await refreshTrash()
+}
+async function refreshTrash() {
   libraryBusy.value = true
   try { trashedProjects.value = await projectsApi.listTrash() }
   catch (error) { status.value = error instanceof Error ? error.message : 'Could not load Trash.' }
@@ -660,7 +684,7 @@ async function restoreSong(id: string, title: string) {
     await projectsApi.restore(id)
     status.value = `“${title}” was restored to your song library.`
     activityLog.write('success', 'project.restore', 'Song restored from Trash.', { projectId: id, title })
-    await openTrash()
+    await Promise.all([refreshTrash(), refreshLibrary()])
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'The song could not be restored.'
   } finally { busy.value = false }
@@ -680,10 +704,111 @@ async function confirmPermanentDelete() {
     permanentDeleteTarget.value = null
     status.value = `“${target.title}” was permanently deleted.`
     activityLog.write('success', 'project.permanent-delete', 'Song permanently deleted.', { projectId: target.id, title: target.title })
-    await openTrash()
+    await refreshTrash()
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'The song could not be permanently deleted.'
   } finally { busy.value = false }
+}
+function beginTrashSelection() {
+  trashSelectionMode.value = true
+  selectedTrashProjectIds.value = []
+  status.value = 'Select Trash items to restore or review for permanent deletion. Nothing is selected automatically.'
+}
+function finishTrashSelection() {
+  trashSelectionMode.value = false
+  selectedTrashProjectIds.value = []
+  status.value = 'Trash.'
+}
+function setTrashProjectSelected(id: string, event: Event) {
+  const checked = (event.target as HTMLInputElement).checked
+  const selected = new Set(selectedTrashProjectIds.value)
+  if (checked) selected.add(id)
+  else selected.delete(id)
+  selectedTrashProjectIds.value = [...selected]
+}
+function selectVisibleTrashProjects() {
+  const selected = new Set(selectedTrashProjectIds.value)
+  visibleTrashQueue.value.forEach(summary => selected.add(summary.id))
+  selectedTrashProjectIds.value = [...selected]
+}
+function clearTrashSelection() { selectedTrashProjectIds.value = [] }
+async function requestBulkRestore() {
+  if (selectedTrashProjects.value.length === 0) return
+  bulkRestoreOpen.value = true
+  activityLog.write('info', 'trash.bulk-restore', 'Multi-song restore confirmation requested.', { count: selectedTrashProjects.value.length })
+  await nextTick()
+  bulkRestoreCancelButton.value?.focus()
+}
+function cancelBulkRestore() {
+  bulkRestoreOpen.value = false
+  activityLog.write('info', 'trash.bulk-restore', 'Multi-song restore cancelled.')
+}
+async function confirmBulkRestore() {
+  const targets = [...selectedTrashProjects.value]
+  if (targets.length === 0) { bulkRestoreOpen.value = false; return }
+  busy.value = true
+  let restored = 0
+  const failedIds: string[] = []
+  for (const target of targets) {
+    try {
+      await projectsApi.restore(target.id)
+      restored++
+    } catch {
+      failedIds.push(target.id)
+    }
+  }
+  bulkRestoreOpen.value = false
+  selectedTrashProjectIds.value = failedIds
+  await Promise.all([refreshTrash(), refreshLibrary()])
+  if (failedIds.length) {
+    status.value = `${restored} song${restored === 1 ? ' was' : 's were'} restored. ${failedIds.length} could not be restored and remain selected.`
+    activityLog.write('warning', 'trash.bulk-restore', 'Multi-song restore completed with retained failures.', { restored, failed: failedIds.length })
+  } else {
+    status.value = `${restored} song${restored === 1 ? ' was' : 's were'} restored to your library.`
+    activityLog.write('success', 'trash.bulk-restore', 'Selected songs restored from Trash.', { restored })
+  }
+  busy.value = false
+}
+async function requestBulkPermanentDelete() {
+  if (selectedTrashProjects.value.length === 0) return
+  bulkPermanentDeleteOpen.value = true
+  activityLog.write('warning', 'trash.bulk-permanent-delete', 'Multi-song permanent deletion confirmation requested.', { count: selectedTrashProjects.value.length })
+  await nextTick()
+  bulkPermanentDeleteCancelButton.value?.focus()
+}
+function cancelBulkPermanentDelete() {
+  bulkPermanentDeleteOpen.value = false
+  activityLog.write('info', 'trash.bulk-permanent-delete', 'Multi-song permanent deletion cancelled.')
+}
+async function confirmBulkPermanentDelete() {
+  const targets = [...selectedTrashProjects.value]
+  if (targets.length === 0) { bulkPermanentDeleteOpen.value = false; return }
+  busy.value = true
+  let deleted = 0
+  const failedIds: string[] = []
+  for (const target of targets) {
+    try {
+      await projectsApi.permanentlyDelete(target.id)
+      await Promise.all([
+        discardBrowserRecovery(target.id).catch(() => undefined),
+        discardBrowserProject(target.id).catch(() => undefined),
+      ])
+      deleted++
+    } catch {
+      failedIds.push(target.id)
+    }
+  }
+  bulkPermanentDeleteOpen.value = false
+  selectedTrashProjectIds.value = failedIds
+  await Promise.all([refreshTrash(), refreshRecovery(), refreshBrowserProjects()])
+  if (failedIds.length) {
+    status.value = `${deleted} song${deleted === 1 ? ' was' : 's were'} permanently deleted. ${failedIds.length} could not be deleted and remain selected.`
+    activityLog.write('warning', 'trash.bulk-permanent-delete', 'Multi-song permanent deletion completed with retained failures.', { deleted, failed: failedIds.length })
+  } else {
+    status.value = `${deleted} song${deleted === 1 ? ' was' : 's were'} permanently deleted.`
+    activityLog.write('success', 'trash.bulk-permanent-delete', 'Selected Trash items permanently deleted.', { deleted })
+  }
+  busy.value = false
 }
 function beginLibraryCleanup() {
   libraryCleanupMode.value = true
@@ -695,6 +820,7 @@ function beginLibraryCleanup() {
 }
 function finishLibraryCleanup() {
   libraryCleanupMode.value = false
+  libraryQuery.value = ''
   libraryStageFilter.value = 'all'
   selectedLibraryProjectIds.value = []
   status.value = 'Song library.'
@@ -2199,6 +2325,11 @@ watch(projects, nextProjects => {
     .map(summary => summary.id))
   selectedLibraryProjectIds.value = selectedLibraryProjectIds.value.filter(id => availableEmptyIds.has(id))
 })
+watch(trashQuery, () => { showAllTrashResults.value = false })
+watch(trashedProjects, nextProjects => {
+  const availableIds = new Set(nextProjects.map(summary => summary.id))
+  selectedTrashProjectIds.value = selectedTrashProjectIds.value.filter(id => availableIds.has(id))
+})
 
 watch(
   () => [view.value, project.value?.id, project.value?.sections.length ?? 0] as const,
@@ -2400,13 +2531,31 @@ onBeforeUnmount(() => {
       <p class="status" role="status">{{ status }}</p>
       <p v-if="libraryBusy" class="library-message">Opening Trash…</p>
       <p v-else-if="trashedProjects.length === 0" class="library-message">Trash is empty.</p>
-      <div v-else class="project-grid">
-        <article v-for="summary in trashedProjects" :key="summary.id" class="project-card trash-card">
-          <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
-          <dl><div><dt>Deleted</dt><dd>{{ formatModified(summary.deletedAtUtc) }}</dd></div></dl>
-          <div class="card-actions"><button class="secondary" :disabled="busy" @click="restoreSong(summary.id, summary.title)">Restore song</button><button class="danger" :disabled="busy" @click="requestPermanentDelete(summary.id, summary.title)">Permanently delete</button></div>
-        </article>
-      </div>
+      <template v-else>
+        <div class="trash-tools">
+          <label>Search Trash<input v-model="trashQuery" type="search" placeholder="Title or artist" /></label>
+          <button v-if="!trashSelectionMode" class="quiet" @click="beginTrashSelection">Select songs</button>
+          <button v-else class="quiet" @click="finishTrashSelection">Finish selection</button>
+        </div>
+        <aside class="trash-hygiene-note"><strong>Trash stays until you decide.</strong><span>There is no automatic cap or expiry. {{ trashOldDays }}-day labels are reminders for review, never a deletion rule.</span></aside>
+        <aside v-if="trashSelectionMode" class="trash-selection-note">
+          <div><strong>Choose exact songs</strong><span>Nothing is selected automatically. Restore returns songs to your library; permanent deletion receives a separate final review.</span></div>
+          <div class="library-selection-actions"><button class="secondary" :disabled="visibleTrashQueue.length === 0" @click="selectVisibleTrashProjects">Select visible</button><button class="quiet" :disabled="selectedTrashProjects.length === 0" @click="clearTrashSelection">Clear selection</button></div>
+        </aside>
+        <div class="library-result-row" role="status"><span>{{ trashResults.resultCount ? `Showing ${trashResults.visibleCount} of ${trashResults.resultCount} song${trashResults.resultCount === 1 ? '' : 's'}` : 'No songs match this search' }}</span><span>{{ trashResults.oldCount ? `${trashResults.oldCount} in Trash ${trashOldDays}+ days` : trashSelectionMode && selectedTrashProjects.length ? `${selectedTrashProjects.length} selected` : '' }}</span></div>
+        <p v-if="trashResults.resultCount === 0" class="library-message">No Trash items match this title or artist.</p>
+        <div v-else class="project-grid trash-grid">
+          <article v-for="summary in visibleTrashQueue" :key="summary.id" class="project-card trash-card" :class="{ 'trash-card-old': summary.isOld, 'project-card-selected': selectedTrashProjectIds.includes(summary.id) }">
+            <label v-if="trashSelectionMode" class="library-project-selection"><input type="checkbox" :checked="selectedTrashProjectIds.includes(summary.id)" :aria-label="`Select ${summary.title}, deleted ${formatModified(summary.deletedAtUtc)}`" @change="setTrashProjectSelected(summary.id, $event)" /><span>Select this song</span></label>
+            <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
+            <div v-if="summary.isOld" class="recovery-badges"><span class="stale-badge">Review · {{ trashAgeLabel(summary.ageDays) }}</span></div>
+            <dl><div><dt>Deleted</dt><dd>{{ formatModified(summary.deletedAtUtc) }}</dd></div><div><dt>In Trash</dt><dd>{{ trashAgeLabel(summary.ageDays) }}</dd></div></dl>
+            <div class="card-actions"><button class="secondary" :disabled="busy" @click="restoreSong(summary.id, summary.title)">Restore song</button><button class="danger" :disabled="busy" @click="requestPermanentDelete(summary.id, summary.title)">Permanently delete</button></div>
+          </article>
+        </div>
+        <div v-if="trashResults.resultCount > trashRecentLimit" class="library-pagination"><button class="quiet" @click="showAllTrashResults = !showAllTrashResults">{{ showAllTrashResults ? `Show recent ${trashRecentLimit}` : `Show ${trashResults.hiddenCount} more` }}</button></div>
+        <div v-if="trashSelectionMode" class="library-cleanup-bar trash-selection-bar"><span>{{ selectedTrashProjects.length ? `${selectedTrashProjects.length} song${selectedTrashProjects.length === 1 ? '' : 's'} selected` : 'Select songs to restore or permanently delete.' }}</span><div><button class="secondary" :disabled="busy || selectedTrashProjects.length === 0" @click="requestBulkRestore">Restore selected</button><button class="danger" :disabled="busy || selectedTrashProjects.length === 0" @click="requestBulkPermanentDelete">Permanently delete selected</button></div></div>
+      </template>
     </section>
 
     <template v-else-if="project">
@@ -3446,6 +3595,32 @@ onBeforeUnmount(() => {
         <div class="dialog-actions">
           <button ref="bulkTrashCancelButton" class="secondary" :disabled="busy" @click="cancelBulkTrash">Keep these songs</button>
           <button class="danger" :disabled="busy" @click="confirmBulkTrash">Move {{ selectedLibraryProjects.length }} to Trash</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="bulkRestoreOpen" class="modal-backdrop" role="presentation" @click.self="cancelBulkRestore">
+      <section class="load-dialog library-cleanup-dialog" role="dialog" aria-modal="true" aria-labelledby="bulk-restore-title" aria-describedby="bulk-restore-description">
+        <p class="eyebrow">Return to song library</p>
+        <h2 id="bulk-restore-title">Restore {{ selectedTrashProjects.length }} song{{ selectedTrashProjects.length === 1 ? '' : 's' }}?</h2>
+        <p id="bulk-restore-description">The selected songs will leave Trash and return to your saved-song library. Their project contents will not change.</p>
+        <ul class="library-cleanup-list"><li v-for="summary in selectedTrashProjects" :key="summary.id"><strong>{{ summary.title }}</strong><span>{{ summary.artist || 'Artist not set' }} · Deleted {{ formatModified(summary.deletedAtUtc) }}</span></li></ul>
+        <div class="dialog-actions">
+          <button ref="bulkRestoreCancelButton" class="secondary" :disabled="busy" @click="cancelBulkRestore">Keep in Trash</button>
+          <button :disabled="busy" @click="confirmBulkRestore">Restore {{ selectedTrashProjects.length }} song{{ selectedTrashProjects.length === 1 ? '' : 's' }}</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="bulkPermanentDeleteOpen" class="modal-backdrop" role="presentation" @click.self="cancelBulkPermanentDelete">
+      <section class="load-dialog delete-dialog library-cleanup-dialog" role="alertdialog" aria-modal="true" aria-labelledby="bulk-permanent-delete-title" aria-describedby="bulk-permanent-delete-description">
+        <p class="eyebrow">Cannot be undone</p>
+        <h2 id="bulk-permanent-delete-title">Permanently delete {{ selectedTrashProjects.length }} song{{ selectedTrashProjects.length === 1 ? '' : 's' }}?</h2>
+        <p id="bulk-permanent-delete-description">Every saved project listed below will be erased forever, including its backup and recovery artifacts. This action cannot be undone.</p>
+        <ul class="library-cleanup-list"><li v-for="summary in selectedTrashProjects" :key="summary.id"><strong>{{ summary.title }}</strong><span>{{ summary.artist || 'Artist not set' }} · Deleted {{ formatModified(summary.deletedAtUtc) }}</span></li></ul>
+        <div class="dialog-actions">
+          <button ref="bulkPermanentDeleteCancelButton" class="secondary" :disabled="busy" @click="cancelBulkPermanentDelete">Keep these songs</button>
+          <button class="danger" :disabled="busy" @click="confirmBulkPermanentDelete">Yes, permanently delete {{ selectedTrashProjects.length }}</button>
         </div>
       </section>
     </div>
