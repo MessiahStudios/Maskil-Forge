@@ -511,6 +511,7 @@ export const projectsApi = {
   create: (title: string) => request<ProjectResponse>('/api/projects', {
     method: 'POST', body: JSON.stringify({ title }),
   }),
+  duplicate: (id: string) => request<ProjectResponse>(`/api/projects/${id}/duplicate`, { method: 'POST' }),
   previewStructure: (text: string) => request<LyricSheetStructurePreview>('/api/structure-preview', {
     method: 'POST', body: JSON.stringify({ text }),
   }),

@@ -24,6 +24,7 @@ main.has-project { padding-top: 1rem; }
 .tagline { margin: 0; color: #c4beb0; font-size: 1.2rem; }
 .welcome-actions { display: grid; justify-items: center; gap: 1rem; margin-top: 3rem; }
 .portable-import-help { max-width: 440px; margin-top: -.5rem; color: #989286; line-height: 1.45; }
+.home-status { max-width: 640px; margin: 1.5rem auto 0; }
 .project-library { margin-top: 4rem; text-align: left; }
 .library-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; }
 .library-actions { display: flex; gap: .5rem; }
@@ -41,7 +42,8 @@ main.has-project { padding-top: 1rem; }
 .card-actions > button { flex: 1; }
 .card-menu { position: relative; }
 .card-menu > summary { min-height: 44px; display: grid; place-items: center; padding: .55rem .75rem; color: #e8e1d3; border: 1px solid #62695a; border-radius: .4rem; cursor: pointer; font-weight: 700; list-style: none; }
-.card-menu[open] > button { position: absolute; z-index: 2; top: calc(100% + .35rem); right: 0; width: 150px; }
+.card-menu-panel { position: absolute; z-index: 2; top: calc(100% + .35rem); right: 0; width: 210px; display: grid; gap: .45rem; padding: .55rem; background: #20231e; border: 1px solid #646b5c; border-radius: .45rem; box-shadow: 0 15px 45px rgb(0 0 0 / .5); }
+.card-menu-panel button { width: 100%; }
 .open-project { width: min(440px, 100%); padding: .75rem; border: 1px solid #3d4239; border-radius: .45rem; text-align: left; }
 .open-project summary, .project-menu summary, .song-settings summary, .developer-details summary { cursor: pointer; color: #e1d9c8; font-weight: 700; }
 .open-project[open] { display: grid; gap: .8rem; }

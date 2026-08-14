@@ -126,6 +126,15 @@ app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectWorkspa
     }
 });
 
+app.MapPost("/api/projects/{id}/duplicate", async (string id, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    var editor = await workspace.DuplicateAsync(projectId, cancellationToken);
+    return editor is null
+        ? Results.NotFound(new ApiError("Project not found."))
+        : Results.Created($"/api/projects/{editor.Project.Id}", ProjectResponse.From(editor));
+});
+
 app.MapPost("/api/projects/import-preview", async (PortableProjectImportRequest request, IProjectRepository repository, CancellationToken cancellationToken) =>
 {
     var requestError = ValidatePortableProjectImport(request);

@@ -8,6 +8,45 @@ namespace MaskilForge.Engine.Tests;
 public sealed class EditorStateWorkflowTests
 {
     [Fact]
+    public async Task DuplicatingASavedSong_CreatesAnIndependentNamedCopyWithoutChangingCreativeIdentities()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var workspace = new ProjectWorkspace(repository);
+            var original = await workspace.CreateAsync("Branching Song", CancellationToken.None);
+            original.Project.SetArtist("Test Artist");
+            original.Project.SetGenre(SongGenre.Alternative);
+            var verse = original.Project.AddSection(SectionKind.Verse);
+            var line = verse.AddLyricLine("Keep the words, branch the project.");
+            await workspace.SaveAsync(original, CancellationToken.None);
+
+            var firstCopy = await workspace.DuplicateAsync(original.Project.Id, CancellationToken.None);
+            var secondCopy = await workspace.DuplicateAsync(original.Project.Id, CancellationToken.None);
+
+            Assert.NotNull(firstCopy);
+            Assert.NotNull(secondCopy);
+            Assert.NotEqual(original.Project.Id, firstCopy.Project.Id);
+            Assert.NotEqual(firstCopy.Project.Id, secondCopy.Project.Id);
+            Assert.Equal("Branching Song Copy", firstCopy.Project.Title);
+            Assert.Equal("Branching Song Copy 2", secondCopy.Project.Title);
+            Assert.Equal(original.Project.Artist, firstCopy.Project.Artist);
+            Assert.Equal(original.Project.Genre, firstCopy.Project.Genre);
+            Assert.Equal(verse.Id, firstCopy.Project.Sections.Single().Id);
+            Assert.Equal(line.Id, firstCopy.Project.Sections.Single().LyricLines.Single().Id);
+            Assert.Equal(line.Text, firstCopy.Project.Sections.Single().LyricLines.Single().Text);
+            Assert.Equal("Branching Song", (await repository.LoadAsync(original.Project.Id))!.Title);
+            Assert.Equal("Branching Song Copy", (await repository.LoadAsync(firstCopy.Project.Id))!.Title);
+            Assert.Equal("Branching Song Copy 2", (await repository.LoadAsync(secondCopy.Project.Id))!.Title);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
     public async Task SynchronizingUnchangedMeter_PreservesUndoForARealizedMusicalPart()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
