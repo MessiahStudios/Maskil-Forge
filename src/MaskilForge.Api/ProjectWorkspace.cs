@@ -66,6 +66,21 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         return editor;
     }
 
+    public async Task<ProjectEditor> ImportAsync(SongProject project, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var gate = _editorLocks.GetOrAdd(project.Id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            await repository.ImportAsync(project, cancellationToken);
+            var editor = new ProjectEditor(project);
+            _editors[project.Id] = editor;
+            return editor;
+        }
+        finally { gate.Release(); }
+    }
+
     public async Task SaveAsync(ProjectEditor editor, CancellationToken cancellationToken) =>
         await repository.SaveAsync(editor.Project, cancellationToken);
 

@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json.Serialization;
 using MaskilForge.Api;
 using MaskilForge.Domain;
@@ -122,6 +123,24 @@ app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectWorkspa
     catch (ArgumentException exception)
     {
         return Validation(exception);
+    }
+});
+
+app.MapPost("/api/projects/import", async (PortableProjectImportRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.ProjectJson))
+        return Results.BadRequest(new ApiError("Choose a portable project file to import."));
+    if (Encoding.UTF8.GetByteCount(request.ProjectJson) > 10 * 1024 * 1024)
+        return Results.BadRequest(new ApiError("Portable project files cannot exceed 10 MB."));
+    try
+    {
+        var project = PortableProjectImporter.Import(request.ProjectJson);
+        var editor = await workspace.ImportAsync(project, cancellationToken);
+        return Results.Created($"/api/projects/{project.Id}", ProjectResponse.From(editor));
+    }
+    catch (InvalidOperationException exception)
+    {
+        return Results.Conflict(new ApiError(exception.Message));
     }
 });
 
@@ -740,6 +759,7 @@ public sealed record CountermelodyProposalRequest(SongProject Project, SectionId
 public sealed record AccentProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record MidiExportRequest(SongProject Project);
 public sealed record PortableProjectExportRequest(SongProject Project);
+public sealed record PortableProjectImportRequest(string ProjectJson);
 public sealed record LyricTimelineRequest(
     SongProject Project,
     RhythmCandidateId? RhythmCandidateId = null);

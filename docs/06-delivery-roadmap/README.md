@@ -540,6 +540,12 @@ Export the current validated editor state as a deterministic, human-readable `.m
 
 **Deliverable:** an artist can retain or move a complete versioned project without an account, while import and future asset packaging have one explicit artifact to target.
 
+### Milestone 5.44 — Portable project import
+
+Import an artist-owned `.maskil.json` file through the same schema migrations and Song Graph invariants used by local persistence. Persist the validated project atomically, refuse files from unsupported future schemas, and never silently overwrite the same project identity in the library, Trash, backups, or recovery data.
+
+**Deliverable:** an artist can move a complete project between Maskil Forge installations and reopen it with its identity and creative decisions intact.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

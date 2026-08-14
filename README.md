@@ -153,6 +153,8 @@ Slice 5.42 collapses the hear–revise readiness card before its action and chec
 
 Slice 5.43 exports the current validated Song Graph as a deterministic, versioned `.maskil.json` project file without repository paths, recovery state, command history, accounts, or cloud storage.
 
+Slice 5.44 imports artist-owned `.maskil.json` files through the existing schema migration and domain validation pipeline, saves valid projects atomically, and refuses identity collisions without overwriting library, Trash, backup, or recovery data.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.

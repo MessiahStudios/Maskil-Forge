@@ -23,6 +23,7 @@ main.has-project { padding-top: 1rem; }
 .welcome h1 { margin: .25rem 0; font-family: Georgia, serif; font-size: clamp(4rem, 11vw, 7.5rem); font-weight: 500; letter-spacing: -.06em; }
 .tagline { margin: 0; color: #c4beb0; font-size: 1.2rem; }
 .welcome-actions { display: grid; justify-items: center; gap: 1rem; margin-top: 3rem; }
+.portable-import-help { max-width: 440px; margin-top: -.5rem; color: #989286; line-height: 1.45; }
 .project-library { margin-top: 4rem; text-align: left; }
 .library-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; }
 .library-actions { display: flex; gap: .5rem; }

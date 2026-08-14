@@ -10,28 +10,7 @@ namespace MaskilForge.Infrastructure;
 
 public sealed class JsonFileProjectRepository(string directory) : IProjectRepository
 {
-    private static readonly ProjectMigrationPipeline MigrationPipeline = new([
-        new V1ToV2ProjectMigration(),
-        new V2ToV3ProjectMigration(),
-        new V3ToV4ProjectMigration(),
-        new V4ToV5ProjectMigration(),
-        new V5ToV6ProjectMigration(),
-        new V6ToV7ProjectMigration(),
-        new V7ToV8ProjectMigration(),
-        new V8ToV9ProjectMigration(),
-        new V9ToV10ProjectMigration(),
-        new V10ToV11ProjectMigration(),
-        new V11ToV12ProjectMigration(),
-        new V12ToV13ProjectMigration(),
-        new V13ToV14ProjectMigration(),
-        new V14ToV15ProjectMigration(),
-        new V15ToV16ProjectMigration(),
-        new V16ToV17ProjectMigration(),
-        new V17ToV18ProjectMigration(),
-        new V18ToV19ProjectMigration(),
-        new V19ToV20ProjectMigration(),
-        new V20ToV21ProjectMigration()
-    ]);
+    private static readonly ProjectMigrationPipeline MigrationPipeline = ProjectMigrationPipeline.CreateCurrent();
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true,
@@ -93,6 +72,25 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
             await SaveWithoutLockAsync(project, cancellationToken);
             var recoveryPath = GetSessionRecoveryPath(project.Id);
             if (File.Exists(recoveryPath)) File.Delete(recoveryPath);
+        }
+        finally { projectLock.Release(); }
+    }
+
+    public async Task ImportAsync(SongProject project, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        var projectLock = _projectLocks.GetOrAdd(project.Id, _ => new SemaphoreSlim(1, 1));
+        await projectLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (File.Exists(GetPath(project.Id))
+                || File.Exists(GetBackupPath(project.Id))
+                || File.Exists(GetSessionRecoveryPath(project.Id))
+                || HasRecoveryCopy(project.Id)
+                || FindTrashPath(project.Id) is not null)
+                throw new InvalidOperationException(
+                    "A project with this identity already exists in the song library, Trash, backup, or recovery data. Nothing was overwritten.");
+            await SaveWithoutLockAsync(project, cancellationToken);
         }
         finally { projectLock.Release(); }
     }
@@ -294,6 +292,8 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
     private string GetSessionRecoveryDirectory() => Path.Combine(_directory, "sessions");
     private string GetBackupPath(ProjectId id) => Path.Combine(GetBackupDirectory(), $"{id}.json");
     private string GetSessionRecoveryPath(ProjectId id) => Path.Combine(GetSessionRecoveryDirectory(), $"{id}.json");
+    private bool HasRecoveryCopy(ProjectId id) => Directory.Exists(GetRecoveryDirectory())
+        && Directory.EnumerateFiles(GetRecoveryDirectory(), $"{id}-*.json").Any();
     private string? FindTrashPath(ProjectId id) => Directory.Exists(GetTrashDirectory())
         ? Directory.EnumerateFiles(GetTrashDirectory(), $"{id}-*.json").OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault()
         : null;
