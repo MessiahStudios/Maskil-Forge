@@ -564,6 +564,12 @@ Serve the built web client and the local project API from one production host, w
 
 **Deliverable:** the production client has one dependable origin for UI and project operations, and an artist cannot mistake an available shell for an offline-safe songwriting session.
 
+### Milestone 5.48 — Installable application shell
+
+Add complete installation metadata, platform icons, explicit install/update controls, and a versioned service worker that caches the editor shell, activity console, and their static assets. Project API traffic remains network-only, including project import, export, recovery, and saves. When only the cached shell is available, retain the existing unavailable-host explanation and never imply that project edits are protected offline.
+
+**Deliverable:** an artist can install and reopen the Maskil Forge interface on a supported device, while the product remains explicit that offline project storage and recovery are not implemented.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
