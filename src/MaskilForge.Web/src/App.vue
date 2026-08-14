@@ -1006,6 +1006,30 @@ async function exportMidi() {
     busy.value = false
   }
 }
+async function exportPortableProject() {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'project.portable-export', 'Portable project export requested.', { projectId: project.value.id })
+  try {
+    const blob = await projectsApi.exportPortableProject(project.value.id, project.value)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    const safeTitle = project.value.title.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'song'
+    link.href = url
+    link.download = `${safeTitle}.maskil.json`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    status.value = 'Portable project exported. This versioned Song Graph can be stored or moved without an account.'
+    activityLog.write('success', 'project.portable-export', 'Portable project exported.', { projectId: project.value.id, fileName: link.download })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'Unable to export the portable project. No project data was changed.'
+    activityLog.write('error', 'project.portable-export', status.value, { projectId: project.value.id })
+  } finally {
+    busy.value = false
+  }
+}
 function chordLabel(sectionId: string, chordId: string) {
   const section = project.value?.sections.find(item => item.id === sectionId)
   const chord = section?.harmony.find(item => item.id === chordId)
@@ -1778,6 +1802,7 @@ onBeforeUnmount(() => {
           <div class="project-menu-panel">
             <button class="secondary" @click="requestNewProject">New song</button>
             <button class="secondary" @click="requestHome">Song library</button>
+            <button class="secondary" :disabled="busy" @click="exportPortableProject">Export project file</button>
             <button class="danger" @click="requestDelete(project.id, project.title)">Delete this song</button>
             <label>Open by project ID<input v-model="projectId" placeholder="Project UUID" /></label>
             <button class="secondary" :disabled="busy" @click="requestLoad">Open song</button>

@@ -566,6 +566,10 @@ export const projectsApi = {
     requestBlob(`/api/projects/${id}/midi-export`, {
       method: 'POST', body: JSON.stringify({ project }),
     }),
+  exportPortableProject: (id: string, project: SongProject) =>
+    requestBlob(`/api/projects/${id}/portable-export`, {
+      method: 'POST', body: JSON.stringify({ project }),
+    }),
   undo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST', body: JSON.stringify({ project }) }),
   redo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/redo`, { method: 'POST', body: JSON.stringify({ project }) }),
 }

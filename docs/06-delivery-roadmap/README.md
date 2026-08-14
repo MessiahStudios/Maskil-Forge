@@ -534,6 +534,12 @@ Collapse the hear–revise readiness action and section checklist into one colum
 
 **Deliverable:** artists can read the next action and every section status at narrow tablet and wide-phone widths without horizontal clipping or scrolling.
 
+### Milestone 5.43 — Portable project export
+
+Export the current validated editor state as a deterministic, human-readable `.maskil.json` file using the authoritative Song Graph schema and string enum representation. Exclude repository paths, backups, recovery snapshots, session command history, and other machine-local state.
+
+**Deliverable:** an artist can retain or move a complete versioned project without an account, while import and future asset packaging have one explicit artifact to target.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
