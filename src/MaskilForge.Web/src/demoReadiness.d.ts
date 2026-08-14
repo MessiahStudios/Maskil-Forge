@@ -19,13 +19,20 @@ export interface DemoReadiness {
   nextStep: {
     sectionId: string | null
     stage: 'shape' | 'harmony' | 'arrangement'
-    action: 'lyrics' | 'harmony' | 'role' | 'part' | 'sketch' | 'hear' | 'section' | 'preview'
+    action: 'lyrics' | 'harmony' | 'role' | 'part' | 'sketch' | 'hear' | 'section' | 'preview' | 'resolve'
     label: string
   } | null
   sections: DemoSectionReadiness[]
 }
 
-export function demoReadiness(project: SongProject | null): DemoReadiness
+export function demoReadiness(
+  project: SongProject | null,
+  preview?: {
+    sections?: unknown[]
+    unrecognizedHeadings?: string[]
+    unrecognizedSections?: unknown[]
+  } | null,
+): DemoReadiness
 export function firstWritableEmptyLyricLine(
   section: { lyricLines?: Array<{ id?: string; text?: string }> } | null | undefined,
   lockedLineIds?: Iterable<string>,

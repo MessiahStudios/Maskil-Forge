@@ -1532,7 +1532,7 @@ const activeCreatorStage = ref<CreatorStage>('idea')
 const focusedSectionId = ref('')
 const sectionViewMode = ref<'all' | 'focused'>('all')
 const creatorCompletion = computed(() => creatorProgress(project.value))
-const editableDemoReview = computed(() => demoReadiness(project.value))
+const editableDemoReview = computed(() => demoReadiness(project.value, structurePreview.value))
 const songOutlineItems = computed(() => songOutline(project.value, editableDemoReview.value))
 const roleReview = computed(() => structuralRoleReview(project.value))
 const roleReviewActive = ref(false)
@@ -1579,12 +1579,12 @@ async function goToNextReadinessStep() {
   const step = editableDemoReview.value.nextStep
   if (!step) return
   activeCreatorStage.value = step.stage as CreatorStage
-  if (step.action === 'preview') {
+  if (step.action === 'preview' || step.action === 'resolve') {
     view.value = 'capture'
     sectionViewMode.value = 'all'
     await nextTick()
-    const action = document.querySelector<HTMLElement>('[data-readiness-action="preview"]:not(:disabled)')
-    const target = action?.closest<HTMLElement>('.capture-actions') ?? document.getElementById('capture-actions')
+    const action = document.querySelector<HTMLElement>(`[data-readiness-action="${step.action}"]:not(:disabled)`)
+    const target = action?.closest<HTMLElement>('.heading-warning, .capture-actions') ?? document.getElementById('capture-actions')
     if (!target) return
     target.scrollIntoView({ behavior: 'smooth', block: 'center' })
     target.classList.remove('journey-focus')
@@ -1829,7 +1829,7 @@ onBeforeUnmount(() => {
               <li v-for="(unresolved, index) in structurePreview.unrecognizedSections" :key="`${unresolved.heading}:${unresolved.insertionIndex}`">
                 <div><strong>[{{ unresolved.heading }}]</strong><small>{{ unresolved.lyrics.length }} lyric line{{ unresolved.lyrics.length === 1 ? '' : 's' }} · {{ unresolved.lyrics.slice(0, 2).join(' / ') || 'No lyric lines' }}</small></div>
                 <label>Use as
-                  <select v-model="unresolved.resolutionKind">
+                  <select v-model="unresolved.resolutionKind" data-readiness-action="resolve">
                     <option :value="undefined">Choose type…</option>
                     <option v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" :value="kind">{{ label(kind) }}</option>
                   </select>
