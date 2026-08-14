@@ -409,6 +409,27 @@ app.MapPost("/api/projects/{id}/midi-export", async (string id, MidiExportReques
     }
 });
 
+app.MapPost("/api/projects/{id}/portable-export", async (string id, PortableProjectExportRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var portableProject = await workspace.UseAsync(
+            projectId,
+            request.Project,
+            editor => PortableProjectExporter.Export(editor.Project),
+            cancellationToken);
+        return portableProject is null
+            ? Results.NotFound(new ApiError("Project not found."))
+            : Results.File(portableProject, PortableProjectExporter.ContentType, "maskil-forge-project.maskil.json");
+    }
+    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/undo", async (string id, EditorStateRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -718,6 +739,7 @@ public sealed record HookReinforcementProposalRequest(SongProject Project, Secti
 public sealed record CountermelodyProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record AccentProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record MidiExportRequest(SongProject Project);
+public sealed record PortableProjectExportRequest(SongProject Project);
 public sealed record LyricTimelineRequest(
     SongProject Project,
     RhythmCandidateId? RhythmCandidateId = null);
