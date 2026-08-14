@@ -159,6 +159,8 @@ Slice 5.45 previews and validates a portable project before changing the library
 
 Slice 5.46 duplicates the explicitly saved version of a library song as an independently named project while preserving its nested creative identities, decisions, and provenance.
 
+Slice 5.47 establishes one production origin for the built web client and local project API, exposes the active project schema through a health contract, and makes loss of the local project service visible without claiming that the cached web shell can edit offline.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.
@@ -207,6 +209,17 @@ dotnet test MaskilForge.sln
 cd src/MaskilForge.Web
 npm run build
 ```
+
+To run the production-style single-origin host, build the web client first and then open the API origin:
+
+```powershell
+cd src/MaskilForge.Web
+npm run build
+cd ../..
+dotnet run --project src/MaskilForge.Api --urls http://localhost:5072
+```
+
+Open `http://localhost:5072`. A later `dotnet publish` includes the already-built web distribution in its `wwwroot` output; it does not run npm implicitly.
 
 GitHub Actions runs the .NET build, xUnit suite, dependency-locked Vue install, and Vue production build for pull requests and pushes to `main`.
 

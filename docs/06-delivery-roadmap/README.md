@@ -558,6 +558,12 @@ Duplicate the explicitly saved version of a library song into a new root project
 
 **Deliverable:** an artist can branch an arrangement or lyric direction locally without exporting and re-importing the song or risking the original.
 
+### Milestone 5.47 — Single-origin delivery boundary
+
+Serve the built web client and the local project API from one production host, while retaining the separate Vite proxy for development. Expose a small health contract with the active project schema and persistence boundary, and show that state in the client. If the project service is unavailable, say plainly that the shell cannot open or save songs and that offline editing is not implemented yet.
+
+**Deliverable:** the production client has one dependable origin for UI and project operations, and an artist cannot mistake an available shell for an offline-safe songwriting session.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

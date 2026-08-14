@@ -344,6 +344,13 @@ export interface ProjectResponse {
   canRedo: boolean
 }
 
+export interface WorkspaceHealth {
+  status: 'ready'
+  persistence: 'local-host'
+  schemaVersion: number
+  webClientHosted: boolean
+}
+
 export interface PortableProjectImportPreview {
   id: string
   title: string
@@ -496,6 +503,7 @@ async function requestBlob(url: string, init?: RequestInit): Promise<Blob> {
 }
 
 export const projectsApi = {
+  health: () => request<WorkspaceHealth>('/api/health'),
   list: () => request<ProjectSummary[]>('/api/projects'),
   listRecovery: () => request<RecoverySummary[]>('/api/recovery'),
   loadRecovery: (id: string) => request<RecoveryProjectResponse>(`/api/recovery/${id}`),

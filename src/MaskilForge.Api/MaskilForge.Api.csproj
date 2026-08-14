@@ -6,6 +6,13 @@
     <ProjectReference Include="..\MaskilForge.Infrastructure\MaskilForge.Infrastructure.csproj" />
   </ItemGroup>
 
+  <Target Name="CopyWebClientToPublish" AfterTargets="Publish" Condition="Exists('..\MaskilForge.Web\dist\index.html')">
+    <ItemGroup>
+      <WebClientFile Include="..\MaskilForge.Web\dist\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WebClientFile)" DestinationFiles="@(WebClientFile->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+  </Target>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>

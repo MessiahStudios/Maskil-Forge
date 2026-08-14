@@ -1,11 +1,13 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.FileProviders;
 using MaskilForge.Api;
 using MaskilForge.Domain;
 using MaskilForge.Engine;
 using MaskilForge.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+var webClient = WebClientDistribution.Locate(builder.Environment.ContentRootPath);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddSingleton<IProjectRepository>(_ =>
@@ -15,6 +17,12 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173").AllowAnyHeader().AllowAnyMethod()));
 
 var app = builder.Build();
+if (webClient.IsAvailable)
+{
+    var webClientFiles = new PhysicalFileProvider(webClient.RootPath);
+    app.UseDefaultFiles(new DefaultFilesOptions { FileProvider = webClientFiles });
+    app.UseStaticFiles(new StaticFileOptions { FileProvider = webClientFiles });
+}
 app.Use(async (context, next) =>
 {
     try { await next(); }
@@ -37,6 +45,12 @@ app.Use(async (context, next) =>
     }
 });
 app.UseCors();
+
+app.MapGet("/api/health", () => Results.Ok(new WorkspaceHealthResponse(
+    "ready",
+    "local-host",
+    SchemaVersion.Current.Value,
+    webClient.IsAvailable)));
 
 app.MapGet("/api/projects", async (IProjectRepository repository, CancellationToken cancellationToken) =>
     Results.Ok(await repository.ListAsync(cancellationToken)));
@@ -519,6 +533,22 @@ app.MapPost("/api/projects/{id}/redo", async (string id, EditorStateRequest requ
     return Results.Ok(response);
 });
 
+if (webClient.IsAvailable)
+{
+    app.MapFallback(async context =>
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            await context.Response.WriteAsJsonAsync(new ApiError("API route not found."), context.RequestAborted);
+            return;
+        }
+
+        context.Response.ContentType = "text/html; charset=utf-8";
+        await context.Response.SendFileAsync(webClient.IndexPath, context.RequestAborted);
+    });
+}
+
 app.Run();
 
 static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
@@ -866,6 +896,11 @@ public sealed record ProjectCommandRequest(
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
+public sealed record WorkspaceHealthResponse(
+    string Status,
+    string Persistence,
+    int SchemaVersion,
+    bool WebClientHosted);
 public sealed record ProjectResponse(SongProject Project, bool CanUndo, bool CanRedo)
 {
     public static ProjectResponse From(ProjectEditor editor) => new(editor.Project, editor.CanUndo, editor.CanRedo);
