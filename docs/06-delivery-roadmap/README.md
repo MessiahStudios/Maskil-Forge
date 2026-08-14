@@ -528,6 +528,12 @@ Treat a structure preview as actionable only while it still matches the raw lyri
 
 **Deliverable:** the empty-song readiness queue recovers cleanly after lyric-sheet edits and never presents an outdated structure proposal as current.
 
+### Milestone 5.42 — Responsive readiness overview
+
+Collapse the hear–revise readiness action and section checklist into one column at the narrow-layout boundary, while retaining compact checklist rows until the phone breakpoint.
+
+**Deliverable:** artists can read the next action and every section status at narrow tablet and wide-phone widths without horizontal clipping or scrolling.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves. Captured gestures may drive editable musical or instrument-performance data. They do not generate or replace the artist's lead vocal.
