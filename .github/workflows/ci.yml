@@ -27,7 +27,7 @@ jobs:
         run: dotnet test MaskilForge.sln --configuration Release --no-build
 
   web:
-    name: Vue production build
+    name: Web tests and production build
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -43,5 +43,7 @@ jobs:
           cache-dependency-path: src/MaskilForge.Web/package-lock.json
       - name: Install dependencies
         run: npm ci
+      - name: Test
+        run: npm test
       - name: Build
         run: npm run build

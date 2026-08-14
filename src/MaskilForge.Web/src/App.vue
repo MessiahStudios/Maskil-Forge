@@ -13,6 +13,7 @@ import { ChordAudition } from './chordAudition'
 import { PartAudition } from './partAudition'
 import { assemblePartNotes, formatTransportPosition, musicalPositionFromTicks, scheduleAbsoluteNotes, scheduleAssembledNotes, tickFromSeconds } from './partAuditionModel.js'
 import { PlaybackTransport } from './playbackTransport'
+import { activateApplicationShellUpdate, isStandaloneApplication, registerApplicationShell, type InstallPromptEvent } from './pwa'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -24,6 +25,9 @@ const libraryBusy = ref(true)
 const workspaceConnection = ref<'checking' | 'ready' | 'unavailable'>('checking')
 const workspaceHealth = ref<WorkspaceHealth | null>(null)
 const workspaceCheckBusy = ref(false)
+const installPrompt = ref<InstallPromptEvent | null>(null)
+const applicationInstalled = ref(isStandaloneApplication())
+const shellUpdateRegistration = ref<ServiceWorkerRegistration | null>(null)
 const status = ref('Begin a new song or open an existing project.')
 const busy = ref(false)
 const structurePreview = ref<LyricSheetStructurePreview | null>(null)
@@ -59,6 +63,13 @@ const workspaceConnectionDetail = computed(() => workspaceConnection.value === '
   : workspaceConnection.value === 'unavailable'
     ? 'This web shell cannot open or save songs until its project service reconnects. Offline editing is not enabled yet.'
     : 'Confirming that the project service and local song storage are available.')
+const applicationShellDetail = computed(() => shellUpdateRegistration.value
+  ? 'A newer interface is ready. Applying it will reload this page without changing project data.'
+  : applicationInstalled.value
+    ? 'Installed shell available. Opening and saving songs still requires the connected Maskil Forge host.'
+    : installPrompt.value
+      ? 'Installation is available on this device. Offline project editing remains a later delivery slice.'
+      : '')
 function projectSnapshot(value: SongProject) {
   const { lastModifiedUtc: _revision, ...creativeState } = value
   return JSON.stringify(creativeState)
@@ -515,6 +526,36 @@ async function refreshWorkspaceHealth() {
   }
 }
 function handleConnectivityChange() { void refreshWorkspaceHealth() }
+function captureInstallPrompt(event: Event) {
+  event.preventDefault()
+  installPrompt.value = event as InstallPromptEvent
+}
+async function installApplication() {
+  const prompt = installPrompt.value
+  if (!prompt) return
+  await prompt.prompt()
+  const choice = await prompt.userChoice
+  activityLog.write(choice.outcome === 'accepted' ? 'success' : 'info', 'delivery.install', choice.outcome === 'accepted'
+    ? 'Application installation accepted.'
+    : 'Application installation dismissed.', { platform: choice.platform })
+  installPrompt.value = null
+}
+function markApplicationInstalled() {
+  applicationInstalled.value = true
+  installPrompt.value = null
+  activityLog.write('success', 'delivery.install', 'Maskil Forge application installed.')
+}
+function applyApplicationShellUpdate() {
+  const registration = shellUpdateRegistration.value
+  if (!registration) return
+  let reloadPending = true
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!reloadPending) return
+    reloadPending = false
+    window.location.reload()
+  }, { once: true })
+  activateApplicationShellUpdate(registration)
+}
 function formatModified(value: string) { return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value)) }
 async function addSection(kind: SectionKind) {
   if (!project.value) return
@@ -1869,6 +1910,16 @@ onMounted(async () => {
   window.addEventListener('beforeunload', warnBeforeClose)
   window.addEventListener('online', handleConnectivityChange)
   window.addEventListener('offline', handleConnectivityChange)
+  window.addEventListener('beforeinstallprompt', captureInstallPrompt)
+  window.addEventListener('appinstalled', markApplicationInstalled)
+  try {
+    await registerApplicationShell(registration => {
+      shellUpdateRegistration.value = registration
+      activityLog.write('info', 'delivery.update', 'A newer application shell is ready.')
+    })
+  } catch (error) {
+    activityLog.write('warning', 'delivery.shell', error instanceof Error ? error.message : 'Application shell registration failed.')
+  }
   await Promise.all([refreshWorkspaceHealth(), refreshLibrary(), refreshRecovery()])
   if (recoverySnapshots.value.length > 0) {
     view.value = 'recovery'
@@ -1882,6 +1933,8 @@ onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', warnBeforeClose)
   window.removeEventListener('online', handleConnectivityChange)
   window.removeEventListener('offline', handleConnectivityChange)
+  window.removeEventListener('beforeinstallprompt', captureInstallPrompt)
+  window.removeEventListener('appinstalled', markApplicationInstalled)
   if (recoveryTimer) clearTimeout(recoveryTimer)
 })
 </script>
@@ -1891,14 +1944,18 @@ onBeforeUnmount(() => {
     <input ref="portableImportInput" hidden type="file" accept=".json,.maskil.json,application/json,application/vnd.maskil-forge.project+json" @change="selectPortableImport" />
     <aside class="workspace-connection" :class="workspaceConnection" role="status" aria-live="polite">
       <span class="connection-mark" aria-hidden="true"></span>
-      <div><strong>{{ workspaceConnectionTitle }}</strong><small>{{ workspaceConnectionDetail }}</small></div>
-      <button v-if="workspaceConnection === 'unavailable'" class="quiet" :disabled="workspaceCheckBusy" @click="refreshWorkspaceHealth">{{ workspaceCheckBusy ? 'Checking…' : 'Reconnect' }}</button>
+      <div><strong>{{ workspaceConnectionTitle }}</strong><small>{{ workspaceConnectionDetail }}</small><small v-if="applicationShellDetail" class="shell-note">{{ applicationShellDetail }}</small></div>
+      <div v-if="installPrompt || shellUpdateRegistration || workspaceConnection === 'unavailable'" class="workspace-delivery-actions">
+        <button v-if="installPrompt" class="quiet" @click="installApplication">Install app</button>
+        <button v-if="shellUpdateRegistration" class="quiet" @click="applyApplicationShellUpdate">Update app</button>
+        <button v-if="workspaceConnection === 'unavailable'" class="quiet" :disabled="workspaceCheckBusy" @click="refreshWorkspaceHealth">{{ workspaceCheckBusy ? 'Checking…' : 'Reconnect' }}</button>
+      </div>
     </aside>
     <header v-if="view === 'home'" class="welcome library-home">
       <p class="eyebrow">Your songwriting workspace</p>
       <h1>Maskil Forge</h1>
       <p class="tagline">Understand the words. Forge the music.</p>
-      <div class="welcome-actions">
+      <div v-if="workspaceConnection !== 'unavailable'" class="welcome-actions">
         <button @click="requestNewProject">Begin a new song</button>
         <button class="secondary" :disabled="busy" @click="requestPortableImport">Import project file</button>
         <small class="portable-import-help">Open an artist-owned <code>.maskil.json</code> project from another Maskil Forge installation.</small>
@@ -1908,8 +1965,9 @@ onBeforeUnmount(() => {
           <button class="secondary" :disabled="busy" @click="requestLoad">Open song</button>
         </details>
       </div>
-      <p class="status home-status" role="status">{{ status }}</p>
-      <section class="project-library" aria-labelledby="library-title">
+      <p v-if="workspaceConnection === 'unavailable'" class="offline-home-note">Your songs remain on this device. Reconnect the local project service above to create, open, import, or save work.</p>
+      <p v-else class="status home-status" role="status">{{ status }}</p>
+      <section v-if="workspaceConnection !== 'unavailable'" class="project-library" aria-labelledby="library-title">
         <div class="library-heading"><div><p class="eyebrow">Song library</p><h2 id="library-title">Continue your work</h2></div><div class="library-actions"><button v-if="recoverySnapshots.length" class="recovery-button" @click="openRecovery">Recovery ({{ recoverySnapshots.length }})</button><button class="quiet" @click="openTrash">Trash</button><button class="quiet" :disabled="libraryBusy" @click="refreshLibrary">Refresh</button></div></div>
         <p v-if="libraryBusy" class="library-message">Finding your saved songs…</p>
         <p v-else-if="projects.length === 0" class="library-message">No saved songs yet. Begin with any idea, even if it has no structure.</p>
@@ -1923,7 +1981,7 @@ onBeforeUnmount(() => {
       </section>
     </header>
 
-    <section v-else-if="view === 'recovery'" class="trash-view recovery-view" aria-labelledby="recovery-title">
+    <section v-else-if="view === 'recovery'" class="trash-view recovery-view" aria-labelledby="recovery-title" :inert="workspaceConnection === 'unavailable'">
       <button class="quiet" @click="goHome">← Song library</button>
       <div class="trash-heading"><p class="eyebrow">Protected work</p><h1 id="recovery-title">Recover unsaved songs</h1><p>Maskil Forge found editor snapshots newer than an explicit save. Restore one to inspect it, or discard it without changing the saved song.</p></div>
       <p class="status" role="status">{{ status }}</p>
@@ -1941,7 +1999,7 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section v-else-if="view === 'trash'" class="trash-view" aria-labelledby="trash-title">
+    <section v-else-if="view === 'trash'" class="trash-view" aria-labelledby="trash-title" :inert="workspaceConnection === 'unavailable'">
       <button class="quiet" @click="goHome">← Song library</button>
       <div class="trash-heading"><p class="eyebrow">Recovery</p><h1 id="trash-title">Trash</h1><p>Restore a song to your library or permanently delete it. Permanent deletion cannot be undone.</p></div>
       <p class="status" role="status">{{ status }}</p>
@@ -1957,6 +2015,7 @@ onBeforeUnmount(() => {
     </section>
 
     <template v-else-if="project">
+      <div class="workspace-surface" :inert="workspaceConnection === 'unavailable'">
       <header class="project-bar">
         <a class="wordmark" href="#" aria-label="Maskil Forge home" @click.prevent="requestHome">Maskil Forge</a>
         <label class="title-field"><span>Song title</span><input v-model="project.title" maxlength="200" /></label>
@@ -2910,6 +2969,7 @@ onBeforeUnmount(() => {
         </div>
       </details>
       </template>
+      </div>
     </template>
 
     <div v-if="firstPartConfirmation" class="modal-backdrop" role="presentation" @click.self="cancelFirstPartCommit">

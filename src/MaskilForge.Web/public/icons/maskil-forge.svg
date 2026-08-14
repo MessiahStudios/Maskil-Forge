@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title">
+  <title id="title">Maskil Forge</title>
+  <rect width="512" height="512" rx="96" fill="#171a16"/>
+  <circle cx="256" cy="256" r="174" fill="none" stroke="#d8ba78" stroke-width="20"/>
+  <path d="M154 346V166h43l59 91 59-91h43v180h-43V237l-59 88-59-88v109z" fill="#f0e5cf"/>
+  <path d="M174 379h164" stroke="#d8ba78" stroke-width="18" stroke-linecap="round"/>
+</svg>
