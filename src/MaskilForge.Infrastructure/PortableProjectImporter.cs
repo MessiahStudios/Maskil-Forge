@@ -17,16 +17,24 @@ public static class PortableProjectImporter
         Converters = { new JsonStringEnumConverter() }
     };
 
-    public static SongProject Import(string json)
+    public static SongProject Import(string json) => Inspect(json).Project;
+
+    public static SongProject ImportAsCopy(string json) => Inspect(json, true).Project;
+
+    public static PortableProjectDocument Inspect(string json, bool importAsCopy = false)
     {
         if (string.IsNullOrWhiteSpace(json))
             throw new InvalidProjectDataException("The portable project file is empty.");
 
         try
         {
-            var normalized = MigrationPipeline.Normalize(ProjectMigrationPipeline.Parse(json));
-            return normalized.Deserialize<SongProject>(JsonOptions)
+            var parsed = ProjectMigrationPipeline.Parse(json);
+            var sourceSchemaVersion = ProjectMigrationPipeline.ReadVersion(parsed);
+            var normalized = MigrationPipeline.Normalize(parsed);
+            if (importAsCopy) ApplyCopyIdentity(normalized);
+            var project = normalized.Deserialize<SongProject>(JsonOptions)
                 ?? throw new InvalidProjectDataException("The portable project file contains no project data.");
+            return new PortableProjectDocument(project, sourceSchemaVersion);
         }
         catch (ProjectPersistenceException) { throw; }
         catch (Exception exception) when (exception is JsonException or ArgumentException or InvalidOperationException)
@@ -34,4 +42,22 @@ public static class PortableProjectImporter
             throw new InvalidProjectDataException("The portable project file contains invalid project data.", null, exception);
         }
     }
+
+    private static void ApplyCopyIdentity(System.Text.Json.Nodes.JsonObject project)
+    {
+        const string suffix = " (Imported Copy)";
+        var title = project["title"]?.GetValue<string>()?.Trim() ?? "Imported Song";
+        if (!title.EndsWith(suffix, StringComparison.Ordinal))
+        {
+            var maximumBaseLength = 200 - suffix.Length;
+            title = title[..Math.Min(title.Length, maximumBaseLength)].TrimEnd() + suffix;
+        }
+        var importedAtUtc = DateTimeOffset.UtcNow;
+        project["id"] = ProjectId.New().ToString();
+        project["title"] = title;
+        project["createdUtc"] = importedAtUtc;
+        project["lastModifiedUtc"] = importedAtUtc;
+    }
 }
+
+public sealed record PortableProjectDocument(SongProject Project, int SourceSchemaVersion);

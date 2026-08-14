@@ -83,16 +83,18 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         await projectLock.WaitAsync(cancellationToken);
         try
         {
-            if (File.Exists(GetPath(project.Id))
-                || File.Exists(GetBackupPath(project.Id))
-                || File.Exists(GetSessionRecoveryPath(project.Id))
-                || HasRecoveryCopy(project.Id)
-                || FindTrashPath(project.Id) is not null)
+            if (ProjectIdentityExists(project.Id))
                 throw new InvalidOperationException(
                     "A project with this identity already exists in the song library, Trash, backup, or recovery data. Nothing was overwritten.");
             await SaveWithoutLockAsync(project, cancellationToken);
         }
         finally { projectLock.Release(); }
+    }
+
+    public Task<bool> ProjectIdentityExistsAsync(ProjectId id, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(ProjectIdentityExists(id));
     }
 
     private async Task SaveWithoutLockAsync(SongProject project, CancellationToken cancellationToken)
@@ -294,6 +296,11 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
     private string GetSessionRecoveryPath(ProjectId id) => Path.Combine(GetSessionRecoveryDirectory(), $"{id}.json");
     private bool HasRecoveryCopy(ProjectId id) => Directory.Exists(GetRecoveryDirectory())
         && Directory.EnumerateFiles(GetRecoveryDirectory(), $"{id}-*.json").Any();
+    private bool ProjectIdentityExists(ProjectId id) => File.Exists(GetPath(id))
+        || File.Exists(GetBackupPath(id))
+        || File.Exists(GetSessionRecoveryPath(id))
+        || HasRecoveryCopy(id)
+        || FindTrashPath(id) is not null;
     private string? FindTrashPath(ProjectId id) => Directory.Exists(GetTrashDirectory())
         ? Directory.EnumerateFiles(GetTrashDirectory(), $"{id}-*.json").OrderByDescending(File.GetLastWriteTimeUtc).FirstOrDefault()
         : null;

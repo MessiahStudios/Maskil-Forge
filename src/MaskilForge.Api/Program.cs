@@ -126,15 +126,38 @@ app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectWorkspa
     }
 });
 
+app.MapPost("/api/projects/import-preview", async (PortableProjectImportRequest request, IProjectRepository repository, CancellationToken cancellationToken) =>
+{
+    var requestError = ValidatePortableProjectImport(request);
+    if (requestError is not null) return requestError;
+    var document = PortableProjectImporter.Inspect(request.ProjectJson);
+    var project = document.Project;
+    var lyricLineCount = project.Sections.Count > 0
+        ? project.Sections.Sum(section => section.LyricLines.Count)
+        : project.RawLyricDraft.Split('\n').Count(line => !string.IsNullOrWhiteSpace(line));
+    return Results.Ok(new PortableProjectImportPreviewResponse(
+        project.Id,
+        project.Title,
+        project.Artist,
+        project.Genre,
+        document.SourceSchemaVersion,
+        SchemaVersion.Current.Value,
+        project.Sections.Count,
+        lyricLineCount,
+        !string.IsNullOrWhiteSpace(project.RawLyricDraft),
+        project.Sections.Select(section => section.Title).ToList(),
+        await repository.ProjectIdentityExistsAsync(project.Id, cancellationToken)));
+});
+
 app.MapPost("/api/projects/import", async (PortableProjectImportRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
-    if (string.IsNullOrWhiteSpace(request.ProjectJson))
-        return Results.BadRequest(new ApiError("Choose a portable project file to import."));
-    if (Encoding.UTF8.GetByteCount(request.ProjectJson) > 10 * 1024 * 1024)
-        return Results.BadRequest(new ApiError("Portable project files cannot exceed 10 MB."));
+    var requestError = ValidatePortableProjectImport(request);
+    if (requestError is not null) return requestError;
     try
     {
-        var project = PortableProjectImporter.Import(request.ProjectJson);
+        var project = request.ImportAsCopy
+            ? PortableProjectImporter.ImportAsCopy(request.ProjectJson)
+            : PortableProjectImporter.Import(request.ProjectJson);
         var editor = await workspace.ImportAsync(project, cancellationToken);
         return Results.Created($"/api/projects/{project.Id}", ProjectResponse.From(editor));
     }
@@ -737,6 +760,14 @@ static string Required(string? value, string name) =>
     string.IsNullOrWhiteSpace(value) ? throw new ArgumentException($"{name} is required.") : value;
 static IResult Validation(Exception exception) =>
     Results.BadRequest(new ApiError(exception.Message));
+static IResult? ValidatePortableProjectImport(PortableProjectImportRequest request)
+{
+    if (string.IsNullOrWhiteSpace(request.ProjectJson))
+        return Results.BadRequest(new ApiError("Choose a portable project file to import."));
+    return Encoding.UTF8.GetByteCount(request.ProjectJson) > 10 * 1024 * 1024
+        ? Results.BadRequest(new ApiError("Portable project files cannot exceed 10 MB."))
+        : null;
+}
 
 public sealed record CreateProjectRequest(string Title);
 public sealed record UpdateProjectRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc);
@@ -759,7 +790,19 @@ public sealed record CountermelodyProposalRequest(SongProject Project, SectionId
 public sealed record AccentProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record MidiExportRequest(SongProject Project);
 public sealed record PortableProjectExportRequest(SongProject Project);
-public sealed record PortableProjectImportRequest(string ProjectJson);
+public sealed record PortableProjectImportRequest(string ProjectJson, bool ImportAsCopy = false);
+public sealed record PortableProjectImportPreviewResponse(
+    ProjectId Id,
+    string Title,
+    string Artist,
+    SongGenre Genre,
+    int SourceSchemaVersion,
+    int CurrentSchemaVersion,
+    int SectionCount,
+    int LyricLineCount,
+    bool HasRawLyrics,
+    IReadOnlyList<string> SectionTitles,
+    bool IdentityConflict);
 public sealed record LyricTimelineRequest(
     SongProject Project,
     RhythmCandidateId? RhythmCandidateId = null);
