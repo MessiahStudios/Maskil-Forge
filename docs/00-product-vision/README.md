@@ -104,6 +104,14 @@ Maskil Forge is not a Suno clone, an autonomous hit-song generator, or software 
 
 The first useful release should not attempt to be a complete DAW or universal VST host. It should first prove that lyrics and intent can become a coherent, audible, editable song blueprint without losing human control.
 
+## Delivery surfaces
+
+Maskil Forge is web-first and local-first. The browser and future installable PWA provide the broad composition, lightweight capture, review, and approval surface. A future desktop shell extends that same application only where native production capabilities—such as low-latency audio, MIDI hardware, local project assets, VST3 hosting, or offline rendering—require it.
+
+Every client uses the same canonical Song Graph, commands, migrations, provenance, locks, and artist decisions. Phone scope prioritizes Idea, Words, Shape, rough human-vocal capture, Review, and Approve rather than reproducing a desktop DAW on a small screen.
+
+A portable, versioned Maskil project package and local/offline storage come before accounts or cloud synchronization. Optional cloud backup or device sync may be added later, but neither may become the only way to open, move, edit, or recover an artist's work. Packaging frameworks and storage providers remain replaceable implementation details.
+
 ## Long-term success test
 
 The product vision is fulfilled when an artist can move from lyrics and intent to an editable arrangement, direct instruments through musical or vocal gestures, record and complete their own lead vocal with guidance and reviewable production help, revise individual layers without losing approved work, and export the project or continue it in a DAW—without the product supplying a generated replacement for that lead vocal.
