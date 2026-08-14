@@ -8,6 +8,7 @@ public interface IProjectRepository
     Task<IReadOnlyList<TrashedProjectSummary>> ListTrashAsync(CancellationToken cancellationToken = default);
     Task<SongProject?> LoadAsync(ProjectId id, CancellationToken cancellationToken = default);
     Task SaveAsync(SongProject project, CancellationToken cancellationToken = default);
+    Task ImportAsync(SongProject project, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ProjectRecoverySummary>> ListRecoverySnapshotsAsync(CancellationToken cancellationToken = default);
     Task<ProjectRecoverySnapshot?> LoadRecoverySnapshotAsync(ProjectId id, CancellationToken cancellationToken = default);
     Task SaveRecoverySnapshotAsync(ProjectRecoverySnapshot snapshot, CancellationToken cancellationToken = default);

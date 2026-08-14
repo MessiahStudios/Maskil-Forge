@@ -33,10 +33,12 @@ const deleteTarget = ref<{ id: string; title: string } | null>(null)
 const permanentDeleteTarget = ref<{ id: string; title: string } | null>(null)
 const recoveryDiscardTarget = ref<RecoverySummary | null>(null)
 const recoveryDiscardCancelButton = ref<HTMLButtonElement | null>(null)
+const portableImportInput = ref<HTMLInputElement | null>(null)
 let recoveryDiscardReturnFocus: HTMLElement | null = null
 const firstPartConfirmation = ref<{ label: string; proceed: () => void } | null>(null)
-const pendingAction = ref<'load' | 'new' | 'home'>('load')
+const pendingAction = ref<'load' | 'new' | 'home' | 'import'>('load')
 const pendingLoadId = ref('')
+const pendingPortableImport = ref<{ fileName: string; projectJson: string } | null>(null)
 const sessionId = crypto.randomUUID()
 const persistedRevision = ref('')
 const recoveryBlocked = ref(false)
@@ -162,10 +164,13 @@ function requestLoad() {
   if (isDirty.value) return openConfirmation('load')
   return performLoad()
 }
-function openConfirmation(action: 'load' | 'new' | 'home') {
+function openConfirmation(action: 'load' | 'new' | 'home' | 'import') {
   pendingAction.value = action
   confirmationOpen.value = true
-  activityLog.write('warning', `project.${action}`, 'Action paused because unsaved changes were detected.')
+  activityLog.write('warning', pendingActionLogName(action), 'Action paused because unsaved changes were detected.')
+}
+function pendingActionLogName(action: 'load' | 'new' | 'home' | 'import') {
+  return action === 'import' ? 'project.portable-import' : `project.${action}`
 }
 async function performLoad() {
   confirmationOpen.value = false
@@ -179,19 +184,74 @@ async function performLoad() {
 async function continuePendingAction() {
   if (pendingAction.value === 'new') await createProject()
   else if (pendingAction.value === 'load') await performLoad()
+  else if (pendingAction.value === 'import') await performPortableImport()
   else await goHome()
 }
 async function saveBeforeContinuing() {
   if (await saveProject()) await continuePendingAction()
 }
 async function discardAndContinue() {
-  activityLog.write('warning', `project.${pendingAction.value}`, 'Unsaved editor changes discarded by user.')
+  activityLog.write('warning', pendingActionLogName(pendingAction.value), 'Unsaved editor changes discarded by user.')
   if (project.value) await projectsApi.discardRecovery(project.value.id).catch(() => undefined)
   return await continuePendingAction()
 }
 function cancelConfirmation() {
   confirmationOpen.value = false
+  if (pendingAction.value === 'import') clearPendingPortableImport()
   status.value = 'Cancelled. Your unsaved changes remain in the editor.'
+}
+
+function requestPortableImport() {
+  if (busy.value) return
+  if (portableImportInput.value) portableImportInput.value.value = ''
+  portableImportInput.value?.click()
+}
+
+async function selectPortableImport(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  if (file.size > 10 * 1024 * 1024) {
+    status.value = 'Portable project files cannot exceed 10 MB.'
+    activityLog.write('warning', 'project.portable-import', status.value, { fileName: file.name, fileSize: file.size })
+    clearPendingPortableImport()
+    return
+  }
+  try {
+    pendingPortableImport.value = { fileName: file.name, projectJson: await file.text() }
+  } catch {
+    status.value = 'The selected project file could not be read. Nothing was imported.'
+    activityLog.write('error', 'project.portable-import', status.value, { fileName: file.name })
+    clearPendingPortableImport()
+    return
+  }
+  if (isDirty.value) return openConfirmation('import')
+  await performPortableImport()
+}
+
+async function performPortableImport() {
+  const pending = pendingPortableImport.value
+  if (!pending) return false
+  confirmationOpen.value = false
+  const succeeded = await run(
+    () => projectsApi.importPortableProject(pending.projectJson),
+    'Portable project imported and saved to your song library.',
+    'project.portable-import',
+    { fileName: pending.fileName },
+    true,
+  )
+  clearPendingPortableImport()
+  if (succeeded) {
+    view.value = project.value?.sections.length ? 'structure' : 'capture'
+    activeCreatorStage.value = project.value?.sections.length ? 'shape' : 'idea'
+    await Promise.all([refreshLibrary(), refreshRecovery()])
+  }
+  return succeeded
+}
+
+function clearPendingPortableImport() {
+  pendingPortableImport.value = null
+  if (portableImportInput.value) portableImportInput.value.value = ''
 }
 async function saveProject() {
   if (!project.value || !persistedRevision.value) return
@@ -1728,12 +1788,15 @@ onBeforeUnmount(() => {
 
 <template>
   <main :class="{ 'has-project': view !== 'home' }">
+    <input ref="portableImportInput" hidden type="file" accept=".json,.maskil.json,application/json,application/vnd.maskil-forge.project+json" @change="selectPortableImport" />
     <header v-if="view === 'home'" class="welcome library-home">
       <p class="eyebrow">Your songwriting workspace</p>
       <h1>Maskil Forge</h1>
       <p class="tagline">Understand the words. Forge the music.</p>
       <div class="welcome-actions">
         <button @click="requestNewProject">Begin a new song</button>
+        <button class="secondary" :disabled="busy" @click="requestPortableImport">Import project file</button>
+        <small class="portable-import-help">Open an artist-owned <code>.maskil.json</code> project from another Maskil Forge installation.</small>
         <details class="open-project">
           <summary>Open an existing song</summary>
           <label>Project ID<input v-model="projectId" placeholder="Paste project ID" /></label>
@@ -1803,6 +1866,7 @@ onBeforeUnmount(() => {
             <button class="secondary" @click="requestNewProject">New song</button>
             <button class="secondary" @click="requestHome">Song library</button>
             <button class="secondary" :disabled="busy" @click="exportPortableProject">Export project file</button>
+            <button class="secondary" :disabled="busy" @click="requestPortableImport">Import project file</button>
             <button class="danger" @click="requestDelete(project.id, project.title)">Delete this song</button>
             <label>Open by project ID<input v-model="projectId" placeholder="Project UUID" /></label>
             <button class="secondary" :disabled="busy" @click="requestLoad">Open song</button>
@@ -2759,7 +2823,7 @@ onBeforeUnmount(() => {
       <section class="load-dialog" role="dialog" aria-modal="true" aria-labelledby="confirmation-title">
         <p class="eyebrow">Protect your work</p>
         <h2 id="confirmation-title">Unsaved changes detected</h2>
-        <p>Save your current song before {{ pendingAction === 'new' ? 'beginning a new one' : pendingAction === 'load' ? 'opening another one' : 'returning to the song library' }}?</p>
+        <p>Save your current song before {{ pendingAction === 'new' ? 'beginning a new one' : pendingAction === 'load' ? 'opening another one' : pendingAction === 'import' ? 'importing a project file' : 'returning to the song library' }}?</p>
         <div class="dialog-actions">
           <button :disabled="busy" @click="saveBeforeContinuing">Save first</button>
           <button class="danger" :disabled="busy" @click="discardAndContinue">Discard changes</button>

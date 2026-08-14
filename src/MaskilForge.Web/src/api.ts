@@ -570,6 +570,9 @@ export const projectsApi = {
     requestBlob(`/api/projects/${id}/portable-export`, {
       method: 'POST', body: JSON.stringify({ project }),
     }),
+  importPortableProject: (projectJson: string) => request<ProjectResponse>('/api/projects/import', {
+    method: 'POST', body: JSON.stringify({ projectJson }),
+  }),
   undo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST', body: JSON.stringify({ project }) }),
   redo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/redo`, { method: 'POST', body: JSON.stringify({ project }) }),
 }

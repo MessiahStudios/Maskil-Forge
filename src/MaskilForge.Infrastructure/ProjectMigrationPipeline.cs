@@ -17,6 +17,29 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
     private readonly IReadOnlyDictionary<int, IProjectMigration> _migrations =
         (migrations ?? []).ToDictionary(migration => migration.FromVersion);
 
+    public static ProjectMigrationPipeline CreateCurrent() => new([
+        new V1ToV2ProjectMigration(),
+        new V2ToV3ProjectMigration(),
+        new V3ToV4ProjectMigration(),
+        new V4ToV5ProjectMigration(),
+        new V5ToV6ProjectMigration(),
+        new V6ToV7ProjectMigration(),
+        new V7ToV8ProjectMigration(),
+        new V8ToV9ProjectMigration(),
+        new V9ToV10ProjectMigration(),
+        new V10ToV11ProjectMigration(),
+        new V11ToV12ProjectMigration(),
+        new V12ToV13ProjectMigration(),
+        new V13ToV14ProjectMigration(),
+        new V14ToV15ProjectMigration(),
+        new V15ToV16ProjectMigration(),
+        new V16ToV17ProjectMigration(),
+        new V17ToV18ProjectMigration(),
+        new V18ToV19ProjectMigration(),
+        new V19ToV20ProjectMigration(),
+        new V20ToV21ProjectMigration()
+    ]);
+
     public JsonObject Normalize(JsonObject project)
     {
         var version = ReadVersion(project);
