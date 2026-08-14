@@ -44,6 +44,27 @@ test('song outline reports the first actionable gap for each section', () => {
   ])
 })
 
+test('song outline asks for playable notes before a note-dependent part', () => {
+  const project = {
+    sections: [
+      { id: 'verse', title: 'Verse', kind: 'Verse', delivery: 'Sung', structuralFunction: 'Setup', lyricLines: [{ id: 'l1' }] },
+      { id: 'chorus', title: 'Chorus', kind: 'Chorus', delivery: 'Sung', structuralFunction: 'Payoff', lyricLines: [{ id: 'l2' }] },
+    ],
+    timeline: { sectionPlacements: [
+      { sectionId: 'verse', durationBars: 8 },
+      { sectionId: 'chorus', durationBars: 8 },
+    ] },
+  }
+  const readiness = { sections: [
+    { sectionId: 'verse', hasLyrics: true, hasHarmony: true, hasRole: true, hasPlayablePart: false, needsSourceNotes: true, ready: false },
+    { sectionId: 'chorus', hasLyrics: true, hasHarmony: true, hasRole: true, hasPlayablePart: false, needsSourceNotes: false, ready: false },
+  ] }
+
+  assert.deepEqual(songOutline(project, readiness).map(item => item.progress), [
+    'Needs playable notes', 'Needs a playable part',
+  ])
+})
+
 test('focused navigation stays within the known song form', () => {
   const sections = [{ id: 'intro' }, { id: 'verse' }, { id: 'chorus' }]
 

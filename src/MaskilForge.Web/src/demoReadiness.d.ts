@@ -7,6 +7,7 @@ export interface DemoSectionReadiness {
   hasHarmony: boolean
   hasRole: boolean
   hasPlayablePart: boolean
+  needsSourceNotes: boolean
   ready: boolean
 }
 
@@ -18,7 +19,7 @@ export interface DemoReadiness {
   nextStep: {
     sectionId: string
     stage: 'shape' | 'harmony' | 'arrangement'
-    action: 'lyrics' | 'harmony' | 'role' | 'part'
+    action: 'lyrics' | 'harmony' | 'role' | 'part' | 'sketch'
     label: string
   } | null
   sections: DemoSectionReadiness[]

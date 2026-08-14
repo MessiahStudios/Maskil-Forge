@@ -2062,7 +2062,7 @@ onBeforeUnmount(() => {
                   <strong>Turn this harmony into playable notes</strong>
                   <small>Preview the exact notes first. Nothing is added to your song until you choose “Use this sketch.”</small>
                 </div>
-                <button type="button" class="secondary" :disabled="busy" @click="prepareHarmonyNoteSketch(section.id)">
+                <button type="button" class="secondary" data-readiness-action="sketch" :disabled="busy" @click="prepareHarmonyNoteSketch(section.id)">
                   {{ harmonyNoteSketches[section.id] ? 'Refresh note sketch' : 'Prepare note sketch' }}
                 </button>
                 <div v-if="harmonyNoteSketches[section.id]" class="harmony-note-sketch-result">
@@ -2078,7 +2078,7 @@ onBeforeUnmount(() => {
                       <small>{{ note.usesPreviewVoicing ? 'Preview voicing' : 'Your voicing' }}</small>
                     </li>
                   </ol>
-                  <button type="button" :disabled="busy" @click="useHarmonyNoteSketch(section.id)">Use this sketch</button>
+                  <button type="button" data-readiness-action="sketch" :disabled="busy" @click="useHarmonyNoteSketch(section.id)">Use this sketch</button>
                 </div>
               </section>
               <div v-if="section.harmony?.length" class="harmony-list">

@@ -9,6 +9,7 @@ export function songOutline(project, readiness) {
     else if (review && !review.hasLyrics) progress = 'Needs lyrics'
     else if (review && !review.hasHarmony) progress = 'Needs harmony'
     else if (review && !review.hasRole) progress = 'Needs a musical job'
+    else if (review?.needsSourceNotes) progress = 'Needs playable notes'
     else if (review) progress = 'Needs a playable part'
     return {
       sectionId: section.id,
