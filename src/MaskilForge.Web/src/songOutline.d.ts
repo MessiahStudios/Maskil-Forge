@@ -20,6 +20,7 @@ export function songOutline(project: SongProject | null, readiness: {
     hasHarmony: boolean
     hasRole: boolean
     hasPlayablePart: boolean
+    needsSourceNotes?: boolean
     ready: boolean
   }>
 }): SongOutlineItem[]

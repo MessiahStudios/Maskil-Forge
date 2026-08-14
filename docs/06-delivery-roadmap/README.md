@@ -492,6 +492,12 @@ Identify the concrete artist action behind each hear–revise readiness gap and 
 
 **Deliverable:** readiness guidance completes its navigation promise for lyrics, harmony, arrangement jobs, and playable parts without requiring an extra search or keyboard step.
 
+### Milestone 5.36 — Playable-part source-note guidance
+
+When the remaining hear–revise gap is a playable part, distinguish jobs that can realize from existing chords from jobs that need approved notes first. Harmony-support and texture remain part actions. Pulse, accents, and other note-dependent jobs with no in-section notes open Harmony and land on preparing a note sketch. Notes belonging to another section do not count. This slice adds no schema fields, automatic acceptance, or new role realization.
+
+**Deliverable:** an artist assigned a note-dependent arrangement job is taken to the chord-to-notes step instead of a disabled part control.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

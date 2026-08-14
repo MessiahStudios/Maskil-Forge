@@ -47,6 +47,7 @@ test('orphaned part references do not count as an audible section', () => {
     noteEvents: [],
   }))
   assert.equal(review.sections[0].hasPlayablePart, false)
+  assert.equal(review.sections[0].needsSourceNotes, false)
   assert.equal(review.nextAction, 'Accept or create a playable part for Chorus.')
   assert.equal(review.nextStep.action, 'part')
 })
@@ -62,4 +63,65 @@ test('arrangement gaps distinguish choosing a job from building its part', () =>
     arrangementRoles: [{ sectionId: 'bridge', role: 'Harmony' }],
   }))
   assert.equal(needsPart.nextStep.action, 'part')
+  assert.equal(needsPart.sections[0].needsSourceNotes, false)
+})
+
+const timeline = (placements) => ({
+  ticksPerQuarterNote: 480,
+  tempoMap: { events: [{ beat: 0, beatsPerMinute: 120 }] },
+  timeSignatureMap: { events: [{ beat: 0, numerator: 4, denominator: 4 }] },
+  sectionPlacements: placements,
+})
+
+test('note-dependent jobs without in-section notes ask for a harmony sketch', () => {
+  const review = demoReadiness(project({
+    sections: [section('verse', 'Verse', 'A line', [{ id: 'chord' }])],
+    arrangementRoles: [{ sectionId: 'verse', role: 'Pulse' }],
+    timeline: timeline([{ sectionId: 'verse', start: { bar: 1, beat: 1, tick: 0 }, durationBars: 8 }]),
+  }))
+  assert.equal(review.sections[0].needsSourceNotes, true)
+  assert.equal(review.nextAction, 'Turn Verse harmony into playable notes.')
+  assert.deepEqual(review.nextStep, {
+    sectionId: 'verse',
+    stage: 'harmony',
+    action: 'sketch',
+    label: 'Prepare Verse notes',
+  })
+})
+
+test('note-dependent jobs keep the part action once the section has notes', () => {
+  const review = demoReadiness(project({
+    sections: [section('verse', 'Verse', 'A line', [{ id: 'chord' }])],
+    arrangementRoles: [{ sectionId: 'verse', role: 'Pulse' }],
+    noteEvents: [{ id: 'note', startTick: 0 }],
+    timeline: timeline([{ sectionId: 'verse', start: { bar: 1, beat: 1, tick: 0 }, durationBars: 8 }]),
+  }))
+  assert.equal(review.sections[0].needsSourceNotes, false)
+  assert.equal(review.nextStep.action, 'part')
+})
+
+test('notes from another section do not satisfy a note-dependent job', () => {
+  const review = demoReadiness(project({
+    sections: [
+      section('verse', 'Verse', 'A line', [{ id: 'chord' }]),
+      section('chorus', 'Chorus', 'A hook', [{ id: 'chord' }]),
+    ],
+    arrangementRoles: [{ sectionId: 'verse', role: 'Pulse' }],
+    noteEvents: [{ id: 'chorus-note', startTick: 15360 }],
+    timeline: timeline([
+      { sectionId: 'verse', start: { bar: 1, beat: 1, tick: 0 }, durationBars: 8 },
+      { sectionId: 'chorus', start: { bar: 9, beat: 1, tick: 0 }, durationBars: 8 },
+    ]),
+  }))
+  assert.equal(review.sections[0].needsSourceNotes, true)
+  assert.equal(review.nextStep.action, 'sketch')
+})
+
+test('harmony-support and texture can build a part from chords without prior notes', () => {
+  const texture = demoReadiness(project({
+    sections: [section('bridge', 'Bridge', 'A turn', [{ id: 'chord' }])],
+    arrangementRoles: [{ sectionId: 'bridge', role: 'Texture' }],
+  }))
+  assert.equal(texture.sections[0].needsSourceNotes, false)
+  assert.equal(texture.nextStep.action, 'part')
 })
