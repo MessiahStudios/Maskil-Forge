@@ -588,6 +588,12 @@ Represent host and browser recovery copies as one protected song in counts and l
 
 **Deliverable:** the recovery surface remains understandable as unfinished songs accumulate, without silently deleting lyrics or mistaking duplicate storage copies for separate creative work.
 
+### Milestone 5.52 — Saved-song library hygiene
+
+Keep the saved-song library uncapped and preserve the existing newest-first order while adding title-or-artist search, meaningful creative-stage filters, and a twelve-result collapsed view. Provide a dedicated empty-start review mode that selects nothing by default and can move only explicitly selected empty starts to reversible Trash after a content-aware confirmation. Permanent deletion remains a separate Trash action.
+
+**Deliverable:** a growing saved-song library stays navigable and artists can safely review accidental empty starts without automatic pruning or treating unfinished songs as disposable.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
