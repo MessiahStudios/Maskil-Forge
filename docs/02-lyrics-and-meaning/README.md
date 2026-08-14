@@ -1,6 +1,6 @@
 # 02 — Lyrics and Musical Meaning
 
-This planned Maskil Engine layer will turn text and creative intent into annotated material that later generators can use. Speech and vocal prosody are treated as core musical inputs, not optional decoration.
+This planned Maskil Engine layer will turn text and creative intent into annotated material that later generators can use. Speech and vocal prosody are treated as core musical inputs, not optional decoration. Analyzed vocal timing and emphasis may later inform editable Song Graph data; they do not author or replace the artist's lead vocal.
 
 ## Capture before structure
 

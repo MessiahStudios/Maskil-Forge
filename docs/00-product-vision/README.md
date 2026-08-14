@@ -35,7 +35,7 @@ Maskil Forge should feel more like a game engine for songs than a one-click audi
 Planned interactions include:
 
 - Directing a bridge to feel like surrender while delaying resolution until the chorus.
-- Humming a countermelody and retargeting its gesture to a cello.
+- Humming a countermelody and retargeting its gesture to a cello, while the recorded human vocal remains the lead.
 - Locking lyrics and chords, then regenerating only drums.
 - Asking why a phrase feels crowded or difficult to sing.
 - Choosing an instrument by expressive quality and musical role rather than by orchestration vocabulary.
@@ -50,7 +50,7 @@ These are goals, not claims about currently implemented features.
 - Vocal and gestural ideas
 - Edits, comparisons, locks, and approvals
 - Revisions and final emotional judgment
-- The intended final human lead-vocal performance
+- The recorded human lead-vocal performance, which remains the final authoritative vocal
 
 ### Maskil Engine will supply
 
@@ -59,6 +59,7 @@ These are goals, not claims about currently implemented features.
 - Constraint enforcement and shared scoring
 - Editable MIDI, automation, arrangement, and provenance data
 - Renderer-independent composition logic
+- Vocal capture, analysis, guidance, take management, and reviewable production assistance that never replaces the lead singer
 
 ### The AI director will supply
 
@@ -67,28 +68,45 @@ These are goals, not claims about currently implemented features.
 - Candidate comparisons and decision explanations
 - Focused questions when ambiguity materially affects the result
 
-AI is a director and interpreter, not the sole composer. It must not replace the Song Graph, theory rules, command history, user locks, or artist approval.
+AI is a director and interpreter, not the sole composer. It must not replace the Song Graph, theory rules, command history, user locks, artist approval, or the artist's lead vocal.
+
+## Intended vocal workflow
+
+The artist's human lead vocal is the final authoritative performance. Maskil Forge is a songwriting and production companion for that singer. It is not a vocal generator and must not be framed as creating or replacing the final lead singer.
+
+Maskil Forge may:
+
+- Capture and analyze vocals for pitch, onset, loudness, timing, and prosody.
+- Provide pitch, timing, and prosody guidance that informs the singer without overwriting the take.
+- Create guide melodies and related rehearsal aids so the artist can hear and follow a part.
+- Preserve takes, punch-ins, and comps as inspectable performance history.
+- Suggest or apply reviewable vocal production settings, including VST or other audio processing that assists the recorded vocal.
+- Use voice analysis to drive editable musical or instrument-performance data in the Song Graph, such as melody, rhythm, expression, or retargeted instrumental parts.
+
+Those operations produce or revise inspectable project data. They remain subject to artist approval, locks, undo, and the same command model as every other layer. A generated or processed sound may preview, guide, or support the singer; it does not become the canonical lead vocal.
+
+Detail lives in [Performance and sound](../04-performance-and-sound/README.md).
 
 ## Architectural principles
 
 - A song exists as structured, editable data before it exists as finished audio.
 - The canonical Song Graph binds lyrics, syllables, beats, melody, harmony, arrangement, performances, instruments, automation, and provenance.
-- Human vocals remain the intended final lead performance.
-- Voice-to-instrument is performance capture and retargeting, not simple timbre replacement.
+- The artist's recorded human vocal remains the final authoritative lead performance.
+- Voice-to-instrument is performance capture and retargeting, not simple timbre replacement or a substitute lead vocal.
 - Instrument recommendations depend on role, expressive behavior, range, articulation, and timbre.
 - MIDI is the initial interchange and performance-control layer, not the sound itself.
-- Audio rendering remains replaceable.
-- AI interprets and directs deterministic tools rather than owning the composition.
+- Audio rendering remains replaceable. VSTs and other processors may assist the artist's vocal or realize instrumental parts, but they must not own the composition or replace the singer.
+- AI interprets and directs deterministic tools rather than owning the composition or the lead vocal.
 
 ## Product boundaries
 
-Maskil Forge is not a Suno clone, an autonomous hit-song generator, or software intended to replace a singer. Its composition logic should remain independent of VSTs, SoundFonts, external DAWs, and possible future neural renderers.
+Maskil Forge is not a Suno clone, an autonomous hit-song generator, or software that generates or replaces a singer. Its composition logic should remain independent of VSTs, SoundFonts, external DAWs, and possible future neural renderers.
 
 The first useful release should not attempt to be a complete DAW or universal VST host. It should first prove that lyrics and intent can become a coherent, audible, editable song blueprint without losing human control.
 
 ## Long-term success test
 
-The product vision is fulfilled when an artist can move from lyrics and intent to an editable arrangement, direct instruments through musical or vocal gestures, record their own lead vocal, revise individual layers without losing approved work, and export the project or continue it in a DAW.
+The product vision is fulfilled when an artist can move from lyrics and intent to an editable arrangement, direct instruments through musical or vocal gestures, record and complete their own lead vocal with guidance and reviewable production help, revise individual layers without losing approved work, and export the project or continue it in a DAW—without the product supplying a generated replacement for that lead vocal.
 
 ## Current status
 
