@@ -18,7 +18,7 @@ Build the Song Graph, sections, timeline, tempo/meter, tracks, clips, markers, c
 
 Provide a deliberate welcome screen, discover locally saved projects without requiring a known identifier, capture and save an unstructured lyric draft, and let the artist move between raw writing and direct section editing without destroying either representation. Track last-modified time and protect unsaved work when switching projects.
 
-The current foundation implements the local project summary list, raw lyric draft, direct transition into Song Graph editing, unsaved-work prompts, confirmed recoverable deletion, Trash browsing and restoration, and separately confirmed permanent deletion. Duplication, import/export, automatic structural suggestions, and lyric analysis remain future work.
+The current foundation implements the local project summary list, raw lyric draft, direct transition into Song Graph editing, unsaved-work prompts, independent saved-song duplication, portable project import/export, confirmed recoverable deletion, Trash browsing and restoration, and separately confirmed permanent deletion. Automatic structural suggestions and lyric analysis remain future work.
 
 **Deliverable:** an artist can begin with words rather than a predefined song form, close the application, find the project again, and continue with the raw draft and structured sections intact.
 
@@ -551,6 +551,12 @@ Import an artist-owned `.maskil.json` file through the same schema migrations an
 Validate an artist-owned project before changing the library and present its title, artist, genre, song form, lyric scope, and any schema migration in one review step. Preserve the original identity only when it is available; when that identity already exists anywhere in protected local storage, offer a clearly named independent copy with a new root identity while preserving the nested creative decisions.
 
 **Deliverable:** an artist understands what a portable file contains and can bring back a second version without risking the song already stored on the device.
+
+### Milestone 5.46 — Independent saved-song duplication
+
+Duplicate the explicitly saved version of a library song into a new root project identity without changing the source or regenerating nested section, lyric, harmony, note, part, provenance, or lock decisions. Name repeated copies distinctly and keep recovery snapshots outside the copy boundary.
+
+**Deliverable:** an artist can branch an arrangement or lyric direction locally without exporting and re-importing the song or risking the original.
 
 ## Delivery foundation — Portable before platform-specific
 

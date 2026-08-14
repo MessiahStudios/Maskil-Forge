@@ -21,6 +21,16 @@ public static class PortableProjectImporter
 
     public static SongProject ImportAsCopy(string json) => Inspect(json, true).Project;
 
+    public static SongProject Duplicate(SongProject project, string title)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("A copy title is required.", nameof(title));
+        var json = System.Text.Encoding.UTF8.GetString(PortableProjectExporter.Export(project));
+        var document = ProjectMigrationPipeline.Parse(json);
+        ApplyCopyIdentity(document, title.Trim());
+        return Import(document.ToJsonString());
+    }
+
     public static PortableProjectDocument Inspect(string json, bool importAsCopy = false)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -31,7 +41,7 @@ public static class PortableProjectImporter
             var parsed = ProjectMigrationPipeline.Parse(json);
             var sourceSchemaVersion = ProjectMigrationPipeline.ReadVersion(parsed);
             var normalized = MigrationPipeline.Normalize(parsed);
-            if (importAsCopy) ApplyCopyIdentity(normalized);
+            if (importAsCopy) ApplyCopyIdentity(normalized, ImportedCopyTitle(normalized));
             var project = normalized.Deserialize<SongProject>(JsonOptions)
                 ?? throw new InvalidProjectDataException("The portable project file contains no project data.");
             return new PortableProjectDocument(project, sourceSchemaVersion);
@@ -43,20 +53,22 @@ public static class PortableProjectImporter
         }
     }
 
-    private static void ApplyCopyIdentity(System.Text.Json.Nodes.JsonObject project)
+    private static string ImportedCopyTitle(System.Text.Json.Nodes.JsonObject project)
     {
         const string suffix = " (Imported Copy)";
         var title = project["title"]?.GetValue<string>()?.Trim() ?? "Imported Song";
-        if (!title.EndsWith(suffix, StringComparison.Ordinal))
-        {
-            var maximumBaseLength = 200 - suffix.Length;
-            title = title[..Math.Min(title.Length, maximumBaseLength)].TrimEnd() + suffix;
-        }
-        var importedAtUtc = DateTimeOffset.UtcNow;
+        if (title.EndsWith(suffix, StringComparison.Ordinal)) return title;
+        var maximumBaseLength = 200 - suffix.Length;
+        return title[..Math.Min(title.Length, maximumBaseLength)].TrimEnd() + suffix;
+    }
+
+    private static void ApplyCopyIdentity(System.Text.Json.Nodes.JsonObject project, string title)
+    {
+        var copiedAtUtc = DateTimeOffset.UtcNow;
         project["id"] = ProjectId.New().ToString();
         project["title"] = title;
-        project["createdUtc"] = importedAtUtc;
-        project["lastModifiedUtc"] = importedAtUtc;
+        project["createdUtc"] = copiedAtUtc;
+        project["lastModifiedUtc"] = copiedAtUtc;
     }
 }
 

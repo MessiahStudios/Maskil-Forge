@@ -311,7 +311,30 @@ function returnToDraft() { view.value = 'capture'; activeCreatorStage.value = 'w
 function requestHome() { if (isDirty.value) return openConfirmation('home'); return goHome() }
 async function goHome() { confirmationOpen.value = false; view.value = 'home'; await Promise.all([refreshLibrary(), refreshRecovery()]) }
 function openSummary(id: string) { projectId.value = id; return requestLoad() }
-function requestDelete(id: string, title: string) {
+function closeCardMenu(event?: Event) {
+  const trigger = event?.currentTarget as HTMLElement | undefined
+  trigger?.closest('details')?.removeAttribute('open')
+}
+async function duplicateSong(id: string, title: string, event: Event) {
+  closeCardMenu(event)
+  busy.value = true
+  activityLog.write('info', 'project.duplicate', 'Saved-song duplication requested.', { projectId: id, title })
+  try {
+    const duplicated = await projectsApi.duplicate(id)
+    status.value = `“${duplicated.project.title}” is ready in your song library.`
+    activityLog.write('success', 'project.duplicate', 'Independent song copy created.', {
+      sourceProjectId: id,
+      projectId: duplicated.project.id,
+      title: duplicated.project.title,
+    })
+    await refreshLibrary()
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The saved song could not be duplicated.'
+    activityLog.write('error', 'project.duplicate', status.value, { projectId: id, title })
+  } finally { busy.value = false }
+}
+function requestDelete(id: string, title: string, event?: Event) {
+  closeCardMenu(event)
   deleteTarget.value = { id, title }
   deleteConfirmationOpen.value = true
   activityLog.write('warning', 'project.delete', 'Delete confirmation requested.', { projectId: id })
@@ -1839,6 +1862,7 @@ onBeforeUnmount(() => {
           <button class="secondary" :disabled="busy" @click="requestLoad">Open song</button>
         </details>
       </div>
+      <p class="status home-status" role="status">{{ status }}</p>
       <section class="project-library" aria-labelledby="library-title">
         <div class="library-heading"><div><p class="eyebrow">Song library</p><h2 id="library-title">Continue your work</h2></div><div class="library-actions"><button v-if="recoverySnapshots.length" class="recovery-button" @click="openRecovery">Recovery ({{ recoverySnapshots.length }})</button><button class="quiet" @click="openTrash">Trash</button><button class="quiet" :disabled="libraryBusy" @click="refreshLibrary">Refresh</button></div></div>
         <p v-if="libraryBusy" class="library-message">Finding your saved songs…</p>
@@ -1847,7 +1871,7 @@ onBeforeUnmount(() => {
           <article v-for="summary in projects" :key="summary.id" class="project-card">
             <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
             <dl><div><dt>Stage</dt><dd>{{ summary.sectionCount ? `${summary.sectionCount} structured section${summary.sectionCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? 'Raw lyric draft' : 'New idea' }}</dd></div><div><dt>Modified</dt><dd>{{ formatModified(summary.lastModifiedUtc) }}</dd></div></dl>
-            <div class="card-actions"><button class="secondary" @click="openSummary(summary.id)">Continue song</button><details class="card-menu"><summary>More actions</summary><button class="danger" @click="requestDelete(summary.id, summary.title)">Delete song</button></details></div>
+            <div class="card-actions"><button class="secondary" :disabled="busy" @click="openSummary(summary.id)">Continue song</button><details class="card-menu"><summary>More actions</summary><div class="card-menu-panel"><button class="secondary" :disabled="busy" @click="duplicateSong(summary.id, summary.title, $event)">Duplicate saved song</button><button class="danger" :disabled="busy" @click="requestDelete(summary.id, summary.title, $event)">Delete song</button></div></details></div>
           </article>
         </div>
       </section>

@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using MaskilForge.Domain;
 using MaskilForge.Engine;
+using MaskilForge.Infrastructure;
 
 namespace MaskilForge.Api;
 
@@ -81,8 +82,30 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         finally { gate.Release(); }
     }
 
+    public async Task<ProjectEditor?> DuplicateAsync(ProjectId sourceId, CancellationToken cancellationToken)
+    {
+        var source = await repository.LoadAsync(sourceId, cancellationToken);
+        if (source is null) return null;
+        var existingTitles = (await repository.ListAsync(cancellationToken))
+            .Select(item => item.Title)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var copy = PortableProjectImporter.Duplicate(source, AvailableCopyTitle(source.Title, existingTitles));
+        return await ImportAsync(copy, cancellationToken);
+    }
+
     public async Task SaveAsync(ProjectEditor editor, CancellationToken cancellationToken) =>
         await repository.SaveAsync(editor.Project, cancellationToken);
+
+    private static string AvailableCopyTitle(string sourceTitle, IReadOnlySet<string> existingTitles)
+    {
+        for (var number = 1; ; number++)
+        {
+            var suffix = number == 1 ? " Copy" : $" Copy {number}";
+            var maximumBaseLength = 200 - suffix.Length;
+            var candidate = sourceTitle[..Math.Min(sourceTitle.Length, maximumBaseLength)].TrimEnd() + suffix;
+            if (!existingTitles.Contains(candidate)) return candidate;
+        }
+    }
 
     public async Task<ProjectEditor?> SyncAsync(SongProject update, CancellationToken cancellationToken)
     {
