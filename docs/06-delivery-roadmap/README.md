@@ -582,6 +582,12 @@ Cache the exact Song Graph at explicit create, open, import, and save boundaries
 
 **Deliverable:** an artist can reopen the installed shell on the same device and read a recently saved song without the local host, while the interface remains explicit that the snapshot is neither synchronized nor editable nor authoritative.
 
+### Milestone 5.51 — Recovery queue hygiene
+
+Represent host and browser recovery copies as one protected song in counts and lists while preserving an explicit restore choice when both sources exist. Show the five newest songs first, treat ten unique songs as a soft attention threshold, and label work stale after 30 days. Older work remains protected until the artist expands the queue and explicitly confirms a content-aware single-song or stale-group discard.
+
+**Deliverable:** the recovery surface remains understandable as unfinished songs accumulate, without silently deleting lyrics or mistaking duplicate storage copies for separate creative work.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

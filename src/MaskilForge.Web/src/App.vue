@@ -17,6 +17,7 @@ import { activateApplicationShellUpdate, isStandaloneApplication, registerApplic
 import { cacheBrowserProject, discardBrowserProject, discardBrowserRecovery, listBrowserProjects, listBrowserRecoveries, loadBrowserProject, loadBrowserRecovery, protectBrowserRecovery, type BrowserProjectRecord, type BrowserRecoveryRecord } from './browserRecovery'
 import { browserRecoveryNotice, summarizeBrowserRecovery } from './browserRecoveryModel.js'
 import { browserProjectNotice, summarizeBrowserProject } from './browserProjectModel.js'
+import { buildRecoveryQueue, recoveryQueueStats, recoveryRecentLimit, recoverySoftCap, recoveryStaleDays, type RecoveryQueueItem } from './recoveryQueueModel.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -44,8 +45,11 @@ const confirmationOpen = ref(false)
 const deleteConfirmationOpen = ref(false)
 const deleteTarget = ref<{ id: string; title: string } | null>(null)
 const permanentDeleteTarget = ref<{ id: string; title: string } | null>(null)
-const recoveryDiscardTarget = ref<RecoverySummary | null>(null)
+const recoveryDiscardTarget = ref<RecoveryQueueItem | null>(null)
 const recoveryDiscardCancelButton = ref<HTMLButtonElement | null>(null)
+const staleRecoveryCleanupOpen = ref(false)
+const staleRecoveryCleanupCancelButton = ref<HTMLButtonElement | null>(null)
+const showAllRecoveries = ref(false)
 const portableImportInput = ref<HTMLInputElement | null>(null)
 let recoveryDiscardReturnFocus: HTMLElement | null = null
 const firstPartConfirmation = ref<{ label: string; proceed: () => void } | null>(null)
@@ -87,7 +91,11 @@ const isDirty = computed(() => Boolean(project.value) && serializedProject.value
 const browserRecoverySummaries = computed(() => browserRecoveries.value.map(summarizeBrowserRecovery))
 const browserProjectSummaries = computed(() => browserProjects.value.map(summarizeBrowserProject))
 const browserProjectDetail = computed(() => browserProjectNotice(browserProjects.value.length))
-const recoveryCount = computed(() => recoverySnapshots.value.length + browserRecoveries.value.length)
+const recoveryQueue = computed(() => buildRecoveryQueue(recoverySnapshots.value, browserRecoverySummaries.value))
+const recoveryHygiene = computed(() => recoveryQueueStats(recoveryQueue.value))
+const recoveryCount = computed(() => recoveryHygiene.value.uniqueCount)
+const visibleRecoveryQueue = computed(() => showAllRecoveries.value ? recoveryQueue.value : recoveryQueue.value.slice(0, recoveryRecentLimit))
+const staleRecoveryQueue = computed(() => recoveryQueue.value.filter(snapshot => snapshot.isStale))
 const browserRecoveryDetail = computed(() => browserRecoveries.value.length && browserRecoveryNeedsReview.value
   ? 'Browser-protected work needs review before it can return to the local project service.'
   : browserRecoveryNotice(browserRecoveries.value.length, workspaceConnection.value === 'ready'))
@@ -508,6 +516,7 @@ async function syncBrowserRecovery() {
 }
 async function openRecovery() {
   view.value = 'recovery'
+  showAllRecoveries.value = false
   await Promise.all([refreshRecovery(), refreshBrowserRecovery()])
 }
 async function restoreRecovery(id: string) {
@@ -558,10 +567,10 @@ async function restoreBrowserProtectedWork(id: string) {
     activityLog.write('error', 'recovery.browser-restore', status.value, { projectId: id })
   } finally { busy.value = false }
 }
-async function requestRecoveryDiscard(summary: RecoverySummary, event: Event) {
+async function requestRecoveryDiscard(summary: RecoveryQueueItem, event: Event) {
   recoveryDiscardReturnFocus = event.currentTarget as HTMLElement
   recoveryDiscardTarget.value = summary
-  activityLog.write('warning', 'recovery.discard', 'Recovery discard confirmation requested.', { projectId: summary.id, title: summary.title })
+  activityLog.write('warning', 'recovery.discard', 'Recovery discard confirmation requested.', { projectId: summary.id, title: summary.title, source: summary.sourceLabel })
   await nextTick()
   recoveryDiscardCancelButton.value?.focus()
 }
@@ -577,16 +586,58 @@ async function confirmRecoveryDiscard() {
   const target = recoveryDiscardTarget.value
   busy.value = true
   try {
-    await projectsApi.discardRecovery(target.id)
+    await discardRecoverySources(target)
     recoveryDiscardTarget.value = null
     recoveryDiscardReturnFocus = null
-    status.value = `The protected “${target.title}” snapshot was discarded.`
-    activityLog.write('info', 'recovery.discard', 'Recovery snapshot discarded.', { projectId: target.id, title: target.title })
-    await refreshRecovery()
-    if (recoverySnapshots.value.length === 0) await goHome()
+    status.value = `The protected “${target.title}” work was discarded from ${target.sourceLabel.toLowerCase()}.`
+    activityLog.write('info', 'recovery.discard', 'Recovery work discarded.', { projectId: target.id, title: target.title, source: target.sourceLabel })
+    await Promise.all([refreshRecovery(), refreshBrowserRecovery()])
+    if (recoveryCount.value === 0) await goHome()
   } catch (error) {
-    status.value = error instanceof Error ? error.message : 'The recovery snapshot could not be discarded.'
+    status.value = error instanceof Error ? error.message : 'The protected work could not be discarded.'
   } finally { busy.value = false }
+}
+async function discardRecoverySources(target: RecoveryQueueItem) {
+  const removals: Promise<unknown>[] = []
+  if (target.hasHostSnapshot) removals.push(projectsApi.discardRecovery(target.id))
+  if (target.hasBrowserSnapshot) removals.push(discardBrowserRecovery(target.id))
+  await Promise.all(removals)
+}
+async function requestStaleRecoveryCleanup() {
+  staleRecoveryCleanupOpen.value = true
+  activityLog.write('warning', 'recovery.stale-cleanup', 'Stale recovery cleanup confirmation requested.', { count: staleRecoveryQueue.value.length, staleDays: recoveryStaleDays })
+  await nextTick()
+  staleRecoveryCleanupCancelButton.value?.focus()
+}
+function cancelStaleRecoveryCleanup() {
+  staleRecoveryCleanupOpen.value = false
+  activityLog.write('info', 'recovery.stale-cleanup', 'Stale recovery cleanup cancelled.')
+}
+async function confirmStaleRecoveryCleanup() {
+  const targets = [...staleRecoveryQueue.value]
+  if (targets.length === 0) { staleRecoveryCleanupOpen.value = false; return }
+  busy.value = true
+  let discarded = 0
+  const failedTitles: string[] = []
+  for (const target of targets) {
+    try {
+      await discardRecoverySources(target)
+      discarded++
+    } catch {
+      failedTitles.push(target.title)
+    }
+  }
+  staleRecoveryCleanupOpen.value = false
+  await Promise.all([refreshRecovery(), refreshBrowserRecovery()])
+  if (failedTitles.length) {
+    status.value = `${discarded} stale recover${discarded === 1 ? 'y was' : 'ies were'} discarded. ${failedTitles.length} could not be removed and remain available.`
+    activityLog.write('warning', 'recovery.stale-cleanup', 'Stale recovery cleanup completed with retained failures.', { discarded, failed: failedTitles.length })
+  } else {
+    status.value = `${discarded} stale recover${discarded === 1 ? 'y was' : 'ies were'} explicitly discarded.`
+    activityLog.write('info', 'recovery.stale-cleanup', 'Stale recovery cleanup completed.', { discarded })
+  }
+  if (recoveryCount.value === 0) await goHome()
+  busy.value = false
 }
 async function restoreSong(id: string, title: string) {
   busy.value = true
@@ -2086,7 +2137,7 @@ onMounted(async () => {
   await Promise.all([refreshWorkspaceHealth(), refreshLibrary(), refreshRecovery()])
   if (workspaceConnection.value === 'ready' && recoveryCount.value > 0) {
     view.value = 'recovery'
-    status.value = `${recoveryCount.value} protected editor snapshot${recoveryCount.value === 1 ? '' : 's'} found.`
+    status.value = `${recoveryCount.value} protected song recover${recoveryCount.value === 1 ? 'y' : 'ies'} found.`
   }
 })
 onBeforeUnmount(() => {
@@ -2200,30 +2251,32 @@ onBeforeUnmount(() => {
 
     <section v-else-if="view === 'recovery'" class="trash-view recovery-view" aria-labelledby="recovery-title" :inert="workspaceConnection === 'unavailable'">
       <button class="quiet" @click="goHome">← Song library</button>
-      <div class="trash-heading"><p class="eyebrow">Protected work</p><h1 id="recovery-title">Recover unsaved songs</h1><p>Maskil Forge found editor snapshots newer than an explicit save. Restore one to inspect it, or discard it without changing the saved song.</p></div>
+      <div class="trash-heading"><p class="eyebrow">Protected work</p><h1 id="recovery-title">Recover unsaved songs</h1><p>Each card represents one song, even when the same work is protected by both the local host and this browser. Nothing is removed automatically.</p></div>
       <p class="status" role="status">{{ status }}</p>
-      <section v-if="browserRecoverySummaries.length" class="browser-recovery-group" aria-labelledby="device-recovery-title">
-        <div class="recovery-group-heading"><div><p class="eyebrow">This browser</p><h2 id="device-recovery-title">Protected during a host interruption</h2></div><p>{{ browserRecoveryDetail }}</p></div>
-        <div class="project-grid">
-          <article v-for="summary in browserRecoverySummaries" :key="summary.id" class="project-card recovery-card browser-recovery-card">
-            <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
-            <dl><div><dt>Contents</dt><dd>{{ summary.sectionCount ? `${summary.sectionCount} structured section${summary.sectionCount === 1 ? '' : 's'} · ${summary.lyricLineCount} lyric line${summary.lyricLineCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? `Raw lyric draft · ${summary.lyricLineCount} non-empty line${summary.lyricLineCount === 1 ? '' : 's'}` : 'New idea' }}</dd></div><div v-if="summary.sectionTitles.length"><dt>Song form</dt><dd class="recovery-form">{{ summary.sectionTitles.join(' → ') }}</dd></div><div><dt>Protected</dt><dd>{{ formatModified(summary.capturedAtUtc) }}</dd></div></dl>
-            <div class="card-actions"><button :disabled="busy || workspaceConnection !== 'ready'" @click="restoreBrowserProtectedWork(summary.id)">Restore protected work</button></div>
-          </article>
-        </div>
-      </section>
       <p v-if="recoveryCount === 0" class="library-message">No unsaved recovery snapshots remain.</p>
-      <div v-if="recoverySnapshots.length" class="project-grid">
-        <article v-for="summary in recoverySnapshots" :key="summary.id" class="project-card recovery-card">
+      <template v-else>
+        <section class="recovery-hygiene" aria-labelledby="recovery-hygiene-title">
+          <div><p class="eyebrow">Recovery hygiene</p><h2 id="recovery-hygiene-title">{{ recoveryCount }} protected song{{ recoveryCount === 1 ? '' : 's' }}</h2><p>The five newest songs stay in view. Ten is a soft attention threshold, not a deletion rule; work older than {{ recoveryStaleDays }} days is labeled stale for explicit review.</p></div>
+          <dl><div><dt>Shown now</dt><dd>{{ visibleRecoveryQueue.length }}</dd></div><div><dt>Stale</dt><dd>{{ recoveryHygiene.staleCount }}</dd></div><div><dt>Soft cap</dt><dd>{{ recoverySoftCap }}</dd></div></dl>
+          <div class="recovery-hygiene-actions">
+            <button v-if="recoveryHygiene.hiddenCount" class="secondary" @click="showAllRecoveries = !showAllRecoveries">{{ showAllRecoveries ? 'Show five recent' : `Show ${recoveryHygiene.hiddenCount} older` }}</button>
+            <button v-if="recoveryHygiene.staleCount" class="danger" :disabled="busy" @click="requestStaleRecoveryCleanup">Review stale cleanup ({{ recoveryHygiene.staleCount }})</button>
+          </div>
+        </section>
+        <aside v-if="recoveryHygiene.overSoftCap" class="recovery-cap-warning" role="note"><strong>Recovery attention recommended.</strong><span>{{ recoveryCount }} songs have unsaved work. Restore and save the directions you want to keep, or explicitly discard snapshots you no longer need. New work will still be protected.</span></aside>
+        <div class="project-grid recovery-grid">
+        <article v-for="summary in visibleRecoveryQueue" :key="summary.id" class="project-card recovery-card" :class="{ 'recovery-card-stale': summary.isStale }">
           <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
+          <div class="recovery-badges"><span>{{ summary.sourceLabel }}</span><span v-if="summary.isStale" class="stale-badge">Stale · {{ summary.ageDays }} days</span></div>
           <dl>
             <div><dt>Contents</dt><dd>{{ summary.sectionCount ? `${summary.sectionCount} structured section${summary.sectionCount === 1 ? '' : 's'} · ${summary.lyricLineCount} lyric line${summary.lyricLineCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? `Raw lyric draft · ${summary.lyricLineCount} non-empty line${summary.lyricLineCount === 1 ? '' : 's'}` : 'New idea' }}</dd></div>
             <div v-if="summary.sectionTitles.length"><dt>Song form</dt><dd class="recovery-form">{{ summary.sectionTitles.join(' → ') }}</dd></div>
             <div><dt>Protected</dt><dd>{{ formatModified(summary.capturedAtUtc) }}</dd></div>
           </dl>
-          <div class="card-actions"><button :disabled="busy" @click="restoreRecovery(summary.id)">Restore unsaved work</button><button class="danger" :disabled="busy" @click="requestRecoveryDiscard(summary, $event)">Discard snapshot</button></div>
+          <div class="card-actions recovery-card-actions"><button v-if="summary.hasHostSnapshot" :disabled="busy" @click="restoreRecovery(summary.id)">{{ summary.hasBrowserSnapshot ? 'Restore host copy' : 'Restore unsaved work' }}</button><button v-if="summary.hasBrowserSnapshot" class="secondary" :disabled="busy" @click="restoreBrowserProtectedWork(summary.id)">{{ summary.hasHostSnapshot ? 'Restore browser copy' : 'Restore protected work' }}</button><button class="danger" :disabled="busy" @click="requestRecoveryDiscard(summary, $event)">Discard protected work</button></div>
         </article>
-      </div>
+        </div>
+      </template>
     </section>
 
     <section v-else-if="view === 'trash'" class="trash-view" aria-labelledby="trash-title" :inert="workspaceConnection === 'unavailable'">
@@ -3282,12 +3335,27 @@ onBeforeUnmount(() => {
     <div v-if="recoveryDiscardTarget" class="modal-backdrop" role="presentation" @click.self="cancelRecoveryDiscard">
       <section class="load-dialog delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="recovery-discard-title" aria-describedby="recovery-discard-description">
         <p class="eyebrow">Protected unsaved work</p>
-        <h2 id="recovery-discard-title">Discard this recovery snapshot?</h2>
-        <p id="recovery-discard-description">This permanently removes the protected “{{ recoveryDiscardTarget.title }}” snapshot. {{ recoveryDiscardTarget.sectionCount ? `${recoveryDiscardTarget.sectionCount} structured section${recoveryDiscardTarget.sectionCount === 1 ? '' : 's'} and ${recoveryDiscardTarget.lyricLineCount} lyric line${recoveryDiscardTarget.lyricLineCount === 1 ? '' : 's'} will no longer be recoverable.` : recoveryDiscardTarget.hasRawLyrics ? `${recoveryDiscardTarget.lyricLineCount} raw lyric line${recoveryDiscardTarget.lyricLineCount === 1 ? '' : 's'} will no longer be recoverable.` : 'Its unsaved idea will no longer be recoverable.' }}</p>
+        <h2 id="recovery-discard-title">Discard this protected work?</h2>
+        <p id="recovery-discard-description">This permanently removes every recovery copy of “{{ recoveryDiscardTarget.title }}” from {{ recoveryDiscardTarget.sourceLabel.toLowerCase() }} without changing its explicitly saved song. {{ recoveryDiscardTarget.sectionCount ? `${recoveryDiscardTarget.sectionCount} structured section${recoveryDiscardTarget.sectionCount === 1 ? '' : 's'} and ${recoveryDiscardTarget.lyricLineCount} lyric line${recoveryDiscardTarget.lyricLineCount === 1 ? '' : 's'} will no longer be recoverable.` : recoveryDiscardTarget.hasRawLyrics ? `${recoveryDiscardTarget.lyricLineCount} raw lyric line${recoveryDiscardTarget.lyricLineCount === 1 ? '' : 's'} will no longer be recoverable.` : 'Its unsaved idea will no longer be recoverable.' }}</p>
         <p v-if="recoveryDiscardTarget.sectionTitles.length" class="recovery-form">{{ recoveryDiscardTarget.sectionTitles.join(' → ') }}</p>
         <div class="dialog-actions">
           <button ref="recoveryDiscardCancelButton" class="secondary" :disabled="busy" @click="cancelRecoveryDiscard">Keep protected work</button>
-          <button class="danger" :disabled="busy" @click="confirmRecoveryDiscard">Yes, discard snapshot</button>
+          <button class="danger" :disabled="busy" @click="confirmRecoveryDiscard">Yes, discard protected work</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="staleRecoveryCleanupOpen" class="modal-backdrop" role="presentation" @click.self="cancelStaleRecoveryCleanup">
+      <section class="load-dialog delete-dialog stale-cleanup-dialog" role="alertdialog" aria-modal="true" aria-labelledby="stale-cleanup-title" aria-describedby="stale-cleanup-description">
+        <p class="eyebrow">Explicit recovery cleanup</p>
+        <h2 id="stale-cleanup-title">Discard all stale protected work?</h2>
+        <p id="stale-cleanup-description">These {{ staleRecoveryQueue.length }} song{{ staleRecoveryQueue.length === 1 ? '' : 's' }} have been protected for at least {{ recoveryStaleDays }} days. This removes every host and browser recovery copy listed below, but does not change any explicitly saved song.</p>
+        <ul class="stale-cleanup-list">
+          <li v-for="summary in staleRecoveryQueue" :key="summary.id"><strong>{{ summary.title }}</strong><span>{{ summary.sectionCount ? `${summary.sectionCount} section${summary.sectionCount === 1 ? '' : 's'} · ${summary.lyricLineCount} lyric line${summary.lyricLineCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? `${summary.lyricLineCount} raw lyric line${summary.lyricLineCount === 1 ? '' : 's'}` : 'New idea' }} · {{ summary.sourceLabel }}</span></li>
+        </ul>
+        <div class="dialog-actions">
+          <button ref="staleRecoveryCleanupCancelButton" class="secondary" :disabled="busy" @click="cancelStaleRecoveryCleanup">Keep stale work</button>
+          <button class="danger" :disabled="busy" @click="confirmStaleRecoveryCleanup">Yes, discard {{ staleRecoveryQueue.length }} stale</button>
         </div>
       </section>
     </div>
