@@ -18,6 +18,7 @@ import { cacheBrowserProject, discardBrowserProject, discardBrowserRecovery, lis
 import { browserRecoveryNotice, summarizeBrowserRecovery } from './browserRecoveryModel.js'
 import { browserProjectNotice, summarizeBrowserProject } from './browserProjectModel.js'
 import { buildRecoveryQueue, recoveryQueueStats, recoveryRecentLimit, recoverySoftCap, recoveryStaleDays, type RecoveryQueueItem } from './recoveryQueueModel.js'
+import { filterProjectLibrary, libraryRecentLimit, libraryResultStats, projectLibraryStage, type ProjectLibraryStage } from './libraryHygieneModel.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -50,6 +51,13 @@ const recoveryDiscardCancelButton = ref<HTMLButtonElement | null>(null)
 const staleRecoveryCleanupOpen = ref(false)
 const staleRecoveryCleanupCancelButton = ref<HTMLButtonElement | null>(null)
 const showAllRecoveries = ref(false)
+const libraryQuery = ref('')
+const libraryStageFilter = ref<ProjectLibraryStage>('all')
+const showAllLibraryResults = ref(false)
+const libraryCleanupMode = ref(false)
+const selectedLibraryProjectIds = ref<string[]>([])
+const bulkTrashOpen = ref(false)
+const bulkTrashCancelButton = ref<HTMLButtonElement | null>(null)
 const portableImportInput = ref<HTMLInputElement | null>(null)
 let recoveryDiscardReturnFocus: HTMLElement | null = null
 const firstPartConfirmation = ref<{ label: string; proceed: () => void } | null>(null)
@@ -96,6 +104,13 @@ const recoveryHygiene = computed(() => recoveryQueueStats(recoveryQueue.value))
 const recoveryCount = computed(() => recoveryHygiene.value.uniqueCount)
 const visibleRecoveryQueue = computed(() => showAllRecoveries.value ? recoveryQueue.value : recoveryQueue.value.slice(0, recoveryRecentLimit))
 const staleRecoveryQueue = computed(() => recoveryQueue.value.filter(snapshot => snapshot.isStale))
+const filteredLibraryProjects = computed(() => filterProjectLibrary(projects.value, libraryQuery.value, libraryStageFilter.value))
+const libraryResults = computed(() => libraryResultStats(filteredLibraryProjects.value, showAllLibraryResults.value))
+const visibleLibraryProjects = computed(() => filteredLibraryProjects.value.slice(0, libraryResults.value.visibleCount))
+const selectedLibraryProjects = computed(() => {
+  const selectedIds = new Set(selectedLibraryProjectIds.value)
+  return projects.value.filter(summary => selectedIds.has(summary.id) && projectLibraryStage(summary) === 'empty')
+})
 const browserRecoveryDetail = computed(() => browserRecoveries.value.length && browserRecoveryNeedsReview.value
   ? 'Browser-protected work needs review before it can return to the local project service.'
   : browserRecoveryNotice(browserRecoveries.value.length, workspaceConnection.value === 'ready'))
@@ -669,6 +684,81 @@ async function confirmPermanentDelete() {
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'The song could not be permanently deleted.'
   } finally { busy.value = false }
+}
+function beginLibraryCleanup() {
+  libraryCleanupMode.value = true
+  libraryQuery.value = ''
+  libraryStageFilter.value = 'empty'
+  showAllLibraryResults.value = false
+  selectedLibraryProjectIds.value = []
+  status.value = 'Review empty starts. Nothing is selected or removed automatically.'
+}
+function finishLibraryCleanup() {
+  libraryCleanupMode.value = false
+  libraryStageFilter.value = 'all'
+  selectedLibraryProjectIds.value = []
+  status.value = 'Song library.'
+}
+function setLibraryProjectSelected(id: string, event: Event) {
+  const checked = (event.target as HTMLInputElement).checked
+  const selected = new Set(selectedLibraryProjectIds.value)
+  if (checked) selected.add(id)
+  else selected.delete(id)
+  selectedLibraryProjectIds.value = [...selected]
+}
+function selectVisibleEmptyStarts() {
+  const selected = new Set(selectedLibraryProjectIds.value)
+  visibleLibraryProjects.value
+    .filter(summary => projectLibraryStage(summary) === 'empty')
+    .forEach(summary => selected.add(summary.id))
+  selectedLibraryProjectIds.value = [...selected]
+}
+function clearLibrarySelection() { selectedLibraryProjectIds.value = [] }
+async function requestBulkTrash() {
+  if (selectedLibraryProjects.value.length === 0) return
+  bulkTrashOpen.value = true
+  activityLog.write('warning', 'project.bulk-delete', 'Empty-start cleanup confirmation requested.', { count: selectedLibraryProjects.value.length })
+  await nextTick()
+  bulkTrashCancelButton.value?.focus()
+}
+function cancelBulkTrash() {
+  bulkTrashOpen.value = false
+  activityLog.write('info', 'project.bulk-delete', 'Empty-start cleanup cancelled.')
+}
+async function confirmBulkTrash() {
+  const targets = [...selectedLibraryProjects.value]
+  if (targets.length === 0) { bulkTrashOpen.value = false; return }
+  busy.value = true
+  let moved = 0
+  const failedIds: string[] = []
+  for (const target of targets) {
+    try {
+      await projectsApi.delete(target.id)
+      await Promise.all([
+        discardBrowserRecovery(target.id).catch(() => undefined),
+        discardBrowserProject(target.id).catch(() => undefined),
+      ])
+      moved++
+      if (project.value?.id === target.id) {
+        response.value = null
+        savedSnapshot.value = ''
+        localStorage.removeItem('maskilForge.projectId')
+      }
+    } catch {
+      failedIds.push(target.id)
+    }
+  }
+  bulkTrashOpen.value = false
+  selectedLibraryProjectIds.value = failedIds
+  await Promise.all([refreshLibrary(), refreshRecovery(), refreshBrowserProjects()])
+  if (failedIds.length) {
+    status.value = `${moved} empty start${moved === 1 ? '' : 's'} moved to Trash. ${failedIds.length} could not be moved and remain selected.`
+    activityLog.write('warning', 'project.bulk-delete', 'Empty-start cleanup completed with retained failures.', { moved, failed: failedIds.length })
+  } else {
+    status.value = `${moved} empty start${moved === 1 ? '' : 's'} moved to Trash. You can restore ${moved === 1 ? 'it' : 'them'} there.`
+    activityLog.write('success', 'project.bulk-delete', 'Selected empty starts moved to Trash.', { moved })
+  }
+  busy.value = false
 }
 function requestFirstPartCommit(label: string, proceed: () => void) {
   if (project.value?.musicalParts.length) { proceed(); return }
@@ -2102,6 +2192,14 @@ watch(serializedProject, () => {
   if (isDirty.value && !recoveryBlocked.value) recoveryTimer = setTimeout(() => void saveRecoverySnapshot(), 1_000)
 })
 
+watch([libraryQuery, libraryStageFilter], () => { showAllLibraryResults.value = false })
+watch(projects, nextProjects => {
+  const availableEmptyIds = new Set(nextProjects
+    .filter(summary => projectLibraryStage(summary) === 'empty')
+    .map(summary => summary.id))
+  selectedLibraryProjectIds.value = selectedLibraryProjectIds.value.filter(id => availableEmptyIds.has(id))
+})
+
 watch(
   () => [view.value, project.value?.id, project.value?.sections.length ?? 0] as const,
   ([nextView, nextProjectId], previous) => {
@@ -2206,13 +2304,30 @@ onBeforeUnmount(() => {
         <div class="library-heading"><div><p class="eyebrow">Song library</p><h2 id="library-title">Continue your work</h2></div><div class="library-actions"><button v-if="recoveryCount" class="recovery-button" @click="openRecovery">Recovery ({{ recoveryCount }})</button><button class="quiet" @click="openTrash">Trash</button><button class="quiet" :disabled="libraryBusy" @click="refreshLibrary">Refresh</button></div></div>
         <p v-if="libraryBusy" class="library-message">Finding your saved songs…</p>
         <p v-else-if="projects.length === 0" class="library-message">No saved songs yet. Begin with any idea, even if it has no structure.</p>
-        <div v-else class="project-grid">
-          <article v-for="summary in projects" :key="summary.id" class="project-card">
-            <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
-            <dl><div><dt>Stage</dt><dd>{{ summary.sectionCount ? `${summary.sectionCount} structured section${summary.sectionCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? 'Raw lyric draft' : 'New idea' }}</dd></div><div><dt>Modified</dt><dd>{{ formatModified(summary.lastModifiedUtc) }}</dd></div></dl>
-            <div class="card-actions"><button class="secondary" :disabled="busy" @click="openSummary(summary.id)">Continue song</button><details class="card-menu"><summary>More actions</summary><div class="card-menu-panel"><button class="secondary" :disabled="busy" @click="duplicateSong(summary.id, summary.title, $event)">Duplicate saved song</button><button class="danger" :disabled="busy" @click="requestDelete(summary.id, summary.title, $event)">Delete song</button></div></details></div>
-          </article>
-        </div>
+        <template v-else>
+          <div class="library-tools">
+            <label class="library-search">Search saved songs<input v-model="libraryQuery" type="search" placeholder="Title or artist" /></label>
+            <label class="library-filter">Stage<select v-model="libraryStageFilter" :disabled="libraryCleanupMode"><option value="all">All songs</option><option value="structured">Structured songs</option><option value="raw">Raw drafts</option><option value="empty">Empty starts</option></select></label>
+            <button v-if="!libraryCleanupMode" class="quiet library-cleanup-toggle" @click="beginLibraryCleanup">Review empty starts</button>
+            <button v-else class="quiet library-cleanup-toggle" @click="finishLibraryCleanup">Finish review</button>
+          </div>
+          <aside v-if="libraryCleanupMode" class="library-cleanup-note">
+            <div><strong>Review empty starts only</strong><span>These saved songs have no raw lyrics or structured sections. Select only what you recognize; nothing is selected or removed automatically, and moved songs remain restorable from Trash.</span></div>
+            <div class="library-selection-actions"><button class="secondary" :disabled="visibleLibraryProjects.length === 0" @click="selectVisibleEmptyStarts">Select visible</button><button class="quiet" :disabled="selectedLibraryProjects.length === 0" @click="clearLibrarySelection">Clear selection</button></div>
+          </aside>
+          <div class="library-result-row" role="status"><span>{{ libraryResults.resultCount ? `Showing ${libraryResults.visibleCount} of ${libraryResults.resultCount} song${libraryResults.resultCount === 1 ? '' : 's'}` : 'No songs match this view' }}</span><span v-if="libraryCleanupMode && selectedLibraryProjects.length">{{ selectedLibraryProjects.length }} selected</span></div>
+          <p v-if="libraryResults.resultCount === 0" class="library-message">{{ libraryCleanupMode ? 'No empty starts match this search.' : 'No saved songs match this search and stage.' }}</p>
+          <div v-else class="project-grid">
+            <article v-for="summary in visibleLibraryProjects" :key="summary.id" class="project-card" :class="{ 'project-card-selected': selectedLibraryProjectIds.includes(summary.id) }">
+              <label v-if="libraryCleanupMode" class="library-project-selection"><input type="checkbox" :checked="selectedLibraryProjectIds.includes(summary.id)" :aria-label="`Select ${summary.title}, modified ${formatModified(summary.lastModifiedUtc)}`" @change="setLibraryProjectSelected(summary.id, $event)" /><span>Select this empty start</span></label>
+              <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
+              <dl><div><dt>Stage</dt><dd>{{ summary.sectionCount ? `${summary.sectionCount} structured section${summary.sectionCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? 'Raw lyric draft' : 'New idea' }}</dd></div><div><dt>Modified</dt><dd>{{ formatModified(summary.lastModifiedUtc) }}</dd></div></dl>
+              <div class="card-actions"><button class="secondary" :disabled="busy" @click="openSummary(summary.id)">Continue song</button><details class="card-menu"><summary>More actions</summary><div class="card-menu-panel"><button class="secondary" :disabled="busy" @click="duplicateSong(summary.id, summary.title, $event)">Duplicate saved song</button><button class="danger" :disabled="busy" @click="requestDelete(summary.id, summary.title, $event)">Delete song</button></div></details></div>
+            </article>
+          </div>
+          <div v-if="libraryResults.resultCount > libraryRecentLimit" class="library-pagination"><button class="quiet" @click="showAllLibraryResults = !showAllLibraryResults">{{ showAllLibraryResults ? `Show recent ${libraryRecentLimit}` : `Show ${libraryResults.hiddenCount} more` }}</button></div>
+          <div v-if="libraryCleanupMode" class="library-cleanup-bar"><span>{{ selectedLibraryProjects.length ? `${selectedLibraryProjects.length} empty start${selectedLibraryProjects.length === 1 ? '' : 's'} selected` : 'Select empty starts to review them together.' }}</span><button class="danger" :disabled="busy || selectedLibraryProjects.length === 0" @click="requestBulkTrash">Move selected to Trash</button></div>
+        </template>
       </section>
     </header>
 
@@ -3316,6 +3431,21 @@ onBeforeUnmount(() => {
         <div class="dialog-actions">
           <button class="secondary" :disabled="busy" autofocus @click="cancelDelete">Cancel</button>
           <button class="danger" :disabled="busy" @click="confirmDelete">Yes, delete song</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="bulkTrashOpen" class="modal-backdrop" role="presentation" @click.self="cancelBulkTrash">
+      <section class="load-dialog delete-dialog library-cleanup-dialog" role="alertdialog" aria-modal="true" aria-labelledby="bulk-trash-title" aria-describedby="bulk-trash-description">
+        <p class="eyebrow">Reversible library cleanup</p>
+        <h2 id="bulk-trash-title">Move {{ selectedLibraryProjects.length }} empty start{{ selectedLibraryProjects.length === 1 ? '' : 's' }} to Trash?</h2>
+        <p id="bulk-trash-description">Only the saved songs listed below will leave your library. They can still be restored from Trash; this does not permanently delete project data.</p>
+        <ul class="library-cleanup-list">
+          <li v-for="summary in selectedLibraryProjects" :key="summary.id"><strong>{{ summary.title }}</strong><span>{{ summary.artist || 'Artist not set' }} · Modified {{ formatModified(summary.lastModifiedUtc) }}</span></li>
+        </ul>
+        <div class="dialog-actions">
+          <button ref="bulkTrashCancelButton" class="secondary" :disabled="busy" @click="cancelBulkTrash">Keep these songs</button>
+          <button class="danger" :disabled="busy" @click="confirmBulkTrash">Move {{ selectedLibraryProjects.length }} to Trash</button>
         </div>
       </section>
     </div>
