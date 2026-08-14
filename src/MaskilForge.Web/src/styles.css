@@ -445,6 +445,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .readiness-next-step button { justify-self: start; margin-top: .35rem; }
 
 @media (max-width: 680px) {
+  .demo-readiness { grid-template-columns: 1fr; }
   .structure-lock-notice { align-items: stretch; flex-direction: column; }
   .structure-lock-notice button { width: 100%; }
   .reuse-foundation > div { grid-template-columns: 1fr; }
