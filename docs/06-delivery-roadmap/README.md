@@ -576,6 +576,12 @@ Protect dirty editor state in device-local IndexedDB before attempting the exist
 
 **Deliverable:** losing the local project service no longer leaves the current unsaved draft dependent on an in-memory tab, while offline project-library access and editing remain explicitly outside this slice.
 
+### Milestone 5.50 — Offline saved-song review
+
+Cache the exact Song Graph at explicit create, open, import, and save boundaries in device-local browser storage. When the local project service is unavailable, list only those cached saved snapshots and open them in a dedicated view-only review surface that preserves the raw lyric draft, ordered song anatomy, section delivery, performance direction, and lyric lines. Keep all editing and saving behind reconnection, and remove cached copies when their host-owned songs are deleted.
+
+**Deliverable:** an artist can reopen the installed shell on the same device and read a recently saved song without the local host, while the interface remains explicit that the snapshot is neither synchronized nor editable nor authoritative.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

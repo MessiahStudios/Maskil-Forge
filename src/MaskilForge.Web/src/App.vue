@@ -14,15 +14,18 @@ import { PartAudition } from './partAudition'
 import { assemblePartNotes, formatTransportPosition, musicalPositionFromTicks, scheduleAbsoluteNotes, scheduleAssembledNotes, tickFromSeconds } from './partAuditionModel.js'
 import { PlaybackTransport } from './playbackTransport'
 import { activateApplicationShellUpdate, isStandaloneApplication, registerApplicationShell, type InstallPromptEvent } from './pwa'
-import { discardBrowserRecovery, listBrowserRecoveries, loadBrowserRecovery, protectBrowserRecovery, type BrowserRecoveryRecord } from './browserRecovery'
+import { cacheBrowserProject, discardBrowserProject, discardBrowserRecovery, listBrowserProjects, listBrowserRecoveries, loadBrowserProject, loadBrowserRecovery, protectBrowserRecovery, type BrowserProjectRecord, type BrowserRecoveryRecord } from './browserRecovery'
 import { browserRecoveryNotice, summarizeBrowserRecovery } from './browserRecoveryModel.js'
+import { browserProjectNotice, summarizeBrowserProject } from './browserProjectModel.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
-const view = ref<'home' | 'recovery' | 'trash' | 'capture' | 'structure'>('home')
+const view = ref<'home' | 'offline-review' | 'recovery' | 'trash' | 'capture' | 'structure'>('home')
 const projects = ref<ProjectSummary[]>([])
 const recoverySnapshots = ref<RecoverySummary[]>([])
 const browserRecoveries = ref<BrowserRecoveryRecord[]>([])
+const browserProjects = ref<BrowserProjectRecord[]>([])
+const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
 const trashedProjects = ref<TrashedProjectSummary[]>([])
 const libraryBusy = ref(true)
 const workspaceConnection = ref<'checking' | 'ready' | 'unavailable'>('checking')
@@ -66,12 +69,12 @@ const workspaceConnectionTitle = computed(() => workspaceConnection.value === 'r
 const workspaceConnectionDetail = computed(() => workspaceConnection.value === 'ready'
   ? `Project schema ${workspaceHealth.value?.schemaVersion ?? '—'} · Songs are stored by this Maskil Forge host. Portable export moves them between devices.`
   : workspaceConnection.value === 'unavailable'
-    ? 'This web shell cannot open or save songs until its project service reconnects. Offline editing is not enabled yet.'
+    ? 'This web shell cannot edit or save songs until its project service reconnects. Explicitly cached saves remain available for view-only review.'
     : 'Confirming that the project service and local song storage are available.')
 const applicationShellDetail = computed(() => shellUpdateRegistration.value
   ? 'A newer interface is ready. Applying it will reload this page without changing project data.'
   : applicationInstalled.value
-    ? 'Installed shell available. Opening and saving songs still requires the connected Maskil Forge host.'
+    ? 'Installed shell available. Cached saves can be reviewed offline; opening for edits and saving still require the connected host.'
     : installPrompt.value
       ? 'Installation is available on this device. Offline project editing remains a later delivery slice.'
       : '')
@@ -82,6 +85,8 @@ function projectSnapshot(value: SongProject) {
 const serializedProject = computed(() => project.value ? projectSnapshot(project.value) : '')
 const isDirty = computed(() => Boolean(project.value) && serializedProject.value !== savedSnapshot.value)
 const browserRecoverySummaries = computed(() => browserRecoveries.value.map(summarizeBrowserRecovery))
+const browserProjectSummaries = computed(() => browserProjects.value.map(summarizeBrowserProject))
+const browserProjectDetail = computed(() => browserProjectNotice(browserProjects.value.length))
 const recoveryCount = computed(() => recoverySnapshots.value.length + browserRecoveries.value.length)
 const browserRecoveryDetail = computed(() => browserRecoveries.value.length && browserRecoveryNeedsReview.value
   ? 'Browser-protected work needs review before it can return to the local project service.'
@@ -159,6 +164,14 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
     persistedRevision.value = next.project.lastModifiedUtc
     recoveryBlocked.value = false
     cleanLabel.value = message.includes('saved') ? 'saved' : 'clean'
+    const record: BrowserProjectRecord = {
+      projectId: next.project.id,
+      project: structuredClone(next.project),
+      savedAtUtc: new Date().toISOString(),
+    }
+    void cacheBrowserProject(record)
+      .then(refreshBrowserProjects)
+      .catch(error => activityLog.write('warning', 'delivery.offline-review', error instanceof Error ? error.message : 'The saved song could not be cached for offline review.', { projectId: next.project.id }))
   }
   void refreshLyricTimeline()
 }
@@ -350,7 +363,7 @@ async function beginStructuring() {
 }
 function returnToDraft() { view.value = 'capture'; activeCreatorStage.value = 'words'; status.value = 'Raw lyric draft.'; lyricTimeline.value = null }
 function requestHome() { if (isDirty.value) return openConfirmation('home'); return goHome() }
-async function goHome() { confirmationOpen.value = false; view.value = 'home'; await Promise.all([refreshLibrary(), refreshRecovery()]) }
+async function goHome() { confirmationOpen.value = false; offlineReviewProject.value = null; view.value = 'home'; await Promise.all([refreshLibrary(), refreshRecovery(), refreshBrowserProjects()]) }
 function leaveProtectedOfflineEditor() {
   response.value = null
   savedSnapshot.value = ''
@@ -360,6 +373,32 @@ function leaveProtectedOfflineEditor() {
   status.value = browserRecoveryDetail.value
 }
 function openSummary(id: string) { projectId.value = id; return requestLoad() }
+async function openOfflineReview(id: string) {
+  try {
+    const record = await loadBrowserProject(id)
+    if (!record) throw new Error('That saved browser snapshot is no longer available on this device.')
+    offlineReviewProject.value = record
+    view.value = 'offline-review'
+    status.value = `View-only saved snapshot opened for “${record.project.title}”.`
+    activityLog.write('info', 'delivery.offline-review', 'Saved browser snapshot opened for view-only review.', { projectId: id })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The saved browser snapshot could not be opened.'
+    await refreshBrowserProjects()
+  }
+}
+function closeOfflineReview() {
+  offlineReviewProject.value = null
+  view.value = 'home'
+  status.value = workspaceConnection.value === 'ready' ? 'Song library.' : browserProjectDetail.value
+}
+async function openOfflineReviewEditable() {
+  const id = offlineReviewProject.value?.projectId
+  if (!id || workspaceConnection.value !== 'ready') return
+  projectId.value = id
+  pendingLoadId.value = id
+  await performLoad()
+  if (view.value !== 'offline-review') offlineReviewProject.value = null
+}
 function closeCardMenu(event?: Event) {
   const trigger = event?.currentTarget as HTMLElement | undefined
   trigger?.closest('details')?.removeAttribute('open')
@@ -399,7 +438,10 @@ async function confirmDelete() {
   busy.value = true
   try {
     await projectsApi.delete(target.id)
-    await discardBrowserRecovery(target.id).catch(() => undefined)
+    await Promise.all([
+      discardBrowserRecovery(target.id).catch(() => undefined),
+      discardBrowserProject(target.id).catch(() => undefined),
+    ])
     activityLog.write('success', 'project.delete', 'Song moved to Trash.', { projectId: target.id, title: target.title })
     deleteConfirmationOpen.value = false
     deleteTarget.value = null
@@ -410,7 +452,7 @@ async function confirmDelete() {
       view.value = 'home'
     }
     status.value = `“${target.title}” was moved to Trash.`
-    await Promise.all([refreshLibrary(), refreshRecovery()])
+    await Promise.all([refreshLibrary(), refreshRecovery(), refreshBrowserProjects()])
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'The song could not be deleted.'
     activityLog.write('error', 'project.delete', status.value, { projectId: target.id })
@@ -432,6 +474,13 @@ async function refreshBrowserRecovery() {
     browserRecoveries.value = await listBrowserRecoveries()
   } catch (error) {
     activityLog.write('error', 'recovery.browser', error instanceof Error ? error.message : 'Browser recovery storage could not be read.')
+  }
+}
+async function refreshBrowserProjects() {
+  try {
+    browserProjects.value = await listBrowserProjects()
+  } catch (error) {
+    activityLog.write('warning', 'delivery.offline-review', error instanceof Error ? error.message : 'Saved browser snapshots could not be read.')
   }
 }
 async function syncBrowserRecovery() {
@@ -558,7 +607,10 @@ async function confirmPermanentDelete() {
   busy.value = true
   try {
     await projectsApi.permanentlyDelete(target.id)
-    await discardBrowserRecovery(target.id).catch(() => undefined)
+    await Promise.all([
+      discardBrowserRecovery(target.id).catch(() => undefined),
+      discardBrowserProject(target.id).catch(() => undefined),
+    ])
     permanentDeleteTarget.value = null
     status.value = `“${target.title}” was permanently deleted.`
     activityLog.write('success', 'project.permanent-delete', 'Song permanently deleted.', { projectId: target.id, title: target.title })
@@ -2030,7 +2082,7 @@ onMounted(async () => {
   } catch (error) {
     activityLog.write('warning', 'delivery.shell', error instanceof Error ? error.message : 'Application shell registration failed.')
   }
-  await refreshBrowserRecovery()
+  await Promise.all([refreshBrowserRecovery(), refreshBrowserProjects()])
   await Promise.all([refreshWorkspaceHealth(), refreshLibrary(), refreshRecovery()])
   if (workspaceConnection.value === 'ready' && recoveryCount.value > 0) {
     view.value = 'recovery'
@@ -2076,7 +2128,7 @@ onBeforeUnmount(() => {
           <button class="secondary" :disabled="busy" @click="requestLoad">Open song</button>
         </details>
       </div>
-      <p v-if="workspaceConnection === 'unavailable'" class="offline-home-note">Your saved songs remain with the local project service. Reconnect it above to create, open, import, edit, or save work.</p>
+      <p v-if="workspaceConnection === 'unavailable'" class="offline-home-note">The local project service still owns your song library. You can review the explicitly saved snapshots cached on this device below; reconnect to create, import, edit, or save work.</p>
       <p v-else-if="workspaceConnection === 'checking'" class="offline-home-note checking-home-note">Checking the local project service before opening project actions…</p>
       <p v-else class="status home-status" role="status">{{ status }}</p>
       <section v-if="workspaceConnection === 'unavailable' && browserRecoverySummaries.length" class="browser-recovery-vault" aria-labelledby="browser-recovery-title">
@@ -2085,6 +2137,17 @@ onBeforeUnmount(() => {
           <article v-for="summary in browserRecoverySummaries" :key="summary.id" class="project-card recovery-card browser-recovery-card">
             <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
             <dl><div><dt>Contents</dt><dd>{{ summary.sectionCount ? `${summary.sectionCount} structured section${summary.sectionCount === 1 ? '' : 's'} · ${summary.lyricLineCount} lyric line${summary.lyricLineCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? `Raw lyric draft · ${summary.lyricLineCount} non-empty line${summary.lyricLineCount === 1 ? '' : 's'}` : 'New idea' }}</dd></div><div><dt>Protected</dt><dd>{{ formatModified(summary.capturedAtUtc) }}</dd></div></dl>
+          </article>
+        </div>
+      </section>
+      <section v-if="workspaceConnection === 'unavailable'" class="offline-project-library" aria-labelledby="offline-library-title">
+        <div><p class="eyebrow">Saved on this device</p><h2 id="offline-library-title">Review a saved snapshot</h2><p>{{ browserProjectDetail }} These copies are not editable and never replace the local project service.</p></div>
+        <p v-if="browserProjectSummaries.length === 0" class="library-message">Open or save a song while connected to make its latest explicit save available for view-only review here.</p>
+        <div v-else class="project-grid">
+          <article v-for="summary in browserProjectSummaries" :key="summary.id" class="project-card offline-project-card">
+            <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
+            <dl><div><dt>Saved contents</dt><dd>{{ summary.sectionCount ? `${summary.sectionCount} structured section${summary.sectionCount === 1 ? '' : 's'} · ${summary.lyricLineCount} lyric line${summary.lyricLineCount === 1 ? '' : 's'}` : summary.hasRawLyrics ? `Raw lyric draft · ${summary.lyricLineCount} non-empty line${summary.lyricLineCount === 1 ? '' : 's'}` : 'New idea' }}</dd></div><div v-if="summary.sectionTitles.length"><dt>Song form</dt><dd class="recovery-form">{{ summary.sectionTitles.join(' → ') }}</dd></div><div><dt>Cached</dt><dd>{{ formatModified(summary.savedAtUtc) }}</dd></div></dl>
+            <div class="card-actions"><button class="secondary" @click="openOfflineReview(summary.id)">Review saved snapshot</button></div>
           </article>
         </div>
       </section>
@@ -2101,6 +2164,39 @@ onBeforeUnmount(() => {
         </div>
       </section>
     </header>
+
+    <section v-else-if="view === 'offline-review' && offlineReviewProject" class="offline-review" aria-labelledby="offline-review-title">
+      <header class="offline-review-heading">
+        <button class="quiet" @click="closeOfflineReview">← Back</button>
+        <div><p class="eyebrow">Saved snapshot · View only</p><h1 id="offline-review-title">{{ offlineReviewProject.project.title }}</h1><p>{{ offlineReviewProject.project.artist || 'Artist not set' }} · {{ offlineReviewProject.project.genre === 'Unspecified' ? 'Genre not set' : offlineReviewProject.project.genre }}</p></div>
+        <div class="offline-review-actions">
+          <button v-if="workspaceConnection === 'ready'" @click="openOfflineReviewEditable">Open editable song</button>
+          <button v-else class="secondary" :disabled="workspaceCheckBusy" @click="refreshWorkspaceHealth">{{ workspaceCheckBusy ? 'Checking…' : 'Reconnect to edit' }}</button>
+        </div>
+      </header>
+      <aside class="offline-review-boundary">
+        <strong>This is the last explicit save cached on this device.</strong>
+        <span>Cached {{ formatModified(offlineReviewProject.savedAtUtc) }}. Changes cannot be made here, and newer saves from another browser or device are not synchronized.</span>
+      </aside>
+      <section v-if="offlineReviewProject.project.rawLyricDraft.trim()" class="offline-review-raw" aria-labelledby="offline-raw-title">
+        <div><p class="eyebrow">Original source</p><h2 id="offline-raw-title">Raw lyric draft</h2></div>
+        <pre>{{ offlineReviewProject.project.rawLyricDraft }}</pre>
+      </section>
+      <section class="offline-review-structure" aria-labelledby="offline-structure-title">
+        <div class="offline-review-section-heading"><p class="eyebrow">Song anatomy</p><h2 id="offline-structure-title">{{ offlineReviewProject.project.sections.length ? `${offlineReviewProject.project.sections.length} saved section${offlineReviewProject.project.sections.length === 1 ? '' : 's'}` : 'No structured sections yet' }}</h2></div>
+        <p v-if="offlineReviewProject.project.sections.length === 0" class="library-message">This save contains an idea or raw lyric draft, but its song sections have not been created yet.</p>
+        <ol v-else class="offline-review-sections">
+          <li v-for="(section, index) in offlineReviewProject.project.sections" :key="section.id">
+            <header><span>{{ index + 1 }}</span><div><h3>{{ section.title }}</h3><p>{{ label(section.kind) }} · {{ deliveryLabel(section.delivery) }}</p></div></header>
+            <p v-if="section.performanceNotes" class="offline-performance-note"><strong>Performance direction</strong>{{ section.performanceNotes }}</p>
+            <div v-if="section.lyricLines.some(line => line.text.trim())" class="offline-lyrics">
+              <p v-for="line in section.lyricLines.filter(line => line.text.trim())" :key="line.id">{{ line.text }}</p>
+            </div>
+            <p v-else class="offline-empty-section">No lyric lines saved in this section.</p>
+          </li>
+        </ol>
+      </section>
+    </section>
 
     <section v-else-if="view === 'recovery'" class="trash-view recovery-view" aria-labelledby="recovery-title" :inert="workspaceConnection === 'unavailable'">
       <button class="quiet" @click="goHome">← Song library</button>
