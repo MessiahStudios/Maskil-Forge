@@ -1579,6 +1579,21 @@ async function goToNextReadinessStep() {
   const step = editableDemoReview.value.nextStep
   if (!step) return
   activeCreatorStage.value = step.stage as CreatorStage
+  if (step.action === 'preview') {
+    view.value = 'capture'
+    sectionViewMode.value = 'all'
+    await nextTick()
+    const action = document.querySelector<HTMLElement>('[data-readiness-action="preview"]:not(:disabled)')
+    const target = action?.closest<HTMLElement>('.capture-actions') ?? document.getElementById('capture-actions')
+    if (!target) return
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    target.classList.remove('journey-focus')
+    void target.getBoundingClientRect()
+    target.classList.add('journey-focus')
+    window.setTimeout(() => target.classList.remove('journey-focus'), 1_400)
+    action?.focus({ preventScroll: true })
+    return
+  }
   view.value = 'structure'
   if (step.sectionId) {
     focusedSectionId.value = step.sectionId
@@ -1800,7 +1815,7 @@ onBeforeUnmount(() => {
       <section v-if="view === 'capture'" class="capture-workspace" aria-labelledby="capture-title">
         <div class="capture-heading"><p class="eyebrow">Start with the words</p><h1 id="capture-title">Capture the idea</h1><p>Write lyrics, fragments, images, themes, or plain thoughts. You do not need to know the song structure yet.</p></div>
         <label class="raw-lyrics">Raw lyric draft<textarea id="raw-lyric-draft" v-model="project.rawLyricDraft" maxlength="100000" rows="18" autofocus placeholder="Write whatever is on your mind…&#10;&#10;A complete song is not required. Fragments are welcome." /></label>
-        <div class="capture-actions"><button :disabled="busy || !isDirty" @click="saveDraft">Save draft</button><button class="secondary" :disabled="busy" @click="beginStructuring">Shape manually</button><button :disabled="busy || !project.rawLyricDraft.trim()" @click="previewPastedStructure">Preview song structure</button></div>
+        <div id="capture-actions" class="capture-actions"><button :disabled="busy || !isDirty" @click="saveDraft">Save draft</button><button class="secondary" :disabled="busy" @click="beginStructuring">Shape manually</button><button :data-readiness-action="structurePreview ? undefined : 'preview'" :disabled="busy || !project.rawLyricDraft.trim()" @click="previewPastedStructure">Preview song structure</button></div>
         <section v-if="structurePreview" class="structure-preview" aria-labelledby="structure-preview-title">
           <div class="structure-preview-heading">
             <div><p class="eyebrow">Nothing created yet</p><h2 id="structure-preview-title">Review detected sections</h2><p>Correct the proposal, then create every section as one undoable decision. Your original lyric sheet remains preserved.</p></div>
@@ -1843,7 +1858,7 @@ onBeforeUnmount(() => {
             </li>
           </ol>
           <p v-else class="preview-warning">No recognized sections are ready to create.</p>
-          <div class="capture-actions"><button :disabled="busy || !structurePreview.sections.length" @click="acceptStructurePreview">Create sections</button><button class="secondary" :disabled="busy" @click="cancelStructurePreview">Cancel preview</button></div>
+          <div class="capture-actions"><button data-readiness-action="preview" :disabled="busy || !structurePreview.sections.length" @click="acceptStructurePreview">Create sections</button><button class="secondary" :disabled="busy" @click="cancelStructurePreview">Cancel preview</button></div>
         </section>
         <p class="preservation-note">Your raw draft remains preserved when you begin creating Verse, Chorus, and other sections.</p>
       </section>

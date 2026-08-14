@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { demoReadiness, firstWritableEmptyLyricLine } from './demoReadiness.js'
+import { demoReadiness, firstWritableEmptyLyricLine, hasLyricSheetHeadings } from './demoReadiness.js'
 
 const line = text => ({ text })
 const section = (id, title, lyrics = '', harmony = []) => ({ id, title, lyricLines: lyrics ? [line(lyrics)] : [], harmony })
@@ -11,6 +11,16 @@ test('empty songs ask for the first section', () => {
   assert.equal(review.complete, false)
   assert.equal(review.nextAction, 'Add the first song section.')
   assert.deepEqual(review.nextStep, { sectionId: null, stage: 'shape', action: 'section', label: 'Add the first section' })
+})
+
+test('pasted lyric-sheet headings prefer structure preview over adding a section', () => {
+  assert.equal(hasLyricSheetHeadings('Just some thoughts'), false)
+  assert.equal(hasLyricSheetHeadings('[Verse 1]\nIn the quiet'), true)
+  const review = demoReadiness(project({
+    rawLyricDraft: '[Intro]\nSpoken air\n[Verse 1]\nA line',
+  }))
+  assert.equal(review.nextAction, 'Review the pasted lyric sheet as song structure.')
+  assert.deepEqual(review.nextStep, { sectionId: null, stage: 'shape', action: 'preview', label: 'Preview song structure' })
 })
 
 test('writable empty lyric lines are preferred over adding another line', () => {

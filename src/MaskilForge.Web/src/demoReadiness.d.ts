@@ -19,7 +19,7 @@ export interface DemoReadiness {
   nextStep: {
     sectionId: string | null
     stage: 'shape' | 'harmony' | 'arrangement'
-    action: 'lyrics' | 'harmony' | 'role' | 'part' | 'sketch' | 'hear' | 'section'
+    action: 'lyrics' | 'harmony' | 'role' | 'part' | 'sketch' | 'hear' | 'section' | 'preview'
     label: string
   } | null
   sections: DemoSectionReadiness[]
@@ -30,3 +30,4 @@ export function firstWritableEmptyLyricLine(
   section: { lyricLines?: Array<{ id?: string; text?: string }> } | null | undefined,
   lockedLineIds?: Iterable<string>,
 ): { id?: string; text?: string } | null
+export function hasLyricSheetHeadings(draft: string | null | undefined): boolean
