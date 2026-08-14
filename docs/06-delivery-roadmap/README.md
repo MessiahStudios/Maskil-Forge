@@ -498,6 +498,12 @@ When the remaining hear–revise gap is a playable part, distinguish jobs that c
 
 **Deliverable:** an artist assigned a note-dependent arrangement job is taken to the chord-to-notes step instead of a disabled part control.
 
+### Milestone 5.37 — Ready-demo hear action
+
+When every section already has lyrics, harmony, an arrangement job, and a resolved playable part, the derived readiness queue exposes one whole-song action: hear the assembled demo. The prompt leaves focused-section mode, highlights the existing song transport, and lands on Play without starting playback, writing project data, or persisting a completion flag.
+
+**Deliverable:** finishing the hear–revise checklist takes the artist to listening, not to a dead-end status message.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves.

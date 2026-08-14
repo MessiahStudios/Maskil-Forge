@@ -36,7 +36,7 @@ test('demo readiness requires resolved playable part notes in every section', ()
   assert.equal(review.complete, true)
   assert.equal(review.readySectionCount, 1)
   assert.match(review.nextAction, /ready to hear, revise, save, and export/)
-  assert.equal(review.nextStep, null)
+  assert.deepEqual(review.nextStep, { sectionId: null, stage: 'arrangement', action: 'hear', label: 'Hear the song' })
 })
 
 test('orphaned part references do not count as an audible section', () => {

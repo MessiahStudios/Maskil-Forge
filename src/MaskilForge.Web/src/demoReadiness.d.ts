@@ -17,9 +17,9 @@ export interface DemoReadiness {
   complete: boolean
   nextAction: string
   nextStep: {
-    sectionId: string
+    sectionId: string | null
     stage: 'shape' | 'harmony' | 'arrangement'
-    action: 'lyrics' | 'harmony' | 'role' | 'part' | 'sketch'
+    action: 'lyrics' | 'harmony' | 'role' | 'part' | 'sketch' | 'hear'
     label: string
   } | null
   sections: DemoSectionReadiness[]
