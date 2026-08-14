@@ -594,6 +594,12 @@ Keep the saved-song library uncapped and preserve the existing newest-first orde
 
 **Deliverable:** a growing saved-song library stays navigable and artists can safely review accidental empty starts without automatic pruning or treating unfinished songs as disposable.
 
+### Milestone 5.53 — Trash hygiene
+
+Keep Trash uncapped and preserve its newest-deleted-first order while adding title-or-artist search, a twelve-result collapsed view, and visible age labels. Let artists enter a selection mode that starts empty, explicitly select visible songs, and review an exact list before restoring multiple songs or permanently deleting them. Treat 30-day labels only as review reminders; never expire, select, restore, or erase songs automatically.
+
+**Deliverable:** Trash remains a reversible safety net that stays understandable as it grows, with efficient artist-controlled cleanup and an unmistakable boundary before permanent loss.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
