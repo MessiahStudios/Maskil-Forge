@@ -3,7 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
-import { demoReadiness } from './demoReadiness.js'
+import { demoReadiness, firstWritableEmptyLyricLine } from './demoReadiness.js'
 import { noteOwners, noteRemovalGuidance } from './noteOwnership.js'
 import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 import { structuralRole, structuralRoles } from './structuralRoles.js'
@@ -752,6 +752,9 @@ function setTimelineOverlay(candidateId: string) {
 }
 function lyricLineLock(lineId: string) {
   return project.value?.locks.find(item => item.scope === 'LyricLine' && item.lineId === lineId)
+}
+function writableEmptyLyric(section: { lyricLines: Array<{ id: string; text: string }> }) {
+  return firstWritableEmptyLyricLine(section, project.value?.locks.filter(item => item.scope === 'LyricLine').map(item => item.lineId) ?? [])
 }
 function phraseRhythmLock(lineId: string, phraseId: string) {
   return project.value?.locks.find(item => item.scope === 'PhraseRhythm' && item.lineId === lineId && item.phraseId === phraseId)
@@ -1586,7 +1589,9 @@ async function goToNextReadinessStep() {
   await nextTick()
   const target = step.action === 'hear'
     ? document.getElementById('song-transport')
-    : step.stage === 'harmony'
+    : step.action === 'section'
+      ? document.getElementById('section-toolbar')
+      : step.stage === 'harmony'
       ? document.getElementById(`harmony-tools-${step.sectionId}`) ?? document.getElementById('harmony-tools')
       : step.stage === 'arrangement'
         ? document.getElementById(`arrangement-${step.sectionId}`)
@@ -1949,8 +1954,8 @@ onBeforeUnmount(() => {
       <section id="song-structure" class="song-canvas" aria-label="Song structure">
         <div class="canvas-heading">
           <div><p class="eyebrow">Song structure</p><h1>Shape the song</h1></div>
-          <div class="section-toolbar" aria-label="Add song section">
-            <button v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" class="secondary add-section" :disabled="busy" @click="addSection(kind)">+ {{ label(kind) }}</button>
+          <div id="section-toolbar" class="section-toolbar" aria-label="Add song section">
+            <button v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" class="secondary add-section" data-readiness-action="section" :disabled="busy" @click="addSection(kind)">+ {{ label(kind) }}</button>
           </div>
         </div>
 
@@ -2203,10 +2208,10 @@ onBeforeUnmount(() => {
               </div>
             </details>
             <div class="lyrics-editor">
-              <div class="lyrics-heading"><span>Lyrics</span><button class="quiet" data-readiness-action="lyrics" :disabled="busy" @click="addLyricLine(index, true)">+ Add line</button></div>
+              <div class="lyrics-heading"><span>Lyrics</span><button class="quiet" :data-readiness-action="writableEmptyLyric(section) ? undefined : 'lyrics'" :disabled="busy" @click="addLyricLine(index, true)">+ Add line</button></div>
               <div v-for="(line, lineIndex) in section.lyricLines" :key="line.id" class="lyric-line">
                 <span class="lyric-line-number">{{ lineIndex + 1 }}</span>
-                <input v-model="line.text" :data-line-id="line.id" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Write a lyric line…" :disabled="busy || Boolean(lyricLineLock(line.id))" @change="editLyricLine(section.id, line.id, line.text)" @keydown.enter.prevent="addLineAfter(index, lineIndex)" @keydown.backspace="handleLineBackspace(index, lineIndex, line.text)" />
+                <input v-model="line.text" :data-line-id="line.id" :data-readiness-action="writableEmptyLyric(section)?.id === line.id ? 'lyrics' : undefined" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Write a lyric line…" :disabled="busy || Boolean(lyricLineLock(line.id))" @change="editLyricLine(section.id, line.id, line.text)" @keydown.enter.prevent="addLineAfter(index, lineIndex)" @keydown.backspace="handleLineBackspace(index, lineIndex, line.text)" />
                 <div class="lyric-line-actions">
                   <button v-if="lyricLineLock(line.id)" class="quiet" :disabled="busy" @click="unlockCreativeLock(lyricLineLock(line.id)!.id, 'Lyric line unlocked.')">Unlock line</button>
                   <button v-else class="quiet" :disabled="busy" @click="lockLyricLine(line.id)">Lock line</button>
@@ -2371,7 +2376,7 @@ onBeforeUnmount(() => {
           <h2 id="arrangement-title">Shape the song’s energy</h2>
           <p>Describe how each section should feel before choosing instruments. These are creative intentions, not generated performances.</p>
         </div>
-        <section v-if="project.sections.length" class="demo-readiness" aria-labelledby="demo-readiness-title">
+        <section class="demo-readiness" aria-labelledby="demo-readiness-title">
           <div class="readiness-next-step">
             <span class="eyebrow">Hear–revise readiness</span>
             <h3 id="demo-readiness-title">{{ editableDemoReview.readySectionCount }} of {{ editableDemoReview.sectionCount }} sections ready</h3>

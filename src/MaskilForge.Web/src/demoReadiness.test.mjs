@@ -1,10 +1,24 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { demoReadiness } from './demoReadiness.js'
+import { demoReadiness, firstWritableEmptyLyricLine } from './demoReadiness.js'
 
 const line = text => ({ text })
 const section = (id, title, lyrics = '', harmony = []) => ({ id, title, lyricLines: lyrics ? [line(lyrics)] : [], harmony })
 const project = overrides => ({ sections: [], arrangementRoles: [], musicalParts: [], noteEvents: [], ...overrides })
+
+test('empty songs ask for the first section', () => {
+  const review = demoReadiness(project())
+  assert.equal(review.complete, false)
+  assert.equal(review.nextAction, 'Add the first song section.')
+  assert.deepEqual(review.nextStep, { sectionId: null, stage: 'shape', action: 'section', label: 'Add the first section' })
+})
+
+test('writable empty lyric lines are preferred over adding another line', () => {
+  assert.equal(firstWritableEmptyLyricLine({ lyricLines: [] }), null)
+  assert.equal(firstWritableEmptyLyricLine({ lyricLines: [{ id: 'filled', text: 'Already written' }] }), null)
+  assert.equal(firstWritableEmptyLyricLine({ lyricLines: [{ id: 'blank', text: '   ' }] })?.id, 'blank')
+  assert.equal(firstWritableEmptyLyricLine({ lyricLines: [{ id: 'locked', text: '' }] }, ['locked']), null)
+})
 
 test('demo readiness reports the first artist-actionable gap', () => {
   const review = demoReadiness(project({ sections: [section('verse', 'Verse')] }))
