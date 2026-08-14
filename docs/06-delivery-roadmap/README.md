@@ -570,6 +570,12 @@ Add complete installation metadata, platform icons, explicit install/update cont
 
 **Deliverable:** an artist can install and reopen the Maskil Forge interface on a supported device, while the product remains explicit that offline project storage and recovery are not implemented.
 
+### Milestone 5.49 — Browser recovery vault
+
+Protect dirty editor state in device-local IndexedDB before attempting the existing host recovery request. Keep that browser snapshot through a host interruption, show its title and protected contents in the cached shell without exposing unusable editor actions, and return it to the normal revision-checked recovery path after reconnection. A stale host revision keeps the browser copy available for explicit review instead of overwriting either version.
+
+**Deliverable:** losing the local project service no longer leaves the current unsaved draft dependent on an in-memory tab, while offline project-library access and editing remain explicitly outside this slice.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
