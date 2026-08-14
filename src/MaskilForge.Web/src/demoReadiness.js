@@ -7,6 +7,10 @@ export function hasLyricSheetHeadings(draft) {
   return String(draft ?? '').split(/\r?\n/).some(line => /^\s*\[[^\]]+\]\s*$/.test(line))
 }
 
+export function matchingLyricSheetPreview(draft, previewedDraft, preview) {
+  return preview && draft === previewedDraft ? preview : null
+}
+
 function hasUnresolvedLyricSheetHeadings(preview) {
   return Boolean(preview?.unrecognizedSections?.length || preview?.unrecognizedHeadings?.length)
 }

@@ -522,6 +522,12 @@ When a lyric-sheet preview still has unresolved unknown headings, the derived qu
 
 **Deliverable:** custom form blocks such as post-choruses are reviewed from hear–revise readiness instead of silently remaining only in the raw draft.
 
+### Milestone 5.41 — Current lyric-sheet preview readiness
+
+Treat a structure preview as actionable only while it still matches the raw lyric sheet that produced it. If the artist edits the draft, return readiness to the enabled Preview song structure control rather than repeatedly offering a stale Create sections action.
+
+**Deliverable:** the empty-song readiness queue recovers cleanly after lyric-sheet edits and never presents an outdated structure proposal as current.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves. Captured gestures may drive editable musical or instrument-performance data. They do not generate or replace the artist's lead vocal.
