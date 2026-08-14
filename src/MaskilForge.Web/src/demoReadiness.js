@@ -7,6 +7,10 @@ export function hasLyricSheetHeadings(draft) {
   return String(draft ?? '').split(/\r?\n/).some(line => /^\s*\[[^\]]+\]\s*$/.test(line))
 }
 
+function hasUnresolvedLyricSheetHeadings(preview) {
+  return Boolean(preview?.unrecognizedSections?.length || preview?.unrecognizedHeadings?.length)
+}
+
 const chordRealizableRoles = new Set(['Harmony', 'Texture'])
 
 function sectionTickRange(project, sectionId) {
@@ -26,7 +30,7 @@ function sectionHasApprovedNotes(project, sectionId) {
   return (project.noteEvents ?? []).some(note => note.startTick >= range.startTick && note.startTick < range.endTick)
 }
 
-export function demoReadiness(project) {
+export function demoReadiness(project, preview = null) {
   if (!project) return { readySectionCount: 0, sectionCount: 0, complete: false, nextAction: 'Open or create a song.', nextStep: null, sections: [] }
   const noteIds = new Set(project.noteEvents.map(note => note.id))
   const sections = project.sections.map(section => {
@@ -56,8 +60,13 @@ export function demoReadiness(project) {
   let nextStep = null
   if (!sections.length) {
     if (hasLyricSheetHeadings(project.rawLyricDraft)) {
-      nextAction = 'Review the pasted lyric sheet as song structure.'
-      nextStep = { sectionId: null, stage: 'shape', action: 'preview', label: 'Preview song structure' }
+      if (hasUnresolvedLyricSheetHeadings(preview)) {
+        nextAction = 'Map the unknown lyric-sheet heading to a section type.'
+        nextStep = { sectionId: null, stage: 'shape', action: 'resolve', label: 'Review unknown heading' }
+      } else {
+        nextAction = 'Review the pasted lyric sheet as song structure.'
+        nextStep = { sectionId: null, stage: 'shape', action: 'preview', label: preview?.sections?.length ? 'Create sections' : 'Preview song structure' }
+      }
     } else {
       nextAction = 'Add the first song section.'
       nextStep = { sectionId: null, stage: 'shape', action: 'section', label: 'Add the first section' }

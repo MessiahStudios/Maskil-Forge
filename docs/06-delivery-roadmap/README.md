@@ -516,6 +516,12 @@ When a project has no sections yet, but the raw draft contains bracketed lyric-s
 
 **Deliverable:** a pasted lyric sheet can enter the reviewed-structure path from hear–revise readiness without first creating an empty Intro.
 
+### Milestone 5.40 — Unknown-heading readiness review
+
+When a lyric-sheet preview still has unresolved unknown headings, the derived queue lands on the first heading-type control instead of a disabled Create sections button. Mapping remains an explicit artist choice; the parser still does not guess. After those headings are resolved or absent, the queue returns to preview or create.
+
+**Deliverable:** custom form blocks such as post-choruses are reviewed from hear–revise readiness instead of silently remaining only in the raw draft.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves. Captured gestures may drive editable musical or instrument-performance data. They do not generate or replace the artist's lead vocal.

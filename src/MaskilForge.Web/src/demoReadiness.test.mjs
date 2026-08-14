@@ -23,6 +23,25 @@ test('pasted lyric-sheet headings prefer structure preview over adding a section
   assert.deepEqual(review.nextStep, { sectionId: null, stage: 'shape', action: 'preview', label: 'Preview song structure' })
 })
 
+test('unknown lyric-sheet headings are reviewed before creating sections', () => {
+  const draft = project({ rawLyricDraft: '[Post-Chorus]\nKeep the fire' })
+  const unresolved = demoReadiness(draft, {
+    sections: [],
+    unrecognizedHeadings: ['Post-Chorus'],
+    unrecognizedSections: [{ heading: 'Post-Chorus' }],
+  })
+  assert.equal(unresolved.nextAction, 'Map the unknown lyric-sheet heading to a section type.')
+  assert.deepEqual(unresolved.nextStep, { sectionId: null, stage: 'shape', action: 'resolve', label: 'Review unknown heading' })
+
+  const readyToCreate = demoReadiness(project({ rawLyricDraft: '[Verse 1]\nA line' }), {
+    sections: [{ kind: 'Verse', title: 'Verse 1' }],
+    unrecognizedHeadings: [],
+    unrecognizedSections: [],
+  })
+  assert.equal(readyToCreate.nextStep.action, 'preview')
+  assert.equal(readyToCreate.nextStep.label, 'Create sections')
+})
+
 test('writable empty lyric lines are preferred over adding another line', () => {
   assert.equal(firstWritableEmptyLyricLine({ lyricLines: [] }), null)
   assert.equal(firstWritableEmptyLyricLine({ lyricLines: [{ id: 'filled', text: 'Already written' }] }), null)

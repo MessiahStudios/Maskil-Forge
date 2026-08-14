@@ -143,6 +143,8 @@ Slice 5.38 starts an empty song from the same queue: add the first section, then
 
 Slice 5.39 sends a pasted bracket-headed lyric sheet to structure preview from that queue, instead of the manual add-section toolbar.
 
+Slice 5.40 sends unresolved unknown headings from that preview to the first heading-type control, instead of a disabled Create sections button.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.
