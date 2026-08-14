@@ -6,6 +6,7 @@ Architecture decisions:
 
 - [ADR-0001 — Human Creative Authority](ADR-0001-human-creative-authority.md)
 - [ADR-0002 — Musical Timeline Resolution](ADR-0002-musical-timeline-resolution.md)
+- [ADR-0003 — Local-First Multi-Client Delivery](ADR-0003-local-first-multi-client-delivery.md)
 
 ## Canonical Song Graph
 

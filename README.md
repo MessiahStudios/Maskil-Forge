@@ -38,6 +38,8 @@ Phase 3  ○  Performance and sound
 
 Detail lives in the [delivery roadmap](docs/06-delivery-roadmap/README.md). The sections below stay engineering-accurate for contributors and reviewers.
 
+Delivery is web-first and local-first: one canonical Song Graph serves the browser, a future installable PWA, and any later native desktop shell. Portable project interchange comes before optional accounts or cloud synchronization; native packaging begins only when a proven production requirement exceeds dependable browser capability.
+
 ## Why Maskil Forge exists
 
 Many aspiring and independent singer-songwriters begin with lyrics, a vocal idea, or an emotional direction but do not yet know how prosody, harmony, arrangement, orchestration, MIDI, or instrument technique can express it. Maskil Forge is intended to bridge that gap without taking authorship away from the artist. The artist supplies the words, intent, vocal gestures, taste, revisions, and the recorded human lead vocal. Maskil Forge may capture and analyze that vocal, provide pitch, timing, and prosody guidance, create guide melodies, preserve takes and comps, suggest or apply reviewable vocal production settings, and use VST or other audio processing to assist the singer. Voice analysis may also drive editable musical or instrument-performance data. The product must not generate or replace the final lead singer.

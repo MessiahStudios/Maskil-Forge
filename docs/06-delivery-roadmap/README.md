@@ -534,6 +534,16 @@ Collapse the hear–revise readiness action and section checklist into one colum
 
 **Deliverable:** artists can read the next action and every section status at narrow tablet and wide-phone widths without horizontal clipping or scrolling.
 
+## Delivery foundation — Portable before platform-specific
+
+Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
+
+Then make the shared web client installable and intentionally offline-capable. Validate a narrowed phone journey for Idea, Words, Shape, rough human-vocal capture, Review, and Approve. Do not treat a manifest alone, a browser cache without project recovery, or a miniature desktop layout as PWA completion.
+
+Begin a desktop-shell experiment only after performance work identifies a concrete browser limitation in low-latency audio, MIDI hardware, native files, plugin hosting, or rendering. Tauri, Electron, and similar frameworks remain undecided until that experiment. Accounts, cloud backup, and device synchronization are optional later services rather than prerequisites for portable local projects.
+
+**Deliverable:** the same project moves safely between supported clients without an account, while each client exposes only the capabilities appropriate to its device.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves. Captured gestures may drive editable musical or instrument-performance data. They do not generate or replace the artist's lead vocal.
@@ -596,6 +606,9 @@ Milestones 8–11: rendering, AI direction, vocal production, mixing, and export
 - Dozens of genres before one vertical slice works end to end
 - Neural final-audio generation as a substitute for the Song Graph
 - Generated or synthesized lead vocals as a substitute for the artist's performance
+- Mandatory accounts or cloud synchronization before portable project interchange
+- A desktop shell before a required workflow demonstrates a native capability gap
+- A phone-sized imitation of the desktop production workspace
 
 ## Recommended first vertical slice
 
