@@ -137,6 +137,8 @@ Slice 5.35 carries each hear–revise readiness prompt through to its first enab
 
 Slice 5.36 sends note-dependent arrangement jobs to a harmony note sketch when the section has no approved notes yet, while harmony-support and texture still go directly to building a part from existing chords.
 
+Slice 5.37 turns a completed hear–revise review into a direct Hear action that focuses the song transport Play control without starting playback.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.

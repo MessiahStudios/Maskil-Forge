@@ -1577,14 +1577,20 @@ async function goToNextReadinessStep() {
   if (!step) return
   activeCreatorStage.value = step.stage as CreatorStage
   view.value = 'structure'
-  focusedSectionId.value = step.sectionId
-  sectionViewMode.value = 'focused'
+  if (step.sectionId) {
+    focusedSectionId.value = step.sectionId
+    sectionViewMode.value = 'focused'
+  } else {
+    sectionViewMode.value = 'all'
+  }
   await nextTick()
-  const target = step.stage === 'harmony'
-    ? document.getElementById(`harmony-tools-${step.sectionId}`) ?? document.getElementById('harmony-tools')
-    : step.stage === 'arrangement'
-      ? document.getElementById(`arrangement-${step.sectionId}`)
-      : document.getElementById(`section-${step.sectionId}`)
+  const target = step.action === 'hear'
+    ? document.getElementById('song-transport')
+    : step.stage === 'harmony'
+      ? document.getElementById(`harmony-tools-${step.sectionId}`) ?? document.getElementById('harmony-tools')
+      : step.stage === 'arrangement'
+        ? document.getElementById(`arrangement-${step.sectionId}`)
+        : document.getElementById(`section-${step.sectionId}`)
   if (!target) return
   if (target instanceof HTMLDetailsElement) target.open = true
   target.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -2382,14 +2388,14 @@ onBeforeUnmount(() => {
             </li>
           </ol>
         </section>
-        <section v-if="project.musicalParts.length" class="song-transport" aria-label="Song playback transport">
+        <section v-if="project.musicalParts.length" id="song-transport" class="song-transport" aria-label="Song playback transport">
           <div>
             <strong>Song transport</strong>
             <small>Play assembled musical parts across the song timeline. This does not change the project.</small>
           </div>
           <p class="transport-position" aria-live="polite">{{ transportState.positionLabel }}</p>
-          <button v-if="!transportState.playing" type="button" :disabled="busy" @click="startTransport()">▶ Play song</button>
-          <button v-else type="button" class="quiet" @click="stopTransport('Playback stopped.')">■ Stop</button>
+          <button v-if="!transportState.playing" type="button" data-readiness-action="hear" :disabled="busy" @click="startTransport()">▶ Play song</button>
+          <button v-else type="button" class="quiet" data-readiness-action="hear" @click="stopTransport('Playback stopped.')">■ Stop</button>
           <p v-if="transportState.message">{{ transportState.message }}</p>
         </section>
         <div v-if="project.sections.length" class="energy-curve" aria-label="Song energy curve">

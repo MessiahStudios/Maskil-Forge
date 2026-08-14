@@ -61,6 +61,8 @@ export function demoReadiness(project) {
   } else if (firstGap && !firstGap.hasPlayablePart) {
     nextAction = `Accept or create a playable part for ${firstGap.title}.`
     nextStep = { sectionId: firstGap.sectionId, stage: 'arrangement', action: 'part', label: `Build ${firstGap.title} part` }
+  } else {
+    nextStep = { sectionId: null, stage: 'arrangement', action: 'hear', label: 'Hear the song' }
   }
   return {
     readySectionCount,
