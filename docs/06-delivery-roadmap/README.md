@@ -510,13 +510,17 @@ When a project has no sections, the derived queue offers adding the first sectio
 
 **Deliverable:** starting a song from the hear–revise queue creates the first section, then writes into the blank line that section already has, instead of adding a second empty line.
 
+### Milestone 5.39 — Lyric-sheet readiness start
+
+When a project has no sections yet, but the raw draft contains bracketed lyric-sheet headings, the derived queue opens Capture and lands on Preview song structure instead of the manual add-section toolbar. After a proposal exists, the same action lands on Create sections. Drafts without those headings keep the 5.38 add-section path. The parser still does not guess or auto-accept.
+
+**Deliverable:** a pasted lyric sheet can enter the reviewed-structure path from hear–revise readiness without first creating an empty Intro.
+
 ## Milestone 6 — Voice performance capture
 
 Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves. Captured gestures may drive editable musical or instrument-performance data. They do not generate or replace the artist's lead vocal.
 
 **Deliverable:** humming or singing can control musical material while the human lead vocal remains the authoritative performance.
-
-## Milestone 7 — Instrument intelligence
 
 ## Milestone 7 — Instrument intelligence
 
