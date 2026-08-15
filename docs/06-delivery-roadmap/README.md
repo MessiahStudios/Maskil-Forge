@@ -624,6 +624,12 @@ Keep section titles, order, duplication, deletion, structural role, and lyrics o
 
 **Deliverable:** a phone artist can add a verse, name it, and write lyrics without being asked how many bars it lasts or how it should be sung.
 
+### Milestone 5.58 — Phone Shape puts lyrics first
+
+After a section exists, the phone card shows the lyric editor next. Role in song collapses behind an optional disclosure, the outline’s role-review chrome hides, and new lyric locks stay on desktop so Lock/Remove does not sit on every line. Unlock remains available if a line is already locked. Desktop section order and lock controls are unchanged. This slice changes no schema.
+
+**Deliverable:** a phone artist can type the first lyric line without scrolling past role review, bar anatomy, or lock controls.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

@@ -13,6 +13,10 @@ export function phoneEditorChrome() {
     compactHostStatus: true,
     showSectionTiming: false,
     showSectionPerformance: false,
+    lyricsBeforeRole: true,
+    collapseSectionRole: true,
+    showRoleReview: false,
+    showLyricLocks: false,
   }
 }
 

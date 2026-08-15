@@ -2900,7 +2900,7 @@ onBeforeUnmount(() => {
         <nav v-else class="song-outline" aria-label="Song section outline">
           <div class="song-outline-heading">
             <div><strong>Song outline</strong><small>Jump between {{ project.sections.length }} sections without losing the full song.</small></div>
-            <div class="role-review-summary">
+            <div v-if="!phoneCaptureMode || phoneChrome.showRoleReview" class="role-review-summary">
               <span><strong>{{ roleReview.decidedCount }}/{{ roleReview.sectionCount }}</strong> roles decided</span>
               <small>{{ roleReview.complete ? 'Functional arc reviewed.' : 'Optional · roles are never guessed.' }}</small>
               <button v-if="roleReview.nextSectionId" type="button" class="quiet" @click="reviewNextOpenRole">Review next open role →</button>
@@ -2927,9 +2927,9 @@ onBeforeUnmount(() => {
           <span>Focused workspace · {{ focusedSectionIndex() + 1 }} of {{ project.sections.length }}</span>
           <button type="button" class="quiet" :disabled="focusedSectionIndex() >= project.sections.length - 1" @click="navigateFocusedSection(1)">Next section →</button>
         </div>
-        <p v-if="roleReviewActive" class="role-review-mode" role="status">Role review in progress · saving a decided role continues to the next open section. Choose “Not decided” to stay here.</p>
+        <p v-if="roleReviewActive && (!phoneCaptureMode || phoneChrome.showRoleReview)" class="role-review-mode" role="status">Role review in progress · saving a decided role continues to the next open section. Choose “Not decided” to stay here.</p>
         <ol class="sections">
-          <li v-for="(section, index) in project.sections" v-show="sectionViewMode === 'all' || focusedSectionId === section.id" :id="`section-${section.id}`" :key="section.id" class="section-card">
+          <li v-for="(section, index) in project.sections" v-show="sectionViewMode === 'all' || focusedSectionId === section.id" :id="`section-${section.id}`" :key="section.id" class="section-card" :class="{ 'lyrics-first': phoneCaptureMode && phoneChrome.lyricsBeforeRole }">
             <div class="section-heading">
               <span class="section-number">{{ String(index + 1).padStart(2, '0') }}</span>
               <div class="section-identity">
@@ -2947,7 +2947,21 @@ onBeforeUnmount(() => {
                 <button class="danger" :disabled="busy || structureLocked" :title="structureLocked ? 'Remove all musical parts before deleting sections.' : undefined" @click="removeSection(section.id)">Delete section</button>
               </div>
             </div>
-            <form class="section-performance-intent" @submit.prevent="setSectionIntent(section.id, $event)">
+            <form class="section-performance-intent" :class="{ 'phone-collapsed-role': phoneCaptureMode && phoneChrome.collapseSectionRole }" @submit.prevent="setSectionIntent(section.id, $event)">
+              <details v-if="phoneCaptureMode && phoneChrome.collapseSectionRole" class="phone-section-role">
+                <summary>Role in song</summary>
+                <label class="structural-role-field">
+                  <span class="sr-only">Role in song</span>
+                  <select name="structuralFunction" :value="structuralRoleDrafts[section.id] ?? section.structuralFunction" :disabled="busy" :aria-describedby="`role-help-${section.id}`" @change="structuralRoleDrafts[section.id] = ($event.target as HTMLSelectElement).value as StructuralFunction">
+                    <option v-for="item in structuralRoles" :key="item.id" :value="item.id">{{ item.label }}</option>
+                  </select>
+                  <small :id="`role-help-${section.id}`" class="structural-role-help">{{ structuralRole(structuralRoleDrafts[section.id] ?? section.structuralFunction).help }}</small>
+                </label>
+                <input type="hidden" name="delivery" :value="section.delivery" />
+                <input type="hidden" name="performanceNotes" :value="section.performanceNotes" />
+                <button type="submit" class="secondary" :disabled="busy">Save role</button>
+              </details>
+              <template v-else>
               <label class="structural-role-field">Role in song
                 <select name="structuralFunction" :value="structuralRoleDrafts[section.id] ?? section.structuralFunction" :disabled="busy" :aria-describedby="`role-help-${section.id}`" @change="structuralRoleDrafts[section.id] = ($event.target as HTMLSelectElement).value as StructuralFunction">
                   <option v-for="item in structuralRoles" :key="item.id" :value="item.id">{{ item.label }}</option>
@@ -2965,6 +2979,7 @@ onBeforeUnmount(() => {
               </label>
               <input v-else type="hidden" name="performanceNotes" :value="section.performanceNotes" />
               <button type="submit" class="secondary" :disabled="busy">{{ phoneCaptureMode && !phoneChrome.showSectionPerformance ? 'Save role' : 'Save intent' }}</button>
+              </template>
             </form>
             <details v-if="!phoneCaptureMode && reusableFoundationSources(section.id).length" class="reuse-foundation">
               <summary>Start from another section’s musical foundation</summary>
@@ -3145,7 +3160,7 @@ onBeforeUnmount(() => {
                 <input v-model="line.text" :data-line-id="line.id" :data-readiness-action="writableEmptyLyric(section)?.id === line.id ? 'lyrics' : undefined" maxlength="2000" :aria-label="`Lyric line ${lineIndex + 1}`" placeholder="Write a lyric line…" :disabled="busy || Boolean(lyricLineLock(line.id))" @change="editLyricLine(section.id, line.id, line.text)" @keydown.enter.prevent="addLineAfter(index, lineIndex)" @keydown.backspace="handleLineBackspace(index, lineIndex, line.text)" />
                 <div class="lyric-line-actions">
                   <button v-if="lyricLineLock(line.id)" class="quiet" :disabled="busy" @click="unlockCreativeLock(lyricLineLock(line.id)!.id, 'Lyric line unlocked.')">Unlock line</button>
-                  <button v-else class="quiet" :disabled="busy" @click="lockLyricLine(line.id)">Lock line</button>
+                  <button v-else-if="!phoneCaptureMode || phoneChrome.showLyricLocks" class="quiet" :disabled="busy" @click="lockLyricLine(line.id)">Lock line</button>
                   <button class="quiet lyric-delete" :disabled="busy || Boolean(lyricLineLock(line.id))" @click="removeLyricLine(index, lineIndex)">Remove line</button>
                 </div>
                 <details v-if="!phoneCaptureMode && line.words.length" class="disclosure-panel lyric-flow-tools">

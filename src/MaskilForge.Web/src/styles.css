@@ -307,6 +307,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .section-card > .lyrics-editor { order: 4; }
 .section-card > .harmony-disclosure { order: 5; }
 .section-card > .developer-details { order: 6; }
+.section-card.lyrics-first > .lyrics-editor { order: 2; }
+.section-card.lyrics-first > .section-performance-intent { order: 3; }
 .section-heading { display: grid; grid-template-columns: auto minmax(220px, 1fr) auto; align-items: center; gap: 1rem; }
 .section-number { color: #92988a; font-family: Georgia, serif; font-size: 1.6rem; }
 .section-identity { display: grid; grid-template-columns: 105px 1fr; gap: .75rem; align-items: center; }
@@ -683,6 +685,11 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-actions button span { display: none; }
   .section-performance-intent { grid-template-columns: 1fr; }
   .section-performance-intent button { grid-column: 1; width: 100%; }
+  .section-performance-intent.phone-collapsed-role { display: block; padding: 0; background: transparent; border: 0; }
+  .phone-section-role { padding: .65rem .8rem; background: #111410; border: 1px solid #33392f; border-radius: .65rem; }
+  .phone-section-role > summary { cursor: pointer; color: #e1d9c8; font-weight: 700; font-size: .82rem; }
+  .phone-section-role[open] > summary { margin-bottom: .65rem; }
+  .phone-section-role .structural-role-field, .phone-section-role button { width: 100%; }
   .structure-preview-heading { display: grid; }
   .song-outline-heading { display: grid; }
   .role-review-summary { padding: .6rem 0 0; border-top: 1px solid #3e463b; border-left: 0; }

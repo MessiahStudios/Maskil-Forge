@@ -16,6 +16,10 @@ export function phoneEditorChrome(): {
   compactHostStatus: boolean
   showSectionTiming: boolean
   showSectionPerformance: boolean
+  lyricsBeforeRole: boolean
+  collapseSectionRole: boolean
+  showRoleReview: boolean
+  showLyricLocks: boolean
 }
 
 export const phoneCreatorStages: Array<{ id: PhoneCreatorStage; label: string }>
