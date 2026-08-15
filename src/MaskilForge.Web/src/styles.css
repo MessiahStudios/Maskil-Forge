@@ -618,6 +618,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 @media (max-width: 620px) {
   main { width: min(100% - 1rem, 1180px); }
   .workspace-connection { grid-template-columns: auto minmax(0, 1fr); }
+  .workspace-connection.ready { padding: .45rem .7rem; gap: .5rem; }
   .workspace-delivery-actions { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); }
   .workspace-delivery-actions button { width: 100%; }
   .offline-review-heading { grid-template-columns: 1fr; }

@@ -14,12 +14,15 @@ const line = text => ({ text })
 const section = (id, title, lyrics = '') => ({ id, title, lyricLines: lyrics ? [line(lyrics)] : [line('')] })
 const project = overrides => ({ rawLyricDraft: '', sections: [], ...overrides })
 
-test('phone editor chrome keeps save reachable and moves undo into the menu', () => {
+test('phone editor chrome keeps identity settings and hides music controls', () => {
   assert.deepEqual(phoneEditorChrome(), {
     keepSaveInBar: true,
     keepUndoRedoInBar: false,
     showJourneyIntro: false,
     showJourneyProgress: false,
+    showMusicSettings: false,
+    showDeveloperDetails: false,
+    compactHostStatus: true,
   })
 })
 

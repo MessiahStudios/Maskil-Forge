@@ -11,6 +11,9 @@ export function phoneEditorChrome(): {
   keepUndoRedoInBar: boolean
   showJourneyIntro: boolean
   showJourneyProgress: boolean
+  showMusicSettings: boolean
+  showDeveloperDetails: boolean
+  compactHostStatus: boolean
 }
 
 export const phoneCreatorStages: Array<{ id: PhoneCreatorStage; label: string }>

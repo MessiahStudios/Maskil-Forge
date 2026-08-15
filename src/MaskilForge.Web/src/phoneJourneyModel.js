@@ -8,6 +8,9 @@ export function phoneEditorChrome() {
     keepUndoRedoInBar: false,
     showJourneyIntro: false,
     showJourneyProgress: false,
+    showMusicSettings: false,
+    showDeveloperDetails: false,
+    compactHostStatus: true,
   }
 }
 

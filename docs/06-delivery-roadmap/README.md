@@ -612,6 +612,12 @@ Keep the phone capture path reachable by shrinking the sticky editor header. Tit
 
 **Deliverable:** a phone artist can tap the next capture action without the sticky header covering it.
 
+### Milestone 5.56 — Phone identity, not music settings
+
+Keep artist, genre, and description available on the phone capture path. Hide tempo, meter, key, and developer identity details so the phone editor does not become a miniature theory or debug surface. When the local host is connected, the status banner keeps its title and omits schema copy until a reconnect or update needs that detail. This slice changes no schema or desktop settings.
+
+**Deliverable:** a phone artist can name the song’s identity without being asked to set key, tempo, or inspect internal IDs.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
