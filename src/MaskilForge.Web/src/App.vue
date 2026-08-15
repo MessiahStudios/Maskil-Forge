@@ -2697,8 +2697,8 @@ onBeforeUnmount(() => {
                 <label>Type<select v-model="section.kind"><option v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" :value="kind">{{ label(kind) }}</option></select></label>
                 <label>Title<input v-model="section.title" maxlength="100" /></label>
                 <label class="structural-role-field">Role in song<select v-model="section.structuralFunction" :aria-describedby="`preview-role-help-${index}`"><option v-for="item in structuralRoles" :key="item.id" :value="item.id">{{ item.label }}</option></select><small :id="`preview-role-help-${index}`" class="structural-role-help">{{ structuralRole(section.structuralFunction).help }}</small></label>
-                <label>Delivery<select v-model="section.delivery"><option v-for="delivery in (['Sung','TalkSung','Spoken','Whispered'] as SectionDelivery[])" :key="delivery" :value="delivery">{{ deliveryLabel(delivery) }}</option></select></label>
-                <label class="proposed-direction">Performance direction<input v-model="section.performanceNotes" maxlength="1000" placeholder="Optional direction" /></label>
+                <label v-if="!phoneCaptureMode || phoneChrome.showSectionPerformance">Delivery<select v-model="section.delivery"><option v-for="delivery in (['Sung','TalkSung','Spoken','Whispered'] as SectionDelivery[])" :key="delivery" :value="delivery">{{ deliveryLabel(delivery) }}</option></select></label>
+                <label v-if="!phoneCaptureMode || phoneChrome.showSectionPerformance" class="proposed-direction">Performance direction<input v-model="section.performanceNotes" maxlength="1000" placeholder="Optional direction" /></label>
                 <small>{{ section.lyrics.length }} lyric line{{ section.lyrics.length === 1 ? '' : 's' }} · {{ section.lyrics.slice(0, 2).join(' / ') || 'No lyric lines' }}</small>
               </div>
               <div class="proposed-section-actions">
@@ -2751,7 +2751,7 @@ onBeforeUnmount(() => {
                 <span>{{ String(index + 1).padStart(2, '0') }}</span>
                 <div>
                   <h4>{{ section.title }}</h4>
-                  <p>{{ label(section.kind) }} · {{ deliveryLabel(section.delivery) }}<template v-if="section.structuralFunction !== 'Unspecified'"> · {{ structuralFunctionLabel(section.structuralFunction) }}</template></p>
+                  <p>{{ label(section.kind) }}<template v-if="section.structuralFunction !== 'Unspecified'"> · {{ structuralFunctionLabel(section.structuralFunction) }}</template></p>
                 </div>
               </header>
               <p v-if="section.performanceNotes.trim()" class="phone-performance-note"><strong>Direction</strong>{{ section.performanceNotes }}</p>
@@ -2916,7 +2916,7 @@ onBeforeUnmount(() => {
             <li v-for="(section, index) in project.sections" :key="`outline-${section.id}`">
               <button type="button" :class="{ active: focusedSectionId === section.id, ready: songOutlineItems[index]?.ready }" :aria-current="focusedSectionId === section.id ? 'location' : undefined" @click="focusSongSection(section.id)">
                 <span class="outline-order">{{ String(index + 1).padStart(2, '0') }}</span>
-                <span class="outline-copy"><strong>{{ section.title }}</strong><small><template v-if="section.structuralFunction !== 'Unspecified'">{{ structuralFunctionLabel(section.structuralFunction) }} · </template>{{ label(section.kind) }} · {{ deliveryLabel(section.delivery) }} · {{ placementFor(section.id)?.durationBars ?? 0 }} bars · {{ section.lyricLines.length }} line{{ section.lyricLines.length === 1 ? '' : 's' }}</small></span>
+                <span class="outline-copy"><strong>{{ section.title }}</strong><small><template v-if="section.structuralFunction !== 'Unspecified'">{{ structuralFunctionLabel(section.structuralFunction) }} · </template>{{ label(section.kind) }}<template v-if="!phoneCaptureMode || phoneChrome.showSectionPerformance"> · {{ deliveryLabel(section.delivery) }}</template><template v-if="!phoneCaptureMode || phoneChrome.showSectionTiming"> · {{ placementFor(section.id)?.durationBars ?? 0 }} bars</template> · {{ section.lyricLines.length }} line{{ section.lyricLines.length === 1 ? '' : 's' }}</small></span>
                 <span class="outline-progress">{{ songOutlineItems[index]?.progress }}</span>
               </button>
             </li>
@@ -2935,7 +2935,7 @@ onBeforeUnmount(() => {
               <div class="section-identity">
                 <span>{{ label(section.kind) }}</span>
                 <label><span class="sr-only">Section title</span><input :value="section.title" maxlength="100" @change="renameSection(section.id, ($event.target as HTMLInputElement).value)" /></label>
-                <div v-if="placementFor(section.id)" class="section-position">
+                <div v-if="(!phoneCaptureMode || phoneChrome.showSectionTiming) && placementFor(section.id)" class="section-position">
                   <span>Bars {{ placementFor(section.id)!.start.bar }}–{{ placementFor(section.id)!.start.bar + placementFor(section.id)!.durationBars - 1 }}</span>
                   <label>Length <input :value="placementFor(section.id)!.durationBars" type="number" min="1" max="128" :aria-label="`${section.title} length in bars`" :disabled="busy || structureLocked" :title="structureLocked ? 'Remove all musical parts before changing section length.' : undefined" @change="setSectionDuration(section.id, Number(($event.target as HTMLInputElement).value))" /> bars</label>
                 </div>
@@ -2954,15 +2954,17 @@ onBeforeUnmount(() => {
                 </select>
                 <small :id="`role-help-${section.id}`" class="structural-role-help">{{ structuralRole(structuralRoleDrafts[section.id] ?? section.structuralFunction).help }}</small>
               </label>
-              <label>Delivery
+              <label v-if="!phoneCaptureMode || phoneChrome.showSectionPerformance">Delivery
                 <select name="delivery" :value="section.delivery" :disabled="busy">
                   <option v-for="delivery in (['Sung','TalkSung','Spoken','Whispered'] as SectionDelivery[])" :key="delivery" :value="delivery">{{ deliveryLabel(delivery) }}</option>
                 </select>
               </label>
-              <label>Performance direction
+              <input v-else type="hidden" name="delivery" :value="section.delivery" />
+              <label v-if="!phoneCaptureMode || phoneChrome.showSectionPerformance">Performance direction
                 <textarea name="performanceNotes" :value="section.performanceNotes" maxlength="1000" rows="2" placeholder="Ambient piano + distant pad; grounded, restrained, no lift" :disabled="busy" />
               </label>
-              <button type="submit" class="secondary" :disabled="busy">Save intent</button>
+              <input v-else type="hidden" name="performanceNotes" :value="section.performanceNotes" />
+              <button type="submit" class="secondary" :disabled="busy">{{ phoneCaptureMode && !phoneChrome.showSectionPerformance ? 'Save role' : 'Save intent' }}</button>
             </form>
             <details v-if="!phoneCaptureMode && reusableFoundationSources(section.id).length" class="reuse-foundation">
               <summary>Start from another section’s musical foundation</summary>

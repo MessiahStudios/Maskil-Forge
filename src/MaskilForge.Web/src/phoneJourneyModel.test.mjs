@@ -23,6 +23,8 @@ test('phone editor chrome keeps identity settings and hides music controls', () 
     showMusicSettings: false,
     showDeveloperDetails: false,
     compactHostStatus: true,
+    showSectionTiming: false,
+    showSectionPerformance: false,
   })
 })
 

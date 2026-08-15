@@ -618,6 +618,12 @@ Keep artist, genre, and description available on the phone capture path. Hide te
 
 **Deliverable:** a phone artist can name the song’s identity without being asked to set key, tempo, or inspect internal IDs.
 
+### Milestone 5.57 — Phone sections write lyrics, not bars or delivery
+
+Keep section titles, order, duplication, deletion, structural role, and lyrics on the phone Shape path. Hide bar length, delivery, and performance direction so shaping a song on a phone stays words-and-form rather than timeline or vocal staging. Desktop section cards still expose those production fields. This slice changes no schema or defaults.
+
+**Deliverable:** a phone artist can add a verse, name it, and write lyrics without being asked how many bars it lasts or how it should be sung.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

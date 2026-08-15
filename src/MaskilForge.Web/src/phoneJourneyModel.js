@@ -11,6 +11,8 @@ export function phoneEditorChrome() {
     showMusicSettings: false,
     showDeveloperDetails: false,
     compactHostStatus: true,
+    showSectionTiming: false,
+    showSectionPerformance: false,
   }
 }
 

@@ -682,7 +682,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-actions button { flex: 1; }
   .section-actions button span { display: none; }
   .section-performance-intent { grid-template-columns: 1fr; }
-  .section-performance-intent button { grid-column: 1; }
+  .section-performance-intent button { grid-column: 1; width: 100%; }
   .structure-preview-heading { display: grid; }
   .song-outline-heading { display: grid; }
   .role-review-summary { padding: .6rem 0 0; border-top: 1px solid #3e463b; border-left: 0; }

@@ -14,6 +14,8 @@ export function phoneEditorChrome(): {
   showMusicSettings: boolean
   showDeveloperDetails: boolean
   compactHostStatus: boolean
+  showSectionTiming: boolean
+  showSectionPerformance: boolean
 }
 
 export const phoneCreatorStages: Array<{ id: PhoneCreatorStage; label: string }>
