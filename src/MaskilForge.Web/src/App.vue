@@ -4,7 +4,7 @@ import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
-import { phoneCaptureReadiness, phoneCreatorStages, phoneDestination, phoneJourneyProgress, phoneLayoutMaxWidth, remapDesktopStageForPhone, remapPhoneStageForDesktop, type CreatorJourneyStage } from './phoneJourneyModel.js'
+import { phoneCaptureReadiness, phoneCreatorStages, phoneDestination, phoneEditorChrome, phoneJourneyProgress, phoneLayoutMaxWidth, remapDesktopStageForPhone, remapPhoneStageForDesktop, type CreatorJourneyStage } from './phoneJourneyModel.js'
 import { noteOwners, noteRemovalGuidance } from './noteOwnership.js'
 import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 import { structuralRole, structuralRoles } from './structuralRoles.js'
@@ -2157,6 +2157,7 @@ function structuralFunctionLabel(structuralFunction: StructuralFunction) {
 type CreatorStage = CreatorJourneyStage
 const activeCreatorStage = ref<CreatorStage>('idea')
 const phoneCaptureMode = ref(false)
+const phoneChrome = phoneEditorChrome()
 let phoneLayoutQuery: MediaQueryList | null = null
 const focusedSectionId = ref('')
 const sectionViewMode = ref<'all' | 'focused'>('all')
@@ -2614,13 +2615,15 @@ onBeforeUnmount(() => {
         <label class="title-field"><span>Song title</span><input v-model="project.title" maxlength="200" /></label>
         <span class="editor-state" :class="{ modified: isDirty, saved: !isDirty }">{{ editorState }}</span>
         <nav class="project-actions" aria-label="Project actions">
-          <button class="secondary" :disabled="busy || !response?.canUndo" @click="undo">Undo</button>
-          <button class="secondary" :disabled="busy || !response?.canRedo" @click="redo">Redo</button>
+          <button v-if="!phoneCaptureMode || phoneChrome.keepUndoRedoInBar" class="secondary" :disabled="busy || !response?.canUndo" @click="undo">Undo</button>
+          <button v-if="!phoneCaptureMode || phoneChrome.keepUndoRedoInBar" class="secondary" :disabled="busy || !response?.canRedo" @click="redo">Redo</button>
           <button :disabled="busy || !isDirty" @click="saveProject">Save</button>
         </nav>
         <details class="project-menu">
           <summary>Project</summary>
           <div class="project-menu-panel">
+            <button v-if="phoneCaptureMode && !phoneChrome.keepUndoRedoInBar" class="secondary" :disabled="busy || !response?.canUndo" @click="undo">Undo</button>
+            <button v-if="phoneCaptureMode && !phoneChrome.keepUndoRedoInBar" class="secondary" :disabled="busy || !response?.canRedo" @click="redo">Redo</button>
             <button class="secondary" @click="requestNewProject">New song</button>
             <button class="secondary" @click="requestHome">Song library</button>
             <button class="secondary" :disabled="busy" @click="exportPortableProject">Export project file</button>
@@ -2636,7 +2639,7 @@ onBeforeUnmount(() => {
       <p class="status" role="status">{{ status }}</p>
 
       <nav class="creator-journey" :class="{ 'phone-capture': phoneCaptureMode }" aria-label="Songwriting workspaces">
-        <p><strong>Current workspace</strong><span>{{ phoneCaptureMode ? 'On this phone: idea, words, shape, review, and approve. Harmony and arrangement stay on a larger screen.' : 'Move between creative areas without changing your song.' }}</span></p>
+        <p v-if="!phoneCaptureMode || phoneChrome.showJourneyIntro"><strong>Current workspace</strong><span>{{ phoneCaptureMode ? 'On this phone: idea, words, shape, review, and approve. Harmony and arrangement stay on a larger screen.' : 'Move between creative areas without changing your song.' }}</span></p>
         <ol>
           <li v-for="stage in visibleCreatorStages" :key="stage.id" :class="{ 'stage-active': activeCreatorStage === stage.id }">
             <button
@@ -2649,7 +2652,7 @@ onBeforeUnmount(() => {
             </button>
           </li>
         </ol>
-        <div class="journey-progress" aria-label="Song development progress">
+        <div v-if="!phoneCaptureMode || phoneChrome.showJourneyProgress" class="journey-progress" aria-label="Song development progress">
           <strong>Your song journey</strong>
           <ul>
             <li v-for="stage in visibleCreatorStages" :key="`progress-${stage.id}`" :class="`progress-${creatorStageState(stage.id)}`">

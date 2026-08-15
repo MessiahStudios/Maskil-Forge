@@ -175,6 +175,8 @@ Slice 5.53 keeps Trash uncapped and artist-controlled while adding title-or-arti
 
 Slice 5.54 narrows the phone-width creator journey to Idea, Words, Shape, Review, and Approve. The phone path hides harmony, arrangement, MIDI, and note-event tooling, reviews the written song without changing it, and saves the capture while stating that music work and vocal capture continue on a larger screen.
 
+Slice 5.55 keeps that phone path reachable by compacting the sticky editor header to title and Save, moving Undo and Redo into Project, and hiding the duplicate journey checklist so the next capture action is not covered.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.

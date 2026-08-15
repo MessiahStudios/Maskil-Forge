@@ -4,6 +4,7 @@ import {
   phoneCaptureReadiness,
   phoneCreatorStages,
   phoneDestination,
+  phoneEditorChrome,
   phoneJourneyProgress,
   remapDesktopStageForPhone,
   remapPhoneStageForDesktop,
@@ -12,6 +13,15 @@ import {
 const line = text => ({ text })
 const section = (id, title, lyrics = '') => ({ id, title, lyricLines: lyrics ? [line(lyrics)] : [line('')] })
 const project = overrides => ({ rawLyricDraft: '', sections: [], ...overrides })
+
+test('phone editor chrome keeps save reachable and moves undo into the menu', () => {
+  assert.deepEqual(phoneEditorChrome(), {
+    keepSaveInBar: true,
+    keepUndoRedoInBar: false,
+    showJourneyIntro: false,
+    showJourneyProgress: false,
+  })
+})
 
 test('phone journey excludes music, harmony, and arrangement', () => {
   assert.deepEqual(phoneCreatorStages.map(stage => stage.id), ['idea', 'words', 'shape', 'review', 'approve'])

@@ -6,6 +6,13 @@ export type CreatorJourneyStage = PhoneCreatorStage | DesktopProductionStage
 
 export const phoneLayoutMaxWidth: 620
 
+export function phoneEditorChrome(): {
+  keepSaveInBar: boolean
+  keepUndoRedoInBar: boolean
+  showJourneyIntro: boolean
+  showJourneyProgress: boolean
+}
+
 export const phoneCreatorStages: Array<{ id: PhoneCreatorStage; label: string }>
 
 export function remapDesktopStageForPhone(stage: CreatorJourneyStage): PhoneCreatorStage

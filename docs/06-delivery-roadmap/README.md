@@ -606,6 +606,12 @@ Validate the existing phone-width editor as a capture path rather than a miniatu
 
 **Deliverable:** an artist on a phone can write, shape, review, and save a song without being guided into harmony, MIDI, or arrangement tooling.
 
+### Milestone 5.55 — Compact phone editor chrome
+
+Keep the phone capture path reachable by shrinking the sticky editor header. Title and Save stay in the bar; Undo and Redo move into Project. The long journey intro and progress checklist hide on phone because the stage buttons and capture readiness already name the next action. This slice changes no schema, persistence, or desktop chrome.
+
+**Deliverable:** a phone artist can tap the next capture action without the sticky header covering it.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

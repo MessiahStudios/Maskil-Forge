@@ -2,6 +2,15 @@ import { firstWritableEmptyLyricLine, hasLyricSheetHeadings } from './demoReadin
 
 export const phoneLayoutMaxWidth = 620
 
+export function phoneEditorChrome() {
+  return {
+    keepSaveInBar: true,
+    keepUndoRedoInBar: false,
+    showJourneyIntro: false,
+    showJourneyProgress: false,
+  }
+}
+
 export const phoneCreatorStages = [
   { id: 'idea', label: 'Idea' },
   { id: 'words', label: 'Words' },
