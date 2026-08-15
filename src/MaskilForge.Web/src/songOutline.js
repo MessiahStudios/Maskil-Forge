@@ -5,10 +5,10 @@ export function songOutline(project, readiness) {
   return project.sections.map((section, index) => {
     const review = readinessBySection.get(section.id)
     let progress = 'Not started'
-    if (review?.ready) progress = 'Ready to hear'
+    if (review?.ready) progress = 'hasHarmony' in review ? 'Ready to hear' : 'Ready to review'
     else if (review && !review.hasLyrics) progress = 'Needs lyrics'
-    else if (review && !review.hasHarmony) progress = 'Needs harmony'
-    else if (review && !review.hasRole) progress = 'Needs a musical job'
+    else if (review && review.hasHarmony === false) progress = 'Needs harmony'
+    else if (review && review.hasRole === false) progress = 'Needs a musical job'
     else if (review?.needsSourceNotes) progress = 'Needs playable notes'
     else if (review) progress = 'Needs a playable part'
     return {

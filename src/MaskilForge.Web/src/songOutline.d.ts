@@ -17,9 +17,9 @@ export function songOutline(project: SongProject | null, readiness: {
   sections: Array<{
     sectionId: string
     hasLyrics: boolean
-    hasHarmony: boolean
-    hasRole: boolean
-    hasPlayablePart: boolean
+    hasHarmony?: boolean
+    hasRole?: boolean
+    hasPlayablePart?: boolean
     needsSourceNotes?: boolean
     ready: boolean
   }>

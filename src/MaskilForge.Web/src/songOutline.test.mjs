@@ -65,6 +65,20 @@ test('song outline asks for playable notes before a note-dependent part', () => 
   ])
 })
 
+test('phone capture readiness treats lyric-complete sections as ready to review', () => {
+  const project = {
+    sections: [
+      { id: 'verse', title: 'Verse', kind: 'Verse', delivery: 'Sung', structuralFunction: 'Setup', lyricLines: [{ id: 'l1' }] },
+    ],
+    timeline: { sectionPlacements: [{ sectionId: 'verse', durationBars: 8 }] },
+  }
+  const readiness = { sections: [
+    { sectionId: 'verse', hasLyrics: true, ready: true },
+  ] }
+
+  assert.deepEqual(songOutline(project, readiness).map(item => item.progress), ['Ready to review'])
+})
+
 test('focused navigation stays within the known song form', () => {
   const sections = [{ id: 'intro' }, { id: 'verse' }, { id: 'chorus' }]
 

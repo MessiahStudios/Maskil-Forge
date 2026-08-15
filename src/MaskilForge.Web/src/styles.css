@@ -141,6 +141,31 @@ button.journey-step:hover:not(:disabled) { border-color: #6e755f; background: #2
 .journey-progress .progress-complete { color: #a9bd98; }
 .journey-focus { animation: journey-focus 1.4s ease-out; }
 @keyframes journey-focus { 0%, 35% { border-color: #d8ba78; box-shadow: 0 0 0 3px rgb(216 186 120 / .22); } 100% { box-shadow: 0 0 0 0 transparent; } }
+.phone-readiness { display: grid; gap: 1rem; margin: 0 0 1.25rem; padding: 1rem 1.1rem; background: #171a16; border: 1px solid #4a5343; border-radius: .55rem; }
+.phone-readiness ol { display: grid; gap: .45rem; margin: 0; padding: 0; list-style: none; }
+.phone-readiness li { display: flex; justify-content: space-between; gap: 1rem; align-items: center; color: #b8b3a6; font-size: .82rem; }
+.phone-readiness li.ready { color: #b7c7a8; }
+.phone-readiness .complete { color: #a9bd98; }
+.phone-review, .phone-approve { display: grid; gap: .9rem; margin: 0 0 1.25rem; padding: 1.15rem 1.2rem; background: #171a16; border: 1px solid #40473b; border-radius: .65rem; }
+.phone-review h2, .phone-approve h2 { margin: .15rem 0 0; color: #ece3d2; font: 1.85rem Georgia, serif; }
+.phone-review > p, .phone-approve > p { margin: 0; color: #bdb7aa; line-height: 1.55; }
+.phone-review-raw, .phone-review-structure { display: grid; gap: .55rem; }
+.phone-review-raw h3, .phone-review-structure h3 { margin: 0; color: #e8dfce; font: 1.25rem Georgia, serif; }
+.phone-review-raw pre { max-height: 18rem; margin: 0; padding: 1rem; overflow: auto; color: #ddd5c6; background: #121411; border: 1px solid #353b31; border-radius: .45rem; font: .95rem/1.75 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.phone-review-empty, .phone-empty-section { margin: 0; color: #8f9188; font-style: italic; }
+.phone-review-sections { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.phone-review-sections > li { display: grid; gap: .7rem; padding: .9rem; background: #1c1f1a; border: 1px solid #42483d; border-radius: .5rem; }
+.phone-review-sections header { display: grid; grid-template-columns: 2rem minmax(0, 1fr); gap: .7rem; align-items: center; }
+.phone-review-sections header > span { width: 2rem; height: 2rem; display: grid; place-items: center; color: #dac37f; background: #2a2d25; border: 1px solid #656b5b; border-radius: 50%; font-weight: 750; }
+.phone-review-sections h4 { margin: 0; color: #eee5d4; font: 1.25rem Georgia, serif; }
+.phone-review-sections header p { margin: .2rem 0 0; color: #918f85; font-size: .78rem; }
+.phone-performance-note { display: grid; gap: .25rem; margin: 0; padding: .7rem; color: #c4bdaf; background: #242117; border-left: 3px solid #ad9256; line-height: 1.5; }
+.phone-performance-note strong { color: #d8c895; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
+.phone-lyrics { display: grid; gap: .3rem; }
+.phone-lyrics p { margin: 0; color: #e1d9ca; line-height: 1.55; }
+.phone-capture-boundary { display: grid; gap: .25rem; padding: .8rem .9rem; color: #c9c3b7; background: #211d15; border: 1px solid #79683f; border-radius: .5rem; font-size: .84rem; line-height: 1.5; }
+.phone-capture-boundary strong { color: #ecd79e; }
+.phone-approve-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
 .disclosure-panel { border: 1px solid #41473d; border-radius: .45rem; background: #151814; }
 .disclosure-panel > summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem 1rem; align-items: center; min-height: 52px; padding: .75rem .9rem; cursor: pointer; list-style: none; }
 .disclosure-panel > summary::-webkit-details-marker { display: none; }
@@ -625,7 +650,15 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .import-preview-meta div { grid-template-columns: 1fr; gap: .2rem; }
   .creator-journey { grid-template-columns: 1fr; }
   .creator-journey ol { grid-template-columns: repeat(3, 1fr); }
+  .creator-journey.phone-capture ol { grid-template-columns: repeat(3, 1fr); }
   .creator-journey li::after { display: none; }
+  .phone-approve-actions, .phone-approve-actions button { width: 100%; }
+  .phone-readiness, .phone-review, .phone-approve, .song-canvas, .capture-heading, .capture-actions { scroll-margin-top: 12rem; }
+  .phone-readiness li { align-items: start; flex-direction: column; gap: .2rem; }
+  .song-transport { grid-template-columns: 1fr; }
+  .chord-audition, .part-audition { grid-template-columns: 1fr; }
+  .trash-hygiene-note strong, .recovery-cap-warning strong { white-space: normal; }
+  .card-menu-panel { left: 0; right: auto; width: min(210px, calc(100vw - 2.5rem)); }
   .note-event-form { grid-template-columns: 1fr 1fr; }
   .midi-export-panel { grid-template-columns: 1fr; }
   .midi-export-panel button { justify-self: start; }

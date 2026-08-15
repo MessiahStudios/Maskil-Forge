@@ -2,8 +2,9 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type PortableProjectImportPreview, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
-import { creatorDestination, creatorProgress, creatorStages } from './creatorJourney.js'
+import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
+import { phoneCaptureReadiness, phoneCreatorStages, phoneDestination, phoneJourneyProgress, phoneLayoutMaxWidth, remapDesktopStageForPhone, remapPhoneStageForDesktop, type CreatorJourneyStage } from './phoneJourneyModel.js'
 import { noteOwners, noteRemovalGuidance } from './noteOwnership.js'
 import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 import { structuralRole, structuralRoles } from './structuralRoles.js'
@@ -2153,14 +2154,23 @@ function deliveryLabel(delivery: SectionDelivery) { return delivery === 'TalkSun
 function structuralFunctionLabel(structuralFunction: StructuralFunction) {
   return structuralRole(structuralFunction).label
 }
-type CreatorStage = 'idea' | 'words' | 'shape' | 'music' | 'harmony' | 'arrangement'
+type CreatorStage = CreatorJourneyStage
 const activeCreatorStage = ref<CreatorStage>('idea')
+const phoneCaptureMode = ref(false)
+let phoneLayoutQuery: MediaQueryList | null = null
 const focusedSectionId = ref('')
 const sectionViewMode = ref<'all' | 'focused'>('all')
 const creatorCompletion = computed(() => creatorProgress(project.value))
+const phoneCompletion = computed(() => phoneJourneyProgress(project.value))
+const visibleCreatorStages = computed(() => phoneCaptureMode.value ? phoneCreatorStages : creatorStages)
 const currentStructurePreview = computed(() => matchingLyricSheetPreview(project.value?.rawLyricDraft ?? '', previewedLyricSheet.value, structurePreview.value))
 const editableDemoReview = computed(() => demoReadiness(project.value, currentStructurePreview.value))
-const songOutlineItems = computed(() => songOutline(project.value, editableDemoReview.value))
+const phoneCaptureReview = computed(() => phoneCaptureReadiness(project.value, currentStructurePreview.value, {
+  isDirty: isDirty.value,
+  activeStage: activeCreatorStage.value,
+  lockedLineIds: project.value?.locks.filter(lock => lock.scope === 'LyricLine').map(lock => lock.lineId) ?? [],
+}))
+const songOutlineItems = computed(() => songOutline(project.value, phoneCaptureMode.value ? phoneCaptureReview.value : editableDemoReview.value))
 const roleReview = computed(() => structuralRoleReview(project.value))
 const roleReviewActive = ref(false)
 async function focusSongSection(sectionId: string) {
@@ -2201,10 +2211,35 @@ function navigateFocusedSection(offset: number) {
   if (targetId) void focusSongSection(targetId)
 }
 function focusedSectionIndex() { return project.value?.sections.findIndex(section => section.id === focusedSectionId.value) ?? -1 }
-function creatorStageState(stage: CreatorStage) { return creatorCompletion.value[stage] ? 'complete' : 'upcoming' }
+function creatorStageState(stage: CreatorStage) {
+  if (phoneCaptureMode.value) return phoneCompletion.value[stage as keyof typeof phoneCompletion.value] ? 'complete' : 'upcoming'
+  if (stage === 'review' || stage === 'approve') return 'upcoming'
+  return creatorCompletion.value[stage] ? 'complete' : 'upcoming'
+}
+function syncPhoneCaptureMode() {
+  const next = Boolean(phoneLayoutQuery?.matches)
+  if (phoneCaptureMode.value === next) return
+  phoneCaptureMode.value = next
+  activeCreatorStage.value = next
+    ? remapDesktopStageForPhone(activeCreatorStage.value)
+    : remapPhoneStageForDesktop(activeCreatorStage.value)
+}
+function handlePhoneLayoutChange() { syncPhoneCaptureMode() }
+function journeyProgressLabel(stage: CreatorStage) {
+  if (stage === 'idea') return 'Song started'
+  if (stage === 'words') return 'Lyrics started'
+  if (stage === 'shape') return 'Structure'
+  if (stage === 'review') return 'Reviewed form'
+  if (stage === 'approve') return 'Capture saved'
+  if (stage === 'music') return 'Music exploration'
+  return stage === 'harmony' ? 'Harmony' : 'Arrangement'
+}
 async function goToNextReadinessStep() {
-  const step = editableDemoReview.value.nextStep
+  const step = phoneCaptureMode.value ? phoneCaptureReview.value.nextStep : editableDemoReview.value.nextStep
   if (!step) return
+  if (step.action === 'words' || step.action === 'review' || step.action === 'approve') {
+    return goToCreatorStage(step.stage)
+  }
   activeCreatorStage.value = step.stage as CreatorStage
   if (step.action === 'preview' || step.action === 'resolve') {
     view.value = 'capture'
@@ -2251,9 +2286,12 @@ async function goToNextReadinessStep() {
 }
 async function goToCreatorStage(stage: CreatorStage) {
   roleReviewActive.value = false
-  const destination = creatorDestination(stage, Boolean(project.value?.sections.length))
+  const requested = phoneCaptureMode.value ? remapDesktopStageForPhone(stage) : remapPhoneStageForDesktop(stage)
+  const destination = phoneCaptureMode.value
+    ? phoneDestination(requested, Boolean(project.value?.sections.length))
+    : creatorDestination(requested as DesktopCreatorStage, Boolean(project.value?.sections.length))
   if (!destination) return
-  activeCreatorStage.value = (destination.stage ?? stage) as CreatorStage
+  activeCreatorStage.value = (destination.stage ?? requested) as CreatorStage
   view.value = destination.view
   if (destination.message) status.value = destination.message
   if (destination.view === 'capture') lyricTimeline.value = null
@@ -2354,6 +2392,9 @@ onMounted(async () => {
   window.addEventListener('offline', handleConnectivityChange)
   window.addEventListener('beforeinstallprompt', captureInstallPrompt)
   window.addEventListener('appinstalled', markApplicationInstalled)
+  phoneLayoutQuery = window.matchMedia(`(max-width: ${phoneLayoutMaxWidth}px)`)
+  syncPhoneCaptureMode()
+  phoneLayoutQuery.addEventListener('change', handlePhoneLayoutChange)
   try {
     await registerApplicationShell(registration => {
       shellUpdateRegistration.value = registration
@@ -2378,12 +2419,13 @@ onBeforeUnmount(() => {
   window.removeEventListener('offline', handleConnectivityChange)
   window.removeEventListener('beforeinstallprompt', captureInstallPrompt)
   window.removeEventListener('appinstalled', markApplicationInstalled)
+  phoneLayoutQuery?.removeEventListener('change', handlePhoneLayoutChange)
   if (recoveryTimer) clearTimeout(recoveryTimer)
 })
 </script>
 
 <template>
-  <main :class="{ 'has-project': view !== 'home' }">
+  <main :class="{ 'has-project': view !== 'home', 'phone-capture': phoneCaptureMode }">
     <input ref="portableImportInput" hidden type="file" accept=".json,.maskil.json,application/json,application/vnd.maskil-forge.project+json" @change="selectPortableImport" />
     <aside class="workspace-connection" :class="workspaceConnection" role="status" aria-live="polite">
       <span class="connection-mark" aria-hidden="true"></span>
@@ -2593,10 +2635,10 @@ onBeforeUnmount(() => {
 
       <p class="status" role="status">{{ status }}</p>
 
-      <nav class="creator-journey" aria-label="Songwriting workspaces">
-        <p><strong>Current workspace</strong><span>Move between creative areas without changing your song.</span></p>
+      <nav class="creator-journey" :class="{ 'phone-capture': phoneCaptureMode }" aria-label="Songwriting workspaces">
+        <p><strong>Current workspace</strong><span>{{ phoneCaptureMode ? 'On this phone: idea, words, shape, review, and approve. Harmony and arrangement stay on a larger screen.' : 'Move between creative areas without changing your song.' }}</span></p>
         <ol>
-          <li v-for="stage in creatorStages" :key="stage.id" :class="{ 'stage-active': activeCreatorStage === stage.id }">
+          <li v-for="stage in visibleCreatorStages" :key="stage.id" :class="{ 'stage-active': activeCreatorStage === stage.id }">
             <button
               type="button"
               class="journey-step"
@@ -2610,16 +2652,16 @@ onBeforeUnmount(() => {
         <div class="journey-progress" aria-label="Song development progress">
           <strong>Your song journey</strong>
           <ul>
-            <li v-for="stage in creatorStages" :key="`progress-${stage.id}`" :class="`progress-${creatorStageState(stage.id)}`">
+            <li v-for="stage in visibleCreatorStages" :key="`progress-${stage.id}`" :class="`progress-${creatorStageState(stage.id)}`">
               <span aria-hidden="true">{{ creatorStageState(stage.id) === 'complete' ? '✓' : '○' }}</span>
-              {{ stage.id === 'idea' ? 'Song started' : stage.id === 'words' ? 'Lyrics started' : stage.id === 'shape' ? 'Structure' : stage.id === 'music' ? 'Music exploration' : stage.label }}
+              {{ journeyProgressLabel(stage.id) }}
             </li>
           </ul>
         </div>
       </nav>
 
       <section v-if="view === 'capture'" class="capture-workspace" aria-labelledby="capture-title">
-        <div class="capture-heading"><p class="eyebrow">Start with the words</p><h1 id="capture-title">Capture the idea</h1><p>Write lyrics, fragments, images, themes, or plain thoughts. You do not need to know the song structure yet.</p></div>
+        <div class="capture-heading"><p class="eyebrow">Start with the words</p><h1 id="capture-title">Capture the idea</h1><p>{{ phoneCaptureMode ? 'Write lyrics, fragments, or plain thoughts. Shape the song, then review and save this capture. Harmony, arrangement, and vocal capture stay on a larger screen for now.' : 'Write lyrics, fragments, images, themes, or plain thoughts. You do not need to know the song structure yet.' }}</p></div>
         <label class="raw-lyrics">Raw lyric draft<textarea id="raw-lyric-draft" v-model="project.rawLyricDraft" maxlength="100000" rows="18" autofocus placeholder="Write whatever is on your mind…&#10;&#10;A complete song is not required. Fragments are welcome." /></label>
         <div id="capture-actions" class="capture-actions"><button :disabled="busy || !isDirty" @click="saveDraft">Save draft</button><button class="secondary" :disabled="busy" @click="beginStructuring">Shape manually</button><button :data-readiness-action="currentStructurePreview ? undefined : 'preview'" :disabled="busy || !project.rawLyricDraft.trim()" @click="previewPastedStructure">Preview song structure</button></div>
         <section v-if="structurePreview && currentStructurePreview" class="structure-preview" aria-labelledby="structure-preview-title">
@@ -2671,7 +2713,69 @@ onBeforeUnmount(() => {
 
       <template v-else>
       <div class="structure-nav"><button class="quiet" @click="returnToDraft">← Raw lyric draft</button></div>
-      <details id="musical-refinement" class="disclosure-panel timeline-disclosure">
+      <section v-if="phoneCaptureMode" class="phone-readiness" aria-labelledby="phone-readiness-title">
+        <div class="readiness-next-step">
+          <span class="eyebrow">Phone capture</span>
+          <h3 id="phone-readiness-title">{{ phoneCaptureReview.complete ? 'Capture ready to continue later' : 'Next on this phone' }}</h3>
+          <p>{{ phoneCaptureReview.nextAction }}</p>
+          <button v-if="phoneCaptureReview.nextStep" type="button" :disabled="busy" @click="goToNextReadinessStep">{{ phoneCaptureReview.nextStep.label }} →</button>
+        </div>
+        <ol v-if="phoneCaptureReview.sections.length">
+          <li v-for="sectionReview in phoneCaptureReview.sections" :key="sectionReview.sectionId" :class="{ ready: sectionReview.ready }">
+            <strong>{{ sectionReview.title }}</strong>
+            <span :class="{ complete: sectionReview.hasLyrics }">Lyrics</span>
+          </li>
+        </ol>
+      </section>
+      <section v-if="phoneCaptureMode && (activeCreatorStage === 'review' || activeCreatorStage === 'approve')" id="phone-review" class="phone-review" aria-labelledby="phone-review-title">
+        <div class="phone-review-heading">
+          <p class="eyebrow">Review</p>
+          <h2 id="phone-review-title">Read the song as written</h2>
+          <p>This is the current words and form. It does not change the song, start playback, or add harmony.</p>
+        </div>
+        <section v-if="project.rawLyricDraft.trim()" class="phone-review-raw" aria-labelledby="phone-raw-title">
+          <p class="eyebrow">Raw lyric draft</p>
+          <h3 id="phone-raw-title">Preserved source</h3>
+          <pre>{{ project.rawLyricDraft }}</pre>
+        </section>
+        <section class="phone-review-structure" aria-labelledby="phone-structure-title">
+          <p class="eyebrow">Song anatomy</p>
+          <h3 id="phone-structure-title">{{ project.sections.length ? `${project.sections.length} section${project.sections.length === 1 ? '' : 's'}` : 'No structured sections yet' }}</h3>
+          <p v-if="!project.sections.length" class="phone-review-empty">Add a section in Shape to review the form here.</p>
+          <ol v-else class="phone-review-sections">
+            <li v-for="(section, index) in project.sections" :key="`review-${section.id}`">
+              <header>
+                <span>{{ String(index + 1).padStart(2, '0') }}</span>
+                <div>
+                  <h4>{{ section.title }}</h4>
+                  <p>{{ label(section.kind) }} · {{ deliveryLabel(section.delivery) }}<template v-if="section.structuralFunction !== 'Unspecified'"> · {{ structuralFunctionLabel(section.structuralFunction) }}</template></p>
+                </div>
+              </header>
+              <p v-if="section.performanceNotes.trim()" class="phone-performance-note"><strong>Direction</strong>{{ section.performanceNotes }}</p>
+              <div v-if="section.lyricLines.some(line => line.text.trim())" class="phone-lyrics">
+                <p v-for="line in section.lyricLines.filter(line => line.text.trim())" :key="line.id">{{ line.text }}</p>
+              </div>
+              <p v-else class="phone-empty-section">No lyric lines yet.</p>
+            </li>
+          </ol>
+        </section>
+        <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
+      </section>
+      <section v-if="phoneCaptureMode && activeCreatorStage === 'approve'" id="phone-approve" class="phone-approve" aria-labelledby="phone-approve-title">
+        <p class="eyebrow">Approve</p>
+        <h2 id="phone-approve-title">Save this capture</h2>
+        <p v-if="isDirty">Saving keeps the words and form on this device. Harmony, arrangement, playback, and rough vocal capture are not part of this phone path yet.</p>
+        <p v-else>This capture is saved. Continue harmony and arrangement on a larger screen. Rough vocal capture is not available yet.</p>
+        <aside class="phone-capture-boundary">
+          <strong>Phone scope</strong>
+          <p>Idea, words, shape, review, and approve. Music tools stay on desktop so this screen does not become a miniature DAW.</p>
+        </aside>
+        <div class="phone-approve-actions">
+          <button type="button" data-readiness-action="approve" :disabled="busy || !isDirty" @click="saveDraft">{{ isDirty ? 'Save and approve' : 'Capture saved' }}</button>
+          <button type="button" class="quiet" :disabled="busy" @click="goToCreatorStage('shape')">Back to shape</button>
+        </div>
+      </section>
+      <details v-if="!phoneCaptureMode" id="musical-refinement" class="disclosure-panel timeline-disclosure">
         <summary><span>Explore musical timing</span><small>Optional · See how placed words line up across the song.</small></summary>
       <section class="lyric-timeline" aria-labelledby="lyric-timeline-title">
         <div class="lyric-timeline-heading">
@@ -2786,7 +2890,7 @@ onBeforeUnmount(() => {
             <strong>{{ project.musicalParts.length }} musical part{{ project.musicalParts.length === 1 ? ' uses' : 's use' }} the song timeline.</strong>
             <p>Lyrics, harmony, section role, delivery, and direction remain editable. Manage musical parts to unlock order, length, meter, duplication, and deletion.</p>
           </div>
-          <button type="button" class="quiet" @click="goToCreatorStage('arrangement')">Manage timing →</button>
+          <button v-if="!phoneCaptureMode" type="button" class="quiet" @click="goToCreatorStage('arrangement')">Manage timing →</button>
         </aside>
 
         <p v-if="project.sections.length === 0" class="empty-song">Choose a section above and start writing your first line.</p>
@@ -2799,7 +2903,8 @@ onBeforeUnmount(() => {
               <button v-if="roleReview.nextSectionId" type="button" class="quiet" @click="reviewNextOpenRole">Review next open role →</button>
             </div>
             <div class="outline-view-actions">
-              <span>{{ editableDemoReview.readySectionCount }}/{{ editableDemoReview.sectionCount }} ready to hear</span>
+              <span v-if="!phoneCaptureMode">{{ editableDemoReview.readySectionCount }}/{{ editableDemoReview.sectionCount }} ready to hear</span>
+              <span v-else>{{ phoneCaptureReview.sections.filter(item => item.ready).length }}/{{ phoneCaptureReview.sections.length }} sections have lyrics</span>
               <button type="button" class="quiet" :disabled="!focusedSectionId || sectionViewMode === 'focused'" @click="showFocusedSection">Focus selected</button>
               <button type="button" class="quiet" :disabled="sectionViewMode === 'all'" @click="showAllSections">Show all</button>
             </div>
@@ -2856,7 +2961,7 @@ onBeforeUnmount(() => {
               </label>
               <button type="submit" class="secondary" :disabled="busy">Save intent</button>
             </form>
-            <details v-if="reusableFoundationSources(section.id).length" class="reuse-foundation">
+            <details v-if="!phoneCaptureMode && reusableFoundationSources(section.id).length" class="reuse-foundation">
               <summary>Start from another section’s musical foundation</summary>
               <div>
                 <p>Explicitly replace this section’s harmony, chord voicings, energy, density, and musical jobs. Lyrics, delivery, performance direction, approved notes, and musical parts are never copied.</p>
@@ -2869,7 +2974,7 @@ onBeforeUnmount(() => {
                 <button type="button" class="secondary" :disabled="busy || !foundationSourceDrafts[section.id] || partsForSection(section.id).length > 0" :title="partsForSection(section.id).length ? 'Remove this section’s musical parts before replacing its foundation.' : undefined" @click="reuseSectionFoundation(section.id)">Use musical foundation</button>
               </div>
             </details>
-            <details :id="index === 0 ? 'harmony-tools' : `harmony-tools-${section.id}`" class="disclosure-panel harmony-disclosure">
+            <details v-if="!phoneCaptureMode" :id="index === 0 ? 'harmony-tools' : `harmony-tools-${section.id}`" class="disclosure-panel harmony-disclosure">
               <summary><span>Explore musical ideas</span><small>Optional · Add chords, compare options, and review how changes connect.</small></summary>
               <div class="harmony-editor" :aria-label="`Harmony for ${section.title}`">
               <div class="harmony-heading">
@@ -3038,7 +3143,7 @@ onBeforeUnmount(() => {
                   <button v-else class="quiet" :disabled="busy" @click="lockLyricLine(line.id)">Lock line</button>
                   <button class="quiet lyric-delete" :disabled="busy || Boolean(lyricLineLock(line.id))" @click="removeLyricLine(index, lineIndex)">Remove line</button>
                 </div>
-                <details v-if="line.words.length" class="disclosure-panel lyric-flow-tools">
+                <details v-if="!phoneCaptureMode && line.words.length" class="disclosure-panel lyric-flow-tools">
                   <summary><span>Understand lyric flow</span><small>Optional · Syllables, emphasis, phrasing, breathing, and musical timing.</small></summary>
                 <div v-if="line.words.length" class="lyric-words" :aria-label="`Artist-controlled syllables for lyric line ${lineIndex + 1}`">
                   <form v-for="word in line.words" :key="word.id" class="syllable-word" @submit.prevent="setWordSyllables(section.id, line.id, word.id, $event)">
@@ -3191,7 +3296,7 @@ onBeforeUnmount(() => {
         </ol>
       </section>
 
-      <section id="arrangement-blueprint" class="arrangement-blueprint" aria-labelledby="arrangement-title">
+      <section v-if="!phoneCaptureMode" id="arrangement-blueprint" class="arrangement-blueprint" aria-labelledby="arrangement-title">
         <div class="arrangement-heading">
           <p class="eyebrow">Arrangement blueprint</p>
           <h2 id="arrangement-title">Shape the song’s energy</h2>
@@ -3463,7 +3568,7 @@ onBeforeUnmount(() => {
         <p class="arrangement-boundary">Musical parts connect your approved notes to an arrangement purpose. Instrument choices and automatic realization come later.</p>
       </section>
 
-      <section class="midi-export-panel" aria-labelledby="midi-export-title">
+      <section v-if="!phoneCaptureMode" class="midi-export-panel" aria-labelledby="midi-export-title">
         <div>
           <span class="eyebrow">Take your sketch with you</span>
           <h2 id="midi-export-title">Export playable notes</h2>
@@ -3473,7 +3578,7 @@ onBeforeUnmount(() => {
         <button type="button" :disabled="busy || !project.noteEvents.length" @click="exportMidi">Export MIDI</button>
       </section>
 
-      <details class="disclosure-panel note-event-foundation">
+      <details v-if="!phoneCaptureMode" class="disclosure-panel note-event-foundation">
         <summary><span>Inspect playable notes</span><small>Advanced · Review the exact events included in MIDI export.</small></summary>
         <div class="note-event-editor">
           <div>

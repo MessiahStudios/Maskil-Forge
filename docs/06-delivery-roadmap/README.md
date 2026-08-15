@@ -600,6 +600,12 @@ Keep Trash uncapped and preserve its newest-deleted-first order while adding tit
 
 **Deliverable:** Trash remains a reversible safety net that stays understandable as it grows, with efficient artist-controlled cleanup and an unmistakable boundary before permanent loss.
 
+### Milestone 5.54 — Narrowed phone capture journey
+
+Validate the existing phone-width editor as a capture path rather than a miniature desktop DAW. At the 620px phone boundary the creator journey shows Idea, Words, Shape, Review, and Approve. Music, Harmony, and Arrangement stay on a larger screen. Review is a read-only look at the raw draft and structured lyrics; Approve saves that capture and states that harmony, arrangement, playback, and rough vocal capture continue later. Phone readiness asks for words, form, and lyrics—not chords or playable parts. This slice adds no schema fields, vocal recording, or automatic acceptance.
+
+**Deliverable:** an artist on a phone can write, shape, review, and save a song without being guided into harmony, MIDI, or arrangement tooling.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
