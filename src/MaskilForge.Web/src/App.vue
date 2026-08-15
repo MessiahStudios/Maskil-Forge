@@ -971,6 +971,12 @@ async function addSection(kind: SectionKind) {
   const sectionIndex = project.value.sections.findIndex(section => !existingIds.has(section.id))
   if (sectionIndex >= 0) await addLyricLine(sectionIndex, true)
 }
+async function addSectionFromMenu(kind: SectionKind) {
+  await addSection(kind)
+  await nextTick()
+  const details = document.getElementById('section-toolbar')
+  if (details instanceof HTMLDetailsElement) details.open = false
+}
 function renameSection(sectionId: string, title: string) {
   if (!project.value) return
   return run(() => projectsApi.command(project.value!.id, project.value!, { type: 'rename-section', sectionId, title }), 'Section renamed.', 'section.rename', { sectionId, title })
@@ -2888,7 +2894,13 @@ onBeforeUnmount(() => {
       <section id="song-structure" class="song-canvas" aria-label="Song structure">
         <div class="canvas-heading">
           <div v-if="!phoneCaptureMode || !phoneChrome.compactShapeChrome"><p class="eyebrow">Song structure</p><h1>Shape the song</h1></div>
-          <div id="section-toolbar" class="section-toolbar" aria-label="Add song section">
+          <details v-if="phoneCaptureMode && phoneChrome.compactSectionToolbar" id="section-toolbar" class="phone-section-toolbar">
+            <summary>+ Add section</summary>
+            <div class="section-toolbar" aria-label="Add song section">
+              <button v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" class="secondary add-section" data-readiness-action="section" :disabled="busy" @click="addSectionFromMenu(kind)">+ {{ label(kind) }}</button>
+            </div>
+          </details>
+          <div v-else id="section-toolbar" class="section-toolbar" aria-label="Add song section">
             <button v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" class="secondary add-section" data-readiness-action="section" :disabled="busy" @click="addSection(kind)">+ {{ label(kind) }}</button>
           </div>
         </div>

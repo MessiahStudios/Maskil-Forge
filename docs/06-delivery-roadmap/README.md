@@ -636,6 +636,12 @@ Once a section exists, phone Shape hides the connected-host banner, the duplicat
 
 **Deliverable:** a phone artist can add a verse and reach the lyric input without scrolling past duplicate navigation.
 
+### Milestone 5.60 — Phone Shape adds a section from one control
+
+Replace the six-button add-section toolbar with a single “Add section” disclosure on phone. Opening it still offers Intro through Outro; choosing one adds that section and closes the menu. The next-action button opens the disclosure instead of guessing a section kind. Desktop keeps the full toolbar. This slice changes no schema.
+
+**Deliverable:** a phone artist can add a verse without a three-row section-kind keypad covering the lyric field.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

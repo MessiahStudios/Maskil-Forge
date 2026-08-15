@@ -19,6 +19,7 @@ export function phoneEditorChrome() {
     showLyricLocks: false,
     compactShapeChrome: true,
     showReadyHostStatus: false,
+    compactSectionToolbar: true,
   }
 }
 

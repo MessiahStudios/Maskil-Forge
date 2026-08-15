@@ -684,6 +684,11 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .harmony-note-sketch-result ol { grid-template-columns: 1fr; }
   .disclosure-panel > summary { grid-template-columns: 1fr auto; }
   .section-toolbar button { flex: 1 1 45%; }
+  .phone-section-toolbar { width: 100%; background: #171a16; border: 1px solid #4a5343; border-radius: .55rem; }
+  .phone-section-toolbar > summary { cursor: pointer; min-height: 44px; display: grid; align-items: center; padding: .55rem .75rem; color: #fff1d3; font-weight: 700; list-style: none; }
+  .phone-section-toolbar > summary::-webkit-details-marker { display: none; }
+  .phone-section-toolbar .section-toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; padding: 0 .65rem .65rem; }
+  .phone-section-toolbar .section-toolbar button { width: 100%; flex: none; }
   .section-identity { grid-template-columns: 1fr; }
   .section-actions { grid-column: 1 / -1; }
   .section-actions button { flex: 1; }

@@ -22,6 +22,7 @@ export function phoneEditorChrome(): {
   showLyricLocks: boolean
   compactShapeChrome: boolean
   showReadyHostStatus: boolean
+  compactSectionToolbar: boolean
 }
 
 export const phoneCreatorStages: Array<{ id: PhoneCreatorStage; label: string }>
