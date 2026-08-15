@@ -131,7 +131,15 @@ app.MapPost("/api/projects", async (CreateProjectRequest request, ProjectWorkspa
 {
     try
     {
-        var editor = await workspace.CreateAsync(request.Title, cancellationToken);
+        var editor = request.IsDeviceLyricCapture
+            ? await workspace.CreateFromLyricCaptureAsync(
+                request.Title,
+                request.Artist ?? string.Empty,
+                request.Genre ?? SongGenre.Unspecified,
+                request.Description ?? string.Empty,
+                request.RawLyricDraft ?? string.Empty,
+                cancellationToken)
+            : await workspace.CreateAsync(request.Title, cancellationToken);
         return Results.Created($"/api/projects/{editor.Project.Id}", ProjectResponse.From(editor));
     }
     catch (ArgumentException exception)
@@ -808,7 +816,13 @@ static IResult? ValidatePortableProjectImport(PortableProjectImportRequest reque
         : null;
 }
 
-public sealed record CreateProjectRequest(string Title);
+public sealed record CreateProjectRequest(
+    string Title,
+    bool IsDeviceLyricCapture = false,
+    string? Artist = null,
+    SongGenre? Genre = null,
+    string? Description = null,
+    string? RawLyricDraft = null);
 public sealed record UpdateProjectRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc);
 public sealed record RecoverySnapshotRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc, string SessionId);
 public sealed record EditorStateRequest(SongProject Project);

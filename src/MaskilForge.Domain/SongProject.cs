@@ -26,6 +26,7 @@ public sealed class SongProject
     private readonly List<SectionRoleAssignment> _arrangementRoles;
     private readonly List<NoteEvent> _noteEvents;
     private readonly List<MusicalPart> _musicalParts;
+    private readonly List<ProjectAsset> _assets;
 
     [JsonConstructor]
     public SongProject(
@@ -46,7 +47,8 @@ public sealed class SongProject
         IReadOnlyList<SectionArrangement>? arrangement = null,
         IReadOnlyList<SectionRoleAssignment>? arrangementRoles = null,
         IReadOnlyList<NoteEvent>? noteEvents = null,
-        IReadOnlyList<MusicalPart>? musicalParts = null)
+        IReadOnlyList<MusicalPart>? musicalParts = null,
+        IReadOnlyList<ProjectAsset>? assets = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -65,6 +67,7 @@ public sealed class SongProject
         _arrangementRoles = arrangementRoles?.ToList() ?? [];
         _noteEvents = noteEvents?.OrderBy(item => item.StartTick).ThenBy(item => item.Pitch.MidiNumber).ToList() ?? [];
         _musicalParts = musicalParts?.ToList() ?? [];
+        _assets = assets?.ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -99,6 +102,7 @@ public sealed class SongProject
     public IReadOnlyList<SectionRoleAssignment> ArrangementRoles => _arrangementRoles;
     public IReadOnlyList<NoteEvent> NoteEvents => _noteEvents;
     public IReadOnlyList<MusicalPart> MusicalParts => _musicalParts;
+    public IReadOnlyList<ProjectAsset> Assets => _assets;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -106,6 +110,24 @@ public sealed class SongProject
         SchemaVersion.Current,
         title,
         SongTimeline.CreateDefault());
+
+    public void RegisterAsset(ProjectAsset asset)
+    {
+        ArgumentNullException.ThrowIfNull(asset);
+        if (_assets.Any(item => item.Id == asset.Id))
+            throw new InvalidOperationException($"Project asset '{asset.Id}' is already registered.");
+        _assets.Add(asset);
+        Touch();
+    }
+
+    public ProjectAsset RemoveAsset(ProjectAssetId assetId)
+    {
+        var asset = _assets.SingleOrDefault(item => item.Id == assetId)
+            ?? throw new KeyNotFoundException($"Project asset '{assetId}' was not found.");
+        _assets.Remove(asset);
+        Touch();
+        return asset;
+    }
 
     public void Rename(string title)
     {
@@ -698,6 +720,8 @@ public sealed class SongProject
             throw new ArgumentException("Note-event IDs must be unique.");
         if (_musicalParts.Select(item => item.Id).Distinct().Count() != _musicalParts.Count)
             throw new ArgumentException("Musical-part IDs must be unique.");
+        if (_assets.Select(item => item.Id).Distinct().Count() != _assets.Count)
+            throw new ArgumentException("Project asset IDs must be unique.");
         if (_arrangement.Select(item => item.Id).Distinct().Count() != _arrangement.Count)
             throw new ArgumentException("Section arrangement IDs must be unique.");
         if (_arrangement.Select(item => item.SectionId).Distinct().Count() != _arrangement.Count)

@@ -44,6 +44,9 @@ public static class PortableProjectImporter
             if (importAsCopy) ApplyCopyIdentity(normalized, ImportedCopyTitle(normalized));
             var project = normalized.Deserialize<SongProject>(JsonOptions)
                 ?? throw new InvalidProjectDataException("The portable project file contains no project data.");
+            if (project.Assets.Count > 0)
+                throw new InvalidProjectDataException(
+                    "This .maskil.json file references external media without carrying its bytes. Import an asset-owning project package instead.");
             return new PortableProjectDocument(project, sourceSchemaVersion);
         }
         catch (ProjectPersistenceException) { throw; }

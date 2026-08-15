@@ -70,7 +70,7 @@ Dirty editor state is protected separately from explicit saves. After a short pa
 
 Each editor remembers the `LastModifiedUtc` revision it originally loaded. Snapshot and explicit-save requests must still match that persisted revision. A conflicting save returns `409 stale_session`, protecting newer saved work from an older browser session. This is optimistic concurrency for the current local API; it is not multi-user collaboration or a persistent command journal.
 
-Current projects store their complete project tree in one JSON file. Confirmed permanent deletion removes its Trash file and any matching backup and recovery artifacts. Future external assets such as audio recordings must join the same lifecycle contract before they are introduced.
+Current projects store their canonical Song Graph and path-free asset manifest in one JSON file. Registered media bytes live in a paired repository-owned directory under stable asset identities; their exact lengths and SHA-256 digests are validated against the manifest. Backup, session recovery, corrupt-data preservation, Trash, restore, and confirmed permanent deletion carry or erase that directory with its project. The legacy JSON interchange format deliberately refuses referenced media; an asset-owning portable package must complete cross-device transfer before recording is introduced.
 
 ## Events
 

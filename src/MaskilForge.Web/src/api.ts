@@ -309,6 +309,17 @@ export interface SongSection {
   structuralFunction: StructuralFunction
 }
 
+export type ProjectAssetKind = 'OriginalVocalTake'
+
+export interface ProjectAsset {
+  id: string
+  kind: ProjectAssetKind
+  mediaType: string
+  byteLength: number
+  sha256: string
+  createdUtc: string
+}
+
 export interface SongProject {
   id: string
   schemaVersion: number
@@ -335,6 +346,7 @@ export interface SongProject {
   arrangementRoles: SectionRoleAssignment[]
   noteEvents: NoteEvent[]
   musicalParts: MusicalPart[]
+  assets: ProjectAsset[]
   key: MusicalKey
 }
 
@@ -518,6 +530,15 @@ export const projectsApi = {
   permanentlyDelete: (id: string) => request<void>(`/api/trash/${id}`, { method: 'DELETE' }),
   create: (title: string) => request<ProjectResponse>('/api/projects', {
     method: 'POST', body: JSON.stringify({ title }),
+  }),
+  createFromDeviceLyricCapture: (capture: {
+    title: string
+    artist: string
+    genre: SongGenre
+    description: string
+    rawLyricDraft: string
+  }) => request<ProjectResponse>('/api/projects', {
+    method: 'POST', body: JSON.stringify({ ...capture, isDeviceLyricCapture: true }),
   }),
   duplicate: (id: string) => request<ProjectResponse>(`/api/projects/${id}/duplicate`, { method: 'POST' }),
   previewStructure: (text: string) => request<LyricSheetStructurePreview>('/api/structure-preview', {

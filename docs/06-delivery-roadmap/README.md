@@ -648,6 +648,42 @@ Keep the raw lyric textarea as the first writing surface on phone. Hide the long
 
 **Deliverable:** a phone artist can type into the raw draft without scrolling past explanatory copy or duplicate structure actions.
 
+### Milestone 5.62 — Browser-owned lyric capture
+
+Add the first deliberately narrow offline editing surface: a raw lyric capture stored in this browser's IndexedDB with explicit device ownership. Let the artist start, automatically protect, reopen, continue, and permanently delete that capture while the local project service is unavailable. Keep it separate from host-owned saved songs, cached view-only snapshots, recovery, structure commands, and synchronization. After reconnection, an explicit handoff creates one new host-owned song with fresh identity and removes the browser copy only after the complete title, artist, genre, description, and raw lyrics are durably saved.
+
+**Deliverable:** an artist can write and retain words on a phone or computer without the host, while the UI never implies that a complete song project is offline-editable or synchronized.
+
+### Milestone 5.63 — Device-capture hygiene
+
+Keep browser-owned lyric captures uncapped and preserve their newest-saved-first order while adding title-or-artist search and a twelve-result collapsed view. Provide an explicit cleanup mode that starts with nothing selected, can select only the currently visible captures, and presents every selected title, artist, lyric count, and save time before permanent removal. Device captures have no Trash or synchronized fallback, so deletion remains unmistakably irreversible and never runs automatically.
+
+**Deliverable:** offline lyric captures remain manageable as they accumulate without a silent cap, expiry rule, or cleanup process deciding which words matter.
+
+### Milestone 6.1 — Explicit microphone preflight
+
+Begin the human-performance path without prematurely creating unmanaged audio assets. Phone Review exposes an artist-triggered microphone check only when the app is in a secure, MediaRecorder-capable browser. The check requests permission, confirms at least one live audio input, immediately stops every acquired track, and reports permission, missing-device, and busy-device failures distinctly. It records, uploads, and saves no audio and logs no device label. Review and Approve remain focused read-and-decide destinations instead of rendering the editable Shape workspace beneath them.
+
+Keep rough-take recording unavailable until original audio joins the same explicit backup, recovery, portable export, Trash, and permanent-deletion lifecycle expected of project data. This readiness result is transient UI state and changes neither the Song Graph nor the saved project.
+
+**Deliverable:** an artist can confirm that a phone or computer is ready for future rough vocal capture without Maskil Forge silently opening a microphone or creating audio it cannot yet protect.
+
+### Milestone 6.2 — Path-free audio asset manifest
+
+Advance the project schema to v22 with an explicit manifest for external creative assets, beginning with original human vocal takes. Each immutable entry owns a stable project-asset identity, asset kind, normalized media type, exact byte length, SHA-256 digest, and creation time. It stores no repository path, browser URL, audio bytes, analysis result, production setting, or generated replacement vocal. Schema-v21 projects and recovery snapshots migrate to an empty manifest without inventing media.
+
+Keep the existing `.maskil.json` document honest: export refuses a project whose manifest references media it cannot carry, and import refuses a JSON document that names external assets without their verified bytes. Recording remains unavailable until an asset-owning package and repository lifecycle can satisfy those references through backup, recovery, Trash, restore, and permanent deletion.
+
+**Deliverable:** the canonical project can identify original vocal media without depending on one machine, while no legacy export can claim to be portable after separating the singer's recording from the project.
+
+### Milestone 6.3 — Repository-owned immutable asset lifecycle
+
+Store each registered original-vocal asset in a project-owned directory under its stable identity. Stage new content before acceptance, require its exact manifest byte length and SHA-256 digest, refuse identity overwrite, and revalidate the content whenever the project loads. Pair the asset directory with the JSON document through known-good backup, session recovery, corrupt-data preservation, Trash, restore, and confirmed permanent deletion so none of those operations silently separates a take from its project.
+
+This slice changes repository durability, not the recording experience. It adds no microphone capture endpoint, browser upload flow, playback, analysis, or package format. Rough-take recording remains unavailable until portable export and import can carry and verify both the manifest and every referenced byte.
+
+**Deliverable:** Maskil Forge can own and recover immutable original-recording bytes locally without weakening project integrity, while still refusing to create recordings it cannot yet move safely between devices.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

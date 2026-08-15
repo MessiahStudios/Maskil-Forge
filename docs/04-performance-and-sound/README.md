@@ -35,6 +35,12 @@ Maskil Forge must not:
 
 Keep the original recording, extracted observations, edited gesture data, retargeted instrumental performance, and production settings separate. Correction, re-targeting, and production changes should be possible without discarding the source take.
 
+The first implemented boundary is a microphone preflight rather than a recording shortcut. It checks secure-browser support only after an explicit artist action, confirms a live input, and immediately closes the test stream without recording, uploading, or saving sound. Recording waits for an external-asset lifecycle that protects original takes through backup, recovery, portable transfer, Trash, and permanent deletion.
+
+Schema v22 adds the first durable half of that lifecycle: a path-free manifest can identify an original vocal asset by stable ID, media type, byte length, SHA-256 digest, and creation time. The manifest intentionally contains neither the audio bytes nor analysis or processing data. Legacy JSON portability refuses non-empty manifests rather than exporting broken media references; an asset-owning package remains the next prerequisite for recording.
+
+The repository now supplies the local half of the media lifecycle. It accepts a new immutable asset only after staging and verifying its exact length and SHA-256 digest, validates those bytes with every project load, and moves paired media through backup, session recovery, corrupt-data preservation, Trash, restore, and permanent deletion. This is storage infrastructure rather than a capture feature: the microphone preflight still creates no recording, and portable packaging remains the final durability gate before rough takes can be enabled.
+
 ## Performance capture pipeline
 
 ```text

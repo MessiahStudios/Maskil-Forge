@@ -67,6 +67,25 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         return editor;
     }
 
+    public async Task<ProjectEditor> CreateFromLyricCaptureAsync(
+        string title,
+        string artist,
+        SongGenre genre,
+        string description,
+        string rawLyricDraft,
+        CancellationToken cancellationToken)
+    {
+        var project = SongProject.Create(title);
+        project.SetArtist(artist);
+        project.SetGenre(genre);
+        project.SetDescription(description);
+        project.SetRawLyricDraft(rawLyricDraft);
+        var editor = new ProjectEditor(project);
+        _editors[project.Id] = editor;
+        await repository.SaveAsync(project, cancellationToken);
+        return editor;
+    }
+
     public async Task<ProjectEditor> ImportAsync(SongProject project, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);

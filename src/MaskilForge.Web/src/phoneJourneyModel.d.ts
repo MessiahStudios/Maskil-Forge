@@ -24,6 +24,7 @@ export function phoneEditorChrome(): {
   showReadyHostStatus: boolean
   compactSectionToolbar: boolean
   compactCaptureChrome: boolean
+  separateReviewFromShape: boolean
 }
 
 export const phoneCreatorStages: Array<{ id: PhoneCreatorStage; label: string }>

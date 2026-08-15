@@ -8,6 +8,36 @@ namespace MaskilForge.Engine.Tests;
 public sealed class EditorStateWorkflowTests
 {
     [Fact]
+    public async Task CreateFromLyricCapture_PersistsOneCompleteBrowserOwnedCapture()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var workspace = new ProjectWorkspace(repository);
+
+            var editor = await workspace.CreateFromLyricCaptureAsync(
+                "Night Window",
+                "Maskil Artist",
+                SongGenre.Alternative,
+                "A device-local thought.",
+                "First line\nSecond line",
+                CancellationToken.None);
+
+            var persisted = await repository.LoadAsync(editor.Project.Id, CancellationToken.None);
+
+            Assert.NotNull(persisted);
+            Assert.Equal("Night Window", persisted.Title);
+            Assert.Equal("Maskil Artist", persisted.Artist);
+            Assert.Equal(SongGenre.Alternative, persisted.Genre);
+            Assert.Equal("A device-local thought.", persisted.Description);
+            Assert.Equal("First line\nSecond line", persisted.RawLyricDraft);
+            Assert.Empty(persisted.Sections);
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    [Fact]
     public async Task DuplicatingASavedSong_CreatesAnIndependentNamedCopyWithoutChangingCreativeIdentities()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");

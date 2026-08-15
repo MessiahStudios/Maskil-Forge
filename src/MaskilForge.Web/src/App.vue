@@ -15,20 +15,37 @@ import { PartAudition } from './partAudition'
 import { assemblePartNotes, formatTransportPosition, musicalPositionFromTicks, scheduleAbsoluteNotes, scheduleAssembledNotes, tickFromSeconds } from './partAuditionModel.js'
 import { PlaybackTransport } from './playbackTransport'
 import { activateApplicationShellUpdate, isStandaloneApplication, registerApplicationShell, type InstallPromptEvent } from './pwa'
-import { cacheBrowserProject, discardBrowserProject, discardBrowserRecovery, listBrowserProjects, listBrowserRecoveries, loadBrowserProject, loadBrowserRecovery, protectBrowserRecovery, type BrowserProjectRecord, type BrowserRecoveryRecord } from './browserRecovery'
+import { cacheBrowserProject, discardBrowserProject, discardBrowserRecovery, discardDeviceLyricCapture, listBrowserProjects, listBrowserRecoveries, listDeviceLyricCaptures, loadBrowserProject, loadBrowserRecovery, loadDeviceLyricCapture, protectBrowserRecovery, saveDeviceLyricCapture, type BrowserProjectRecord, type BrowserRecoveryRecord, type DeviceLyricCaptureRecord } from './browserRecovery'
 import { browserRecoveryNotice, summarizeBrowserRecovery } from './browserRecoveryModel.js'
 import { browserProjectNotice, summarizeBrowserProject } from './browserProjectModel.js'
+import { deviceLyricCaptureNotice, deviceLyricCaptureRecentLimit, deviceLyricCaptureResultStats, deviceLyricCaptureSnapshot, filterDeviceLyricCaptures, summarizeDeviceLyricCapture } from './deviceLyricCaptureModel.js'
 import { buildRecoveryQueue, recoveryQueueStats, recoveryRecentLimit, recoverySoftCap, recoveryStaleDays, type RecoveryQueueItem } from './recoveryQueueModel.js'
 import { filterProjectLibrary, libraryRecentLimit, libraryResultStats, projectLibraryStage, type ProjectLibraryStage } from './libraryHygieneModel.js'
 import { buildTrashQueue, filterTrashQueue, trashAgeLabel, trashOldDays, trashRecentLimit, trashResultStats } from './trashHygieneModel.js'
+import { microphonePreflightFailure, verifyMicrophoneInput, vocalCaptureSupport } from './vocalCapturePreflight.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
-const view = ref<'home' | 'offline-review' | 'recovery' | 'trash' | 'capture' | 'structure'>('home')
+const view = ref<'home' | 'device-capture' | 'offline-review' | 'recovery' | 'trash' | 'capture' | 'structure'>('home')
 const projects = ref<ProjectSummary[]>([])
 const recoverySnapshots = ref<RecoverySummary[]>([])
 const browserRecoveries = ref<BrowserRecoveryRecord[]>([])
 const browserProjects = ref<BrowserProjectRecord[]>([])
+const deviceLyricCaptures = ref<DeviceLyricCaptureRecord[]>([])
+const activeDeviceLyricCapture = ref<DeviceLyricCaptureRecord | null>(null)
+const deviceLyricCaptureSavedSnapshot = ref('')
+const deviceLyricCaptureBusy = ref(false)
+const deviceLyricCaptureDeleteTarget = ref<{ id: string; title: string } | null>(null)
+const deviceLyricCaptureQuery = ref('')
+const showAllDeviceLyricCaptureResults = ref(false)
+const deviceLyricCaptureCleanupMode = ref(false)
+const selectedDeviceLyricCaptureIds = ref<string[]>([])
+const bulkDeviceLyricCaptureDeleteOpen = ref(false)
+const bulkDeviceLyricCaptureDeleteCancelButton = ref<HTMLButtonElement | null>(null)
+const roughVocalSupport = vocalCaptureSupport(window)
+const microphonePreflightState = ref<'idle' | 'checking' | 'ready' | 'failed'>('idle')
+const microphonePreflightLabel = ref('')
+const microphonePreflightMessage = ref('')
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
 const trashedProjects = ref<TrashedProjectSummary[]>([])
 const libraryBusy = ref(true)
@@ -81,6 +98,7 @@ const recoveryBlocked = ref(false)
 const browserRecoverySyncBusy = ref(false)
 const browserRecoveryNeedsReview = ref(false)
 let recoveryTimer: ReturnType<typeof setTimeout> | undefined
+let deviceLyricCaptureTimer: ReturnType<typeof setTimeout> | undefined
 const project = computed(() => response.value?.project ?? null)
 const structureLocked = computed(() => Boolean(project.value?.musicalParts.length))
 const workspaceConnectionTitle = computed(() => workspaceConnection.value === 'ready'
@@ -91,14 +109,14 @@ const workspaceConnectionTitle = computed(() => workspaceConnection.value === 'r
 const workspaceConnectionDetail = computed(() => workspaceConnection.value === 'ready'
   ? `Project schema ${workspaceHealth.value?.schemaVersion ?? '—'} · Songs are stored by this Maskil Forge host. Portable export moves them between devices.`
   : workspaceConnection.value === 'unavailable'
-    ? 'This web shell cannot edit or save songs until its project service reconnects. Explicitly cached saves remain available for view-only review.'
+    ? 'Host-owned songs are paused until the project service reconnects. Browser-owned lyric captures remain editable on this device, and explicitly cached saves remain view only.'
     : 'Confirming that the project service and local song storage are available.')
 const applicationShellDetail = computed(() => shellUpdateRegistration.value
   ? 'A newer interface is ready. Applying it will reload this page without changing project data.'
   : applicationInstalled.value
-    ? 'Installed shell available. Cached saves can be reviewed offline; opening for edits and saving still require the connected host.'
+    ? 'Installed shell available. Browser-owned lyric captures can be edited offline; host-owned songs still require the connected workspace.'
     : installPrompt.value
-      ? 'Installation is available on this device. Offline project editing remains a later delivery slice.'
+      ? 'Installation is available on this device. Offline work is currently limited to browser-owned raw lyric captures.'
       : '')
 function projectSnapshot(value: SongProject) {
   const { lastModifiedUtc: _revision, ...creativeState } = value
@@ -109,6 +127,17 @@ const isDirty = computed(() => Boolean(project.value) && serializedProject.value
 const browserRecoverySummaries = computed(() => browserRecoveries.value.map(summarizeBrowserRecovery))
 const browserProjectSummaries = computed(() => browserProjects.value.map(summarizeBrowserProject))
 const browserProjectDetail = computed(() => browserProjectNotice(browserProjects.value.length))
+const deviceLyricCaptureSummaries = computed(() => deviceLyricCaptures.value.map(summarizeDeviceLyricCapture))
+const deviceLyricCaptureDetail = computed(() => deviceLyricCaptureNotice(deviceLyricCaptures.value.length))
+const filteredDeviceLyricCaptures = computed(() => filterDeviceLyricCaptures(deviceLyricCaptureSummaries.value, deviceLyricCaptureQuery.value))
+const deviceLyricCaptureResults = computed(() => deviceLyricCaptureResultStats(filteredDeviceLyricCaptures.value, showAllDeviceLyricCaptureResults.value))
+const visibleDeviceLyricCaptures = computed(() => filteredDeviceLyricCaptures.value.slice(0, deviceLyricCaptureResults.value.visibleCount))
+const selectedDeviceLyricCaptures = computed(() => {
+  const selectedIds = new Set(selectedDeviceLyricCaptureIds.value)
+  return deviceLyricCaptureSummaries.value.filter(summary => selectedIds.has(summary.id))
+})
+const serializedDeviceLyricCapture = computed(() => activeDeviceLyricCapture.value ? deviceLyricCaptureSnapshot(activeDeviceLyricCapture.value) : '')
+const deviceLyricCaptureDirty = computed(() => Boolean(activeDeviceLyricCapture.value) && serializedDeviceLyricCapture.value !== deviceLyricCaptureSavedSnapshot.value)
 const recoveryQueue = computed(() => buildRecoveryQueue(recoverySnapshots.value, browserRecoverySummaries.value))
 const recoveryHygiene = computed(() => recoveryQueueStats(recoveryQueue.value))
 const recoveryCount = computed(() => recoveryHygiene.value.uniqueCount)
@@ -394,6 +423,205 @@ async function saveDraft() {
   const succeeded = await saveProject()
   if (succeeded) await refreshLibrary()
 }
+function beginDeviceLyricCapture() {
+  const now = new Date().toISOString()
+  activeDeviceLyricCapture.value = {
+    captureId: crypto.randomUUID(),
+    title: 'Untitled capture',
+    artist: '',
+    genre: 'Unspecified',
+    description: '',
+    rawLyricDraft: '',
+    createdAtUtc: now,
+    savedAtUtc: now,
+  }
+  deviceLyricCaptureSavedSnapshot.value = deviceLyricCaptureSnapshot(activeDeviceLyricCapture.value)
+  view.value = 'device-capture'
+  status.value = 'Write freely. This capture will stay in this browser until you add it to the connected song library.'
+  activityLog.write('info', 'delivery.device-capture', 'Browser-owned lyric capture started.', { captureId: activeDeviceLyricCapture.value.captureId })
+  void persistDeviceLyricCapture()
+}
+async function openDeviceLyricCapture(id: string) {
+  try {
+    const capture = await loadDeviceLyricCapture(id)
+    if (!capture) throw new Error('That device lyric capture is no longer available in this browser.')
+    activeDeviceLyricCapture.value = structuredClone(capture)
+    deviceLyricCaptureSavedSnapshot.value = deviceLyricCaptureSnapshot(capture)
+    view.value = 'device-capture'
+    status.value = 'Browser-owned lyric capture opened.'
+    activityLog.write('info', 'delivery.device-capture', 'Browser-owned lyric capture opened.', { captureId: id })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The device lyric capture could not be opened.'
+    await refreshDeviceLyricCaptures()
+  }
+}
+async function persistDeviceLyricCapture() {
+  const current = activeDeviceLyricCapture.value
+  if (!current) return false
+  if (deviceLyricCaptureBusy.value) {
+    if (deviceLyricCaptureTimer) clearTimeout(deviceLyricCaptureTimer)
+    deviceLyricCaptureTimer = setTimeout(() => void persistDeviceLyricCapture(), 150)
+    return false
+  }
+  const saved: DeviceLyricCaptureRecord = {
+    ...(JSON.parse(JSON.stringify(current)) as DeviceLyricCaptureRecord),
+    savedAtUtc: new Date().toISOString(),
+  }
+  let savedSuccessfully = false
+  deviceLyricCaptureBusy.value = true
+  try {
+    await saveDeviceLyricCapture(saved)
+    if (activeDeviceLyricCapture.value?.captureId === saved.captureId) {
+      activeDeviceLyricCapture.value.savedAtUtc = saved.savedAtUtc
+      deviceLyricCaptureSavedSnapshot.value = deviceLyricCaptureSnapshot(saved)
+    }
+    await refreshDeviceLyricCaptures()
+    status.value = 'Saved in this browser on this device.'
+    activityLog.write('success', 'delivery.device-capture.save', 'Browser-owned lyric capture saved.', { captureId: saved.captureId })
+    savedSuccessfully = true
+    return true
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'This browser could not save the lyric capture.'
+    activityLog.write('error', 'delivery.device-capture.save', status.value, { captureId: saved.captureId })
+    return false
+  } finally {
+    deviceLyricCaptureBusy.value = false
+    if (savedSuccessfully && activeDeviceLyricCapture.value?.captureId === saved.captureId && deviceLyricCaptureDirty.value) {
+      if (deviceLyricCaptureTimer) clearTimeout(deviceLyricCaptureTimer)
+      deviceLyricCaptureTimer = setTimeout(() => void persistDeviceLyricCapture(), 150)
+    }
+  }
+}
+async function closeDeviceLyricCapture() {
+  if (deviceLyricCaptureDirty.value && !(await persistDeviceLyricCapture())) return
+  activeDeviceLyricCapture.value = null
+  deviceLyricCaptureSavedSnapshot.value = ''
+  view.value = 'home'
+  status.value = deviceLyricCaptureDetail.value
+  await refreshDeviceLyricCaptures()
+}
+async function addDeviceLyricCaptureToLibrary() {
+  const capture = activeDeviceLyricCapture.value
+  if (!capture || workspaceConnection.value !== 'ready' || !capture.title.trim() || !capture.rawLyricDraft.trim()) return
+  if (deviceLyricCaptureDirty.value && !(await persistDeviceLyricCapture())) return
+  deviceLyricCaptureBusy.value = true
+  activityLog.write('info', 'delivery.device-capture.handoff', 'Device lyric capture handoff requested.', { captureId: capture.captureId })
+  try {
+    const created = await projectsApi.createFromDeviceLyricCapture({
+      title: capture.title,
+      artist: capture.artist,
+      genre: capture.genre,
+      description: capture.description,
+      rawLyricDraft: capture.rawLyricDraft,
+    })
+    accept(created, 'Device lyric capture added to the connected song library.', true)
+    await discardDeviceLyricCapture(capture.captureId)
+    activeDeviceLyricCapture.value = null
+    deviceLyricCaptureSavedSnapshot.value = ''
+    view.value = 'capture'
+    activeCreatorStage.value = 'words'
+    await Promise.all([refreshDeviceLyricCaptures(), refreshLibrary()])
+    activityLog.write('success', 'delivery.device-capture.handoff', 'Device lyric capture became a new saved song.', { captureId: capture.captureId, projectId: created.project.id })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The device lyric capture could not be added to the song library.'
+    activityLog.write('error', 'delivery.device-capture.handoff', status.value, { captureId: capture.captureId })
+  } finally {
+    deviceLyricCaptureBusy.value = false
+  }
+}
+function requestDeviceLyricCaptureDelete(id: string, title: string) {
+  deviceLyricCaptureDeleteTarget.value = { id, title }
+  activityLog.write('warning', 'delivery.device-capture.delete', 'Device lyric capture deletion confirmation requested.', { captureId: id })
+}
+function cancelDeviceLyricCaptureDelete() {
+  deviceLyricCaptureDeleteTarget.value = null
+}
+async function confirmDeviceLyricCaptureDelete() {
+  const target = deviceLyricCaptureDeleteTarget.value
+  if (!target) return
+  deviceLyricCaptureBusy.value = true
+  try {
+    await discardDeviceLyricCapture(target.id)
+    if (activeDeviceLyricCapture.value?.captureId === target.id) {
+      activeDeviceLyricCapture.value = null
+      deviceLyricCaptureSavedSnapshot.value = ''
+      view.value = 'home'
+    }
+    deviceLyricCaptureDeleteTarget.value = null
+    await refreshDeviceLyricCaptures()
+    status.value = `“${target.title}” was permanently removed from this browser.`
+    activityLog.write('success', 'delivery.device-capture.delete', status.value, { captureId: target.id })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The device lyric capture could not be deleted.'
+    activityLog.write('error', 'delivery.device-capture.delete', status.value, { captureId: target.id })
+  } finally {
+    deviceLyricCaptureBusy.value = false
+  }
+}
+function beginDeviceLyricCaptureCleanup() {
+  deviceLyricCaptureCleanupMode.value = true
+  deviceLyricCaptureQuery.value = ''
+  showAllDeviceLyricCaptureResults.value = false
+  selectedDeviceLyricCaptureIds.value = []
+  status.value = 'Review browser-owned captures. Nothing is selected or removed automatically.'
+}
+function finishDeviceLyricCaptureCleanup() {
+  deviceLyricCaptureCleanupMode.value = false
+  deviceLyricCaptureQuery.value = ''
+  showAllDeviceLyricCaptureResults.value = false
+  selectedDeviceLyricCaptureIds.value = []
+  status.value = 'Song library.'
+}
+function setDeviceLyricCaptureSelected(id: string, event: Event) {
+  const checked = (event.target as HTMLInputElement).checked
+  const selected = new Set(selectedDeviceLyricCaptureIds.value)
+  if (checked) selected.add(id)
+  else selected.delete(id)
+  selectedDeviceLyricCaptureIds.value = [...selected]
+}
+function selectVisibleDeviceLyricCaptures() {
+  const selected = new Set(selectedDeviceLyricCaptureIds.value)
+  visibleDeviceLyricCaptures.value.forEach(summary => selected.add(summary.id))
+  selectedDeviceLyricCaptureIds.value = [...selected]
+}
+function clearDeviceLyricCaptureSelection() { selectedDeviceLyricCaptureIds.value = [] }
+async function requestBulkDeviceLyricCaptureDelete() {
+  if (selectedDeviceLyricCaptures.value.length === 0) return
+  bulkDeviceLyricCaptureDeleteOpen.value = true
+  activityLog.write('warning', 'delivery.device-capture.bulk-delete', 'Multi-capture permanent deletion confirmation requested.', { count: selectedDeviceLyricCaptures.value.length })
+  await nextTick()
+  bulkDeviceLyricCaptureDeleteCancelButton.value?.focus()
+}
+function cancelBulkDeviceLyricCaptureDelete() {
+  bulkDeviceLyricCaptureDeleteOpen.value = false
+  activityLog.write('info', 'delivery.device-capture.bulk-delete', 'Multi-capture permanent deletion cancelled.')
+}
+async function confirmBulkDeviceLyricCaptureDelete() {
+  const targets = [...selectedDeviceLyricCaptures.value]
+  if (targets.length === 0) { bulkDeviceLyricCaptureDeleteOpen.value = false; return }
+  deviceLyricCaptureBusy.value = true
+  let deleted = 0
+  const failedIds: string[] = []
+  for (const target of targets) {
+    try {
+      await discardDeviceLyricCapture(target.id)
+      deleted++
+    } catch {
+      failedIds.push(target.id)
+    }
+  }
+  bulkDeviceLyricCaptureDeleteOpen.value = false
+  selectedDeviceLyricCaptureIds.value = failedIds
+  await refreshDeviceLyricCaptures()
+  if (failedIds.length) {
+    status.value = `${deleted} device capture${deleted === 1 ? ' was' : 's were'} permanently deleted. ${failedIds.length} could not be deleted and remain selected.`
+    activityLog.write('warning', 'delivery.device-capture.bulk-delete', 'Multi-capture deletion completed with retained failures.', { deleted, failed: failedIds.length })
+  } else {
+    status.value = `${deleted} browser-owned capture${deleted === 1 ? ' was' : 's were'} permanently deleted from this device.`
+    activityLog.write('success', 'delivery.device-capture.bulk-delete', 'Selected browser-owned captures permanently deleted.', { deleted })
+  }
+  deviceLyricCaptureBusy.value = false
+}
 async function beginStructuring() {
   if (!project.value) return
   if (isDirty.value && !(await saveProject())) return
@@ -529,6 +757,43 @@ async function refreshBrowserProjects() {
     browserProjects.value = await listBrowserProjects()
   } catch (error) {
     activityLog.write('warning', 'delivery.offline-review', error instanceof Error ? error.message : 'Saved browser snapshots could not be read.')
+  }
+}
+async function refreshDeviceLyricCaptures() {
+  try {
+    deviceLyricCaptures.value = await listDeviceLyricCaptures()
+  } catch (error) {
+    activityLog.write('warning', 'delivery.device-capture', error instanceof Error ? error.message : 'Device lyric captures could not be read.')
+  }
+}
+
+async function checkRoughVocalMicrophone() {
+  if (!roughVocalSupport.supported) {
+    microphonePreflightState.value = 'failed'
+    microphonePreflightMessage.value = roughVocalSupport.reason
+    status.value = roughVocalSupport.reason
+    return
+  }
+
+  microphonePreflightState.value = 'checking'
+  microphonePreflightLabel.value = ''
+  microphonePreflightMessage.value = 'Waiting for this browser to confirm microphone access…'
+  activityLog.write('info', 'vocal.preflight', 'Microphone readiness check requested. No audio will be recorded or saved.')
+
+  try {
+    const result = await verifyMicrophoneInput(navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices))
+    microphonePreflightState.value = 'ready'
+    microphonePreflightLabel.value = result.label
+    microphonePreflightMessage.value = 'Microphone access is ready. The test stream is closed and no audio was recorded or saved.'
+    status.value = 'Microphone ready for a future rough vocal take. No audio was recorded or saved.'
+    activityLog.write('success', 'vocal.preflight', 'Microphone readiness confirmed and the test stream was closed.', { trackCount: result.trackCount })
+  } catch (error) {
+    microphonePreflightState.value = 'failed'
+    microphonePreflightMessage.value = microphonePreflightFailure(error)
+    status.value = microphonePreflightMessage.value
+    activityLog.write('warning', 'vocal.preflight', microphonePreflightMessage.value, {
+      reason: error instanceof DOMException || error instanceof Error ? error.name : 'UnknownError',
+    })
   }
 }
 async function syncBrowserRecovery() {
@@ -902,7 +1167,16 @@ function confirmFirstPartCommit() {
 }
 async function refreshLibrary() {
   libraryBusy.value = true
-  try { projects.value = await projectsApi.list() }
+  try {
+    projects.value = await projectsApi.list()
+    const hostProjectIds = new Set(projects.value.map(summary => summary.id))
+    const orphanedBrowserProjects = browserProjects.value.filter(record => !hostProjectIds.has(record.projectId))
+    if (orphanedBrowserProjects.length) {
+      await Promise.all(orphanedBrowserProjects.map(record => discardBrowserProject(record.projectId)))
+      await refreshBrowserProjects()
+      activityLog.write('info', 'delivery.offline-review', 'Browser review snapshots no longer present in the connected song library were removed.', { count: orphanedBrowserProjects.length })
+    }
+  }
   catch (error) { status.value = error instanceof Error ? error.message : 'Could not load the song library.' }
   finally { libraryBusy.value = false }
 }
@@ -925,7 +1199,7 @@ async function refreshWorkspaceHealth() {
     workspaceHealth.value = null
     workspaceConnection.value = 'unavailable'
     if (previousConnection !== 'unavailable') {
-      activityLog.write('warning', 'delivery.workspace', 'Local project service is unavailable. Offline editing remains disabled.')
+      activityLog.write('warning', 'delivery.workspace', 'Local project service is unavailable. Host-owned editing is paused; browser-owned lyric capture remains available.')
     }
   } finally {
     workspaceCheckBusy.value = false
@@ -2322,7 +2596,7 @@ async function goToCreatorStage(stage: CreatorStage) {
 }
 function undo() { if (project.value) return run(() => projectsApi.undo(project.value!.id, project.value!), 'Last edit undone.', 'history.undo') }
 function redo() { if (project.value) return run(() => projectsApi.redo(project.value!.id, project.value!), 'Edit restored.', 'history.redo') }
-function warnBeforeClose(event: BeforeUnloadEvent) { if (isDirty.value) event.preventDefault() }
+function warnBeforeClose(event: BeforeUnloadEvent) { if (isDirty.value || deviceLyricCaptureDirty.value) event.preventDefault() }
 
 async function saveRecoverySnapshot() {
   if (!project.value || !isDirty.value || !persistedRevision.value || busy.value || recoveryBlocked.value) return
@@ -2369,6 +2643,16 @@ watch(serializedProject, () => {
   if (isDirty.value && !recoveryBlocked.value) recoveryTimer = setTimeout(() => void saveRecoverySnapshot(), 1_000)
 })
 
+watch(serializedDeviceLyricCapture, () => {
+  if (deviceLyricCaptureTimer) clearTimeout(deviceLyricCaptureTimer)
+  if (deviceLyricCaptureDirty.value) deviceLyricCaptureTimer = setTimeout(() => void persistDeviceLyricCapture(), 800)
+})
+
+watch(deviceLyricCaptureQuery, () => { showAllDeviceLyricCaptureResults.value = false })
+watch(deviceLyricCaptures, nextCaptures => {
+  const availableIds = new Set(nextCaptures.map(capture => capture.captureId))
+  selectedDeviceLyricCaptureIds.value = selectedDeviceLyricCaptureIds.value.filter(id => availableIds.has(id))
+})
 watch([libraryQuery, libraryStageFilter], () => { showAllLibraryResults.value = false })
 watch(projects, nextProjects => {
   const availableEmptyIds = new Set(nextProjects
@@ -2416,7 +2700,7 @@ onMounted(async () => {
   } catch (error) {
     activityLog.write('warning', 'delivery.shell', error instanceof Error ? error.message : 'Application shell registration failed.')
   }
-  await Promise.all([refreshBrowserRecovery(), refreshBrowserProjects()])
+  await Promise.all([refreshBrowserRecovery(), refreshBrowserProjects(), refreshDeviceLyricCaptures()])
   await Promise.all([refreshWorkspaceHealth(), refreshLibrary(), refreshRecovery()])
   if (workspaceConnection.value === 'ready' && recoveryCount.value > 0) {
     view.value = 'recovery'
@@ -2427,6 +2711,7 @@ onBeforeUnmount(() => {
   stopChordAudition()
   stopPartAudition()
   stopTransport()
+  if (deviceLyricCaptureTimer) clearTimeout(deviceLyricCaptureTimer)
   window.removeEventListener('beforeunload', warnBeforeClose)
   window.removeEventListener('online', handleConnectivityChange)
   window.removeEventListener('offline', handleConnectivityChange)
@@ -2463,9 +2748,36 @@ onBeforeUnmount(() => {
           <button class="secondary" :disabled="busy" @click="requestLoad">Open song</button>
         </details>
       </div>
-      <p v-if="workspaceConnection === 'unavailable'" class="offline-home-note">The local project service still owns your song library. You can review the explicitly saved snapshots cached on this device below; reconnect to create, import, edit, or save work.</p>
+      <p v-if="workspaceConnection === 'unavailable'" class="offline-home-note">The local project service still owns your song library. You can write in a browser-owned lyric capture or review explicitly cached song saves below; reconnect before changing a host-owned song.</p>
       <p v-else-if="workspaceConnection === 'checking'" class="offline-home-note checking-home-note">Checking the local project service before opening project actions…</p>
       <p v-else class="status home-status" role="status">{{ status }}</p>
+      <section class="device-capture-library" aria-labelledby="device-capture-library-title">
+        <div class="device-capture-heading">
+          <div><p class="eyebrow">Browser-owned words</p><h2 id="device-capture-library-title">Capture lyrics on this device</h2><p>{{ deviceLyricCaptureDetail }} These captures are editable without the local project service, but they are not synchronized or part of the saved-song library until you explicitly add them.</p></div>
+          <div class="device-capture-heading-actions"><button v-if="deviceLyricCaptureSummaries.length && !deviceLyricCaptureCleanupMode" class="quiet" @click="beginDeviceLyricCaptureCleanup">Manage captures</button><button v-else-if="deviceLyricCaptureCleanupMode" class="quiet" @click="finishDeviceLyricCaptureCleanup">Finish cleanup</button><button v-if="!deviceLyricCaptureCleanupMode" @click="beginDeviceLyricCapture">New device capture</button></div>
+        </div>
+        <template v-if="deviceLyricCaptureSummaries.length">
+          <div class="library-tools device-capture-tools">
+            <label class="library-search">Search device captures<input v-model="deviceLyricCaptureQuery" type="search" placeholder="Title or artist" /></label>
+          </div>
+          <aside v-if="deviceLyricCaptureCleanupMode" class="library-cleanup-note device-capture-cleanup-note">
+            <div><strong>Permanent device cleanup</strong><span>These captures have no Trash or synchronized copy. Select only work you recognize; nothing is selected or removed automatically.</span></div>
+            <div class="library-selection-actions"><button class="secondary" :disabled="visibleDeviceLyricCaptures.length === 0" @click="selectVisibleDeviceLyricCaptures">Select visible</button><button class="quiet" :disabled="selectedDeviceLyricCaptures.length === 0" @click="clearDeviceLyricCaptureSelection">Clear selection</button></div>
+          </aside>
+          <div class="library-result-row" role="status"><span>{{ deviceLyricCaptureResults.resultCount ? `Showing ${deviceLyricCaptureResults.visibleCount} of ${deviceLyricCaptureResults.resultCount} capture${deviceLyricCaptureResults.resultCount === 1 ? '' : 's'}` : 'No captures match this search' }}</span><span v-if="deviceLyricCaptureCleanupMode && selectedDeviceLyricCaptures.length">{{ selectedDeviceLyricCaptures.length }} selected</span></div>
+          <p v-if="deviceLyricCaptureResults.resultCount === 0" class="library-message">No browser-owned captures match this title or artist.</p>
+          <div v-else class="project-grid device-capture-grid">
+            <article v-for="summary in visibleDeviceLyricCaptures" :key="summary.id" class="project-card device-capture-card" :class="{ 'project-card-selected': selectedDeviceLyricCaptureIds.includes(summary.id) }">
+              <label v-if="deviceLyricCaptureCleanupMode" class="library-project-selection"><input type="checkbox" :checked="selectedDeviceLyricCaptureIds.includes(summary.id)" :aria-label="`Select ${summary.title}, saved ${formatModified(summary.savedAtUtc)}`" @change="setDeviceLyricCaptureSelected(summary.id, $event)" /><span>Select this device capture</span></label>
+              <div><h3>{{ summary.title }}</h3><p>{{ summary.artist || 'Artist not set' }}</p></div>
+              <dl><div><dt>Words</dt><dd>{{ summary.lyricLineCount ? `${summary.lyricLineCount} non-empty line${summary.lyricLineCount === 1 ? '' : 's'}` : 'Empty capture' }}</dd></div><div><dt>Saved here</dt><dd>{{ formatModified(summary.savedAtUtc) }}</dd></div></dl>
+              <div v-if="!deviceLyricCaptureCleanupMode" class="card-actions"><button class="secondary" @click="openDeviceLyricCapture(summary.id)">Continue capture</button><button class="danger" :aria-label="`Permanently delete ${summary.title}`" @click="requestDeviceLyricCaptureDelete(summary.id, summary.title)">Delete</button></div>
+            </article>
+          </div>
+          <div v-if="deviceLyricCaptureResults.resultCount > deviceLyricCaptureRecentLimit" class="library-pagination"><button class="quiet" @click="showAllDeviceLyricCaptureResults = !showAllDeviceLyricCaptureResults">{{ showAllDeviceLyricCaptureResults ? `Show recent ${deviceLyricCaptureRecentLimit}` : `Show ${deviceLyricCaptureResults.hiddenCount} more` }}</button></div>
+          <div v-if="deviceLyricCaptureCleanupMode" class="library-cleanup-bar device-capture-cleanup-bar"><span>{{ selectedDeviceLyricCaptures.length ? `${selectedDeviceLyricCaptures.length} capture${selectedDeviceLyricCaptures.length === 1 ? '' : 's'} selected` : 'Select device captures to review them together.' }}</span><button class="danger" :disabled="deviceLyricCaptureBusy || selectedDeviceLyricCaptures.length === 0" @click="requestBulkDeviceLyricCaptureDelete">Permanently delete selected</button></div>
+        </template>
+      </section>
       <section v-if="workspaceConnection === 'unavailable' && browserRecoverySummaries.length" class="browser-recovery-vault" aria-labelledby="browser-recovery-title">
         <div><p class="eyebrow">Protected on this device</p><h2 id="browser-recovery-title">Unsaved work is waiting safely</h2><p>These browser snapshots cannot be edited while the project service is unavailable. Reconnect it to restore them into the normal review-and-save flow.</p></div>
         <div class="project-grid">
@@ -2516,6 +2828,35 @@ onBeforeUnmount(() => {
         </template>
       </section>
     </header>
+
+    <section v-else-if="view === 'device-capture' && activeDeviceLyricCapture" class="device-capture-editor" aria-labelledby="device-capture-title">
+      <header class="device-capture-editor-heading">
+        <button class="quiet" @click="closeDeviceLyricCapture">← Back</button>
+        <div><p class="eyebrow">Browser-owned lyric capture</p><h1 id="device-capture-title">{{ activeDeviceLyricCapture.title.trim() || 'Untitled capture' }}</h1><p>Editable on this device, even without the local project service.</p></div>
+        <span class="editor-state" :class="{ modified: deviceLyricCaptureDirty }">{{ deviceLyricCaptureBusy ? 'Saving…' : deviceLyricCaptureDirty ? 'Saving locally…' : 'Saved on device' }}</span>
+      </header>
+      <aside class="device-capture-boundary">
+        <strong>This is a browser-owned capture, not a synchronized song.</strong>
+        <span>It stays in this browser profile. Clearing site data can remove it. When the local workspace is connected, “Add to song library” creates a new host-owned song and removes this device copy only after that succeeds.</span>
+      </aside>
+      <section class="device-capture-form">
+        <div class="device-capture-identity">
+          <label>Capture title<input v-model="activeDeviceLyricCapture.title" maxlength="200" placeholder="Untitled capture" /></label>
+          <label>Artist<input v-model="activeDeviceLyricCapture.artist" maxlength="200" placeholder="Artist or songwriter" /></label>
+          <label>Genre<select v-model="activeDeviceLyricCapture.genre"><option v-for="genre in genres" :key="genre" :value="genre">{{ genre === 'RAndB' ? 'R&B' : genre }}</option></select></label>
+          <label class="device-capture-description">Description<textarea v-model="activeDeviceLyricCapture.description" maxlength="2000" rows="3" placeholder="Song concept or creative context" /></label>
+        </div>
+        <label class="device-capture-lyrics"><span>Raw lyric draft</span><textarea v-model="activeDeviceLyricCapture.rawLyricDraft" maxlength="100000" rows="18" autofocus placeholder="Write lyrics, fragments, images, or plain thoughts…" /></label>
+        <p class="device-capture-save-note">Words save automatically in this browser after you pause. Song sections, harmony, arrangement, and playback begin after the capture enters the connected song library.</p>
+        <div class="device-capture-actions">
+          <button class="secondary" :disabled="deviceLyricCaptureBusy || !deviceLyricCaptureDirty" @click="persistDeviceLyricCapture">Save on this device</button>
+          <button v-if="workspaceConnection === 'ready'" :disabled="deviceLyricCaptureBusy || !activeDeviceLyricCapture.title.trim() || !activeDeviceLyricCapture.rawLyricDraft.trim()" @click="addDeviceLyricCaptureToLibrary">Add to song library</button>
+          <button v-else class="secondary" :disabled="workspaceCheckBusy" @click="refreshWorkspaceHealth">{{ workspaceCheckBusy ? 'Checking…' : 'Reconnect to add to library' }}</button>
+          <button class="danger" :disabled="deviceLyricCaptureBusy" @click="requestDeviceLyricCaptureDelete(activeDeviceLyricCapture.captureId, activeDeviceLyricCapture.title.trim() || 'Untitled capture')">Delete device capture</button>
+        </div>
+      </section>
+      <p class="status" role="status">{{ status }}</p>
+    </section>
 
     <section v-else-if="view === 'offline-review' && offlineReviewProject" class="offline-review" aria-labelledby="offline-review-title">
       <header class="offline-review-heading">
@@ -2782,13 +3123,31 @@ onBeforeUnmount(() => {
             </li>
           </ol>
         </section>
+        <section v-if="activeCreatorStage === 'review'" class="microphone-preflight" aria-labelledby="microphone-preflight-title">
+          <div>
+            <p class="eyebrow">Rough vocal readiness</p>
+            <h3 id="microphone-preflight-title">Check this device before recording</h3>
+            <p>This explicit check opens the microphone only long enough to confirm a live input, then closes every track. It does not record, upload, or save audio.</p>
+          </div>
+          <p v-if="!roughVocalSupport.supported" class="microphone-preflight-status unavailable" role="status">{{ roughVocalSupport.reason }}</p>
+          <p v-else-if="microphonePreflightState === 'ready'" class="microphone-preflight-status ready" role="status"><strong>{{ microphonePreflightLabel }}</strong>{{ microphonePreflightMessage }}</p>
+          <p v-else-if="microphonePreflightMessage" class="microphone-preflight-status" :class="{ unavailable: microphonePreflightState === 'failed' }" role="status">{{ microphonePreflightMessage }}</p>
+          <button
+            type="button"
+            class="secondary"
+            :disabled="!roughVocalSupport.supported || microphonePreflightState === 'checking'"
+            @click="checkRoughVocalMicrophone">
+            {{ microphonePreflightState === 'checking' ? 'Checking microphone…' : microphonePreflightState === 'ready' ? 'Check again' : 'Check microphone' }}
+          </button>
+          <small>Recording remains unavailable until original takes participate in project backup, recovery, export, Trash, and permanent deletion.</small>
+        </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>
       <section v-if="phoneCaptureMode && activeCreatorStage === 'approve'" id="phone-approve" class="phone-approve" aria-labelledby="phone-approve-title">
         <p class="eyebrow">Approve</p>
         <h2 id="phone-approve-title">Save this capture</h2>
-        <p v-if="isDirty">Saving keeps the words and form on this device. Harmony, arrangement, playback, and rough vocal capture are not part of this phone path yet.</p>
-        <p v-else>This capture is saved. Continue harmony and arrangement on a larger screen. Rough vocal capture is not available yet.</p>
+        <p v-if="isDirty">Saving keeps the words and form on this device. Microphone readiness can be checked in Review; recording and take storage remain protected behind their asset-lifecycle work.</p>
+        <p v-else>This capture is saved. Continue harmony and arrangement on a larger screen. Microphone readiness is available in Review without recording audio.</p>
         <aside class="phone-capture-boundary">
           <strong>Phone scope</strong>
           <p>Idea, words, shape, review, and approve. Music tools stay on desktop so this screen does not become a miniature DAW.</p>
@@ -2899,7 +3258,7 @@ onBeforeUnmount(() => {
         </div>
       </section>
       </details>
-      <section id="song-structure" class="song-canvas" aria-label="Song structure">
+      <section v-if="!phoneCaptureMode || !phoneChrome.separateReviewFromShape || activeCreatorStage === 'shape'" id="song-structure" class="song-canvas" aria-label="Song structure">
         <div class="canvas-heading">
           <div v-if="!phoneCaptureMode || !phoneChrome.compactShapeChrome"><p class="eyebrow">Song structure</p><h1>Shape the song</h1></div>
           <details v-if="phoneCaptureMode && phoneChrome.compactSectionToolbar" id="section-toolbar" class="phone-section-toolbar">
@@ -3731,6 +4090,31 @@ onBeforeUnmount(() => {
         <div class="dialog-actions">
           <button class="secondary" :disabled="busy" autofocus @click="cancelDelete">Cancel</button>
           <button class="danger" :disabled="busy" @click="confirmDelete">Yes, delete song</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="deviceLyricCaptureDeleteTarget" class="modal-backdrop" role="presentation" @click.self="cancelDeviceLyricCaptureDelete">
+      <section class="load-dialog delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="device-capture-delete-title" aria-describedby="device-capture-delete-description">
+        <p class="eyebrow">Browser-owned work</p>
+        <h2 id="device-capture-delete-title">Permanently delete this device capture?</h2>
+        <p id="device-capture-delete-description">“{{ deviceLyricCaptureDeleteTarget.title }}” is not in Trash or the saved-song library. Deleting it removes its locally saved words from this browser and cannot be undone.</p>
+        <div class="dialog-actions">
+          <button class="secondary" :disabled="deviceLyricCaptureBusy" autofocus @click="cancelDeviceLyricCaptureDelete">Keep capture</button>
+          <button class="danger" :disabled="deviceLyricCaptureBusy" @click="confirmDeviceLyricCaptureDelete">Yes, permanently delete</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="bulkDeviceLyricCaptureDeleteOpen" class="modal-backdrop" role="presentation" @click.self="cancelBulkDeviceLyricCaptureDelete">
+      <section class="load-dialog delete-dialog library-cleanup-dialog" role="alertdialog" aria-modal="true" aria-labelledby="bulk-device-capture-delete-title" aria-describedby="bulk-device-capture-delete-description">
+        <p class="eyebrow">Cannot be undone</p>
+        <h2 id="bulk-device-capture-delete-title">Permanently delete {{ selectedDeviceLyricCaptures.length }} device capture{{ selectedDeviceLyricCaptures.length === 1 ? '' : 's' }}?</h2>
+        <p id="bulk-device-capture-delete-description">Every browser-owned capture listed below will be removed from this browser. They are not in Trash or the connected song library, so this action cannot be undone.</p>
+        <ul class="library-cleanup-list"><li v-for="summary in selectedDeviceLyricCaptures" :key="summary.id"><strong>{{ summary.title }}</strong><span>{{ summary.artist || 'Artist not set' }} · {{ summary.lyricLineCount ? `${summary.lyricLineCount} lyric line${summary.lyricLineCount === 1 ? '' : 's'}` : 'Empty capture' }} · Saved {{ formatModified(summary.savedAtUtc) }}</span></li></ul>
+        <div class="dialog-actions">
+          <button ref="bulkDeviceLyricCaptureDeleteCancelButton" class="secondary" :disabled="deviceLyricCaptureBusy" @click="cancelBulkDeviceLyricCaptureDelete">Keep these captures</button>
+          <button class="danger" :disabled="deviceLyricCaptureBusy" @click="confirmBulkDeviceLyricCaptureDelete">Yes, permanently delete {{ selectedDeviceLyricCaptures.length }}</button>
         </div>
       </section>
     </div>

@@ -76,6 +76,63 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         finally { projectLock.Release(); }
     }
 
+    public async Task SaveWithAssetAsync(
+        SongProject project,
+        ProjectAsset asset,
+        Stream content,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(asset);
+        ArgumentNullException.ThrowIfNull(content);
+        if (!content.CanRead) throw new ArgumentException("Project asset content must be readable.", nameof(content));
+        if (project.Assets.All(item => item != asset))
+            throw new InvalidOperationException("The project must register the exact asset metadata before its immutable bytes are saved.");
+
+        var projectLock = _projectLocks.GetOrAdd(project.Id, _ => new SemaphoreSlim(1, 1));
+        await projectLock.WaitAsync(cancellationToken);
+        var assetDirectory = GetAssetDirectory(GetPath(project.Id));
+        var assetPath = GetAssetPath(assetDirectory, asset.Id);
+        var temporaryPath = assetPath + $".tmp-{Guid.NewGuid():N}";
+        try
+        {
+            if (File.Exists(assetPath)) throw new InvalidOperationException($"Project asset '{asset.Id}' is immutable and already exists.");
+            Directory.CreateDirectory(assetDirectory);
+            await using (var destination = File.Create(temporaryPath))
+            {
+                await content.CopyToAsync(destination, cancellationToken);
+                await destination.FlushAsync(cancellationToken);
+            }
+            await ValidateAssetFileAsync(asset, temporaryPath, cancellationToken);
+            File.Move(temporaryPath, assetPath);
+            try { await SaveWithoutLockAsync(project, cancellationToken); }
+            catch
+            {
+                File.Delete(assetPath);
+                DeleteDirectoryIfEmpty(assetDirectory);
+                throw;
+            }
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+            projectLock.Release();
+        }
+    }
+
+    public async Task<Stream?> OpenAssetAsync(
+        ProjectId projectId,
+        ProjectAssetId assetId,
+        CancellationToken cancellationToken = default)
+    {
+        var project = await LoadAsync(projectId, cancellationToken);
+        var asset = project?.Assets.SingleOrDefault(item => item.Id == assetId);
+        if (asset is null) return null;
+        var path = GetAssetPath(GetAssetDirectory(GetPath(projectId)), assetId);
+        await ValidateAssetFileAsync(asset, path, cancellationToken);
+        return File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+    }
+
     public async Task ImportAsync(SongProject project, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
@@ -120,7 +177,9 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
                 {
                     _ = await ReadProjectAsync(path, project.Id, true, cancellationToken);
                     Directory.CreateDirectory(GetBackupDirectory());
-                    File.Copy(path, GetBackupPath(project.Id), true);
+                    var backupPath = GetBackupPath(project.Id);
+                    File.Copy(path, backupPath, true);
+                    MirrorAssetDirectory(GetAssetDirectory(path), GetAssetDirectory(backupPath));
                 }
                 catch (UnsupportedProjectSchemaException exception)
                 {
@@ -212,6 +271,9 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
                 await JsonSerializer.SerializeAsync(stream, snapshot, JsonOptions, cancellationToken);
                 await stream.FlushAsync(cancellationToken);
             }
+            MirrorAssetDirectory(
+                GetAssetDirectory(GetPath(snapshot.Project.Id)),
+                GetAssetDirectory(path));
             _ = await ReadRecoverySnapshotAsync(temporaryPath, cancellationToken);
             File.Move(temporaryPath, path, true);
         }
@@ -236,6 +298,7 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
             var path = GetSessionRecoveryPath(id);
             if (!File.Exists(path)) return false;
             File.Delete(path);
+            DeleteAssetDirectory(GetAssetDirectory(path));
             return true;
         }
         finally { projectLock.Release(); }
@@ -253,39 +316,80 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
             Directory.CreateDirectory(trashDirectory);
             var destination = Path.Combine(trashDirectory, $"{id}-{DateTimeOffset.UtcNow:yyyyMMddHHmmssfff}.json");
             File.Move(source, destination);
+            var sourceAssets = GetAssetDirectory(source);
+            var destinationAssets = GetAssetDirectory(destination);
+            try
+            {
+                if (Directory.Exists(sourceAssets)) Directory.Move(sourceAssets, destinationAssets);
+            }
+            catch
+            {
+                File.Move(destination, source);
+                throw;
+            }
             var sessionRecoveryPath = GetSessionRecoveryPath(id);
             if (File.Exists(sessionRecoveryPath)) File.Delete(sessionRecoveryPath);
+            DeleteAssetDirectory(GetAssetDirectory(sessionRecoveryPath));
             return true;
         }
         finally { projectLock.Release(); }
     }
 
-    public Task<bool> RestoreFromTrashAsync(ProjectId id, CancellationToken cancellationToken = default)
+    public async Task<bool> RestoreFromTrashAsync(ProjectId id, CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var source = FindTrashPath(id);
-        if (source is null) return Task.FromResult(false);
-        Directory.CreateDirectory(_directory);
-        var destination = GetPath(id);
-        if (File.Exists(destination)) throw new InvalidOperationException("A project with this ID already exists in the song library.");
-        File.Move(source, destination);
-        return Task.FromResult(true);
+        var projectLock = _projectLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await projectLock.WaitAsync(cancellationToken);
+        try
+        {
+            var source = FindTrashPath(id);
+            if (source is null) return false;
+            Directory.CreateDirectory(_directory);
+            var destination = GetPath(id);
+            if (File.Exists(destination)) throw new InvalidOperationException("A project with this ID already exists in the song library.");
+            File.Move(source, destination);
+            var sourceAssets = GetAssetDirectory(source);
+            var destinationAssets = GetAssetDirectory(destination);
+            try
+            {
+                if (Directory.Exists(sourceAssets)) Directory.Move(sourceAssets, destinationAssets);
+            }
+            catch
+            {
+                File.Move(destination, source);
+                throw;
+            }
+            return true;
+        }
+        finally { projectLock.Release(); }
     }
 
-    public Task<bool> PermanentlyDeleteAsync(ProjectId id, CancellationToken cancellationToken = default)
+    public async Task<bool> PermanentlyDeleteAsync(ProjectId id, CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var path = FindTrashPath(id);
-        if (path is null) return Task.FromResult(false);
-        File.Delete(path);
-        var backupPath = GetBackupPath(id);
-        if (File.Exists(backupPath)) File.Delete(backupPath);
-        if (Directory.Exists(GetRecoveryDirectory()))
+        var projectLock = _projectLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await projectLock.WaitAsync(cancellationToken);
+        try
         {
-            foreach (var recoveryPath in Directory.EnumerateFiles(GetRecoveryDirectory(), $"{id}-*.json"))
-                File.Delete(recoveryPath);
+            var path = FindTrashPath(id);
+            if (path is null) return false;
+            File.Delete(path);
+            DeleteAssetDirectory(GetAssetDirectory(path));
+            var backupPath = GetBackupPath(id);
+            if (File.Exists(backupPath)) File.Delete(backupPath);
+            DeleteAssetDirectory(GetAssetDirectory(backupPath));
+            var sessionPath = GetSessionRecoveryPath(id);
+            if (File.Exists(sessionPath)) File.Delete(sessionPath);
+            DeleteAssetDirectory(GetAssetDirectory(sessionPath));
+            if (Directory.Exists(GetRecoveryDirectory()))
+            {
+                foreach (var recoveryPath in Directory.EnumerateFiles(GetRecoveryDirectory(), $"{id}-*.json"))
+                {
+                    File.Delete(recoveryPath);
+                    DeleteAssetDirectory(GetAssetDirectory(recoveryPath));
+                }
+            }
+            return true;
         }
-        return Task.FromResult(true);
+        finally { projectLock.Release(); }
     }
 
     private string GetTrashDirectory() => Path.Combine(_directory, "trash");
@@ -297,6 +401,7 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
     private bool HasRecoveryCopy(ProjectId id) => Directory.Exists(GetRecoveryDirectory())
         && Directory.EnumerateFiles(GetRecoveryDirectory(), $"{id}-*.json").Any();
     private bool ProjectIdentityExists(ProjectId id) => File.Exists(GetPath(id))
+        || Directory.Exists(GetAssetDirectory(GetPath(id)))
         || File.Exists(GetBackupPath(id))
         || File.Exists(GetSessionRecoveryPath(id))
         || HasRecoveryCopy(id)
@@ -323,6 +428,7 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
                 ?? throw new InvalidProjectDataException("The project file contains no project data.");
             if (expectedId is not null && project.Id != expectedId.Value)
                 throw new InvalidProjectDataException("The project ID does not match its requested identity.");
+            await ValidateProjectAssetsAsync(project, path, cancellationToken);
             return project;
         }
         catch (OperationCanceledException) { throw; }
@@ -369,6 +475,7 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
                 ?? throw new InvalidProjectDataException("The recovery snapshot contains no project data.");
             if (snapshot.CapturedAtUtc == default || snapshot.BaseProjectLastModifiedUtc == default || string.IsNullOrWhiteSpace(snapshot.SessionId))
                 throw new InvalidProjectDataException("The recovery snapshot metadata is invalid.");
+            await ValidateProjectAssetsAsync(snapshot.Project, path, cancellationToken);
             return snapshot;
         }
         catch (OperationCanceledException) { throw; }
@@ -404,6 +511,79 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         }
     }
 
+    private async Task ValidateProjectAssetsAsync(
+        SongProject project,
+        string documentPath,
+        CancellationToken cancellationToken)
+    {
+        if (project.Assets.Count == 0) return;
+        var assetDirectory = GetAssetDirectory(documentPath);
+        if (!Directory.Exists(assetDirectory))
+            throw new InvalidProjectDataException("The project asset directory is missing. Original media was not treated as optional.");
+        foreach (var asset in project.Assets)
+            await ValidateAssetFileAsync(asset, GetAssetPath(assetDirectory, asset.Id), cancellationToken);
+    }
+
+    private static async Task ValidateAssetFileAsync(
+        ProjectAsset asset,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(path))
+            throw new InvalidProjectDataException($"Project asset '{asset.Id}' is missing.");
+        var info = new FileInfo(path);
+        if (info.Length != asset.ByteLength)
+            throw new InvalidProjectDataException($"Project asset '{asset.Id}' byte length does not match its manifest.");
+        await using var stream = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var digest = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken)).ToLowerInvariant();
+        if (!string.Equals(digest, asset.Sha256, StringComparison.Ordinal))
+            throw new InvalidProjectDataException($"Project asset '{asset.Id}' SHA-256 does not match its manifest.");
+    }
+
+    private static string GetAssetDirectory(string documentPath)
+    {
+        var stablePath = documentPath.EndsWith(".tmp", StringComparison.Ordinal)
+            ? documentPath[..^4]
+            : documentPath;
+        var parent = Path.GetDirectoryName(stablePath)
+            ?? throw new InvalidOperationException("A project document directory is required.");
+        return Path.Combine(parent, $"{Path.GetFileNameWithoutExtension(stablePath)}.assets");
+    }
+
+    private static string GetAssetPath(string assetDirectory, ProjectAssetId assetId) =>
+        Path.Combine(assetDirectory, $"{assetId}.bin");
+
+    private static void MirrorAssetDirectory(string source, string destination)
+    {
+        if (!Directory.Exists(source))
+        {
+            DeleteAssetDirectory(destination);
+            return;
+        }
+
+        var temporary = destination + $".tmp-{Guid.NewGuid():N}";
+        try
+        {
+            Directory.CreateDirectory(temporary);
+            foreach (var file in Directory.EnumerateFiles(source))
+                File.Copy(file, Path.Combine(temporary, Path.GetFileName(file)), true);
+            DeleteAssetDirectory(destination);
+            Directory.Move(temporary, destination);
+        }
+        finally { DeleteAssetDirectory(temporary); }
+    }
+
+    private static void DeleteAssetDirectory(string path)
+    {
+        if (Directory.Exists(path)) Directory.Delete(path, true);
+    }
+
+    private static void DeleteDirectoryIfEmpty(string path)
+    {
+        if (Directory.Exists(path) && !Directory.EnumerateFileSystemEntries(path).Any())
+            Directory.Delete(path);
+    }
+
     private string? CreateRecoveryCopy(string source)
     {
         try
@@ -413,7 +593,11 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
             var fingerprint = Convert.ToHexString(SHA256.HashData(stream))[..16].ToLowerInvariant();
             var fileName = $"{Path.GetFileNameWithoutExtension(source)}-{fingerprint}.json";
             var destination = Path.Combine(GetRecoveryDirectory(), fileName);
-            if (!File.Exists(destination)) File.Copy(source, destination);
+            if (!File.Exists(destination))
+            {
+                File.Copy(source, destination);
+                MirrorAssetDirectory(GetAssetDirectory(source), GetAssetDirectory(destination));
+            }
             return fileName;
         }
         catch (IOException) { return null; }

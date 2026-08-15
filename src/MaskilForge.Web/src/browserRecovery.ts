@@ -1,4 +1,4 @@
-import type { SongProject } from './api'
+import type { SongGenre, SongProject } from './api'
 
 export interface BrowserRecoveryRecord {
   projectId: string
@@ -14,10 +14,22 @@ export interface BrowserProjectRecord {
   savedAtUtc: string
 }
 
+export interface DeviceLyricCaptureRecord {
+  captureId: string
+  title: string
+  artist: string
+  genre: SongGenre
+  description: string
+  rawLyricDraft: string
+  createdAtUtc: string
+  savedAtUtc: string
+}
+
 const databaseName = 'maskil-forge-browser'
-const databaseVersion = 2
+const databaseVersion = 3
 const recoveryStoreName = 'recoverySnapshots'
 const projectStoreName = 'savedProjectSnapshots'
+const deviceCaptureStoreName = 'deviceLyricCaptures'
 
 function openDatabase() {
   return new Promise<IDBDatabase>((resolve, reject) => {
@@ -28,6 +40,9 @@ function openDatabase() {
       }
       if (!request.result.objectStoreNames.contains(projectStoreName)) {
         request.result.createObjectStore(projectStoreName, { keyPath: 'projectId' })
+      }
+      if (!request.result.objectStoreNames.contains(deviceCaptureStoreName)) {
+        request.result.createObjectStore(deviceCaptureStoreName, { keyPath: 'captureId' })
       }
     }
     request.onsuccess = () => resolve(request.result)
@@ -96,4 +111,21 @@ export async function loadBrowserProject(projectId: string) {
 
 export function discardBrowserProject(projectId: string) {
   return writeRequest(projectStoreName, store => store.delete(projectId))
+}
+
+export function saveDeviceLyricCapture(record: DeviceLyricCaptureRecord) {
+  return writeRequest(deviceCaptureStoreName, store => store.put(record))
+}
+
+export async function listDeviceLyricCaptures() {
+  const records = await readRequest<DeviceLyricCaptureRecord[]>(deviceCaptureStoreName, store => store.getAll())
+  return records.sort((left, right) => right.savedAtUtc.localeCompare(left.savedAtUtc))
+}
+
+export async function loadDeviceLyricCapture(captureId: string) {
+  return await readRequest<DeviceLyricCaptureRecord | undefined>(deviceCaptureStoreName, store => store.get(captureId)) ?? null
+}
+
+export function discardDeviceLyricCapture(captureId: string) {
+  return writeRequest(deviceCaptureStoreName, store => store.delete(captureId))
 }

@@ -8,6 +8,8 @@ public interface IProjectRepository
     Task<IReadOnlyList<TrashedProjectSummary>> ListTrashAsync(CancellationToken cancellationToken = default);
     Task<SongProject?> LoadAsync(ProjectId id, CancellationToken cancellationToken = default);
     Task SaveAsync(SongProject project, CancellationToken cancellationToken = default);
+    Task SaveWithAssetAsync(SongProject project, ProjectAsset asset, Stream content, CancellationToken cancellationToken = default);
+    Task<Stream?> OpenAssetAsync(ProjectId projectId, ProjectAssetId assetId, CancellationToken cancellationToken = default);
     Task ImportAsync(SongProject project, CancellationToken cancellationToken = default);
     Task<bool> ProjectIdentityExistsAsync(ProjectId id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<ProjectRecoverySummary>> ListRecoverySnapshotsAsync(CancellationToken cancellationToken = default);

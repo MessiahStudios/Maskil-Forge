@@ -21,6 +21,7 @@ export function phoneEditorChrome() {
     showReadyHostStatus: false,
     compactSectionToolbar: true,
     compactCaptureChrome: true,
+    separateReviewFromShape: true,
   }
 }
 

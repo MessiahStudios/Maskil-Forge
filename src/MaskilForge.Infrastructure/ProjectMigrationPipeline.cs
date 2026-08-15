@@ -37,7 +37,8 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
         new V17ToV18ProjectMigration(),
         new V18ToV19ProjectMigration(),
         new V19ToV20ProjectMigration(),
-        new V20ToV21ProjectMigration()
+        new V20ToV21ProjectMigration(),
+        new V21ToV22ProjectMigration()
     ]);
 
     public JsonObject Normalize(JsonObject project)
@@ -563,6 +564,19 @@ internal sealed class V20ToV21ProjectMigration : IProjectMigration
         if (project["sections"] is JsonArray sections)
             foreach (var section in sections.OfType<JsonObject>())
                 section["structuralFunction"] = nameof(StructuralFunction.Unspecified);
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}
+
+internal sealed class V21ToV22ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 21;
+    public int ToVersion => 22;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        project["assets"] = new JsonArray();
         project["schemaVersion"] = ToVersion;
         return project;
     }

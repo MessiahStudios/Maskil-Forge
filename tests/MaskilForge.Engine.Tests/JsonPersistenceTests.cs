@@ -188,7 +188,7 @@ public sealed class JsonPersistenceTests
     }
 
     [Fact]
-    public async Task SchemaV20_WritesStableSongGraphAndSectionPerformanceIntentContract()
+    public async Task CurrentSchema_WritesStableSongGraphPerformanceAndAssetManifestContract()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
         try
@@ -229,7 +229,7 @@ public sealed class JsonPersistenceTests
 
             using var document = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(directory, $"{project.Id}.json")));
             var root = document.RootElement;
-            Assert.Equal(21, root.GetProperty("schemaVersion").GetInt32());
+            Assert.Equal(SchemaVersion.Current.Value, root.GetProperty("schemaVersion").GetInt32());
             Assert.Equal(project.Id.ToString(), root.GetProperty("id").GetString());
             Assert.Equal("Schema Contract", root.GetProperty("title").GetString());
             Assert.Equal(JsonValueKind.String, root.GetProperty("createdUtc").ValueKind);
@@ -240,6 +240,7 @@ public sealed class JsonPersistenceTests
             Assert.Equal(string.Empty, serializedSection.GetProperty("performanceNotes").GetString());
             Assert.Equal("Unspecified", serializedSection.GetProperty("structuralFunction").GetString());
             Assert.Equal(JsonValueKind.Array, root.GetProperty("tracks").ValueKind);
+            Assert.Empty(root.GetProperty("assets").EnumerateArray());
             Assert.False(root.TryGetProperty("tempo", out _));
             Assert.False(root.TryGetProperty("timeSignature", out _));
             var timeline = root.GetProperty("timeline");
