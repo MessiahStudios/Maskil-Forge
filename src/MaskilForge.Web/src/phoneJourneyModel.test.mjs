@@ -33,6 +33,7 @@ test('phone editor chrome keeps identity settings and hides music controls', () 
     compactShapeChrome: true,
     showReadyHostStatus: false,
     compactSectionToolbar: true,
+    compactCaptureChrome: true,
   })
 })
 

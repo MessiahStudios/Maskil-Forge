@@ -20,6 +20,7 @@ export function phoneEditorChrome() {
     compactShapeChrome: true,
     showReadyHostStatus: false,
     compactSectionToolbar: true,
+    compactCaptureChrome: true,
   }
 }
 

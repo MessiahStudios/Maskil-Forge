@@ -746,4 +746,6 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .capture-actions { justify-content: stretch; }
   .capture-actions button { flex: 1; }
   .preservation-note { text-align: left; }
+  .phone-capture .capture-heading h1 { margin: 0 0 .55rem; font-size: 1.55rem; }
+  .phone-capture .raw-lyrics textarea { min-height: 220px; padding: .85rem; }
 }

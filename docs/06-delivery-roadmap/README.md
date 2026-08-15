@@ -642,6 +642,12 @@ Replace the six-button add-section toolbar with a single “Add section” discl
 
 **Deliverable:** a phone artist can add a verse without a three-row section-kind keypad covering the lyric field.
 
+### Milestone 5.61 — Phone Words puts the draft on screen
+
+Keep the raw lyric textarea as the first writing surface on phone. Hide the long capture lecture, the duplicate Save draft and Shape manually actions, and the preservation footnote—Save stays in the header and Shape stays in the journey. Preview song structure remains for pasted lyric sheets. Desktop capture chrome is unchanged. This slice changes no schema.
+
+**Deliverable:** a phone artist can type into the raw draft without scrolling past explanatory copy or duplicate structure actions.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
