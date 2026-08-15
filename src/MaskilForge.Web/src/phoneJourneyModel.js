@@ -17,6 +17,8 @@ export function phoneEditorChrome() {
     collapseSectionRole: true,
     showRoleReview: false,
     showLyricLocks: false,
+    compactShapeChrome: true,
+    showReadyHostStatus: false,
   }
 }
 
@@ -156,4 +158,8 @@ export function phoneCaptureReadiness(project, preview = null, options = {}) {
     nextStep,
     sections,
   }
+}
+
+export function phoneShowsSongOutline(sectionCount) {
+  return sectionCount > 1
 }

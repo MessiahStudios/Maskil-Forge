@@ -6,6 +6,7 @@ import {
   phoneDestination,
   phoneEditorChrome,
   phoneJourneyProgress,
+  phoneShowsSongOutline,
   remapDesktopStageForPhone,
   remapPhoneStageForDesktop,
 } from './phoneJourneyModel.js'
@@ -29,7 +30,15 @@ test('phone editor chrome keeps identity settings and hides music controls', () 
     collapseSectionRole: true,
     showRoleReview: false,
     showLyricLocks: false,
+    compactShapeChrome: true,
+    showReadyHostStatus: false,
   })
+})
+
+test('phone shape outline waits until a second section exists', () => {
+  assert.equal(phoneShowsSongOutline(0), false)
+  assert.equal(phoneShowsSongOutline(1), false)
+  assert.equal(phoneShowsSongOutline(2), true)
 })
 
 test('phone journey excludes music, harmony, and arrangement', () => {

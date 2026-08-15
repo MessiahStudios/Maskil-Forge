@@ -662,6 +662,11 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .phone-approve-actions, .phone-approve-actions button { width: 100%; }
   .phone-readiness, .phone-review, .phone-approve, .song-canvas, .capture-heading, .capture-actions { scroll-margin-top: 7rem; }
   .phone-readiness li { align-items: start; flex-direction: column; gap: .2rem; }
+  .phone-capture .phone-readiness { padding: .65rem .75rem; gap: .4rem; margin: 0 0 .75rem; }
+  .phone-capture .phone-readiness .eyebrow { display: none; }
+  .phone-capture .phone-readiness h3 { margin: 0; font-size: 1.05rem; }
+  .phone-capture .song-outline { position: static; padding: .55rem; }
+  .phone-capture .song-outline ol button { min-height: 2.75rem; }
   .song-transport { grid-template-columns: 1fr; }
   .chord-audition, .part-audition { grid-template-columns: 1fr; }
   .trash-hygiene-note strong, .recovery-cap-warning strong { white-space: normal; }
@@ -683,6 +688,11 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .section-actions { grid-column: 1 / -1; }
   .section-actions button { flex: 1; }
   .section-actions button span { display: none; }
+  .phone-capture .section-heading { grid-template-columns: auto minmax(0, 1fr) auto; gap: .45rem; }
+  .phone-capture .section-identity { grid-template-columns: minmax(0, 1fr); }
+  .phone-capture .section-identity > span { display: none; }
+  .phone-capture .section-actions { grid-column: auto; flex-wrap: nowrap; gap: .25rem; }
+  .phone-capture .section-actions button { flex: 0 0 auto; min-width: 36px; min-height: 36px; padding: .3rem .4rem; }
   .section-performance-intent { grid-template-columns: 1fr; }
   .section-performance-intent button { grid-column: 1; width: 100%; }
   .section-performance-intent.phone-collapsed-role { display: block; padding: 0; background: transparent; border: 0; }

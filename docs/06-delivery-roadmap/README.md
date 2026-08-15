@@ -630,6 +630,12 @@ After a section exists, the phone card shows the lyric editor next. Role in song
 
 **Deliverable:** a phone artist can type the first lyric line without scrolling past role review, bar anatomy, or lock controls.
 
+### Milestone 5.59 — Phone Shape keeps the lyric line on screen
+
+Once a section exists, phone Shape hides the connected-host banner, the duplicate draft link, the “Shape the song” title, the one-section outline, and the readiness checklist so the lyric field sits in the first screen. The add-section toolbar and next-action button remain; section reorder and delete stay on one row with the title. A two-section song still gets a compact outline for jumping. Desktop Shape chrome is unchanged. This slice changes no schema.
+
+**Deliverable:** a phone artist can add a verse and reach the lyric input without scrolling past duplicate navigation.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

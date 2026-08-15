@@ -4,7 +4,7 @@ import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
-import { phoneCaptureReadiness, phoneCreatorStages, phoneDestination, phoneEditorChrome, phoneJourneyProgress, phoneLayoutMaxWidth, remapDesktopStageForPhone, remapPhoneStageForDesktop, type CreatorJourneyStage } from './phoneJourneyModel.js'
+import { phoneCaptureReadiness, phoneCreatorStages, phoneDestination, phoneEditorChrome, phoneJourneyProgress, phoneLayoutMaxWidth, phoneShowsSongOutline, remapDesktopStageForPhone, remapPhoneStageForDesktop, type CreatorJourneyStage } from './phoneJourneyModel.js'
 import { noteOwners, noteRemovalGuidance } from './noteOwnership.js'
 import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 import { structuralRole, structuralRoles } from './structuralRoles.js'
@@ -2158,6 +2158,12 @@ type CreatorStage = CreatorJourneyStage
 const activeCreatorStage = ref<CreatorStage>('idea')
 const phoneCaptureMode = ref(false)
 const phoneChrome = phoneEditorChrome()
+const showWorkspaceConnectionBanner = computed(() => {
+  if (workspaceConnection.value !== 'ready') return true
+  if (installPrompt.value || shellUpdateRegistration.value || browserRecoveryDetail.value) return true
+  if (!phoneCaptureMode.value || phoneChrome.showReadyHostStatus) return true
+  return view.value !== 'capture' && view.value !== 'structure'
+})
 let phoneLayoutQuery: MediaQueryList | null = null
 const focusedSectionId = ref('')
 const sectionViewMode = ref<'all' | 'focused'>('all')
@@ -2428,7 +2434,7 @@ onBeforeUnmount(() => {
 <template>
   <main :class="{ 'has-project': view !== 'home', 'phone-capture': phoneCaptureMode }">
     <input ref="portableImportInput" hidden type="file" accept=".json,.maskil.json,application/json,application/vnd.maskil-forge.project+json" @change="selectPortableImport" />
-    <aside class="workspace-connection" :class="workspaceConnection" role="status" aria-live="polite">
+    <aside v-if="showWorkspaceConnectionBanner" class="workspace-connection" :class="workspaceConnection" role="status" aria-live="polite">
       <span class="connection-mark" aria-hidden="true"></span>
       <div><strong>{{ workspaceConnectionTitle }}</strong><small v-if="!phoneCaptureMode || !phoneChrome.compactHostStatus || workspaceConnection !== 'ready'">{{ workspaceConnectionDetail }}</small><small v-if="applicationShellDetail" class="shell-note">{{ applicationShellDetail }}</small><small v-if="browserRecoveryDetail" class="browser-recovery-note">{{ browserRecoveryDetail }}</small></div>
       <div v-if="installPrompt || shellUpdateRegistration || workspaceConnection === 'unavailable'" class="workspace-delivery-actions">
@@ -2715,15 +2721,15 @@ onBeforeUnmount(() => {
       </section>
 
       <template v-else>
-      <div class="structure-nav"><button class="quiet" @click="returnToDraft">← Raw lyric draft</button></div>
+      <div v-if="!phoneCaptureMode || !phoneChrome.compactShapeChrome" class="structure-nav"><button class="quiet" @click="returnToDraft">← Raw lyric draft</button></div>
       <section v-if="phoneCaptureMode" class="phone-readiness" aria-labelledby="phone-readiness-title">
         <div class="readiness-next-step">
-          <span class="eyebrow">Phone capture</span>
-          <h3 id="phone-readiness-title">{{ phoneCaptureReview.complete ? 'Capture ready to continue later' : 'Next on this phone' }}</h3>
-          <p>{{ phoneCaptureReview.nextAction }}</p>
+          <span v-if="!phoneChrome.compactShapeChrome" class="eyebrow">Phone capture</span>
+          <h3 id="phone-readiness-title" :class="{ 'sr-only': phoneChrome.compactShapeChrome && phoneCaptureReview.nextStep }">{{ phoneCaptureReview.complete ? 'Capture ready to continue later' : 'Next on this phone' }}</h3>
+          <p v-if="!phoneChrome.compactShapeChrome">{{ phoneCaptureReview.nextAction }}</p>
           <button v-if="phoneCaptureReview.nextStep" type="button" :disabled="busy" @click="goToNextReadinessStep">{{ phoneCaptureReview.nextStep.label }} →</button>
         </div>
-        <ol v-if="phoneCaptureReview.sections.length">
+        <ol v-if="phoneCaptureReview.sections.length && !phoneChrome.compactShapeChrome">
           <li v-for="sectionReview in phoneCaptureReview.sections" :key="sectionReview.sectionId" :class="{ ready: sectionReview.ready }">
             <strong>{{ sectionReview.title }}</strong>
             <span :class="{ complete: sectionReview.hasLyrics }">Lyrics</span>
@@ -2881,7 +2887,7 @@ onBeforeUnmount(() => {
       </details>
       <section id="song-structure" class="song-canvas" aria-label="Song structure">
         <div class="canvas-heading">
-          <div><p class="eyebrow">Song structure</p><h1>Shape the song</h1></div>
+          <div v-if="!phoneCaptureMode || !phoneChrome.compactShapeChrome"><p class="eyebrow">Song structure</p><h1>Shape the song</h1></div>
           <div id="section-toolbar" class="section-toolbar" aria-label="Add song section">
             <button v-for="kind in (['Intro','Verse','Chorus','PreChorus','Bridge','Outro'] as SectionKind[])" :key="kind" class="secondary add-section" data-readiness-action="section" :disabled="busy" @click="addSection(kind)">+ {{ label(kind) }}</button>
           </div>
@@ -2897,9 +2903,9 @@ onBeforeUnmount(() => {
         </aside>
 
         <p v-if="project.sections.length === 0" class="empty-song">Choose a section above and start writing your first line.</p>
-        <nav v-else class="song-outline" aria-label="Song section outline">
+        <nav v-else-if="!phoneCaptureMode || !phoneChrome.compactShapeChrome || phoneShowsSongOutline(project.sections.length)" class="song-outline" aria-label="Song section outline">
           <div class="song-outline-heading">
-            <div><strong>Song outline</strong><small>Jump between {{ project.sections.length }} sections without losing the full song.</small></div>
+            <div v-if="!phoneCaptureMode || !phoneChrome.compactShapeChrome"><strong>Song outline</strong><small>Jump between {{ project.sections.length }} sections without losing the full song.</small></div>
             <div v-if="!phoneCaptureMode || phoneChrome.showRoleReview" class="role-review-summary">
               <span><strong>{{ roleReview.decidedCount }}/{{ roleReview.sectionCount }}</strong> roles decided</span>
               <small>{{ roleReview.complete ? 'Functional arc reviewed.' : 'Optional · roles are never guessed.' }}</small>

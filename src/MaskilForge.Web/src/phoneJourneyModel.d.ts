@@ -20,6 +20,8 @@ export function phoneEditorChrome(): {
   collapseSectionRole: boolean
   showRoleReview: boolean
   showLyricLocks: boolean
+  compactShapeChrome: boolean
+  showReadyHostStatus: boolean
 }
 
 export const phoneCreatorStages: Array<{ id: PhoneCreatorStage; label: string }>
@@ -66,3 +68,5 @@ export function phoneCaptureReadiness(
     ready: boolean
   }>
 }
+
+export function phoneShowsSongOutline(sectionCount: number): boolean

@@ -183,6 +183,8 @@ Slice 5.57 keeps section titles, order, role, and lyrics on that phone Shape pat
 
 Slice 5.58 puts the lyric editor first on that phone section card, collapses role into an optional disclosure, hides role-review chrome, and keeps new lyric locks on desktop so writing a line is the next reachable action.
 
+Slice 5.59 keeps that lyric field on the first phone screen by hiding the connected-host banner, duplicate draft link, Shape title, one-section outline, and readiness checklist while leaving the add-section toolbar and next-action button.
+
 This repository contains the product definition, architectural principles, delivery roadmap, and an executable songwriting prototype. The Prototype boundary and editable-demo MVP are complete through slice 5.15. The application spans idea capture, structured lyrics and prosody, timeline, harmony and voicing, arrangement intent, playable notes, MIDI export, role-aware musical parts, deterministic role realizations through accents, assembled-part audition, basic song transport, minimal note/part editing, and derived hear–revise readiness review. Additional role realization should follow only when artist validation shows that a vertical song needs it.
 
 The schema-v2 timeline foundation uses 480 pulses per quarter note (PPQ), converts between bar/beat/tick positions and absolute ticks, and gives every ordered section a stable timeline placement and editable bar duration. Section edits reflow these placements without changing section identities. This is a musical coordinate system only; it does not provide transport, playback, MIDI generation, or audio timing.
