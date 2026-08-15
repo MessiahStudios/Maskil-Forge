@@ -23,6 +23,7 @@ import { buildRecoveryQueue, recoveryQueueStats, recoveryRecentLimit, recoverySo
 import { filterProjectLibrary, libraryRecentLimit, libraryResultStats, projectLibraryStage, type ProjectLibraryStage } from './libraryHygieneModel.js'
 import { buildTrashQueue, filterTrashQueue, trashAgeLabel, trashOldDays, trashRecentLimit, trashResultStats } from './trashHygieneModel.js'
 import { microphonePreflightFailure, verifyMicrophoneInput, vocalCaptureSupport } from './vocalCapturePreflight.js'
+import { isPortableProjectPackage, portableExportFileName, portableImportLimit, portableImportLimitMessage } from './portableProjectPackage.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -90,7 +91,7 @@ let recoveryDiscardReturnFocus: HTMLElement | null = null
 const firstPartConfirmation = ref<{ label: string; proceed: () => void } | null>(null)
 const pendingAction = ref<'load' | 'new' | 'home' | 'import'>('load')
 const pendingLoadId = ref('')
-const pendingPortableImport = ref<{ fileName: string; projectJson: string; importAsCopy: boolean } | null>(null)
+const pendingPortableImport = ref<{ fileName: string; projectJson?: string; packageBytes?: Blob; importAsCopy: boolean } | null>(null)
 const portableImportPreview = ref<PortableProjectImportPreview | null>(null)
 const sessionId = crypto.randomUUID()
 const persistedRevision = ref('')
@@ -330,14 +331,18 @@ async function selectPortableImport(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-  if (file.size > 10 * 1024 * 1024) {
-    status.value = 'Portable project files cannot exceed 10 MB.'
-    activityLog.write('warning', 'project.portable-import', status.value, { fileName: file.name, fileSize: file.size })
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  const isPackage = isPortableProjectPackage(file.name, bytes)
+  if (file.size > portableImportLimit(isPackage)) {
+    status.value = portableImportLimitMessage(isPackage)
+    activityLog.write('warning', 'project.portable-import', status.value, { fileName: file.name, fileSize: file.size, isPackage })
     clearPendingPortableImport()
     return
   }
   try {
-    pendingPortableImport.value = { fileName: file.name, projectJson: await file.text(), importAsCopy: false }
+    pendingPortableImport.value = isPackage
+      ? { fileName: file.name, packageBytes: file, importAsCopy: false }
+      : { fileName: file.name, projectJson: new TextDecoder().decode(bytes), importAsCopy: false }
   } catch {
     status.value = 'The selected project file could not be read. Nothing was imported.'
     activityLog.write('error', 'project.portable-import', status.value, { fileName: file.name })
@@ -345,9 +350,13 @@ async function selectPortableImport(event: Event) {
     return
   }
   busy.value = true
-  activityLog.write('info', 'project.portable-import.preview', 'Project file preview requested.', { fileName: file.name, fileSize: file.size })
+  activityLog.write('info', 'project.portable-import.preview', 'Project file preview requested.', { fileName: file.name, fileSize: file.size, isPackage })
   try {
-    portableImportPreview.value = await projectsApi.previewPortableProject(pendingPortableImport.value.projectJson)
+    const pending = pendingPortableImport.value
+    if (!pending) return
+    portableImportPreview.value = pending.packageBytes
+      ? await projectsApi.previewPortablePackage(pending.packageBytes)
+      : await projectsApi.previewPortableProject(pending.projectJson ?? '')
     status.value = portableImportPreview.value.identityConflict
       ? 'This project identity is already stored on this device. Review the safe copy option.'
       : 'Project file validated. Review it before importing.'
@@ -356,6 +365,7 @@ async function selectPortableImport(event: Event) {
       projectId: portableImportPreview.value.id,
       sourceSchemaVersion: portableImportPreview.value.sourceSchemaVersion,
       identityConflict: portableImportPreview.value.identityConflict,
+      originalVocalCount: portableImportPreview.value.originalVocalCount,
     })
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'The project file could not be validated. Nothing was imported.'
@@ -387,7 +397,9 @@ async function performPortableImport() {
   if (!pending) return false
   confirmationOpen.value = false
   const succeeded = await run(
-    () => projectsApi.importPortableProject(pending.projectJson, pending.importAsCopy),
+    () => pending.packageBytes
+      ? projectsApi.importPortablePackage(pending.packageBytes, pending.importAsCopy)
+      : projectsApi.importPortableProject(pending.projectJson ?? '', pending.importAsCopy),
     pending.importAsCopy ? 'Portable project imported as a new copy.' : 'Portable project imported and saved to your song library.',
     'project.portable-import',
     { fileName: pending.fileName, importAsCopy: pending.importAsCopy },
@@ -1897,14 +1909,16 @@ async function exportPortableProject() {
     const blob = await projectsApi.exportPortableProject(project.value.id, project.value)
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
-    const safeTitle = project.value.title.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'song'
+    const hasAssets = project.value.assets.length > 0
     link.href = url
-    link.download = `${safeTitle}.maskil.json`
+    link.download = portableExportFileName(project.value.title, hasAssets)
     document.body.appendChild(link)
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-    status.value = 'Portable project exported. This versioned Song Graph can be stored or moved without an account.'
+    status.value = hasAssets
+      ? 'Asset-owning project package exported. Original vocal bytes travel with the Song Graph and stay verified by length and SHA-256.'
+      : 'Portable project exported. This versioned Song Graph can be stored or moved without an account.'
     activityLog.write('success', 'project.portable-export', 'Portable project exported.', { projectId: project.value.id, fileName: link.download })
   } catch (error) {
     status.value = error instanceof Error ? error.message : 'Unable to export the portable project. No project data was changed.'
@@ -2724,7 +2738,7 @@ onBeforeUnmount(() => {
 
 <template>
   <main :class="{ 'has-project': view !== 'home', 'phone-capture': phoneCaptureMode }">
-    <input ref="portableImportInput" hidden type="file" accept=".json,.maskil.json,application/json,application/vnd.maskil-forge.project+json" @change="selectPortableImport" />
+    <input ref="portableImportInput" hidden type="file" accept=".json,.maskil.json,.maskil,application/json,application/vnd.maskil-forge.project+json,application/vnd.maskil-forge.project+zip,application/zip" @change="selectPortableImport" />
     <aside v-if="showWorkspaceConnectionBanner" class="workspace-connection" :class="workspaceConnection" role="status" aria-live="polite">
       <span class="connection-mark" aria-hidden="true"></span>
       <div><strong>{{ workspaceConnectionTitle }}</strong><small v-if="!phoneCaptureMode || !phoneChrome.compactHostStatus || workspaceConnection !== 'ready'">{{ workspaceConnectionDetail }}</small><small v-if="applicationShellDetail" class="shell-note">{{ applicationShellDetail }}</small><small v-if="browserRecoveryDetail" class="browser-recovery-note">{{ browserRecoveryDetail }}</small></div>
@@ -2741,7 +2755,7 @@ onBeforeUnmount(() => {
       <div v-if="workspaceConnection === 'ready'" class="welcome-actions">
         <button @click="requestNewProject">Begin a new song</button>
         <button class="secondary" :disabled="busy" @click="requestPortableImport">Import project file</button>
-        <small class="portable-import-help">Open an artist-owned <code>.maskil.json</code> project from another Maskil Forge installation.</small>
+        <small class="portable-import-help">Open an artist-owned <code>.maskil.json</code> song or a <code>.maskil</code> package that carries original recordings.</small>
         <details class="open-project">
           <summary>Open an existing song</summary>
           <label>Project ID<input v-model="projectId" placeholder="Paste project ID" /></label>
@@ -4058,9 +4072,10 @@ onBeforeUnmount(() => {
           <div><dt>File version</dt><dd>{{ portableImportPreview.sourceSchemaVersion === portableImportPreview.currentSchemaVersion ? `Version ${portableImportPreview.currentSchemaVersion}` : `Version ${portableImportPreview.sourceSchemaVersion} → ${portableImportPreview.currentSchemaVersion}` }}</dd></div>
           <div><dt>Contents</dt><dd>{{ portableImportPreview.sectionCount ? `${portableImportPreview.sectionCount} section${portableImportPreview.sectionCount === 1 ? '' : 's'} · ${portableImportPreview.lyricLineCount} lyric line${portableImportPreview.lyricLineCount === 1 ? '' : 's'}` : portableImportPreview.hasRawLyrics ? `Raw lyric draft · ${portableImportPreview.lyricLineCount} lyric line${portableImportPreview.lyricLineCount === 1 ? '' : 's'}` : 'New idea' }}</dd></div>
           <div v-if="portableImportPreview.sectionTitles.length"><dt>Song form</dt><dd>{{ portableImportPreview.sectionTitles.join(' → ') }}</dd></div>
+          <div v-if="portableImportPreview.originalVocalCount"><dt>Original vocals</dt><dd>{{ portableImportPreview.originalVocalCount }} verified take{{ portableImportPreview.originalVocalCount === 1 ? '' : 's' }} in this package</dd></div>
         </dl>
         <p v-if="portableImportPreview.identityConflict" id="import-preview-guidance" class="import-conflict"><strong>Project already known.</strong> Import it as a new copy to keep the existing song safe and give this file its own identity.</p>
-        <p v-else id="import-preview-guidance">Import the original to preserve its project identity, or make a separate copy you can change independently.</p>
+        <p v-else id="import-preview-guidance">{{ portableImportPreview.originalVocalCount ? 'This package carries original vocal bytes with the Song Graph. Import the original to preserve its project identity, or make a separate copy you can change independently.' : 'Import the original to preserve its project identity, or make a separate copy you can change independently.' }}</p>
         <div class="dialog-actions">
           <button class="secondary" :disabled="busy" autofocus @click="cancelPortableImportPreview">Cancel</button>
           <button v-if="!portableImportPreview.identityConflict" :disabled="busy" @click="choosePortableImport(false)">Import project</button>

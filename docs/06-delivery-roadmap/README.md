@@ -684,6 +684,12 @@ This slice changes repository durability, not the recording experience. It adds 
 
 **Deliverable:** Maskil Forge can own and recover immutable original-recording bytes locally without weakening project integrity, while still refusing to create recordings it cannot yet move safely between devices.
 
+### Milestone 6.4 — Asset-owning portable package
+
+Define package format version 1 as a `.maskil` archive that carries `maskil-package.json`, the Song Graph as `project.json`, and each manifest-referenced original vocal as `assets/{id}.bin`. Export reads repository-owned bytes, verifies exact length and SHA-256, and refuses missing, extra, or mismatched media. Import migrates `project.json`, verifies every referenced byte, and persists the project with its assets without overwriting an existing identity. JSON-only `.maskil.json` files still refuse referenced media. Local saved-song duplication copies verified asset bytes into the new project identity. This slice adds no recording, playback, analysis, or microphone capture.
+
+**Deliverable:** an artist can move a project that already owns original vocal bytes between Maskil Forge installations without leaving the singer's recording behind, while JSON-only files stay honest about what they cannot carry.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

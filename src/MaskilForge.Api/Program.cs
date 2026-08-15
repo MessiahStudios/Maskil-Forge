@@ -162,22 +162,7 @@ app.MapPost("/api/projects/import-preview", async (PortableProjectImportRequest 
     var requestError = ValidatePortableProjectImport(request);
     if (requestError is not null) return requestError;
     var document = PortableProjectImporter.Inspect(request.ProjectJson);
-    var project = document.Project;
-    var lyricLineCount = project.Sections.Count > 0
-        ? project.Sections.Sum(section => section.LyricLines.Count)
-        : project.RawLyricDraft.Split('\n').Count(line => !string.IsNullOrWhiteSpace(line));
-    return Results.Ok(new PortableProjectImportPreviewResponse(
-        project.Id,
-        project.Title,
-        project.Artist,
-        project.Genre,
-        document.SourceSchemaVersion,
-        SchemaVersion.Current.Value,
-        project.Sections.Count,
-        lyricLineCount,
-        !string.IsNullOrWhiteSpace(project.RawLyricDraft),
-        project.Sections.Select(section => section.Title).ToList(),
-        await repository.ProjectIdentityExistsAsync(project.Id, cancellationToken)));
+    return Results.Ok(CreatePortablePreview(document.Project, document.SourceSchemaVersion, await repository.ProjectIdentityExistsAsync(document.Project.Id, cancellationToken)));
 });
 
 app.MapPost("/api/projects/import", async (PortableProjectImportRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
@@ -191,6 +176,30 @@ app.MapPost("/api/projects/import", async (PortableProjectImportRequest request,
             : PortableProjectImporter.Import(request.ProjectJson);
         var editor = await workspace.ImportAsync(project, cancellationToken);
         return Results.Created($"/api/projects/{project.Id}", ProjectResponse.From(editor));
+    }
+    catch (InvalidOperationException exception)
+    {
+        return Results.Conflict(new ApiError(exception.Message));
+    }
+});
+
+app.MapPost("/api/projects/package-preview", async (HttpRequest request, IProjectRepository repository, CancellationToken cancellationToken) =>
+{
+    var package = await ReadPortablePackageAsync(request, cancellationToken);
+    if (package.Error is not null) return package.Error;
+    var document = PortableProjectPackage.Inspect(package.Bytes!);
+    return Results.Ok(CreatePortablePreview(document.Project, document.SourceSchemaVersion, await repository.ProjectIdentityExistsAsync(document.Project.Id, cancellationToken)));
+});
+
+app.MapPost("/api/projects/package-import", async (HttpRequest request, bool importAsCopy, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    var package = await ReadPortablePackageAsync(request, cancellationToken);
+    if (package.Error is not null) return package.Error;
+    try
+    {
+        var document = PortableProjectPackage.Inspect(package.Bytes!, importAsCopy);
+        var editor = await workspace.ImportWithAssetsAsync(document.Project, document.Assets, cancellationToken);
+        return Results.Created($"/api/projects/{document.Project.Id}", ProjectResponse.From(editor));
     }
     catch (InvalidOperationException exception)
     {
@@ -482,20 +491,36 @@ app.MapPost("/api/projects/{id}/midi-export", async (string id, MidiExportReques
     }
 });
 
-app.MapPost("/api/projects/{id}/portable-export", async (string id, PortableProjectExportRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+app.MapPost("/api/projects/{id}/portable-export", async (string id, PortableProjectExportRequest request, ProjectWorkspace workspace, IProjectRepository repository, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
     if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
     try
     {
-        var portableProject = await workspace.UseAsync(
-            projectId,
-            request.Project,
-            editor => PortableProjectExporter.Export(editor.Project),
-            cancellationToken);
-        return portableProject is null
-            ? Results.NotFound(new ApiError("Project not found."))
-            : Results.File(portableProject, PortableProjectExporter.ContentType, "maskil-forge-project.maskil.json");
+        var editor = await workspace.UseAsync(projectId, request.Project, current => current, cancellationToken);
+        if (editor is null) return Results.NotFound(new ApiError("Project not found."));
+        if (editor.Project.Assets.Count == 0)
+        {
+            return Results.File(
+                PortableProjectExporter.Export(editor.Project),
+                PortableProjectExporter.ContentType,
+                "maskil-forge-project.maskil.json");
+        }
+
+        var assets = new Dictionary<ProjectAssetId, byte[]>();
+        foreach (var asset in editor.Project.Assets)
+        {
+            await using var stream = await repository.OpenAssetAsync(editor.Project.Id, asset.Id, cancellationToken)
+                ?? throw new InvalidProjectDataException($"Project asset '{asset.Id}' is missing.");
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer, cancellationToken);
+            assets[asset.Id] = buffer.ToArray();
+        }
+
+        return Results.File(
+            PortableProjectPackage.Export(editor.Project, assets),
+            PortableProjectPackage.ContentType,
+            "maskil-forge-project.maskil");
     }
     catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
     {
@@ -816,6 +841,39 @@ static IResult? ValidatePortableProjectImport(PortableProjectImportRequest reque
         : null;
 }
 
+static async Task<(byte[]? Bytes, IResult? Error)> ReadPortablePackageAsync(HttpRequest request, CancellationToken cancellationToken)
+{
+    if (request.ContentLength is > PortableProjectPackage.MaximumByteLength)
+        return (null, Results.BadRequest(new ApiError("Asset-owning project packages cannot exceed 25 MB.")));
+    using var buffer = new MemoryStream();
+    await request.Body.CopyToAsync(buffer, cancellationToken);
+    if (buffer.Length > PortableProjectPackage.MaximumByteLength)
+        return (null, Results.BadRequest(new ApiError("Asset-owning project packages cannot exceed 25 MB.")));
+    if (buffer.Length == 0)
+        return (null, Results.BadRequest(new ApiError("Choose an asset-owning .maskil project package to import.")));
+    return (buffer.ToArray(), null);
+}
+
+static PortableProjectImportPreviewResponse CreatePortablePreview(SongProject project, int sourceSchemaVersion, bool identityConflict)
+{
+    var lyricLineCount = project.Sections.Count > 0
+        ? project.Sections.Sum(section => section.LyricLines.Count)
+        : project.RawLyricDraft.Split('\n').Count(line => !string.IsNullOrWhiteSpace(line));
+    return new PortableProjectImportPreviewResponse(
+        project.Id,
+        project.Title,
+        project.Artist,
+        project.Genre,
+        sourceSchemaVersion,
+        SchemaVersion.Current.Value,
+        project.Sections.Count,
+        lyricLineCount,
+        !string.IsNullOrWhiteSpace(project.RawLyricDraft),
+        project.Sections.Select(section => section.Title).ToList(),
+        identityConflict,
+        project.Assets.Count);
+}
+
 public sealed record CreateProjectRequest(
     string Title,
     bool IsDeviceLyricCapture = false,
@@ -855,7 +913,8 @@ public sealed record PortableProjectImportPreviewResponse(
     int LyricLineCount,
     bool HasRawLyrics,
     IReadOnlyList<string> SectionTitles,
-    bool IdentityConflict);
+    bool IdentityConflict,
+    int OriginalVocalCount);
 public sealed record LyricTimelineRequest(
     SongProject Project,
     RhythmCandidateId? RhythmCandidateId = null);

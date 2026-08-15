@@ -375,6 +375,7 @@ export interface PortableProjectImportPreview {
   hasRawLyrics: boolean
   sectionTitles: string[]
   identityConflict: boolean
+  originalVocalCount: number
 }
 
 export interface ProjectSummary {
@@ -502,6 +503,19 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return response.status === 204 ? undefined as T : response.json() as Promise<T>
 }
 
+async function requestBinary<T>(url: string, body: Blob, contentType: string): Promise<T> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': contentType },
+    body,
+  })
+  if (!response.ok) {
+    const error = await response.json().catch(() => null) as { error?: string } | null
+    throw new Error(error?.error ?? `Request failed with status ${response.status}.`)
+  }
+  return response.status === 204 ? undefined as T : response.json() as Promise<T>
+}
+
 async function requestBlob(url: string, init?: RequestInit): Promise<Blob> {
   const response = await fetch(url, {
     ...init,
@@ -620,6 +634,16 @@ export const projectsApi = {
   importPortableProject: (projectJson: string, importAsCopy: boolean) => request<ProjectResponse>('/api/projects/import', {
     method: 'POST', body: JSON.stringify({ projectJson, importAsCopy }),
   }),
+  previewPortablePackage: (packageBytes: Blob) => requestBinary<PortableProjectImportPreview>(
+    '/api/projects/package-preview',
+    packageBytes,
+    'application/vnd.maskil-forge.project+zip',
+  ),
+  importPortablePackage: (packageBytes: Blob, importAsCopy: boolean) => requestBinary<ProjectResponse>(
+    `/api/projects/package-import?importAsCopy=${importAsCopy}`,
+    packageBytes,
+    'application/vnd.maskil-forge.project+zip',
+  ),
   undo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/undo`, { method: 'POST', body: JSON.stringify({ project }) }),
   redo: (id: string, project: SongProject) => request<ProjectResponse>(`/api/projects/${id}/redo`, { method: 'POST', body: JSON.stringify({ project }) }),
 }

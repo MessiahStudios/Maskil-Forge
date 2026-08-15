@@ -101,6 +101,25 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         finally { gate.Release(); }
     }
 
+    public async Task<ProjectEditor> ImportWithAssetsAsync(
+        SongProject project,
+        IReadOnlyDictionary<ProjectAssetId, byte[]> assets,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(assets);
+        var gate = _editorLocks.GetOrAdd(project.Id, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            await repository.ImportWithAssetsAsync(project, assets, cancellationToken);
+            var editor = new ProjectEditor(project);
+            _editors[project.Id] = editor;
+            return editor;
+        }
+        finally { gate.Release(); }
+    }
+
     public async Task<ProjectEditor?> DuplicateAsync(ProjectId sourceId, CancellationToken cancellationToken)
     {
         var source = await repository.LoadAsync(sourceId, cancellationToken);
@@ -109,7 +128,18 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
             .Select(item => item.Title)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var copy = PortableProjectImporter.Duplicate(source, AvailableCopyTitle(source.Title, existingTitles));
-        return await ImportAsync(copy, cancellationToken);
+        if (source.Assets.Count == 0) return await ImportAsync(copy, cancellationToken);
+
+        var assets = new Dictionary<ProjectAssetId, byte[]>();
+        foreach (var asset in source.Assets)
+        {
+            await using var stream = await repository.OpenAssetAsync(source.Id, asset.Id, cancellationToken)
+                ?? throw new InvalidProjectDataException($"Project asset '{asset.Id}' is missing.");
+            using var buffer = new MemoryStream();
+            await stream.CopyToAsync(buffer, cancellationToken);
+            assets[asset.Id] = buffer.ToArray();
+        }
+        return await ImportWithAssetsAsync(copy, assets, cancellationToken);
     }
 
     public async Task SaveAsync(ProjectEditor editor, CancellationToken cancellationToken) =>

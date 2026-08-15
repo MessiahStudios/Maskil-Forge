@@ -136,16 +136,61 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
     public async Task ImportAsync(SongProject project, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
+        if (project.Assets.Count > 0)
+            throw new InvalidOperationException(
+                "This project references external media. Import an asset-owning .maskil package instead.");
+        await ImportCoreAsync(project, null, cancellationToken);
+    }
+
+    public async Task ImportWithAssetsAsync(
+        SongProject project,
+        IReadOnlyDictionary<ProjectAssetId, byte[]> assets,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(assets);
+        PortableProjectPackage.ValidateCompleteAssetSet(project, assets);
+        await ImportCoreAsync(project, assets, cancellationToken);
+    }
+
+    private async Task ImportCoreAsync(
+        SongProject project,
+        IReadOnlyDictionary<ProjectAssetId, byte[]>? assets,
+        CancellationToken cancellationToken)
+    {
         var projectLock = _projectLocks.GetOrAdd(project.Id, _ => new SemaphoreSlim(1, 1));
         await projectLock.WaitAsync(cancellationToken);
+        var assetDirectory = GetAssetDirectory(GetPath(project.Id));
+        var temporaryDirectory = assetDirectory + $".tmp-{Guid.NewGuid():N}";
         try
         {
             if (ProjectIdentityExists(project.Id))
                 throw new InvalidOperationException(
                     "A project with this identity already exists in the song library, Trash, backup, or recovery data. Nothing was overwritten.");
-            await SaveWithoutLockAsync(project, cancellationToken);
+            if (assets is { Count: > 0 })
+            {
+                Directory.CreateDirectory(temporaryDirectory);
+                foreach (var asset in project.Assets)
+                {
+                    var path = GetAssetPath(temporaryDirectory, asset.Id);
+                    await File.WriteAllBytesAsync(path, assets[asset.Id], cancellationToken);
+                    await ValidateAssetFileAsync(asset, path, cancellationToken);
+                }
+                DeleteAssetDirectory(assetDirectory);
+                Directory.Move(temporaryDirectory, assetDirectory);
+            }
+            try { await SaveWithoutLockAsync(project, cancellationToken); }
+            catch
+            {
+                DeleteAssetDirectory(assetDirectory);
+                throw;
+            }
         }
-        finally { projectLock.Release(); }
+        finally
+        {
+            DeleteAssetDirectory(temporaryDirectory);
+            projectLock.Release();
+        }
     }
 
     public Task<bool> ProjectIdentityExistsAsync(ProjectId id, CancellationToken cancellationToken = default)

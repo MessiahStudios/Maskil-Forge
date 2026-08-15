@@ -25,13 +25,28 @@ public static class PortableProjectImporter
     {
         ArgumentNullException.ThrowIfNull(project);
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("A copy title is required.", nameof(title));
-        var json = System.Text.Encoding.UTF8.GetString(PortableProjectExporter.Export(project));
+        var json = System.Text.Encoding.UTF8.GetString(PortableProjectExporter.SerializeDocument(project));
         var document = ProjectMigrationPipeline.Parse(json);
         ApplyCopyIdentity(document, title.Trim());
-        return Import(document.ToJsonString());
+        return InspectDocument(document.ToJsonString()).Project;
     }
 
     public static PortableProjectDocument Inspect(string json, bool importAsCopy = false)
+    {
+        var document = InspectDocument(json, importAsCopy);
+        if (document.Project.Assets.Count > 0)
+            throw new InvalidProjectDataException(
+                "This .maskil.json file references external media without carrying its bytes. Import an asset-owning .maskil package instead.");
+        return document;
+    }
+
+    internal static PortableProjectDocument InspectDocument(byte[] utf8Json, bool importAsCopy = false)
+    {
+        ArgumentNullException.ThrowIfNull(utf8Json);
+        return InspectDocument(System.Text.Encoding.UTF8.GetString(utf8Json), importAsCopy);
+    }
+
+    internal static PortableProjectDocument InspectDocument(string json, bool importAsCopy = false)
     {
         if (string.IsNullOrWhiteSpace(json))
             throw new InvalidProjectDataException("The portable project file is empty.");
@@ -44,9 +59,6 @@ public static class PortableProjectImporter
             if (importAsCopy) ApplyCopyIdentity(normalized, ImportedCopyTitle(normalized));
             var project = normalized.Deserialize<SongProject>(JsonOptions)
                 ?? throw new InvalidProjectDataException("The portable project file contains no project data.");
-            if (project.Assets.Count > 0)
-                throw new InvalidProjectDataException(
-                    "This .maskil.json file references external media without carrying its bytes. Import an asset-owning project package instead.");
             return new PortableProjectDocument(project, sourceSchemaVersion);
         }
         catch (ProjectPersistenceException) { throw; }

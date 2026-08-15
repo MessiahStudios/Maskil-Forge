@@ -18,12 +18,18 @@ public static class PortableProjectExporter
 
     public const string ContentType = "application/vnd.maskil-forge.project+json";
 
+    public static byte[] SerializeDocument(SongProject project)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        return JsonSerializer.SerializeToUtf8Bytes(project, JsonOptions);
+    }
+
     public static byte[] Export(SongProject project)
     {
         ArgumentNullException.ThrowIfNull(project);
         if (project.Assets.Count > 0)
             throw new InvalidOperationException(
-                "This project references external media. Legacy .maskil.json export cannot carry original recordings; use the future asset-owning project package instead.");
-        return JsonSerializer.SerializeToUtf8Bytes(project, JsonOptions);
+                "This project references external media. Legacy .maskil.json export cannot carry original recordings; export an asset-owning .maskil package instead.");
+        return SerializeDocument(project);
     }
 }
