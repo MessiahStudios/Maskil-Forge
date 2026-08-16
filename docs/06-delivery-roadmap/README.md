@@ -702,9 +702,9 @@ Begin a desktop-shell experiment only after performance work identifies a concre
 
 ## Milestone 6 — Voice performance capture
 
-Build recording, pitch/onset/loudness extraction, gesture editing, voice-to-MIDI, and expression curves. Captured gestures may drive editable musical or instrument-performance data. They do not generate or replace the artist's lead vocal.
+Build recording, pitch/onset/loudness extraction, extensible `PerformanceObservation` data, gesture editing, voice-to-MIDI, and expression curves. Each observation retains confidence, analyzer identity and version, source-asset identity, and analyzer provenance. Observations remain separate from artist-corrected or approved Song Graph decisions. Captured gestures may drive editable musical or instrument-performance data. They do not generate or replace the artist's lead vocal.
 
-**Deliverable:** humming or singing can control musical material while the human lead vocal remains the authoritative performance.
+**Deliverable:** humming or singing produces inspectable, attributable observations that can control musical material through explicit artist-reviewed commands, while the human lead vocal remains the authoritative performance.
 
 ## Milestone 7 — Instrument intelligence
 
@@ -726,9 +726,9 @@ Build guide vocals, lyric highlighting, take management, punch-in, comping, pitc
 
 ## Milestone 10 — AI director
 
-Expose tested engine functions as typed tools, add intent interpretation, plan preview, command validation, explanations, and conversational revision.
+Expose tested engine functions as typed tools, add intent interpretation, structured musical and performance observations as reasoning inputs, plan preview, command validation, explanations, and conversational revision. Any direct audio-capable model interpretation is supplemental, carries confidence and provenance, and cannot replace structured observations or artist review.
 
-**Deliverable:** natural language safely directs the same operations available in the UI.
+**Deliverable:** natural language safely directs the same operations available in the UI, and analyzer-informed proposals expose their evidence and uncertainty before acceptance.
 
 ## Milestone 11 — Mix, export, and release workflow
 

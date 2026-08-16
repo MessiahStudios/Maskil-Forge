@@ -44,12 +44,29 @@ The repository now supplies the local half of the media lifecycle. It accepts a 
 ## Performance capture pipeline
 
 ```text
-Recorded voice -> Pitch/onset/loudness analysis -> Gesture data
+Recorded voice -> Deterministic analyzers -> Performance observations
+               -> Artist correction/approval -> Gesture data
                -> Editable notes and curves -> Instrument retargeter
                -> MIDI, bends, expression, and articulations
 ```
 
 Voice analysis may update editable Song Graph material only through explicit, reversible commands. A hummed or sung gesture can control instruments without becoming a substitute lead vocal.
+
+### Performance observations
+
+`PerformanceObservation` is the general boundary between source audio and musical reasoning. Initial observation kinds may describe pitch contour, onset, duration, loudness, timing, and prosody. The model must remain extensible to later timbre, spectral, transient, dynamic, masking, and stereo descriptors without making any one analyzer or audio model canonical.
+
+Each observation should identify:
+
+- The measured value and its time span or source position
+- A confidence value or explicit unavailable-confidence state
+- The analyzer identity and version that produced it
+- The immutable source asset ID from which it was derived
+- Analyzer provenance, with any later artist correction or approval recorded separately
+
+Observations are evidence, not artist decisions. They must remain distinguishable from corrected gesture data, accepted notes and curves, and other authoritative Song Graph material. Low-confidence results may be shown, compared, corrected, or rejected; they must not silently become creative truth.
+
+The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting
 
