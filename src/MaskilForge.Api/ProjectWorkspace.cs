@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 using MaskilForge.Domain;
 using MaskilForge.Engine;
 using MaskilForge.Infrastructure;
@@ -118,6 +119,47 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
             return editor;
         }
         finally { gate.Release(); }
+    }
+
+    public async Task<ProjectEditor?> AddOriginalVocalTakeAsync(
+        ProjectId id,
+        DateTimeOffset expectedLastModifiedUtc,
+        string mediaType,
+        byte[] content,
+        DateTimeOffset createdUtc,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+        var saveLock = _saveLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            var editorLock = _editorLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+            await editorLock.WaitAsync(cancellationToken);
+            try
+            {
+                var project = await repository.LoadAsync(id, cancellationToken);
+                if (project is null) return null;
+                if (project.LastModifiedUtc != expectedLastModifiedUtc)
+                    throw new StaleProjectSessionException();
+
+                var asset = new ProjectAsset(
+                    ProjectAssetId.New(),
+                    ProjectAssetKind.OriginalVocalTake,
+                    mediaType,
+                    content.LongLength,
+                    Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant(),
+                    createdUtc);
+                project.RegisterAsset(asset);
+                await repository.SaveWithAssetAsync(project, asset, new MemoryStream(content, writable: false), cancellationToken);
+
+                var editor = new ProjectEditor(project);
+                _editors[id] = editor;
+                return editor;
+            }
+            finally { editorLock.Release(); }
+        }
+        finally { saveLock.Release(); }
     }
 
     public async Task<ProjectEditor?> DuplicateAsync(ProjectId sourceId, CancellationToken cancellationToken)

@@ -194,6 +194,18 @@ button.journey-step:hover:not(:disabled) { border-color: #6e755f; background: #2
 .microphone-preflight-status { display: grid; gap: .15rem; padding: .7rem .75rem; color: #d8d0c1; background: #20241e; border-left: 3px solid #b59a5c; }
 .microphone-preflight-status.ready { color: #cfe0c1; border-left-color: #7fa36c; }
 .microphone-preflight-status.unavailable { color: #e0c2b8; border-left-color: #b46f59; }
+.rough-vocal-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
+.rough-vocal-actions button { min-height: 2.7rem; }
+.recording-stop { animation: recording-pulse 1.4s ease-in-out infinite; }
+.rough-vocal-review, .saved-vocal-takes { display: grid; gap: .7rem; padding: .8rem; background: #10130f; border: 1px solid #596550; border-radius: .45rem; }
+.rough-vocal-review h4, .saved-vocal-takes h4 { margin: 0; color: #eee3d0; font: 1.05rem Georgia, serif; }
+.rough-vocal-review audio, .saved-vocal-takes audio { width: 100%; }
+.saved-vocal-takes ol { display: grid; gap: .75rem; margin: 0; padding: 0; list-style: none; }
+.saved-vocal-takes li { display: grid; gap: .45rem; padding-top: .7rem; border-top: 1px solid #343b31; }
+.saved-vocal-takes li:first-child { padding-top: 0; border-top: 0; }
+.saved-vocal-takes li > div { display: flex; justify-content: space-between; gap: .75rem; }
+.saved-vocal-takes small { color: #99998f; }
+@keyframes recording-pulse { 50% { box-shadow: 0 0 0 .25rem rgba(180, 111, 89, .18); } }
 .phone-capture-boundary { display: grid; gap: .25rem; padding: .8rem .9rem; color: #c9c3b7; background: #211d15; border: 1px solid #79683f; border-radius: .5rem; font-size: .84rem; line-height: 1.5; }
 .phone-capture-boundary strong { color: #ecd79e; }
 .phone-approve-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
@@ -703,7 +715,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .creator-journey li::after { display: none; }
   .creator-journey.phone-capture { grid-template-columns: 1fr; padding: .55rem .65rem; }
   .creator-journey.phone-capture ol { grid-template-columns: repeat(3, 1fr); }
-  .phone-approve-actions, .phone-approve-actions button, .microphone-preflight > button { width: 100%; }
+  .phone-approve-actions, .phone-approve-actions button, .microphone-preflight > button, .rough-vocal-actions, .rough-vocal-actions button { width: 100%; }
+  .saved-vocal-takes li > div { align-items: start; flex-direction: column; gap: .2rem; }
   .phone-readiness, .phone-review, .phone-approve, .song-canvas, .capture-heading, .capture-actions { scroll-margin-top: 7rem; }
   .phone-readiness li { align-items: start; flex-direction: column; gap: .2rem; }
   .phone-capture .phone-readiness { padding: .65rem .75rem; gap: .4rem; margin: 0 0 .75rem; }

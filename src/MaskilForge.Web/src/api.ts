@@ -563,6 +563,12 @@ export const projectsApi = {
   save: (project: SongProject, baseProjectLastModifiedUtc: string) => request<ProjectResponse>(`/api/projects/${project.id}`, {
     method: 'PUT', body: JSON.stringify({ project, baseProjectLastModifiedUtc }),
   }),
+  saveOriginalVocalTake: (id: string, baseProjectLastModifiedUtc: string, recording: Blob) => requestBinary<ProjectResponse>(
+    `/api/projects/${id}/vocal-takes?baseProjectLastModifiedUtc=${encodeURIComponent(baseProjectLastModifiedUtc)}`,
+    recording,
+    recording.type || 'audio/webm',
+  ),
+  originalVocalTakeUrl: (id: string, assetId: string) => `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}`,
   command: (id: string, project: SongProject, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {
     method: 'POST', body: JSON.stringify({ ...command, project }),
   }),

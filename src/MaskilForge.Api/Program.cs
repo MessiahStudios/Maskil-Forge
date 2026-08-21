@@ -254,6 +254,57 @@ app.MapGet("/api/projects/{id}", async (string id, ProjectWorkspace workspace, C
     return editor is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(ProjectResponse.From(editor));
 });
 
+app.MapGet("/api/projects/{id}/vocal-takes/{assetId}", async (
+    string id,
+    string assetId,
+    IProjectRepository repository,
+    CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId) || !Guid.TryParse(assetId, out var assetGuid))
+        return Results.BadRequest(new ApiError("Invalid project or vocal-take ID."));
+
+    var project = await repository.LoadAsync(projectId, cancellationToken);
+    var asset = project?.Assets.SingleOrDefault(item => item.Id.Value == assetGuid && item.Kind == ProjectAssetKind.OriginalVocalTake);
+    if (asset is null) return Results.NotFound(new ApiError("Rough vocal take not found."));
+    var stream = await repository.OpenAssetAsync(projectId, asset.Id, cancellationToken);
+    return stream is null
+        ? Results.NotFound(new ApiError("Rough vocal take not found."))
+        : Results.Stream(stream, asset.MediaType, enableRangeProcessing: true);
+});
+
+app.MapPost("/api/projects/{id}/vocal-takes", async (
+    string id,
+    DateTimeOffset baseProjectLastModifiedUtc,
+    HttpRequest request,
+    ProjectWorkspace workspace,
+    CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId))
+        return Results.BadRequest(new ApiError("Invalid project ID."));
+    try
+    {
+        var mediaType = OriginalVocalTakeUpload.NormalizeMediaType(request.ContentType);
+        var content = await OriginalVocalTakeUpload.ReadAsync(
+            request.Body,
+            request.ContentLength,
+            cancellationToken);
+        var editor = await workspace.AddOriginalVocalTakeAsync(
+            projectId,
+            baseProjectLastModifiedUtc,
+            mediaType,
+            content,
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+        return editor is null
+            ? Results.NotFound(new ApiError("Project not found."))
+            : Results.Ok(ProjectResponse.From(editor));
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new ApiError(exception.Message));
+    }
+});
+
 app.MapPut("/api/projects/{id}", async (string id, UpdateProjectRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId) || projectId != request.Project.Id)
