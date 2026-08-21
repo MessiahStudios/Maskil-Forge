@@ -1,3 +1,5 @@
+import { activityLogDeviceKind } from './remoteActivityLogModel.js'
+
 export type LogLevel = 'info' | 'success' | 'warning' | 'error'
 
 export interface LogEntry {
@@ -11,7 +13,14 @@ export interface LogEntry {
 
 const storageKey = 'maskilForge.activityLog.v1'
 const channelName = 'maskilForge.activityLog'
+const remoteSessionKey = 'maskilForge.remoteActivityLogSession.v1'
 const maximumEntries = 1_000
+const maximumRemoteQueue = 1_000
+
+let remoteEnabled = false
+let remoteSending = false
+let remoteTimer: number | undefined
+let remoteQueue: LogEntry[] = []
 
 function readStoredEntries(): LogEntry[] {
   try {
@@ -34,21 +43,89 @@ function publish(type: 'changed' | 'cleared') {
   }
 }
 
+function remoteSessionId() {
+  const existing = sessionStorage.getItem(remoteSessionKey)
+  if (existing) return existing
+  const created = crypto.randomUUID()
+  sessionStorage.setItem(remoteSessionKey, created)
+  return created
+}
+
+function remoteClientContext() {
+  const coarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
+  return {
+    sessionId: remoteSessionId(),
+    deviceKind: activityLogDeviceKind(window.innerWidth, window.innerHeight, coarsePointer),
+    viewportWidth: Math.max(1, Math.round(window.innerWidth)),
+    viewportHeight: Math.max(1, Math.round(window.innerHeight)),
+    standalone: window.matchMedia?.('(display-mode: standalone)').matches ?? false,
+  }
+}
+
+function enqueueRemote(entry: LogEntry) {
+  if (!remoteEnabled) return
+  remoteQueue.push(entry)
+  if (remoteQueue.length > maximumRemoteQueue) remoteQueue = remoteQueue.slice(-maximumRemoteQueue)
+  if (remoteTimer !== undefined) return
+  remoteTimer = window.setTimeout(() => {
+    remoteTimer = undefined
+    void flushRemote()
+  }, 150)
+}
+
+async function flushRemote() {
+  if (!remoteEnabled || remoteSending || remoteQueue.length === 0) return
+  remoteSending = true
+  const entries = remoteQueue.splice(0, 100)
+  try {
+    const response = await fetch('/api/dev/activity-logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...remoteClientContext(), entries }),
+      keepalive: true,
+    })
+    if (!response.ok) throw new Error(`Remote activity logging failed with status ${response.status}.`)
+  } catch {
+    remoteQueue = [...entries, ...remoteQueue].slice(-maximumRemoteQueue)
+    remoteEnabled = false
+  } finally {
+    remoteSending = false
+    if (remoteEnabled && remoteQueue.length > 0) void flushRemote()
+  }
+}
+
 export const activityLog = {
   read: readStoredEntries,
 
+  configureRemote(enabled: boolean) {
+    if (!enabled) {
+      remoteEnabled = false
+      if (remoteTimer !== undefined) window.clearTimeout(remoteTimer)
+      remoteTimer = undefined
+      return
+    }
+    if (remoteEnabled) return
+    remoteEnabled = true
+    this.write('info', 'development.remote-logging', 'This browser session is now visible in the development activity console.', {
+      deviceKind: remoteClientContext().deviceKind,
+      standalone: remoteClientContext().standalone,
+    })
+  },
+
   write(level: LogLevel, action: string, message: string, details?: LogEntry['details']) {
     const entries = readStoredEntries()
-    entries.push({
+    const entry = {
       id: crypto.randomUUID(),
       timestamp: new Date().toISOString(),
       level,
       action,
       message,
       details,
-    })
+    }
+    entries.push(entry)
     writeStoredEntries(entries)
     publish('changed')
+    enqueueRemote(entry)
   },
 
   clear() {

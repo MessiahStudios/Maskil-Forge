@@ -361,6 +361,7 @@ export interface WorkspaceHealth {
   persistence: 'local-host'
   schemaVersion: number
   webClientHosted: boolean
+  remoteActivityLoggingEnabled: boolean
 }
 
 export interface PortableProjectImportPreview {

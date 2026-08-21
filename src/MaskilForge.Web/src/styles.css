@@ -714,7 +714,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .song-transport { grid-template-columns: 1fr; }
   .chord-audition, .part-audition { grid-template-columns: 1fr; }
   .trash-hygiene-note strong, .recovery-cap-warning strong { white-space: normal; }
-  .card-menu-panel { left: 0; right: auto; width: min(210px, calc(100vw - 2.5rem)); }
+  .card-menu-panel { left: auto; right: 0; width: min(210px, calc(100vw - 2.5rem)); }
   .note-event-form { grid-template-columns: 1fr 1fr; }
   .midi-export-panel { grid-template-columns: 1fr; }
   .midi-export-panel button { justify-self: start; }
