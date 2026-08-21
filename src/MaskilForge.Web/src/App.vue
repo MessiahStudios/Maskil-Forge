@@ -1198,6 +1198,7 @@ async function refreshWorkspaceHealth() {
   const previousConnection = workspaceConnection.value
   try {
     workspaceHealth.value = await projectsApi.health()
+    activityLog.configureRemote(workspaceHealth.value.remoteActivityLoggingEnabled)
     workspaceConnection.value = 'ready'
     if (previousConnection === 'unavailable') {
       activityLog.write('success', 'delivery.workspace', 'Local project service reconnected.', {
@@ -1208,6 +1209,7 @@ async function refreshWorkspaceHealth() {
     await refreshBrowserRecovery()
     await syncBrowserRecovery()
   } catch {
+    activityLog.configureRemote(false)
     workspaceHealth.value = null
     workspaceConnection.value = 'unavailable'
     if (previousConnection !== 'unavailable') {

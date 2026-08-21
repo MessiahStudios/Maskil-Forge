@@ -660,6 +660,14 @@ Keep browser-owned lyric captures uncapped and preserve their newest-saved-first
 
 **Deliverable:** offline lyric captures remain manageable as they accumulate without a silent cap, expiry rule, or cleanup process deciding which words matter.
 
+### Milestone 5.64 — Stable host library boundary
+
+Keep the local host's authoritative library outside browser-managed storage and outside a packaged application's replaceable installation files. Development continues using the API's ignored `App_Data/projects` directory so existing test songs do not move unexpectedly. A non-development host defaults to the operating system's per-user application-data directory, and an explicit absolute `MaskilForge:LibraryPath` setting can select another artist-controlled location without making the process working directory part of persistence identity.
+
+A connected phone or installed PWA continues reading and saving that same host-owned library through the API; IndexedDB remains limited to recovery, view-only saved snapshots, and browser-owned lyric captures. This slice does not copy the complete library onto the phone, synchronize two authoritative libraries, or merge a device capture into an existing song. That future paired-device handoff must define project identity, base revision, conflicts, and artist review before it changes an existing host song.
+
+**Deliverable:** packaged-host upgrades and application relocation cannot silently move the authoritative song library, while development data stays compatible and every client retains one honest storage authority.
+
 ### Milestone 6.1 — Explicit microphone preflight
 
 Begin the human-performance path without prematurely creating unmanaged audio assets. Phone Review exposes an artist-triggered microphone check only when the app is in a secure, MediaRecorder-capable browser. The check requests permission, confirms at least one live audio input, immediately stops every acquired track, and reports permission, missing-device, and busy-device failures distinctly. It records, uploads, and saves no audio and logs no device label. Review and Approve remain focused read-and-decide destinations instead of rendering the editable Shape workspace beneath them.
@@ -689,6 +697,12 @@ This slice changes repository durability, not the recording experience. It adds 
 Define package format version 1 as a `.maskil` archive that carries `maskil-package.json`, the Song Graph as `project.json`, and each manifest-referenced original vocal as `assets/{id}.bin`. Export reads repository-owned bytes, verifies exact length and SHA-256, and refuses missing, extra, or mismatched media. Import migrates `project.json`, verifies every referenced byte, and persists the project with its assets without overwriting an existing identity. JSON-only `.maskil.json` files still refuse referenced media. Local saved-song duplication copies verified asset bytes into the new project identity. This slice adds no recording, playback, analysis, or microphone capture.
 
 **Deliverable:** an artist can move a project that already owns original vocal bytes between Maskil Forge installations without leaving the singer's recording behind, while JSON-only files stay honest about what they cannot carry.
+
+### Milestone 6 development gate — Remote-device activity relay
+
+Before rough recording is debugged on real phones, let a Development host receive the browser's existing structured activity entries and expose its bounded in-memory device sessions in the activity console. Sessions identify only phone, tablet, or desktop display context, viewport size, and installed-versus-browser mode. They carry no audio bytes, microphone label, persistent device identity, project mutation, or production telemetry. The relay retains at most sixteen current sessions and one thousand entries per session, disappears on host restart, and is not mapped outside the Development environment.
+
+**Deliverable:** while interacting with Maskil Forge on a phone through a secure development origin, a developer can select that transient phone session on the host's activity console and follow its compatibility and microphone-state events without handling the phone's audio or treating telemetry as project data.
 
 ## Delivery foundation — Portable before platform-specific
 

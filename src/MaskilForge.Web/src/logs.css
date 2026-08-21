@@ -2,12 +2,14 @@
 .console-toolbar { position: sticky; z-index: 10; top: 0; display: flex; justify-content: space-between; align-items: end; gap: 2rem; padding: 1.25rem 0; background: color-mix(in srgb, #121411 94%, transparent); border-bottom: 1px solid #42473e; backdrop-filter: blur(12px); }
 .console-toolbar h1 { margin: .1rem 0; font-family: Georgia, serif; font-size: clamp(2rem, 5vw, 3.8rem); font-weight: 500; letter-spacing: -.04em; }
 .console-toolbar p { margin: 0; color: #8f9487; }
+.console-source-detail { display: block; max-width: 680px; margin-top: .45rem; color: #a7ad9f; }
 .console-controls { display: flex; align-items: end; gap: .6rem; flex-wrap: wrap; justify-content: end; }
 .console-controls label { min-width: 135px; }
 .console-link { display: inline-flex; align-items: center; min-height: 42px; color: #d8ba78; text-decoration: none; padding: 0 .4rem; }
 .clear-logs { color: #fff7f5; background: #a83f35; border-color: #d9786d; box-shadow: 0 0 0 1px rgba(255, 194, 184, .08), 0 5px 16px rgba(83, 18, 12, .35); }
 .clear-logs:hover { background: #c34d42; border-color: #f09a90; }
 .clear-logs:focus-visible { outline: 3px solid #f2b0a8; outline-offset: 2px; }
+.console-operation-status { flex-basis: 100%; min-height: 1.2em; color: #c8c1b3; font-size: .78rem; text-align: right; }
 .console-stream { display: grid; gap: .6rem; padding: 1.25rem 0 5rem; }
 .console-empty { padding: 3rem 1rem; color: #848a7e; text-align: center; border: 1px dashed #3c4138; border-radius: .4rem; }
 .log-entry { display: grid; grid-template-columns: 190px minmax(180px, .5fr) auto minmax(240px, 2fr); gap: 1rem; align-items: start; padding: .9rem 1rem; border: 1px solid #30352d; border-left: 3px solid #6f7669; background: #171916; border-radius: .25rem; }
@@ -20,4 +22,4 @@
 .level-warning { border-left-color: #d8ba78; }
 .level-error { border-left-color: #c66f61; }
 .level-info { border-left-color: #7896aa; }
-@media (max-width: 850px) { .console-toolbar { align-items: stretch; flex-direction: column; } .console-controls { justify-content: start; } .log-entry { grid-template-columns: 1fr auto; } .log-entry time, .log-entry p, .log-entry pre { grid-column: 1 / -1; } }
+@media (max-width: 850px) { .console-toolbar { align-items: stretch; flex-direction: column; } .console-controls { justify-content: start; } .console-operation-status { text-align: left; } .log-entry { grid-template-columns: 1fr auto; } .log-entry time, .log-entry p, .log-entry pre { grid-column: 1 / -1; } }

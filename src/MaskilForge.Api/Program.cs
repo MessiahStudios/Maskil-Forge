@@ -8,11 +8,16 @@ using MaskilForge.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 var webClient = WebClientDistribution.Locate(builder.Environment.ContentRootPath);
+var projectLibraryPath = ProjectLibraryPath.Resolve(
+    builder.Environment.ContentRootPath,
+    builder.Environment.IsDevelopment(),
+    builder.Configuration["MaskilForge:LibraryPath"]);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddSingleton<IProjectRepository>(_ =>
-    new JsonFileProjectRepository(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "projects")));
+    new JsonFileProjectRepository(projectLibraryPath));
 builder.Services.AddSingleton<ProjectWorkspace>();
+builder.Services.AddSingleton<DevelopmentActivityLogStore>();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173").AllowAnyHeader().AllowAnyMethod()));
 
@@ -50,7 +55,39 @@ app.MapGet("/api/health", () => Results.Ok(new WorkspaceHealthResponse(
     "ready",
     "local-host",
     SchemaVersion.Current.Value,
-    webClient.IsAvailable)));
+    webClient.IsAvailable,
+    app.Environment.IsDevelopment())));
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapPost("/api/dev/activity-logs", (
+        DevelopmentActivityLogSubmission submission,
+        DevelopmentActivityLogStore logs) =>
+    {
+        logs.Append(submission, DateTimeOffset.UtcNow);
+        return Results.NoContent();
+    });
+
+    app.MapGet("/api/dev/activity-logs/sessions", (DevelopmentActivityLogStore logs) =>
+        Results.Ok(logs.ListSessions()));
+
+    app.MapGet("/api/dev/activity-logs/sessions/{sessionId:guid}", (
+        Guid sessionId,
+        DevelopmentActivityLogStore logs) =>
+    {
+        var session = logs.ReadSession(sessionId);
+        return session is null
+            ? Results.NotFound(new ApiError("Development activity log session not found."))
+            : Results.Ok(session);
+    });
+
+    app.MapDelete("/api/dev/activity-logs/sessions/{sessionId:guid}", (
+        Guid sessionId,
+        DevelopmentActivityLogStore logs) =>
+        logs.RemoveSession(sessionId)
+            ? Results.NoContent()
+            : Results.NotFound(new ApiError("Development activity log session not found.")));
+}
 
 app.MapGet("/api/projects", async (IProjectRepository repository, CancellationToken cancellationToken) =>
     Results.Ok(await repository.ListAsync(cancellationToken)));
@@ -973,7 +1010,8 @@ public sealed record WorkspaceHealthResponse(
     string Status,
     string Persistence,
     int SchemaVersion,
-    bool WebClientHosted);
+    bool WebClientHosted,
+    bool RemoteActivityLoggingEnabled);
 public sealed record ProjectResponse(SongProject Project, bool CanUndo, bool CanRedo)
 {
     public static ProjectResponse From(ProjectEditor editor) => new(editor.Project, editor.CanUndo, editor.CanRedo);

@@ -17,6 +17,9 @@ Maskil Forge is web-first and local-first. One canonical Song Graph, command mod
 - An installable PWA will provide the broad composition, capture, review, and approval surface across phones and computers.
 - A portable, versioned Maskil project package with explicit import and export precedes accounts or cloud synchronization.
 - Local/offline storage is a supported product behavior, not merely a temporary development implementation.
+- The local host owns the authoritative project library on its filesystem. Development keeps that library in the API's ignored `App_Data/projects` directory; a packaged host defaults to the operating system's per-user application-data directory and may be given an explicit absolute library path.
+- A phone or other browser connected to that host reads and writes the same host-owned library through the API. Installing the PWA does not create a second authoritative project library or enlarge browser storage into a user-visible filesystem.
+- Browser IndexedDB has three deliberately subordinate roles: dirty-session recovery, view-only saved snapshots, and browser-owned lyric captures. A disconnected lyric capture becomes host-owned only through an explicit durable handoff.
 - A future desktop shell may extend the same web client where proven native requirements demand it, including audio interfaces, low-latency monitoring, MIDI hardware, native files, VST3 hosting, and offline rendering.
 - The phone experience is deliberately scoped to idea capture, words, structure, rough human-vocal capture, review, and approval. It is not a miniature DAW.
 - Cloud backup and device synchronization remain optional future services. Neither is required to open, edit, move, or recover a project.
@@ -32,6 +35,8 @@ The Song Graph and Maskil Engine must not assume a UI toolkit, browser, desktop 
 - Native bridges expose capability adapters around the shared application rather than forking composition logic.
 - Features declare capability requirements so unavailable native functions can be explained or deferred without hiding the rest of the project.
 - Optional synchronization must build on portable project semantics and define conflict handling; it must not become the only authoritative copy.
+- A connected phone save depends on the selected local host being reachable. Offline browser captures remain vulnerable to that browser profile being cleared until they are handed off or exported; the interface must continue to state that boundary.
+- Attaching a browser capture to an existing song requires an explicit identity, revision, and conflict policy. The current handoff creates a new song and must not silently merge lyrics into an existing project.
 - Desktop packaging should begin only after a required production workflow has been tested and shown to exceed dependable browser capability.
 
 ## Delivery order
