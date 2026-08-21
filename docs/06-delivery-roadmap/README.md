@@ -704,6 +704,16 @@ Before rough recording is debugged on real phones, let a Development host receiv
 
 **Deliverable:** while interacting with Maskil Forge on a phone through a secure development origin, a developer can select that transient phone session on the host's activity console and follow its compatibility and microphone-state events without handling the phone's audio or treating telemetry as project data.
 
+### Milestone 6.5 — Durable rough-vocal capture
+
+Let an artist record one rough vocal take at a time from phone Review through an explicit MediaRecorder action, with a one-minute browser limit and a 25 MB host limit. The browser closes every microphone track after stop, keeps the resulting audio only in tab memory, and requires playback review before Save take uploads anything. Discard removes that temporary take without changing the Song Graph or host library.
+
+Saving requires a connected host and an explicitly saved project revision. The host validates the recording media type and size, computes SHA-256 itself, registers a fresh `OriginalVocalTake` manifest entry, and commits the immutable bytes through the existing asset-owning repository transaction. A stale project revision rejects the attachment without registering or writing an asset, while the reviewed browser recording remains available for retry. Saved takes can be played from their verified repository bytes and travel through backup, recovery, Trash, duplication, permanent deletion, and `.maskil` package export.
+
+This slice adds no trimming, naming, take deletion independent of the project, section/timeline placement, waveform, pitch or onset analysis, transcription, comping, effects, background upload, offline recording, or audio telemetry. Activity logs may report capture state, review playback, duration, format, and byte length but never carry microphone labels or audio bytes. A secure HTTPS origin grants microphone capability; it does not authorize access to the project service. Any internet-reachable development tunnel must add an access policy before it carries private lyrics or vocal performances.
+
+**Deliverable:** a phone or computer can create the first artist-reviewed original vocal asset without weakening project revision safety, portability, or human-performance authority.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

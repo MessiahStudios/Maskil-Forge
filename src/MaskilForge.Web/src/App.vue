@@ -24,6 +24,7 @@ import { filterProjectLibrary, libraryRecentLimit, libraryResultStats, projectLi
 import { buildTrashQueue, filterTrashQueue, trashAgeLabel, trashOldDays, trashRecentLimit, trashResultStats } from './trashHygieneModel.js'
 import { microphonePreflightFailure, verifyMicrophoneInput, vocalCaptureSupport } from './vocalCapturePreflight.js'
 import { isPortableProjectPackage, portableExportFileName, portableImportLimit, portableImportLimitMessage } from './portableProjectPackage.js'
+import { beginRoughVocalCapture, formatRoughVocalBytes, formatRoughVocalDuration, roughVocalMaximumByteLength, roughVocalMaximumDurationMs, type CapturedRoughVocal, type RoughVocalCaptureSession } from './roughVocalCapture.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -47,6 +48,11 @@ const roughVocalSupport = vocalCaptureSupport(window)
 const microphonePreflightState = ref<'idle' | 'checking' | 'ready' | 'failed'>('idle')
 const microphonePreflightLabel = ref('')
 const microphonePreflightMessage = ref('')
+const roughVocalCaptureState = ref<'idle' | 'requesting' | 'recording' | 'review' | 'saving' | 'saved' | 'failed'>('idle')
+const roughVocalCaptureMessage = ref('')
+const pendingRoughVocal = ref<(CapturedRoughVocal & { projectId: string; url: string }) | null>(null)
+let roughVocalCaptureSession: RoughVocalCaptureSession | null = null
+let roughVocalAutoStopTimer: number | undefined
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
 const trashedProjects = ref<TrashedProjectSummary[]>([])
 const libraryBusy = ref(true)
@@ -211,6 +217,8 @@ const selectedTimelineMarkerKey = ref('')
 let timelineRefreshToken = 0
 
 function accept(next: ProjectResponse, message: string, markPersisted = false) {
+  if (pendingRoughVocal.value && pendingRoughVocal.value.projectId !== next.project.id)
+    discardPendingRoughVocal(false)
   stopChordAudition()
   stopPartAudition()
   stopTransport()
@@ -807,6 +815,124 @@ async function checkRoughVocalMicrophone() {
       reason: error instanceof DOMException || error instanceof Error ? error.name : 'UnknownError',
     })
   }
+}
+
+function clearRoughVocalAutoStop() {
+  if (roughVocalAutoStopTimer !== undefined) window.clearTimeout(roughVocalAutoStopTimer)
+  roughVocalAutoStopTimer = undefined
+}
+
+function releasePendingRoughVocal() {
+  if (pendingRoughVocal.value?.url) URL.revokeObjectURL(pendingRoughVocal.value.url)
+  pendingRoughVocal.value = null
+}
+
+function discardPendingRoughVocal(report = true) {
+  clearRoughVocalAutoStop()
+  roughVocalCaptureSession?.discard()
+  roughVocalCaptureSession = null
+  releasePendingRoughVocal()
+  roughVocalCaptureState.value = 'idle'
+  roughVocalCaptureMessage.value = report ? 'Temporary take discarded. No audio was uploaded or saved.' : ''
+  if (report) activityLog.write('info', 'vocal.capture-discard', roughVocalCaptureMessage.value)
+}
+
+async function startRoughVocalRecording() {
+  if (!project.value || roughVocalCaptureState.value === 'requesting' || roughVocalCaptureState.value === 'recording') return
+  if (workspaceConnection.value !== 'ready') {
+    roughVocalCaptureState.value = 'failed'
+    roughVocalCaptureMessage.value = 'Reconnect to the Maskil Forge host before recording a take for this song.'
+    return
+  }
+  if (isDirty.value) {
+    roughVocalCaptureState.value = 'failed'
+    roughVocalCaptureMessage.value = 'Save the current words and structure before recording a take for this version.'
+    return
+  }
+
+  discardPendingRoughVocal(false)
+  roughVocalCaptureState.value = 'requesting'
+  roughVocalCaptureMessage.value = 'Waiting for microphone access…'
+  activityLog.write('info', 'vocal.capture-start', 'Rough vocal recording requested. Audio remains in browser memory until reviewed and explicitly saved.', { projectId: project.value.id })
+  try {
+    roughVocalCaptureSession = await beginRoughVocalCapture(window)
+    roughVocalCaptureState.value = 'recording'
+    roughVocalCaptureMessage.value = 'Recording now. Stop when the rough performance is complete; recording stops automatically after one minute.'
+    activityLog.write('success', 'vocal.capture-start', 'Rough vocal recording started.', {
+      projectId: project.value.id,
+      mediaType: roughVocalCaptureSession.mediaType,
+    })
+    roughVocalAutoStopTimer = window.setTimeout(() => void stopRoughVocalRecording(true), roughVocalMaximumDurationMs)
+  } catch (error) {
+    roughVocalCaptureState.value = 'failed'
+    roughVocalCaptureMessage.value = microphonePreflightFailure(error)
+    activityLog.write('warning', 'vocal.capture-start', roughVocalCaptureMessage.value, {
+      projectId: project.value.id,
+      reason: error instanceof DOMException || error instanceof Error ? error.name : 'UnknownError',
+    })
+  }
+}
+
+async function stopRoughVocalRecording(automatic = false) {
+  const session = roughVocalCaptureSession
+  const captureProjectId = project.value?.id
+  if (!session || roughVocalCaptureState.value !== 'recording' || !captureProjectId) return
+  clearRoughVocalAutoStop()
+  roughVocalCaptureSession = null
+  try {
+    const capture = await session.stop()
+    if (capture.blob.size === 0) throw new Error('The browser returned an empty recording.')
+    if (capture.blob.size > roughVocalMaximumByteLength) throw new Error('This rough vocal take exceeds the 25 MB save limit. Record a shorter take.')
+    const url = URL.createObjectURL(capture.blob)
+    pendingRoughVocal.value = { ...capture, projectId: captureProjectId, url }
+    roughVocalCaptureState.value = 'review'
+    roughVocalCaptureMessage.value = `${automatic ? 'One-minute limit reached. ' : ''}Listen before deciding whether to save this ${formatRoughVocalDuration(capture.durationMs)} take.`
+    activityLog.write('success', 'vocal.capture-stop', 'Rough vocal recording stopped and is waiting for artist review.', {
+      projectId: captureProjectId,
+      durationMs: Math.round(capture.durationMs),
+      byteLength: capture.blob.size,
+      mediaType: capture.mediaType,
+    })
+  } catch (error) {
+    roughVocalCaptureState.value = 'failed'
+    roughVocalCaptureMessage.value = error instanceof Error ? error.message : 'The browser could not finish this rough vocal take.'
+    activityLog.write('error', 'vocal.capture-stop', roughVocalCaptureMessage.value, { projectId: captureProjectId })
+  }
+}
+
+async function savePendingRoughVocal() {
+  const capture = pendingRoughVocal.value
+  if (!capture || !project.value || capture.projectId !== project.value.id || !persistedRevision.value || isDirty.value) return
+  roughVocalCaptureState.value = 'saving'
+  roughVocalCaptureMessage.value = 'Saving the reviewed take into this song’s verified local assets…'
+  activityLog.write('info', 'vocal.capture-save', 'Artist approved rough vocal upload.', {
+    projectId: project.value.id,
+    durationMs: Math.round(capture.durationMs),
+    byteLength: capture.blob.size,
+  })
+  try {
+    const next = await projectsApi.saveOriginalVocalTake(project.value.id, persistedRevision.value, capture.blob)
+    accept(next, 'Rough vocal take saved with this song.', true)
+    releasePendingRoughVocal()
+    roughVocalCaptureState.value = 'saved'
+    roughVocalCaptureMessage.value = 'Take saved. Its bytes are now covered by backup, Trash, recovery, and portable .maskil export.'
+    activityLog.write('success', 'vocal.capture-save', roughVocalCaptureMessage.value, {
+      projectId: next.project.id,
+      originalVocalCount: next.project.assets.length,
+    })
+  } catch (error) {
+    roughVocalCaptureState.value = 'review'
+    roughVocalCaptureMessage.value = error instanceof Error ? `${error.message} The reviewed recording remains in this tab so you can retry.` : 'The take could not be saved. The reviewed recording remains in this tab so you can retry.'
+    activityLog.write('error', 'vocal.capture-save', roughVocalCaptureMessage.value, { projectId: project.value.id })
+  }
+}
+
+function logRoughVocalPlayback(source: 'temporary' | 'saved', assetId?: string) {
+  activityLog.write('info', 'vocal.capture-playback', source === 'temporary' ? 'Artist played the temporary rough vocal review.' : 'Artist played a saved rough vocal take.', {
+    projectId: project.value?.id ?? '',
+    source,
+    ...(assetId ? { assetId } : {}),
+  })
 }
 async function syncBrowserRecovery() {
   if (browserRecoverySyncBusy.value || workspaceConnection.value !== 'ready' || browserRecoveries.value.length === 0) return
@@ -2612,7 +2738,10 @@ async function goToCreatorStage(stage: CreatorStage) {
 }
 function undo() { if (project.value) return run(() => projectsApi.undo(project.value!.id, project.value!), 'Last edit undone.', 'history.undo') }
 function redo() { if (project.value) return run(() => projectsApi.redo(project.value!.id, project.value!), 'Edit restored.', 'history.redo') }
-function warnBeforeClose(event: BeforeUnloadEvent) { if (isDirty.value || deviceLyricCaptureDirty.value) event.preventDefault() }
+function warnBeforeClose(event: BeforeUnloadEvent) {
+  if (isDirty.value || deviceLyricCaptureDirty.value || pendingRoughVocal.value || roughVocalCaptureState.value === 'recording')
+    event.preventDefault()
+}
 
 async function saveRecoverySnapshot() {
   if (!project.value || !isDirty.value || !persistedRevision.value || busy.value || recoveryBlocked.value) return
@@ -2727,6 +2856,7 @@ onBeforeUnmount(() => {
   stopChordAudition()
   stopPartAudition()
   stopTransport()
+  discardPendingRoughVocal(false)
   if (deviceLyricCaptureTimer) clearTimeout(deviceLyricCaptureTimer)
   window.removeEventListener('beforeunload', warnBeforeClose)
   window.removeEventListener('online', handleConnectivityChange)
@@ -3141,29 +3271,62 @@ onBeforeUnmount(() => {
         </section>
         <section v-if="activeCreatorStage === 'review'" class="microphone-preflight" aria-labelledby="microphone-preflight-title">
           <div>
-            <p class="eyebrow">Rough vocal readiness</p>
-            <h3 id="microphone-preflight-title">Check this device before recording</h3>
-            <p>This explicit check opens the microphone only long enough to confirm a live input, then closes every track. It does not record, upload, or save audio.</p>
+            <p class="eyebrow">Original performance</p>
+            <h3 id="microphone-preflight-title">Record a rough vocal take</h3>
+            <p>Recording starts only when you ask. The take stays temporary in this tab until you listen and choose Save take.</p>
           </div>
           <p v-if="!roughVocalSupport.supported" class="microphone-preflight-status unavailable" role="status">{{ roughVocalSupport.reason }}</p>
           <p v-else-if="microphonePreflightState === 'ready'" class="microphone-preflight-status ready" role="status"><strong>{{ microphonePreflightLabel }}</strong>{{ microphonePreflightMessage }}</p>
           <p v-else-if="microphonePreflightMessage" class="microphone-preflight-status" :class="{ unavailable: microphonePreflightState === 'failed' }" role="status">{{ microphonePreflightMessage }}</p>
-          <button
-            type="button"
-            class="secondary"
-            :disabled="!roughVocalSupport.supported || microphonePreflightState === 'checking'"
-            @click="checkRoughVocalMicrophone">
-            {{ microphonePreflightState === 'checking' ? 'Checking microphone…' : microphonePreflightState === 'ready' ? 'Check again' : 'Check microphone' }}
-          </button>
-          <small>Recording remains unavailable until original takes participate in project backup, recovery, export, Trash, and permanent deletion.</small>
+          <p v-if="isDirty" class="microphone-preflight-status unavailable" role="status">Save the current words and structure before attaching a recording to this version.</p>
+          <p v-if="roughVocalCaptureMessage" class="microphone-preflight-status" :class="{ ready: roughVocalCaptureState === 'saved' || roughVocalCaptureState === 'review', unavailable: roughVocalCaptureState === 'failed' }" role="status">{{ roughVocalCaptureMessage }}</p>
+          <div class="rough-vocal-actions">
+            <button
+              type="button"
+              class="secondary"
+              :disabled="!roughVocalSupport.supported || microphonePreflightState === 'checking' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
+              @click="checkRoughVocalMicrophone">
+              {{ microphonePreflightState === 'checking' ? 'Checking microphone…' : microphonePreflightState === 'ready' ? 'Check again' : 'Check microphone' }}
+            </button>
+            <button
+              v-if="roughVocalCaptureState !== 'recording'"
+              type="button"
+              :disabled="!roughVocalSupport.supported || busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
+              @click="startRoughVocalRecording">
+              {{ roughVocalCaptureState === 'requesting' ? 'Opening microphone…' : project.assets.length ? 'Record another take' : 'Record rough take' }}
+            </button>
+            <button v-else type="button" class="danger recording-stop" @click="stopRoughVocalRecording(false)">Stop recording</button>
+          </div>
+          <section v-if="pendingRoughVocal" class="rough-vocal-review" aria-labelledby="rough-vocal-review-title">
+            <div>
+              <p class="eyebrow">Temporary take</p>
+              <h4 id="rough-vocal-review-title">Listen before saving</h4>
+              <p>{{ formatRoughVocalDuration(pendingRoughVocal.durationMs) }} · {{ formatRoughVocalBytes(pendingRoughVocal.blob.size) }}</p>
+            </div>
+            <audio controls preload="metadata" :src="pendingRoughVocal.url" @play="logRoughVocalPlayback('temporary')">Your browser cannot play this temporary recording.</audio>
+            <div class="rough-vocal-actions">
+              <button type="button" :disabled="roughVocalCaptureState === 'saving' || isDirty" @click="savePendingRoughVocal">{{ roughVocalCaptureState === 'saving' ? 'Saving take…' : 'Save take' }}</button>
+              <button type="button" class="danger" :disabled="roughVocalCaptureState === 'saving'" @click="discardPendingRoughVocal(true)">Discard take</button>
+            </div>
+          </section>
+          <section v-if="project.assets.length" class="saved-vocal-takes" aria-labelledby="saved-vocal-takes-title">
+            <h4 id="saved-vocal-takes-title">Saved rough takes</h4>
+            <ol>
+              <li v-for="(asset, index) in project.assets" :key="asset.id">
+                <div><strong>Take {{ index + 1 }}</strong><small>{{ new Date(asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(asset.byteLength) }}</small></div>
+                <audio controls preload="none" :src="projectsApi.originalVocalTakeUrl(project.id, asset.id)" @play="logRoughVocalPlayback('saved', asset.id)">Your browser cannot play this saved take.</audio>
+              </li>
+            </ol>
+          </section>
+          <small>Saved takes are immutable original assets covered by project backup, recovery, Trash, permanent deletion, duplication, and portable <code>.maskil</code> export. Pitch analysis and take management remain later work.</small>
         </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>
       <section v-if="phoneCaptureMode && activeCreatorStage === 'approve'" id="phone-approve" class="phone-approve" aria-labelledby="phone-approve-title">
         <p class="eyebrow">Approve</p>
         <h2 id="phone-approve-title">Save this capture</h2>
-        <p v-if="isDirty">Saving keeps the words and form on this device. Microphone readiness can be checked in Review; recording and take storage remain protected behind their asset-lifecycle work.</p>
-        <p v-else>This capture is saved. Continue harmony and arrangement on a larger screen. Microphone readiness is available in Review without recording audio.</p>
+        <p v-if="isDirty">Save these words and form first. Then Review can record a rough vocal take against that exact saved version.</p>
+        <p v-else>This capture is saved. Review can record and attach an artist-approved rough vocal take; harmony and arrangement continue on a larger screen.</p>
         <aside class="phone-capture-boundary">
           <strong>Phone scope</strong>
           <p>Idea, words, shape, review, and approve. Music tools stay on desktop so this screen does not become a miniature DAW.</p>
