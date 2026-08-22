@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type PortableProjectImportPreview, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -51,6 +51,8 @@ const microphonePreflightMessage = ref('')
 const roughVocalCaptureState = ref<'idle' | 'requesting' | 'recording' | 'review' | 'saving' | 'saved' | 'failed'>('idle')
 const roughVocalCaptureMessage = ref('')
 const pendingRoughVocal = ref<(CapturedRoughVocal & { projectId: string; url: string }) | null>(null)
+const roughVocalRemovalTarget = ref<{ asset: ProjectAsset; takeNumber: number } | null>(null)
+const roughVocalRemovalCancelButton = ref<HTMLButtonElement | null>(null)
 let roughVocalCaptureSession: RoughVocalCaptureSession | null = null
 let roughVocalAutoStopTimer: number | undefined
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
@@ -933,6 +935,47 @@ function logRoughVocalPlayback(source: 'temporary' | 'saved', assetId?: string) 
     source,
     ...(assetId ? { assetId } : {}),
   })
+}
+
+async function requestRemoveSavedRoughVocal(asset: ProjectAsset, takeNumber: number) {
+  if (!project.value || isDirty.value || busy.value) return
+  roughVocalRemovalTarget.value = { asset, takeNumber }
+  activityLog.write('warning', 'vocal.take-remove', 'Saved rough vocal removal confirmation requested.', {
+    projectId: project.value.id,
+    assetId: asset.id,
+    byteLength: asset.byteLength,
+  })
+  await nextTick()
+  roughVocalRemovalCancelButton.value?.focus()
+}
+
+function cancelRemoveSavedRoughVocal() {
+  roughVocalRemovalTarget.value = null
+}
+
+async function confirmRemoveSavedRoughVocal() {
+  const target = roughVocalRemovalTarget.value
+  if (!target || !project.value || !persistedRevision.value || isDirty.value) return
+  busy.value = true
+  try {
+    const next = await projectsApi.removeOriginalVocalTake(project.value.id, target.asset.id, persistedRevision.value)
+    accept(next, `Take ${target.takeNumber} removed from this saved song.`, true)
+    roughVocalRemovalTarget.value = null
+    roughVocalCaptureMessage.value = 'Saved take removed from the current song and future exports. The previous version remains protected by the host’s local safety backup.'
+    activityLog.write('success', 'vocal.take-remove', roughVocalCaptureMessage.value, {
+      projectId: next.project.id,
+      assetId: target.asset.id,
+      originalVocalCount: next.project.assets.length,
+    })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The saved rough vocal take could not be removed.'
+    activityLog.write('error', 'vocal.take-remove', status.value, {
+      projectId: project.value.id,
+      assetId: target.asset.id,
+    })
+  } finally {
+    busy.value = false
+  }
 }
 async function syncBrowserRecovery() {
   if (browserRecoverySyncBusy.value || workspaceConnection.value !== 'ready' || browserRecoveries.value.length === 0) return
@@ -3315,10 +3358,11 @@ onBeforeUnmount(() => {
               <li v-for="(asset, index) in project.assets" :key="asset.id">
                 <div><strong>Take {{ index + 1 }}</strong><small>{{ new Date(asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(asset.byteLength) }}</small></div>
                 <audio controls preload="none" :src="projectsApi.originalVocalTakeUrl(project.id, asset.id)" @play="logRoughVocalPlayback('saved', asset.id)">Your browser cannot play this saved take.</audio>
+                <div class="saved-vocal-take-actions"><button type="button" class="danger" :disabled="busy || isDirty || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="requestRemoveSavedRoughVocal(asset, index + 1)">Remove take</button></div>
               </li>
             </ol>
           </section>
-          <small>Saved takes are immutable original assets covered by project backup, recovery, Trash, permanent deletion, duplication, and portable <code>.maskil</code> export. Pitch analysis and take management remain later work.</small>
+          <small>Saved takes are immutable original assets covered by project backup, recovery, Trash, permanent deletion, duplication, and portable <code>.maskil</code> export. Removing a take changes the current saved version and future exports; the host’s prior safety backup can retain the earlier version. Naming, trimming, bulk take cleanup, and pitch analysis remain later work.</small>
         </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>
@@ -4211,6 +4255,19 @@ onBeforeUnmount(() => {
       </template>
       </div>
     </template>
+
+    <div v-if="roughVocalRemovalTarget" class="modal-backdrop" role="presentation" @click.self="cancelRemoveSavedRoughVocal">
+      <section class="load-dialog delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rough-vocal-remove-title" aria-describedby="rough-vocal-remove-description">
+        <p class="eyebrow">Current saved version</p>
+        <h2 id="rough-vocal-remove-title">Remove Take {{ roughVocalRemovalTarget.takeNumber }} from this song?</h2>
+        <p id="rough-vocal-remove-description">This removes the selected recording from the current saved song and future <code>.maskil</code> exports. Maskil Forge keeps the previous saved version in its local safety backup, so this is not a privacy erase of every historical copy.</p>
+        <p>{{ new Date(roughVocalRemovalTarget.asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(roughVocalRemovalTarget.asset.byteLength) }}</p>
+        <div class="dialog-actions">
+          <button ref="roughVocalRemovalCancelButton" class="secondary" :disabled="busy" @click="cancelRemoveSavedRoughVocal">Keep take</button>
+          <button class="danger" :disabled="busy" @click="confirmRemoveSavedRoughVocal">{{ busy ? 'Removing take…' : 'Remove take' }}</button>
+        </div>
+      </section>
+    </div>
 
     <div v-if="firstPartConfirmation" class="modal-backdrop" role="presentation" @click.self="cancelFirstPartCommit">
       <section class="load-dialog timeline-boundary-dialog" role="dialog" aria-modal="true" aria-labelledby="timeline-boundary-title" aria-describedby="timeline-boundary-description">

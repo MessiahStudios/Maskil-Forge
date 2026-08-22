@@ -9,6 +9,7 @@ public interface IProjectRepository
     Task<SongProject?> LoadAsync(ProjectId id, CancellationToken cancellationToken = default);
     Task SaveAsync(SongProject project, CancellationToken cancellationToken = default);
     Task SaveWithAssetAsync(SongProject project, ProjectAsset asset, Stream content, CancellationToken cancellationToken = default);
+    Task SaveWithoutAssetAsync(SongProject project, ProjectAsset asset, CancellationToken cancellationToken = default);
     Task<Stream?> OpenAssetAsync(ProjectId projectId, ProjectAssetId assetId, CancellationToken cancellationToken = default);
     Task ImportAsync(SongProject project, CancellationToken cancellationToken = default);
     Task ImportWithAssetsAsync(SongProject project, IReadOnlyDictionary<ProjectAssetId, byte[]> assets, CancellationToken cancellationToken = default);

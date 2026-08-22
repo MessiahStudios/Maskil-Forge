@@ -714,6 +714,16 @@ This slice adds no trimming, naming, take deletion independent of the project, s
 
 **Deliverable:** a phone or computer can create the first artist-reviewed original vocal asset without weakening project revision safety, portability, or human-performance authority.
 
+### Milestone 6.6 — Saved rough-take removal
+
+Let an artist remove one selected rough vocal from the current saved song after a content-aware confirmation that identifies its take number, capture time, and size. Removal requires the current persisted project revision, refuses stale devices without changing the manifest or media, and removes only that take's active immutable bytes while preserving every other recording. The updated song, playback list, and future `.maskil` exports no longer reference the removed take.
+
+Before changing the active project, the repository refreshes its known-good previous-version backup with the complete pre-removal manifest and verified media. The confirmation therefore states that removing a take is not a privacy erase of historical safety copies. Permanent deletion of the whole song through Trash still removes active, backup, recovery, and trashed assets together. Independent backup-history cleanup, take naming, trimming, bulk removal, timeline placement, analysis, transcription, and comping remain later slices.
+
+Activity logs may report the selected asset identity, byte length, outcome, and remaining take count, but never include audio bytes or microphone labels. Removal is unavailable while the editor has unsaved Song Graph changes or a recording save is in progress.
+
+**Deliverable:** an artist can correct an accidental or unwanted saved-take choice without deleting the song, silently weakening revision safety, or mistaking current-version removal for deletion of every protected historical copy.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

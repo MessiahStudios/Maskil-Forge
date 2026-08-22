@@ -33,6 +33,7 @@ app.Use(async (context, next) =>
     try { await next(); }
     catch (ProjectPersistenceException exception)
     {
+        app.Logger.LogError(exception, "Project persistence request failed with code {Code}.", exception.Code);
         context.Response.StatusCode = exception switch
         {
             StaleProjectSessionException => StatusCodes.Status409Conflict,
@@ -302,6 +303,32 @@ app.MapPost("/api/projects/{id}/vocal-takes", async (
     catch (ArgumentException exception)
     {
         return Results.BadRequest(new ApiError(exception.Message));
+    }
+});
+
+app.MapDelete("/api/projects/{id}/vocal-takes/{assetId}", async (
+    string id,
+    string assetId,
+    DateTimeOffset baseProjectLastModifiedUtc,
+    ProjectWorkspace workspace,
+    CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId) || !Guid.TryParse(assetId, out var assetGuid))
+        return Results.BadRequest(new ApiError("Invalid project or vocal-take ID."));
+    try
+    {
+        var editor = await workspace.RemoveOriginalVocalTakeAsync(
+            projectId,
+            new ProjectAssetId(assetGuid),
+            baseProjectLastModifiedUtc,
+            cancellationToken);
+        return editor is null
+            ? Results.NotFound(new ApiError("Project not found."))
+            : Results.Ok(ProjectResponse.From(editor));
+    }
+    catch (KeyNotFoundException exception)
+    {
+        return Results.NotFound(new ApiError(exception.Message));
     }
 });
 

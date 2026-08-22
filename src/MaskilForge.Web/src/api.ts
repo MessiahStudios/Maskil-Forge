@@ -568,6 +568,10 @@ export const projectsApi = {
     recording,
     recording.type || 'audio/webm',
   ),
+  removeOriginalVocalTake: (id: string, assetId: string, baseProjectLastModifiedUtc: string) => request<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}?baseProjectLastModifiedUtc=${encodeURIComponent(baseProjectLastModifiedUtc)}`,
+    { method: 'DELETE' },
+  ),
   originalVocalTakeUrl: (id: string, assetId: string) => `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}`,
   command: (id: string, project: SongProject, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {
     method: 'POST', body: JSON.stringify({ ...command, project }),
