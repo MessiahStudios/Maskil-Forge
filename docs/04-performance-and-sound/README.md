@@ -74,6 +74,10 @@ Slice 6.9 introduces the first deliberately narrow execution path: an artist-tri
 
 Rerunning the same analyzer replaces only its earlier `loudness.frame` observations for that source. Other analyzers' evidence and the immutable recording bytes remain untouched. The Review summary exposes the frame count, analyzed span, and strongest measured peak without treating it as a mastering target. This slice does not calculate integrated LUFS, pitch, onset, timing intent, prosody, notes, or gestures.
 
+Slice 6.10 adds an independent browser pitch analyzer using normalized autocorrelation over 80 ms windows sampled every 200 ms. Analysis is internally reduced to no more than 8 kHz and limited to 65–1000 Hz. A frame is omitted unless its centered signal clears the analyzer floor and its correlation confidence is at least 0.72. Silence, very quiet input, and uncertain periodicity therefore produce no frequency claim rather than a fabricated pitch.
+
+The host accepts only a dedicated pitch-frame report on that 200 ms grid, with an exact 80 ms duration, bounded frequency and confidence, no more than 300 voiced frames, an existing source take, the current project revision, and the one-minute recording boundary. It stamps `maskil.browser.pitch-acf` version `1.0.0`, deterministic provenance, observation identities, and creation time. A rerun atomically replaces only this analyzer's `pitch.frame` evidence; an empty result deliberately clears its prior frames while preserving loudness evidence and source bytes. Review may summarize the median frequency, but neither that statistic nor any frame is a MIDI note, approved melody, correction target, or permission for automatic promotion.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting

@@ -754,6 +754,16 @@ Review shows a compact frame-count, analyzed-span, and strongest-peak summary. A
 
 **Deliverable:** an artist can produce the first honest, inspectable analyzer evidence from a saved phone recording while the system proves revision safety, rerun ownership, portability, and strict separation from creative truth.
 
+### Milestone 6.10 — Confidence-gated pitch observation pilot
+
+Add a separate **Analyze pitch** action beside saved-take loudness analysis in phone Review. The browser decodes the immutable host-owned take, reduces analysis to no more than 8 kHz, and runs normalized autocorrelation over 80 ms windows on a 200 ms grid. It searches only 65–1000 Hz and emits a frame only when the centered signal clears the analyzer floor and normalized correlation reaches at least 0.72. Silence, very quiet input, and uncertain periodicity make no pitch claim.
+
+The host accepts a dedicated pitch-frame report rather than arbitrary observations. It requires the current project revision and named source take, validates the exact grid and window duration, bounded frequency and confidence, strictly increasing positions, no more than 300 voiced frames, and the one-minute recording boundary, then stamps observation identities, analyzer ID `maskil.browser.pitch-acf`, version `1.0.0`, deterministic provenance, and creation time. Rerunning atomically replaces only that analyzer's earlier `pitch.frame` evidence. A valid empty result clears stale pitch claims while leaving loudness evidence and source bytes untouched.
+
+Review shows the confident voiced-frame count and median detected frequency with an explicit evidence-only label. Activity logs retain project, asset, analyzer, outcome, and frame count but no audio, frequency, or confidence values. The analyzer creates no MIDI note, approved melody, contour, correction target, onset, timing gesture, or automatic musical decision.
+
+**Deliverable:** a saved human performance can produce bounded, attributable frequency evidence while silence and uncertainty remain honest absences and artist-owned music stays untouched.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

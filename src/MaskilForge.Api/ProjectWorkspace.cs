@@ -239,6 +239,44 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         CancellationToken cancellationToken)
     {
         var observations = LoudnessObservationReport.CreateObservations(assetId, frames, createdUtc);
+        return await ReplacePerformanceObservationsAsync(
+            id,
+            assetId,
+            expectedLastModifiedUtc,
+            LoudnessObservationReport.AnalyzerId,
+            LoudnessObservationReport.ObservationKind,
+            observations,
+            cancellationToken);
+    }
+
+    public async Task<ProjectEditor?> ReplacePitchObservationsAsync(
+        ProjectId id,
+        ProjectAssetId assetId,
+        DateTimeOffset expectedLastModifiedUtc,
+        IReadOnlyList<PitchFrameReport> frames,
+        DateTimeOffset createdUtc,
+        CancellationToken cancellationToken)
+    {
+        var observations = PitchObservationReport.CreateObservations(assetId, frames, createdUtc);
+        return await ReplacePerformanceObservationsAsync(
+            id,
+            assetId,
+            expectedLastModifiedUtc,
+            PitchObservationReport.AnalyzerId,
+            PitchObservationReport.ObservationKind,
+            observations,
+            cancellationToken);
+    }
+
+    private async Task<ProjectEditor?> ReplacePerformanceObservationsAsync(
+        ProjectId id,
+        ProjectAssetId assetId,
+        DateTimeOffset expectedLastModifiedUtc,
+        string analyzerId,
+        string observationKind,
+        IReadOnlyList<PerformanceObservation> observations,
+        CancellationToken cancellationToken)
+    {
         var saveLock = _saveLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
         await saveLock.WaitAsync(cancellationToken);
         try
@@ -254,8 +292,8 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
 
                 project.ReplacePerformanceObservations(
                     assetId,
-                    LoudnessObservationReport.AnalyzerId,
-                    LoudnessObservationReport.ObservationKind,
+                    analyzerId,
+                    observationKind,
                     observations);
                 await repository.SaveAsync(project, cancellationToken);
 
