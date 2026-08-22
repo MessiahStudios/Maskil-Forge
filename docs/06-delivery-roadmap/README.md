@@ -764,6 +764,16 @@ Review shows the confident voiced-frame count and median detected frequency with
 
 **Deliverable:** a saved human performance can produce bounded, attributable frequency evidence while silence and uncertainty remain honest absences and artist-owned music stays untouched.
 
+### Milestone 6.11 — Confidence-gated onset observation pilot
+
+Add a separate **Analyze onsets** action beside saved-take loudness and pitch analysis in phone Review. The browser decodes the immutable source locally, downmixes and reduces analysis to no more than 8 kHz, then measures RMS energy in 32 ms windows on a 16 ms grid. A candidate must clear a signal floor, a minimum energy rise, a previous-frame ratio, and 0.6 confidence. Local rise maxima are kept at least 96 ms apart. Quiet input, gradual changes, and uncertain rises make no onset claim.
+
+The host accepts a dedicated onset-event report rather than arbitrary observations. It requires the current project revision and source take, validates the exact grid and window, ordered 96 ms separation, normalized strength, bounded confidence, at most 625 candidates, and the one-minute source boundary, then stamps observation identities, analyzer ID `maskil.browser.onset-energy`, version `1.0.0`, deterministic provenance, and creation time. A rerun replaces only that analyzer's prior `onset.event` evidence; an empty result clears those candidates while preserving loudness, pitch, and source bytes.
+
+Review shows the candidate count and first approximate position with an evidence-only label. Activity logs retain project, asset, analyzer, outcome, and event count but no onset positions, strengths, confidence values, or audio. Candidates create no notes, tempo, beat grid, quantization, timing correction, gesture, or automatic musical decision.
+
+**Deliverable:** a saved human performance can expose bounded rhythmic-transition evidence without turning analyzer timing into artist-approved musical structure.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

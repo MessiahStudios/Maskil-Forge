@@ -268,6 +268,25 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
             cancellationToken);
     }
 
+    public async Task<ProjectEditor?> ReplaceOnsetObservationsAsync(
+        ProjectId id,
+        ProjectAssetId assetId,
+        DateTimeOffset expectedLastModifiedUtc,
+        IReadOnlyList<OnsetEventReport> events,
+        DateTimeOffset createdUtc,
+        CancellationToken cancellationToken)
+    {
+        var observations = OnsetObservationReport.CreateObservations(assetId, events, createdUtc);
+        return await ReplacePerformanceObservationsAsync(
+            id,
+            assetId,
+            expectedLastModifiedUtc,
+            OnsetObservationReport.AnalyzerId,
+            OnsetObservationReport.ObservationKind,
+            observations,
+            cancellationToken);
+    }
+
     private async Task<ProjectEditor?> ReplacePerformanceObservationsAsync(
         ProjectId id,
         ProjectAssetId assetId,
