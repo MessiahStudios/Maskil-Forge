@@ -25,6 +25,7 @@ import { buildTrashQueue, filterTrashQueue, trashAgeLabel, trashOldDays, trashRe
 import { microphonePreflightFailure, verifyMicrophoneInput, vocalCaptureSupport } from './vocalCapturePreflight.js'
 import { isPortableProjectPackage, portableExportFileName, portableImportLimit, portableImportLimitMessage } from './portableProjectPackage.js'
 import { beginRoughVocalCapture, formatRoughVocalBytes, formatRoughVocalDuration, roughVocalMaximumByteLength, roughVocalMaximumDurationMs, type CapturedRoughVocal, type RoughVocalCaptureSession } from './roughVocalCapture.js'
+import { analyzeSavedVocalTake, loudnessAnalyzerId, loudnessObservationKind } from './loudnessAnalysis.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -56,6 +57,8 @@ const roughVocalRemovalCancelButton = ref<HTMLButtonElement | null>(null)
 const roughVocalRenameTarget = ref<ProjectAsset | null>(null)
 const roughVocalRenameName = ref('')
 const roughVocalRenameInput = ref<HTMLInputElement | null>(null)
+const loudnessAnalysisAssetId = ref('')
+const loudnessAnalysisMessages = reactive<Record<string, string>>({})
 let roughVocalCaptureSession: RoughVocalCaptureSession | null = null
 let roughVocalAutoStopTimer: number | undefined
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
@@ -1019,6 +1022,58 @@ async function confirmRemoveSavedRoughVocal() {
       assetId: target.asset.id,
     })
   } finally {
+    busy.value = false
+  }
+}
+
+function loudnessObservationSummary(assetId: string) {
+  const frames = project.value?.performanceObservations
+    .filter(observation => observation.sourceAssetId === assetId
+      && observation.analyzerId === loudnessAnalyzerId
+      && observation.kind === loudnessObservationKind)
+    .sort((left, right) => left.startMilliseconds - right.startMilliseconds) ?? []
+  if (!frames.length) return ''
+  const strongestPeak = Math.max(...frames.map(frame => frame.measurements.find(item => item.name === 'peakDbfs')?.value ?? -120))
+  const analyzedDuration = frames.at(-1)!.startMilliseconds + frames.at(-1)!.durationMilliseconds
+  return `${frames.length} loudness frame${frames.length === 1 ? '' : 's'} across ${formatRoughVocalDuration(analyzedDuration)} · strongest peak ${strongestPeak.toFixed(1)} dBFS`
+}
+
+async function analyzeSavedRoughVocal(asset: ProjectAsset) {
+  if (!project.value || !persistedRevision.value || isDirty.value || workspaceConnection.value !== 'ready') return
+  const analysisProjectId = project.value.id
+  loudnessAnalysisAssetId.value = asset.id
+  loudnessAnalysisMessages[asset.id] = 'Decoding the saved take on this device…'
+  busy.value = true
+  activityLog.write('info', 'vocal.loudness-analysis', 'Artist requested deterministic loudness evidence for a saved take.', {
+    projectId: analysisProjectId,
+    assetId: asset.id,
+  })
+  try {
+    const frames = await analyzeSavedVocalTake(projectsApi.originalVocalTakeUrl(analysisProjectId, asset.id), window)
+    if (project.value?.id !== analysisProjectId)
+      throw new Error('Loudness analysis stopped because another song is now open. No evidence was saved.')
+    loudnessAnalysisMessages[asset.id] = `Saving ${frames.length} bounded loudness frames without changing the recording…`
+    const next = await projectsApi.saveLoudnessAnalysis(analysisProjectId, asset.id, persistedRevision.value, frames)
+    if (project.value?.id === analysisProjectId)
+      accept(next, `Loudness evidence saved for ${asset.name}.`, true)
+    loudnessAnalysisMessages[asset.id] = 'Loudness evidence saved. Rerunning replaces only this analyzer’s earlier frames.'
+    activityLog.write('success', 'vocal.loudness-analysis', 'Deterministic loudness evidence saved.', {
+      projectId: analysisProjectId,
+      assetId: asset.id,
+      frameCount: frames.length,
+      analyzerId: loudnessAnalyzerId,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The saved take could not be analyzed.'
+    status.value = message
+    loudnessAnalysisMessages[asset.id] = message
+    activityLog.write('error', 'vocal.loudness-analysis', message, {
+      projectId: analysisProjectId,
+      assetId: asset.id,
+      analyzerId: loudnessAnalyzerId,
+    })
+  } finally {
+    loudnessAnalysisAssetId.value = ''
     busy.value = false
   }
 }
@@ -3403,14 +3458,17 @@ onBeforeUnmount(() => {
               <li v-for="(asset, index) in project.assets" :key="asset.id">
                 <div><strong>{{ asset.name }}</strong><small>{{ new Date(asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(asset.byteLength) }}</small></div>
                 <audio controls preload="none" :src="projectsApi.originalVocalTakeUrl(project.id, asset.id)" @play="logRoughVocalPlayback('saved', asset.id)">Your browser cannot play this saved take.</audio>
+                <p v-if="loudnessObservationSummary(asset.id)" class="loudness-observation-summary">{{ loudnessObservationSummary(asset.id) }}</p>
+                <p v-if="loudnessAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ loudnessAnalysisMessages[asset.id] }}</p>
                 <div class="saved-vocal-take-actions">
+                  <button type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="analyzeSavedRoughVocal(asset)">{{ loudnessAnalysisAssetId === asset.id ? 'Analyzing loudness…' : loudnessObservationSummary(asset.id) ? 'Reanalyze loudness' : 'Analyze loudness' }}</button>
                   <button type="button" class="secondary" :disabled="busy || isDirty || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="requestRenameSavedRoughVocal(asset)">Rename</button>
                   <button type="button" class="danger" :disabled="busy || isDirty || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="requestRemoveSavedRoughVocal(asset, index + 1)">Remove take</button>
                 </div>
               </li>
             </ol>
           </section>
-          <small>Saved takes keep durable names while their original audio bytes remain immutable. They are covered by project backup, recovery, Trash, permanent deletion, duplication, and portable <code>.maskil</code> export. Removing a take changes the current saved version and future exports; the host’s prior safety backup can retain the earlier version. Trimming, bulk take cleanup, and pitch analysis remain later work.</small>
+          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness analysis decodes a take locally on this device and saves non-authoritative evidence; it never changes the recording or creates notes. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry both source and evidence. Trimming, bulk take cleanup, pitch analysis, and automatic musical decisions remain later work.</small>
         </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>

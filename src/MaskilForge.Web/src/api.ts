@@ -343,6 +343,13 @@ export interface PerformanceObservation {
   createdUtc: string
 }
 
+export interface LoudnessFrameReport {
+  startMilliseconds: number
+  durationMilliseconds: number
+  rmsDecibels: number
+  peakDecibels: number
+}
+
 export interface SongProject {
   id: string
   schemaVersion: number
@@ -599,6 +606,10 @@ export const projectsApi = {
   renameOriginalVocalTake: (id: string, assetId: string, name: string, baseProjectLastModifiedUtc: string) => request<ProjectResponse>(
     `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}/name`,
     { method: 'PUT', body: JSON.stringify({ name, baseProjectLastModifiedUtc }) },
+  ),
+  saveLoudnessAnalysis: (id: string, assetId: string, baseProjectLastModifiedUtc: string, frames: LoudnessFrameReport[]) => request<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}/loudness-analysis`,
+    { method: 'PUT', body: JSON.stringify({ baseProjectLastModifiedUtc, frames }) },
   ),
   originalVocalTakeUrl: (id: string, assetId: string) => `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}`,
   command: (id: string, project: SongProject, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {

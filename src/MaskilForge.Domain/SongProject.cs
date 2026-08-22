@@ -154,6 +154,47 @@ public sealed class SongProject
         return observation;
     }
 
+    public void ReplacePerformanceObservations(
+        ProjectAssetId sourceAssetId,
+        string analyzerId,
+        string kind,
+        IReadOnlyList<PerformanceObservation> replacements)
+    {
+        ArgumentNullException.ThrowIfNull(replacements);
+        var normalizedAnalyzerId = string.IsNullOrWhiteSpace(analyzerId)
+            ? throw new ArgumentException("An analyzer ID is required.", nameof(analyzerId))
+            : analyzerId.Trim();
+        var normalizedKind = string.IsNullOrWhiteSpace(kind)
+            ? throw new ArgumentException("An observation kind is required.", nameof(kind))
+            : kind.Trim();
+
+        if (_assets.All(asset => asset.Id != sourceAssetId || asset.Kind != ProjectAssetKind.OriginalVocalTake))
+            throw new KeyNotFoundException($"Original vocal asset '{sourceAssetId}' was not found.");
+        if (replacements.Any(item => item.SourceAssetId != sourceAssetId
+            || !string.Equals(item.AnalyzerId, normalizedAnalyzerId, StringComparison.Ordinal)
+            || !string.Equals(item.Kind, normalizedKind, StringComparison.Ordinal)))
+            throw new ArgumentException("Replacement observations must match the requested source, analyzer, and kind.", nameof(replacements));
+        if (replacements.Select(item => item.Id).Distinct().Count() != replacements.Count)
+            throw new ArgumentException("Replacement observation IDs must be unique.", nameof(replacements));
+
+        foreach (var observation in replacements)
+            ValidatePerformanceObservationReference(observation);
+        var retainedIds = _performanceObservations
+            .Where(item => item.SourceAssetId != sourceAssetId
+                || !string.Equals(item.AnalyzerId, normalizedAnalyzerId, StringComparison.Ordinal)
+                || !string.Equals(item.Kind, normalizedKind, StringComparison.Ordinal))
+            .Select(item => item.Id)
+            .ToHashSet();
+        if (replacements.Any(item => retainedIds.Contains(item.Id)))
+            throw new ArgumentException("Replacement observation IDs must be unique across the project.", nameof(replacements));
+
+        _performanceObservations.RemoveAll(item => item.SourceAssetId == sourceAssetId
+            && string.Equals(item.AnalyzerId, normalizedAnalyzerId, StringComparison.Ordinal)
+            && string.Equals(item.Kind, normalizedKind, StringComparison.Ordinal));
+        _performanceObservations.AddRange(replacements);
+        Touch();
+    }
+
     public ProjectAsset RenameAsset(ProjectAssetId assetId, string name)
     {
         var index = _assets.FindIndex(item => item.Id == assetId);
