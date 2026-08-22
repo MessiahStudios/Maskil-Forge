@@ -321,6 +321,28 @@ export interface ProjectAsset {
   name: string
 }
 
+export type PerformanceObservationProvenance = 'DeterministicAnalyzer' | 'ImportedAnalyzer' | 'AudioModel'
+
+export interface PerformanceMeasurement {
+  name: string
+  value: number
+  unit: string
+}
+
+export interface PerformanceObservation {
+  id: string
+  sourceAssetId: string
+  kind: string
+  startMilliseconds: number
+  durationMilliseconds: number
+  measurements: PerformanceMeasurement[]
+  confidence: number | null
+  analyzerId: string
+  analyzerVersion: string
+  provenance: PerformanceObservationProvenance
+  createdUtc: string
+}
+
 export interface SongProject {
   id: string
   schemaVersion: number
@@ -348,6 +370,7 @@ export interface SongProject {
   noteEvents: NoteEvent[]
   musicalParts: MusicalPart[]
   assets: ProjectAsset[]
+  performanceObservations: PerformanceObservation[]
   key: MusicalKey
 }
 

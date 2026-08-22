@@ -734,6 +734,16 @@ Activity logs report only the project and asset identity plus the rename outcome
 
 **Deliverable:** an artist can identify several saved performances by meaning instead of list position, and those names survive project movement without weakening recording integrity or multi-device revision safety.
 
+### Milestone 6.8 — Performance observation foundation
+
+Advance the project schema to v24 with an explicit `performanceObservations` evidence collection. A performance observation has its own stable identity, references one immutable original-vocal asset, names an extensible observation kind, locates a millisecond time span, carries one or more named scalar measurements with units, and retains optional zero-to-one confidence, analyzer identity and version, analyzer provenance, and creation time. Schema-v23 projects migrate to an empty collection and do not invent analysis.
+
+Observations are persisted and carried by backup, recovery, duplication, Trash, and asset-owning `.maskil` packages, but remain a non-authoritative evidence partition rather than artist-approved notes, gestures, or production decisions. Every observation must reference a present original-vocal asset. Removing that source take also removes its derived observations from the active version so no orphaned evidence can survive after its bytes leave the current project.
+
+This slice defines no pitch, onset, loudness, prosody, or audio-model analyzer; no endpoint accepts untrusted observation uploads; and no observation silently changes Song Graph material. Analyzer execution, comparison UI, reruns, artist correction, gesture promotion, and voice-to-MIDI remain later slices.
+
+**Deliverable:** future analyzers have one validated, portable, attributable evidence boundary before any measurement is allowed to influence musical reasoning.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

@@ -72,6 +72,8 @@ Each editor remembers the `LastModifiedUtc` revision it originally loaded. Snaps
 
 Current projects store their canonical Song Graph and path-free asset manifest in one JSON file. Registered media bytes live in a paired repository-owned directory under stable asset identities; their exact lengths and SHA-256 digests are validated against the manifest. Backup, session recovery, corrupt-data preservation, Trash, restore, and confirmed permanent deletion carry or erase that directory with its project. JSON-only `.maskil.json` interchange still refuses referenced media. An asset-owning `.maskil` package carries the Song Graph plus every referenced original-vocal byte and verifies those bytes on export and import.
 
+Schema v24 adds a non-authoritative `performanceObservations` partition beside the Song Graph. Observations reference existing immutable original-vocal assets and retain their own identity, source span, measurements and units, optional confidence, analyzer identity/version, provenance, and creation time. They are portable evidence, not approved notes or gestures. Schema-v23 projects migrate to an empty collection, and removing a source asset cascades its active observations so the project cannot retain orphaned analysis.
+
 ## Events
 
 Events announce completed changes; they do not secretly own business logic. Examples include `TempoChanged`, `ProsodyUpdated`, `ArrangementRegenerated`, and `PerformanceCaptured`.

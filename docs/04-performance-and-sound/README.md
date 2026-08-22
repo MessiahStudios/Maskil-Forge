@@ -66,6 +66,10 @@ Each observation should identify:
 
 Observations are evidence, not artist decisions. They must remain distinguishable from corrected gesture data, accepted notes and curves, and other authoritative Song Graph material. Low-confidence results may be shown, compared, corrected, or rejected; they must not silently become creative truth.
 
+Schema v24 implements the first durable observation boundary as a non-authoritative project collection. Each entry owns a stable observation ID, one immutable source-vocal asset ID, an extensible kind, a millisecond span, named scalar measurements with explicit units, optional confidence, analyzer ID and version, analyzer provenance, and creation time. Existing schema-v23 projects migrate to an empty collection. Observations participate in project durability and asset-owning package transfer, while deleting a source take removes its derived active observations so evidence cannot outlive its source in the current version.
+
+The schema contract does not claim that pitch, onset, loudness, timing, prosody, or model analysis exists yet. Analyzer execution and artist correction must arrive as later reviewable slices; this collection cannot directly create or replace approved Song Graph material.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting
