@@ -27,6 +27,7 @@ public sealed class SongProject
     private readonly List<NoteEvent> _noteEvents;
     private readonly List<MusicalPart> _musicalParts;
     private readonly List<ProjectAsset> _assets;
+    private readonly List<PerformanceObservation> _performanceObservations;
 
     [JsonConstructor]
     public SongProject(
@@ -48,7 +49,8 @@ public sealed class SongProject
         IReadOnlyList<SectionRoleAssignment>? arrangementRoles = null,
         IReadOnlyList<NoteEvent>? noteEvents = null,
         IReadOnlyList<MusicalPart>? musicalParts = null,
-        IReadOnlyList<ProjectAsset>? assets = null)
+        IReadOnlyList<ProjectAsset>? assets = null,
+        IReadOnlyList<PerformanceObservation>? performanceObservations = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -68,6 +70,7 @@ public sealed class SongProject
         _noteEvents = noteEvents?.OrderBy(item => item.StartTick).ThenBy(item => item.Pitch.MidiNumber).ToList() ?? [];
         _musicalParts = musicalParts?.ToList() ?? [];
         _assets = assets?.ToList() ?? [];
+        _performanceObservations = performanceObservations?.ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -76,6 +79,7 @@ public sealed class SongProject
         ValidateAllHarmonyChords(TimeSignature);
         ValidateAllHarmonyCandidates(TimeSignature);
         ValidateLockReferences();
+        ValidatePerformanceObservationReferences();
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
@@ -103,6 +107,7 @@ public sealed class SongProject
     public IReadOnlyList<NoteEvent> NoteEvents => _noteEvents;
     public IReadOnlyList<MusicalPart> MusicalParts => _musicalParts;
     public IReadOnlyList<ProjectAsset> Assets => _assets;
+    public IReadOnlyList<PerformanceObservation> PerformanceObservations => _performanceObservations;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -125,8 +130,28 @@ public sealed class SongProject
         var asset = _assets.SingleOrDefault(item => item.Id == assetId)
             ?? throw new KeyNotFoundException($"Project asset '{assetId}' was not found.");
         _assets.Remove(asset);
+        _performanceObservations.RemoveAll(item => item.SourceAssetId == assetId);
         Touch();
         return asset;
+    }
+
+    public void RegisterPerformanceObservation(PerformanceObservation observation)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        if (_performanceObservations.Any(item => item.Id == observation.Id))
+            throw new InvalidOperationException($"Performance observation '{observation.Id}' is already registered.");
+        ValidatePerformanceObservationReference(observation);
+        _performanceObservations.Add(observation);
+        Touch();
+    }
+
+    public PerformanceObservation RemovePerformanceObservation(PerformanceObservationId observationId)
+    {
+        var observation = _performanceObservations.SingleOrDefault(item => item.Id == observationId)
+            ?? throw new KeyNotFoundException($"Performance observation '{observationId}' was not found.");
+        _performanceObservations.Remove(observation);
+        Touch();
+        return observation;
     }
 
     public ProjectAsset RenameAsset(ProjectAssetId assetId, string name)
@@ -732,6 +757,8 @@ public sealed class SongProject
             throw new ArgumentException("Musical-part IDs must be unique.");
         if (_assets.Select(item => item.Id).Distinct().Count() != _assets.Count)
             throw new ArgumentException("Project asset IDs must be unique.");
+        if (_performanceObservations.Select(item => item.Id).Distinct().Count() != _performanceObservations.Count)
+            throw new ArgumentException("Performance observation IDs must be unique.");
         if (_arrangement.Select(item => item.Id).Distinct().Count() != _arrangement.Count)
             throw new ArgumentException("Section arrangement IDs must be unique.");
         if (_arrangement.Select(item => item.SectionId).Distinct().Count() != _arrangement.Count)
@@ -789,6 +816,18 @@ public sealed class SongProject
         var harmonyCandidateEvents = harmonyCandidates.SelectMany(item => item.Events).ToList();
         if (harmonyCandidateEvents.Select(item => item.Id).Distinct().Count() != harmonyCandidateEvents.Count)
             throw new ArgumentException("Harmony candidate event IDs must be unique across the project.");
+    }
+
+    private void ValidatePerformanceObservationReferences()
+    {
+        foreach (var observation in _performanceObservations)
+            ValidatePerformanceObservationReference(observation);
+    }
+
+    private void ValidatePerformanceObservationReference(PerformanceObservation observation)
+    {
+        if (_assets.All(asset => asset.Id != observation.SourceAssetId || asset.Kind != ProjectAssetKind.OriginalVocalTake))
+            throw new ArgumentException($"Performance observation '{observation.Id}' must reference an existing original vocal asset.");
     }
 
     private void ValidateLockReferences()

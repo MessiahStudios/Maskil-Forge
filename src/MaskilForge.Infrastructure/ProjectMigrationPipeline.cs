@@ -39,7 +39,8 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
         new V19ToV20ProjectMigration(),
         new V20ToV21ProjectMigration(),
         new V21ToV22ProjectMigration(),
-        new V22ToV23ProjectMigration()
+        new V22ToV23ProjectMigration(),
+        new V23ToV24ProjectMigration()
     ]);
 
     public JsonObject Normalize(JsonObject project)
@@ -602,6 +603,19 @@ internal sealed class V22ToV23ProjectMigration : IProjectMigration
             }
         }
 
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}
+
+internal sealed class V23ToV24ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 23;
+    public int ToVersion => 24;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        project["performanceObservations"] = new JsonArray();
         project["schemaVersion"] = ToVersion;
         return project;
     }
