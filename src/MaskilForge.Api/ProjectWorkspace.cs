@@ -230,6 +230,44 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         finally { saveLock.Release(); }
     }
 
+    public async Task<ProjectEditor?> ReplaceLoudnessObservationsAsync(
+        ProjectId id,
+        ProjectAssetId assetId,
+        DateTimeOffset expectedLastModifiedUtc,
+        IReadOnlyList<LoudnessFrameReport> frames,
+        DateTimeOffset createdUtc,
+        CancellationToken cancellationToken)
+    {
+        var observations = LoudnessObservationReport.CreateObservations(assetId, frames, createdUtc);
+        var saveLock = _saveLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            var editorLock = _editorLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+            await editorLock.WaitAsync(cancellationToken);
+            try
+            {
+                var project = await repository.LoadAsync(id, cancellationToken);
+                if (project is null) return null;
+                if (project.LastModifiedUtc != expectedLastModifiedUtc)
+                    throw new StaleProjectSessionException();
+
+                project.ReplacePerformanceObservations(
+                    assetId,
+                    LoudnessObservationReport.AnalyzerId,
+                    LoudnessObservationReport.ObservationKind,
+                    observations);
+                await repository.SaveAsync(project, cancellationToken);
+
+                var editor = new ProjectEditor(project);
+                _editors[id] = editor;
+                return editor;
+            }
+            finally { editorLock.Release(); }
+        }
+        finally { saveLock.Release(); }
+    }
+
     public async Task<ProjectEditor?> DuplicateAsync(ProjectId sourceId, CancellationToken cancellationToken)
     {
         var source = await repository.LoadAsync(sourceId, cancellationToken);

@@ -744,6 +744,16 @@ This slice defines no pitch, onset, loudness, prosody, or audio-model analyzer; 
 
 **Deliverable:** future analyzers have one validated, portable, attributable evidence boundary before any measurement is allowed to influence musical reasoning.
 
+### Milestone 6.9 — Saved-take loudness observation pilot
+
+Give one existing rough vocal take an explicit **Analyze loudness** action in phone Review. The browser decodes the same host-owned recording it can already play and deterministically divides the decoded samples into contiguous 250 ms frames. Each frame reports RMS and peak amplitude in dBFS. Analysis begins only from an artist action, uses no microphone, uploads no audio, and keeps the immutable source asset as the authority.
+
+The host accepts a dedicated loudness-frame report rather than arbitrary observations. It requires the current project revision and the named original-vocal asset, rejects empty, unordered, overlapping, overlong, excessive, out-of-range, or incorrectly sized reports, and stamps observation identities, analyzer ID `maskil.browser.loudness`, version `1.0.0`, deterministic provenance, and creation time itself. Every frame is exactly 250 ms except for a shorter final frame, so a run may cover no more than the existing one-minute recording limit and 240 frames. Rerunning atomically replaces only that analyzer's previous `loudness.frame` evidence for the same source; unrelated evidence and source bytes remain unchanged.
+
+Review shows a compact frame-count, analyzed-span, and strongest-peak summary. Activity logs expose the project, asset, analyzer, outcome, and frame count without recording bytes or measured levels. These observations remain non-authoritative evidence carried by the existing persistence and package lifecycle. This slice makes no mastering recommendation and adds no integrated LUFS, pitch, onset, timing-intent, prosody, gesture, note-promotion, or automatic musical-decision behavior.
+
+**Deliverable:** an artist can produce the first honest, inspectable analyzer evidence from a saved phone recording while the system proves revision safety, rerun ownership, portability, and strict separation from creative truth.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
