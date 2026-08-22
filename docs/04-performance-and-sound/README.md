@@ -78,6 +78,10 @@ Slice 6.10 adds an independent browser pitch analyzer using normalized autocorre
 
 The host accepts only a dedicated pitch-frame report on that 200 ms grid, with an exact 80 ms duration, bounded frequency and confidence, no more than 300 voiced frames, an existing source take, the current project revision, and the one-minute recording boundary. It stamps `maskil.browser.pitch-acf` version `1.0.0`, deterministic provenance, observation identities, and creation time. A rerun atomically replaces only this analyzer's `pitch.frame` evidence; an empty result deliberately clears its prior frames while preserving loudness evidence and source bytes. Review may summarize the median frequency, but neither that statistic nor any frame is a MIDI note, approved melody, correction target, or permission for automatic promotion.
 
+Slice 6.11 adds independent time-domain onset evidence. The browser downmixes and reduces a saved take to no more than 8 kHz, measures RMS energy in 32 ms windows on a 16 ms grid, and requires minimum signal level, minimum rise, and a minimum previous-frame ratio. Local rise maxima are kept at least 96 ms apart. A quiet source, gradual change, or insufficiently distinct rise produces no candidate rather than fabricated timing.
+
+The host accepts only a dedicated onset-event report with the exact grid, window duration, separation, normalized strength, confidence of at least 0.6, no more than 625 candidates, an existing source take, the current revision, and the one-minute boundary. It stamps `maskil.browser.onset-energy` version `1.0.0`, deterministic provenance, observation identity, and creation time. Reruns replace or clear only this analyzer's `onset.event` evidence. A candidate is not a note onset, beat, tempo, quantization target, timing correction, or artist-approved gesture.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting

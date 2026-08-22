@@ -7,6 +7,8 @@ using MaskilForge.Engine;
 using MaskilForge.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+if (OperatingSystem.IsWindows())
+    builder.Logging.AddFilter<Microsoft.Extensions.Logging.EventLog.EventLogLoggerProvider>(_ => false);
 var webClient = WebClientDistribution.Locate(builder.Environment.ContentRootPath);
 var projectLibraryPath = ProjectLibraryPath.Resolve(
     builder.Environment.ContentRootPath,
@@ -411,6 +413,38 @@ app.MapPut("/api/projects/{id}/vocal-takes/{assetId}/pitch-analysis", async (
             new ProjectAssetId(assetGuid),
             request.BaseProjectLastModifiedUtc,
             request.Frames,
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+        return editor is null
+            ? Results.NotFound(new ApiError("Project not found."))
+            : Results.Ok(ProjectResponse.From(editor));
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new ApiError(exception.Message));
+    }
+    catch (KeyNotFoundException exception)
+    {
+        return Results.NotFound(new ApiError(exception.Message));
+    }
+});
+
+app.MapPut("/api/projects/{id}/vocal-takes/{assetId}/onset-analysis", async (
+    string id,
+    string assetId,
+    OnsetAnalysisRequest request,
+    ProjectWorkspace workspace,
+    CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId) || !Guid.TryParse(assetId, out var assetGuid))
+        return Results.BadRequest(new ApiError("Invalid project or vocal-take ID."));
+    try
+    {
+        var editor = await workspace.ReplaceOnsetObservationsAsync(
+            projectId,
+            new ProjectAssetId(assetGuid),
+            request.BaseProjectLastModifiedUtc,
+            request.Events,
             DateTimeOffset.UtcNow,
             cancellationToken);
         return editor is null
@@ -1095,6 +1129,7 @@ public sealed record UpdateProjectRequest(SongProject Project, DateTimeOffset Ba
 public sealed record RenameOriginalVocalTakeRequest(string Name, DateTimeOffset BaseProjectLastModifiedUtc);
 public sealed record LoudnessAnalysisRequest(DateTimeOffset BaseProjectLastModifiedUtc, IReadOnlyList<LoudnessFrameReport> Frames);
 public sealed record PitchAnalysisRequest(DateTimeOffset BaseProjectLastModifiedUtc, IReadOnlyList<PitchFrameReport> Frames);
+public sealed record OnsetAnalysisRequest(DateTimeOffset BaseProjectLastModifiedUtc, IReadOnlyList<OnsetEventReport> Events);
 public sealed record RecoverySnapshotRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc, string SessionId);
 public sealed record EditorStateRequest(SongProject Project);
 public sealed record ProsodyScoreRequest(

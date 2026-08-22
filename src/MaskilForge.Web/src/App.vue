@@ -27,6 +27,7 @@ import { isPortableProjectPackage, portableExportFileName, portableImportLimit, 
 import { beginRoughVocalCapture, formatRoughVocalBytes, formatRoughVocalDuration, roughVocalMaximumByteLength, roughVocalMaximumDurationMs, type CapturedRoughVocal, type RoughVocalCaptureSession } from './roughVocalCapture.js'
 import { analyzeSavedVocalTake, loudnessAnalyzerId, loudnessObservationKind } from './loudnessAnalysis.js'
 import { analyzeSavedVocalTakePitch, pitchAnalyzerId, pitchObservationKind } from './pitchAnalysis.js'
+import { analyzeSavedVocalTakeOnsets, onsetAnalyzerId, onsetObservationKind } from './onsetAnalysis.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -62,6 +63,8 @@ const loudnessAnalysisAssetId = ref('')
 const loudnessAnalysisMessages = reactive<Record<string, string>>({})
 const pitchAnalysisAssetId = ref('')
 const pitchAnalysisMessages = reactive<Record<string, string>>({})
+const onsetAnalysisAssetId = ref('')
+const onsetAnalysisMessages = reactive<Record<string, string>>({})
 let roughVocalCaptureSession: RoughVocalCaptureSession | null = null
 let roughVocalAutoStopTimer: number | undefined
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
@@ -1057,6 +1060,17 @@ function pitchObservationSummary(assetId: string) {
   return `${frequencies.length} confident voiced pitch frame${frequencies.length === 1 ? '' : 's'} · median ${median.toFixed(1)} Hz · evidence only`
 }
 
+function onsetObservationSummary(assetId: string) {
+  const events = project.value?.performanceObservations
+    .filter(observation => observation.sourceAssetId === assetId
+      && observation.analyzerId === onsetAnalyzerId
+      && observation.kind === onsetObservationKind)
+    .sort((left, right) => left.startMilliseconds - right.startMilliseconds) ?? []
+  if (!events.length) return ''
+  const firstSeconds = (events[0].startMilliseconds / 1000).toFixed(2).replace(/\.?0+$/, '')
+  return `${events.length} confident onset candidate${events.length === 1 ? '' : 's'} · first near ${firstSeconds}s · evidence only`
+}
+
 async function analyzeSavedRoughVocal(asset: ProjectAsset) {
   if (!project.value || !persistedRevision.value || isDirty.value || workspaceConnection.value !== 'ready') return
   const analysisProjectId = project.value.id
@@ -1139,6 +1153,52 @@ async function analyzeSavedRoughVocalPitch(asset: ProjectAsset) {
     })
   } finally {
     pitchAnalysisAssetId.value = ''
+    busy.value = false
+  }
+}
+
+async function analyzeSavedRoughVocalOnsets(asset: ProjectAsset) {
+  if (!project.value || !persistedRevision.value || isDirty.value || workspaceConnection.value !== 'ready') return
+  const analysisProjectId = project.value.id
+  onsetAnalysisAssetId.value = asset.id
+  onsetAnalysisMessages[asset.id] = 'Listening for confident energy rises on this device…'
+  busy.value = true
+  activityLog.write('info', 'vocal.onset-analysis', 'Artist requested deterministic onset evidence for a saved take.', {
+    projectId: analysisProjectId,
+    assetId: asset.id,
+  })
+  try {
+    const events = await analyzeSavedVocalTakeOnsets(projectsApi.originalVocalTakeUrl(analysisProjectId, asset.id), window)
+    if (project.value?.id !== analysisProjectId)
+      throw new Error('Onset analysis stopped because another song is now open. No evidence was saved.')
+    onsetAnalysisMessages[asset.id] = events.length
+      ? `Saving ${events.length} confidence-gated onset candidates without changing timing…`
+      : 'No confident onset was found. Clearing this analyzer’s earlier candidates…'
+    const next = await projectsApi.saveOnsetAnalysis(analysisProjectId, asset.id, persistedRevision.value, events)
+    const message = events.length
+      ? `Onset evidence saved for ${asset.name}.`
+      : `No confident onset found in ${asset.name}; earlier onset evidence was cleared.`
+    if (project.value?.id === analysisProjectId) accept(next, message, true)
+    onsetAnalysisMessages[asset.id] = events.length
+      ? 'Onset evidence saved. It does not set tempo or timing, and rerunning replaces only these candidates.'
+      : 'No confident onset was claimed. Earlier candidates from this analyzer were cleared.'
+    activityLog.write('success', 'vocal.onset-analysis', events.length ? 'Deterministic onset evidence saved.' : 'Onset analysis completed without a candidate claim.', {
+      projectId: analysisProjectId,
+      assetId: asset.id,
+      eventCount: events.length,
+      analyzerId: onsetAnalyzerId,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The saved take could not be analyzed for onsets.'
+    status.value = message
+    onsetAnalysisMessages[asset.id] = message
+    activityLog.write('error', 'vocal.onset-analysis', message, {
+      projectId: analysisProjectId,
+      assetId: asset.id,
+      analyzerId: onsetAnalyzerId,
+    })
+  } finally {
+    onsetAnalysisAssetId.value = ''
     busy.value = false
   }
 }
@@ -3525,18 +3585,21 @@ onBeforeUnmount(() => {
                 <audio controls preload="none" :src="projectsApi.originalVocalTakeUrl(project.id, asset.id)" @play="logRoughVocalPlayback('saved', asset.id)">Your browser cannot play this saved take.</audio>
                 <p v-if="loudnessObservationSummary(asset.id)" class="performance-observation-summary">{{ loudnessObservationSummary(asset.id) }}</p>
                 <p v-if="pitchObservationSummary(asset.id)" class="performance-observation-summary pitch">{{ pitchObservationSummary(asset.id) }}</p>
+                <p v-if="onsetObservationSummary(asset.id)" class="performance-observation-summary onset">{{ onsetObservationSummary(asset.id) }}</p>
                 <p v-if="loudnessAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ loudnessAnalysisMessages[asset.id] }}</p>
                 <p v-if="pitchAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ pitchAnalysisMessages[asset.id] }}</p>
+                <p v-if="onsetAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ onsetAnalysisMessages[asset.id] }}</p>
                 <div class="saved-vocal-take-actions">
                   <button type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="analyzeSavedRoughVocal(asset)">{{ loudnessAnalysisAssetId === asset.id ? 'Analyzing loudness…' : loudnessObservationSummary(asset.id) ? 'Reanalyze loudness' : 'Analyze loudness' }}</button>
                   <button type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="analyzeSavedRoughVocalPitch(asset)">{{ pitchAnalysisAssetId === asset.id ? 'Analyzing pitch…' : pitchObservationSummary(asset.id) ? 'Reanalyze pitch' : 'Analyze pitch' }}</button>
+                  <button type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="analyzeSavedRoughVocalOnsets(asset)">{{ onsetAnalysisAssetId === asset.id ? 'Analyzing onsets…' : onsetObservationSummary(asset.id) ? 'Reanalyze onsets' : 'Analyze onsets' }}</button>
                   <button type="button" class="secondary" :disabled="busy || isDirty || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="requestRenameSavedRoughVocal(asset)">Rename</button>
                   <button type="button" class="danger" :disabled="busy || isDirty || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="requestRemoveSavedRoughVocal(asset, index + 1)">Remove take</button>
                 </div>
               </li>
             </ol>
           </section>
-          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness and pitch analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. Silence and uncertain pitch produce no frequency claim. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry both source and evidence. Trimming, bulk take cleanup, onset analysis, pitch correction, and automatic musical decisions remain later work.</small>
+          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. Silence and uncertainty produce no claim. Onset candidates do not set tempo, quantize timing, or create musical events. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry both source and evidence. Trimming, bulk take cleanup, timing correction, gesture promotion, and automatic musical decisions remain later work.</small>
         </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>

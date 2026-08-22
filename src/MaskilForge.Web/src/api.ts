@@ -357,6 +357,13 @@ export interface PitchFrameReport {
   confidence: number
 }
 
+export interface OnsetEventReport {
+  startMilliseconds: number
+  durationMilliseconds: number
+  strength: number
+  confidence: number
+}
+
 export interface SongProject {
   id: string
   schemaVersion: number
@@ -621,6 +628,10 @@ export const projectsApi = {
   savePitchAnalysis: (id: string, assetId: string, baseProjectLastModifiedUtc: string, frames: PitchFrameReport[]) => request<ProjectResponse>(
     `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}/pitch-analysis`,
     { method: 'PUT', body: JSON.stringify({ baseProjectLastModifiedUtc, frames }) },
+  ),
+  saveOnsetAnalysis: (id: string, assetId: string, baseProjectLastModifiedUtc: string, events: OnsetEventReport[]) => request<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}/onset-analysis`,
+    { method: 'PUT', body: JSON.stringify({ baseProjectLastModifiedUtc, events }) },
   ),
   originalVocalTakeUrl: (id: string, assetId: string) => `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}`,
   command: (id: string, project: SongProject, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {
