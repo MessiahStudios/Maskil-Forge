@@ -31,6 +31,7 @@ public sealed class RoughVocalCaptureTests
             Assert.NotNull(updated);
             var asset = Assert.Single(updated.Project.Assets);
             Assert.Equal(ProjectAssetKind.OriginalVocalTake, asset.Kind);
+            Assert.Equal("Take 1", asset.Name);
             Assert.Equal(content.LongLength, asset.ByteLength);
             await using var stored = await repository.OpenAssetAsync(updated.Project.Id, asset.Id);
             using var copy = new MemoryStream();
@@ -147,6 +148,88 @@ public sealed class RoughVocalCaptureTests
             var persisted = await repository.LoadAsync(editor.Project.Id);
             Assert.Equal(asset.Id, Assert.Single(persisted!.Assets).Id);
             Assert.True(File.Exists(Path.Combine(directory, $"{editor.Project.Id}.assets", $"{asset.Id}.bin")));
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task Workspace_RenamesTakeMetadataWithoutChangingOriginalBytes()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-rename-vocal-{Guid.NewGuid():N}");
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var workspace = new ProjectWorkspace(repository);
+            var editor = await workspace.CreateAsync("Take naming", CancellationToken.None);
+            var content = Encoding.UTF8.GetBytes("unchanged singer performance");
+            var saved = await workspace.AddOriginalVocalTakeAsync(
+                editor.Project.Id,
+                editor.Project.LastModifiedUtc,
+                "audio/webm;codecs=opus",
+                content,
+                DateTimeOffset.UtcNow,
+                CancellationToken.None);
+            var original = Assert.Single(saved!.Project.Assets);
+
+            var renamed = await workspace.RenameOriginalVocalTakeAsync(
+                editor.Project.Id,
+                original.Id,
+                "  Chorus lift  ",
+                saved.Project.LastModifiedUtc,
+                CancellationToken.None);
+
+            var renamedAsset = Assert.Single(renamed!.Project.Assets);
+            Assert.Equal("Chorus lift", renamedAsset.Name);
+            Assert.Equal(original.Id, renamedAsset.Id);
+            Assert.Equal(original.Sha256, renamedAsset.Sha256);
+            Assert.Equal(original.ByteLength, renamedAsset.ByteLength);
+            Assert.True(renamed.Project.LastModifiedUtc > saved.Project.LastModifiedUtc);
+            await using var stored = await repository.OpenAssetAsync(editor.Project.Id, original.Id);
+            using var copy = new MemoryStream();
+            await stored!.CopyToAsync(copy);
+            Assert.Equal(content, copy.ToArray());
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task Workspace_RejectsStaleTakeRenameWithoutChangingNameOrBytes()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-stale-rename-vocal-{Guid.NewGuid():N}");
+        try
+        {
+            var repository = new JsonFileProjectRepository(directory);
+            var workspace = new ProjectWorkspace(repository);
+            var editor = await workspace.CreateAsync("Stale take naming", CancellationToken.None);
+            var content = Encoding.UTF8.GetBytes("keep name and bytes");
+            var saved = await workspace.AddOriginalVocalTakeAsync(
+                editor.Project.Id,
+                editor.Project.LastModifiedUtc,
+                "audio/webm;codecs=opus",
+                content,
+                DateTimeOffset.UtcNow,
+                CancellationToken.None);
+            var asset = Assert.Single(saved!.Project.Assets);
+
+            await Assert.ThrowsAsync<StaleProjectSessionException>(() => workspace.RenameOriginalVocalTakeAsync(
+                editor.Project.Id,
+                asset.Id,
+                "Must not persist",
+                saved.Project.LastModifiedUtc.AddSeconds(-1),
+                CancellationToken.None));
+
+            var persisted = await repository.LoadAsync(editor.Project.Id);
+            Assert.Equal("Take 1", Assert.Single(persisted!.Assets).Name);
+            await using var stored = await repository.OpenAssetAsync(editor.Project.Id, asset.Id);
+            using var copy = new MemoryStream();
+            await stored!.CopyToAsync(copy);
+            Assert.Equal(content, copy.ToArray());
         }
         finally
         {

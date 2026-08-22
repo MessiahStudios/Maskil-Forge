@@ -129,6 +129,16 @@ public sealed class SongProject
         return asset;
     }
 
+    public ProjectAsset RenameAsset(ProjectAssetId assetId, string name)
+    {
+        var index = _assets.FindIndex(item => item.Id == assetId);
+        if (index < 0) throw new KeyNotFoundException($"Project asset '{assetId}' was not found.");
+        var renamed = _assets[index].Rename(name);
+        _assets[index] = renamed;
+        Touch();
+        return renamed;
+    }
+
     public void Rename(string title)
     {
         if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("Project title is required.", nameof(title));

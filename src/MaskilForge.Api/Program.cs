@@ -332,6 +332,37 @@ app.MapDelete("/api/projects/{id}/vocal-takes/{assetId}", async (
     }
 });
 
+app.MapPut("/api/projects/{id}/vocal-takes/{assetId}/name", async (
+    string id,
+    string assetId,
+    RenameOriginalVocalTakeRequest request,
+    ProjectWorkspace workspace,
+    CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId) || !Guid.TryParse(assetId, out var assetGuid))
+        return Results.BadRequest(new ApiError("Invalid project or vocal-take ID."));
+    try
+    {
+        var editor = await workspace.RenameOriginalVocalTakeAsync(
+            projectId,
+            new ProjectAssetId(assetGuid),
+            request.Name,
+            request.BaseProjectLastModifiedUtc,
+            cancellationToken);
+        return editor is null
+            ? Results.NotFound(new ApiError("Project not found."))
+            : Results.Ok(ProjectResponse.From(editor));
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new ApiError(exception.Message));
+    }
+    catch (KeyNotFoundException exception)
+    {
+        return Results.NotFound(new ApiError(exception.Message));
+    }
+});
+
 app.MapPut("/api/projects/{id}", async (string id, UpdateProjectRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId) || projectId != request.Project.Id)
@@ -997,6 +1028,7 @@ public sealed record CreateProjectRequest(
     string? Description = null,
     string? RawLyricDraft = null);
 public sealed record UpdateProjectRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc);
+public sealed record RenameOriginalVocalTakeRequest(string Name, DateTimeOffset BaseProjectLastModifiedUtc);
 public sealed record RecoverySnapshotRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc, string SessionId);
 public sealed record EditorStateRequest(SongProject Project);
 public sealed record ProsodyScoreRequest(

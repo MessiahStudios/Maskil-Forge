@@ -318,6 +318,7 @@ export interface ProjectAsset {
   byteLength: number
   sha256: string
   createdUtc: string
+  name: string
 }
 
 export interface SongProject {
@@ -571,6 +572,10 @@ export const projectsApi = {
   removeOriginalVocalTake: (id: string, assetId: string, baseProjectLastModifiedUtc: string) => request<ProjectResponse>(
     `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}?baseProjectLastModifiedUtc=${encodeURIComponent(baseProjectLastModifiedUtc)}`,
     { method: 'DELETE' },
+  ),
+  renameOriginalVocalTake: (id: string, assetId: string, name: string, baseProjectLastModifiedUtc: string) => request<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}/name`,
+    { method: 'PUT', body: JSON.stringify({ name, baseProjectLastModifiedUtc }) },
   ),
   originalVocalTakeUrl: (id: string, assetId: string) => `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}`,
   command: (id: string, project: SongProject, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {
