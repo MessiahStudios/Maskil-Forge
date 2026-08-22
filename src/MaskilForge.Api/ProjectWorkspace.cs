@@ -162,6 +162,39 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         finally { saveLock.Release(); }
     }
 
+    public async Task<ProjectEditor?> RemoveOriginalVocalTakeAsync(
+        ProjectId id,
+        ProjectAssetId assetId,
+        DateTimeOffset expectedLastModifiedUtc,
+        CancellationToken cancellationToken)
+    {
+        var saveLock = _saveLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            var editorLock = _editorLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+            await editorLock.WaitAsync(cancellationToken);
+            try
+            {
+                var project = await repository.LoadAsync(id, cancellationToken);
+                if (project is null) return null;
+                if (project.LastModifiedUtc != expectedLastModifiedUtc)
+                    throw new StaleProjectSessionException();
+
+                var asset = project.Assets.SingleOrDefault(item => item.Id == assetId && item.Kind == ProjectAssetKind.OriginalVocalTake)
+                    ?? throw new KeyNotFoundException($"Rough vocal take '{assetId}' was not found.");
+                project.RemoveAsset(assetId);
+                await repository.SaveWithoutAssetAsync(project, asset, cancellationToken);
+
+                var editor = new ProjectEditor(project);
+                _editors[id] = editor;
+                return editor;
+            }
+            finally { editorLock.Release(); }
+        }
+        finally { saveLock.Release(); }
+    }
+
     public async Task<ProjectEditor?> DuplicateAsync(ProjectId sourceId, CancellationToken cancellationToken)
     {
         var source = await repository.LoadAsync(sourceId, cancellationToken);

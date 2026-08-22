@@ -120,6 +120,74 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
         }
     }
 
+    public async Task SaveWithoutAssetAsync(
+        SongProject project,
+        ProjectAsset asset,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(asset);
+        if (project.Assets.Any(item => item.Id == asset.Id))
+            throw new InvalidOperationException("The project must remove the asset manifest entry before its bytes are removed.");
+
+        var projectLock = _projectLocks.GetOrAdd(project.Id, _ => new SemaphoreSlim(1, 1));
+        await projectLock.WaitAsync(cancellationToken);
+        var path = GetPath(project.Id);
+        var assetDirectory = GetAssetDirectory(path);
+        var assetPath = GetAssetPath(assetDirectory, asset.Id);
+        var stagedRemovalPath = assetPath + $".remove-{Guid.NewGuid():N}";
+        var replacementCommitted = false;
+        try
+        {
+            var persisted = await ReadProjectAsync(path, project.Id, true, cancellationToken)
+                ?? throw new InvalidProjectDataException("The saved project was not found.");
+            var persistedAsset = persisted.Assets.SingleOrDefault(item => item.Id == asset.Id)
+                ?? throw new InvalidProjectDataException($"Project asset '{asset.Id}' is not registered in the saved project.");
+            if (persistedAsset != asset)
+                throw new InvalidProjectDataException($"Project asset '{asset.Id}' metadata does not match the saved project.");
+            if (!persisted.Assets.Where(item => item.Id != asset.Id).Select(item => item.Id)
+                    .SequenceEqual(project.Assets.Select(item => item.Id)))
+                throw new InvalidOperationException("Only the selected project asset can be removed in this save.");
+
+            await ValidateAssetFileAsync(asset, assetPath, cancellationToken);
+
+            Directory.CreateDirectory(GetBackupDirectory());
+            var backupPath = GetBackupPath(project.Id);
+            File.Copy(path, backupPath, true);
+            MirrorAssetDirectory(assetDirectory, GetAssetDirectory(backupPath));
+
+            File.Move(assetPath, stagedRemovalPath);
+            try
+            {
+                await WriteProjectReplacementWithoutBackupAsync(project, path, cancellationToken);
+                replacementCommitted = true;
+            }
+            catch
+            {
+                File.Move(stagedRemovalPath, assetPath);
+                throw;
+            }
+
+            File.Delete(stagedRemovalPath);
+            DeleteDirectoryIfEmpty(assetDirectory);
+            var recoveryPath = GetSessionRecoveryPath(project.Id);
+            if (File.Exists(recoveryPath)) File.Delete(recoveryPath);
+            DeleteAssetDirectory(GetAssetDirectory(recoveryPath));
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (ProjectPersistenceException) { throw; }
+        catch (Exception exception)
+        {
+            throw new ProjectSaveException("The project asset could not be removed. The previous saved version remains available in the local backup.", exception);
+        }
+        finally
+        {
+            if (!replacementCommitted && File.Exists(stagedRemovalPath) && !File.Exists(assetPath))
+                File.Move(stagedRemovalPath, assetPath);
+            projectLock.Release();
+        }
+    }
+
     public async Task<Stream?> OpenAssetAsync(
         ProjectId projectId,
         ProjectAssetId assetId,
@@ -237,6 +305,36 @@ public sealed class JsonFileProjectRepository(string directory) : IProjectReposi
                     // Keep any existing known-good backup and continue with the validated save.
                 }
             }
+            File.Move(temporaryPath, path, true);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (ProjectSaveException) { throw; }
+        catch (Exception exception)
+        {
+            throw new ProjectSaveException("The project could not be saved. The previous project file was left in place.", exception);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
+    }
+
+    private async Task WriteProjectReplacementWithoutBackupAsync(
+        SongProject project,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        var temporaryPath = path + ".tmp";
+        try
+        {
+            await using (var stream = File.Create(temporaryPath))
+            {
+                await JsonSerializer.SerializeAsync(stream, project, JsonOptions, cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+            }
+
+            _ = await ReadProjectAsync(temporaryPath, project.Id, false, cancellationToken)
+                ?? throw new ProjectSaveException("The temporary project file could not be validated.");
             File.Move(temporaryPath, path, true);
         }
         catch (OperationCanceledException) { throw; }
