@@ -53,6 +53,9 @@ const roughVocalCaptureMessage = ref('')
 const pendingRoughVocal = ref<(CapturedRoughVocal & { projectId: string; url: string }) | null>(null)
 const roughVocalRemovalTarget = ref<{ asset: ProjectAsset; takeNumber: number } | null>(null)
 const roughVocalRemovalCancelButton = ref<HTMLButtonElement | null>(null)
+const roughVocalRenameTarget = ref<ProjectAsset | null>(null)
+const roughVocalRenameName = ref('')
+const roughVocalRenameInput = ref<HTMLInputElement | null>(null)
 let roughVocalCaptureSession: RoughVocalCaptureSession | null = null
 let roughVocalAutoStopTimer: number | undefined
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
@@ -951,6 +954,48 @@ async function requestRemoveSavedRoughVocal(asset: ProjectAsset, takeNumber: num
 
 function cancelRemoveSavedRoughVocal() {
   roughVocalRemovalTarget.value = null
+}
+
+async function requestRenameSavedRoughVocal(asset: ProjectAsset) {
+  if (!project.value || isDirty.value || busy.value) return
+  roughVocalRenameTarget.value = asset
+  roughVocalRenameName.value = asset.name
+  activityLog.write('info', 'vocal.take-rename', 'Saved rough vocal rename opened.', {
+    projectId: project.value.id,
+    assetId: asset.id,
+  })
+  await nextTick()
+  roughVocalRenameInput.value?.focus()
+  roughVocalRenameInput.value?.select()
+}
+
+function cancelRenameSavedRoughVocal() {
+  roughVocalRenameTarget.value = null
+  roughVocalRenameName.value = ''
+}
+
+async function confirmRenameSavedRoughVocal() {
+  const target = roughVocalRenameTarget.value
+  const name = roughVocalRenameName.value.trim()
+  if (!target || !project.value || !persistedRevision.value || isDirty.value || !name || name.length > 80) return
+  busy.value = true
+  try {
+    const next = await projectsApi.renameOriginalVocalTake(project.value.id, target.id, name, persistedRevision.value)
+    accept(next, 'Saved rough vocal take renamed.', true)
+    cancelRenameSavedRoughVocal()
+    activityLog.write('success', 'vocal.take-rename', 'Saved rough vocal rename committed.', {
+      projectId: next.project.id,
+      assetId: target.id,
+    })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The saved rough vocal take could not be renamed.'
+    activityLog.write('error', 'vocal.take-rename', status.value, {
+      projectId: project.value.id,
+      assetId: target.id,
+    })
+  } finally {
+    busy.value = false
+  }
 }
 
 async function confirmRemoveSavedRoughVocal() {
@@ -3356,13 +3401,16 @@ onBeforeUnmount(() => {
             <h4 id="saved-vocal-takes-title">Saved rough takes</h4>
             <ol>
               <li v-for="(asset, index) in project.assets" :key="asset.id">
-                <div><strong>Take {{ index + 1 }}</strong><small>{{ new Date(asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(asset.byteLength) }}</small></div>
+                <div><strong>{{ asset.name }}</strong><small>{{ new Date(asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(asset.byteLength) }}</small></div>
                 <audio controls preload="none" :src="projectsApi.originalVocalTakeUrl(project.id, asset.id)" @play="logRoughVocalPlayback('saved', asset.id)">Your browser cannot play this saved take.</audio>
-                <div class="saved-vocal-take-actions"><button type="button" class="danger" :disabled="busy || isDirty || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="requestRemoveSavedRoughVocal(asset, index + 1)">Remove take</button></div>
+                <div class="saved-vocal-take-actions">
+                  <button type="button" class="secondary" :disabled="busy || isDirty || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="requestRenameSavedRoughVocal(asset)">Rename</button>
+                  <button type="button" class="danger" :disabled="busy || isDirty || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="requestRemoveSavedRoughVocal(asset, index + 1)">Remove take</button>
+                </div>
               </li>
             </ol>
           </section>
-          <small>Saved takes are immutable original assets covered by project backup, recovery, Trash, permanent deletion, duplication, and portable <code>.maskil</code> export. Removing a take changes the current saved version and future exports; the host’s prior safety backup can retain the earlier version. Naming, trimming, bulk take cleanup, and pitch analysis remain later work.</small>
+          <small>Saved takes keep durable names while their original audio bytes remain immutable. They are covered by project backup, recovery, Trash, permanent deletion, duplication, and portable <code>.maskil</code> export. Removing a take changes the current saved version and future exports; the host’s prior safety backup can retain the earlier version. Trimming, bulk take cleanup, and pitch analysis remain later work.</small>
         </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>
@@ -4259,12 +4307,25 @@ onBeforeUnmount(() => {
     <div v-if="roughVocalRemovalTarget" class="modal-backdrop" role="presentation" @click.self="cancelRemoveSavedRoughVocal">
       <section class="load-dialog delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rough-vocal-remove-title" aria-describedby="rough-vocal-remove-description">
         <p class="eyebrow">Current saved version</p>
-        <h2 id="rough-vocal-remove-title">Remove Take {{ roughVocalRemovalTarget.takeNumber }} from this song?</h2>
+        <h2 id="rough-vocal-remove-title">Remove {{ roughVocalRemovalTarget.asset.name }} from this song?</h2>
         <p id="rough-vocal-remove-description">This removes the selected recording from the current saved song and future <code>.maskil</code> exports. Maskil Forge keeps the previous saved version in its local safety backup, so this is not a privacy erase of every historical copy.</p>
         <p>{{ new Date(roughVocalRemovalTarget.asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(roughVocalRemovalTarget.asset.byteLength) }}</p>
         <div class="dialog-actions">
           <button ref="roughVocalRemovalCancelButton" class="secondary" :disabled="busy" @click="cancelRemoveSavedRoughVocal">Keep take</button>
           <button class="danger" :disabled="busy" @click="confirmRemoveSavedRoughVocal">{{ busy ? 'Removing take…' : 'Remove take' }}</button>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="roughVocalRenameTarget" class="modal-backdrop" role="presentation" @click.self="cancelRenameSavedRoughVocal">
+      <section class="load-dialog" role="dialog" aria-modal="true" aria-labelledby="rough-vocal-rename-title" aria-describedby="rough-vocal-rename-description">
+        <p class="eyebrow">Saved rough take</p>
+        <h2 id="rough-vocal-rename-title">Name this recording</h2>
+        <p id="rough-vocal-rename-description">Use a short name you will recognize later. Renaming changes project metadata only; the original recording bytes stay unchanged.</p>
+        <label>Take name<input ref="roughVocalRenameInput" v-model="roughVocalRenameName" maxlength="80" autocomplete="off" @keydown.enter.prevent="confirmRenameSavedRoughVocal" /></label>
+        <div class="dialog-actions">
+          <button class="secondary" :disabled="busy" @click="cancelRenameSavedRoughVocal">Cancel</button>
+          <button :disabled="busy || !roughVocalRenameName.trim()" @click="confirmRenameSavedRoughVocal">{{ busy ? 'Saving name…' : 'Save name' }}</button>
         </div>
       </section>
     </div>

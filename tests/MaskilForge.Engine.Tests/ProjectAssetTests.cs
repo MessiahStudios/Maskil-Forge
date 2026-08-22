@@ -26,16 +26,20 @@ public sealed class ProjectAssetTests
             " Audio/WebM;Codecs=Opus ",
             12_345,
             new string('A', 64),
-            created);
+            created,
+            "  First chorus idea  ");
 
         Assert.Equal("audio/webm;codecs=opus", asset.MediaType);
         Assert.Equal(new string('a', 64), asset.Sha256);
         Assert.Equal(12_345, asset.ByteLength);
         Assert.Equal(created, asset.CreatedUtc);
+        Assert.Equal("First chorus idea", asset.Name);
         Assert.Throws<ArgumentOutOfRangeException>(() => new ProjectAsset(
-            ProjectAssetId.New(), ProjectAssetKind.OriginalVocalTake, "audio/webm", 0, new string('a', 64), created));
+            ProjectAssetId.New(), ProjectAssetKind.OriginalVocalTake, "audio/webm", 0, new string('a', 64), created, "Take 1"));
         Assert.Throws<ArgumentException>(() => new ProjectAsset(
-            ProjectAssetId.New(), ProjectAssetKind.OriginalVocalTake, "audio/webm", 1, "not-a-hash", created));
+            ProjectAssetId.New(), ProjectAssetKind.OriginalVocalTake, "audio/webm", 1, "not-a-hash", created, "Take 1"));
+        Assert.Throws<ArgumentException>(() => asset.Rename("  "));
+        Assert.Throws<ArgumentOutOfRangeException>(() => asset.Rename(new string('x', 81)));
     }
 
     [Fact]
@@ -174,7 +178,7 @@ public sealed class ProjectAssetTests
         var inspected = PortableProjectImporter.Inspect(document.ToJsonString());
 
         Assert.Equal(21, inspected.SourceSchemaVersion);
-        Assert.Equal(22, inspected.Project.SchemaVersion.Value);
+        Assert.Equal(23, inspected.Project.SchemaVersion.Value);
         Assert.Empty(inspected.Project.Assets);
     }
 
@@ -198,7 +202,8 @@ public sealed class ProjectAssetTests
         "audio/webm;codecs=opus",
         4_096,
         new string('b', 64),
-        new DateTimeOffset(2026, 8, 14, 20, 0, 0, TimeSpan.Zero));
+        new DateTimeOffset(2026, 8, 14, 20, 0, 0, TimeSpan.Zero),
+        "Take 1");
 
     private static ProjectAsset CreateAsset(byte[] content) => new(
         ProjectAssetId.New(),
@@ -206,5 +211,6 @@ public sealed class ProjectAssetTests
         "audio/webm;codecs=opus",
         content.LongLength,
         Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant(),
-        new DateTimeOffset(2026, 8, 14, 20, 0, 0, TimeSpan.Zero));
+        new DateTimeOffset(2026, 8, 14, 20, 0, 0, TimeSpan.Zero),
+        "Take 1");
 }

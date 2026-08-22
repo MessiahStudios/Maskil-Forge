@@ -38,7 +38,8 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
         new V18ToV19ProjectMigration(),
         new V19ToV20ProjectMigration(),
         new V20ToV21ProjectMigration(),
-        new V21ToV22ProjectMigration()
+        new V21ToV22ProjectMigration(),
+        new V22ToV23ProjectMigration()
     ]);
 
     public JsonObject Normalize(JsonObject project)
@@ -577,6 +578,30 @@ internal sealed class V21ToV22ProjectMigration : IProjectMigration
     public JsonObject Apply(JsonObject project)
     {
         project["assets"] = new JsonArray();
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}
+
+internal sealed class V22ToV23ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 22;
+    public int ToVersion => 23;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["assets"] is JsonArray assets)
+        {
+            var takeNumber = 1;
+            foreach (var asset in assets.OfType<JsonObject>())
+            {
+                var kind = asset["kind"]?.GetValue<string>();
+                asset["name"] = kind == nameof(ProjectAssetKind.OriginalVocalTake)
+                    ? $"Take {takeNumber++}"
+                    : "Project asset";
+            }
+        }
+
         project["schemaVersion"] = ToVersion;
         return project;
     }

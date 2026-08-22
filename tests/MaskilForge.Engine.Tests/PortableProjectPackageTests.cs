@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Nodes;
 using MaskilForge.Api;
 using MaskilForge.Domain;
 using MaskilForge.Engine;
@@ -26,6 +27,26 @@ public sealed class PortableProjectPackageTests
         Assert.Equal(content, inspected.Assets[asset.Id]);
         Assert.Equal(SchemaVersion.Current.Value, inspected.Project.SchemaVersion.Value);
         Assert.True(package.Length < PortableProjectPackage.MaximumByteLength);
+    }
+
+    [Fact]
+    public void Schema22Package_MigratesOriginalVocalTakesToDurableNames()
+    {
+        var content = Encoding.UTF8.GetBytes("legacy named vocal bytes");
+        var project = CreateProjectWithAsset(content, out var asset);
+        var package = PortableProjectPackage.Export(project, new Dictionary<ProjectAssetId, byte[]> { [asset.Id] = content });
+        var legacyProject = JsonNode.Parse(PortableProjectExporter.SerializeDocument(project))!.AsObject();
+        legacyProject["schemaVersion"] = 22;
+        foreach (var legacyAsset in legacyProject["assets"]!.AsArray().OfType<JsonObject>())
+            legacyAsset.Remove("name");
+
+        var migratedPackage = MutateEntry(package, "project.json", Encoding.UTF8.GetBytes(legacyProject.ToJsonString()));
+        var inspected = PortableProjectPackage.Inspect(migratedPackage);
+
+        Assert.Equal(22, inspected.SourceSchemaVersion);
+        Assert.Equal(23, inspected.Project.SchemaVersion.Value);
+        Assert.Equal("Take 1", Assert.Single(inspected.Project.Assets).Name);
+        Assert.Equal(content, inspected.Assets[asset.Id]);
     }
 
     [Fact]
@@ -153,7 +174,8 @@ public sealed class PortableProjectPackageTests
         "audio/webm;codecs=opus",
         content.LongLength,
         Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant(),
-        new DateTimeOffset(2026, 8, 14, 20, 0, 0, TimeSpan.Zero));
+        new DateTimeOffset(2026, 8, 14, 20, 0, 0, TimeSpan.Zero),
+        "Take 1");
 
     private static byte[] MutateEntry(byte[] package, string name, byte[] content)
     {

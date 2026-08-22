@@ -149,7 +149,8 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
                     mediaType,
                     content.LongLength,
                     Convert.ToHexString(SHA256.HashData(content)).ToLowerInvariant(),
-                    createdUtc);
+                    createdUtc,
+                    NextAvailableTakeName(project));
                 project.RegisterAsset(asset);
                 await repository.SaveWithAssetAsync(project, asset, new MemoryStream(content, writable: false), cancellationToken);
 
@@ -195,6 +196,40 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
         finally { saveLock.Release(); }
     }
 
+    public async Task<ProjectEditor?> RenameOriginalVocalTakeAsync(
+        ProjectId id,
+        ProjectAssetId assetId,
+        string name,
+        DateTimeOffset expectedLastModifiedUtc,
+        CancellationToken cancellationToken)
+    {
+        var saveLock = _saveLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            var editorLock = _editorLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+            await editorLock.WaitAsync(cancellationToken);
+            try
+            {
+                var project = await repository.LoadAsync(id, cancellationToken);
+                if (project is null) return null;
+                if (project.LastModifiedUtc != expectedLastModifiedUtc)
+                    throw new StaleProjectSessionException();
+
+                if (!project.Assets.Any(item => item.Id == assetId && item.Kind == ProjectAssetKind.OriginalVocalTake))
+                    throw new KeyNotFoundException($"Rough vocal take '{assetId}' was not found.");
+                project.RenameAsset(assetId, name);
+                await repository.SaveAsync(project, cancellationToken);
+
+                var editor = new ProjectEditor(project);
+                _editors[id] = editor;
+                return editor;
+            }
+            finally { editorLock.Release(); }
+        }
+        finally { saveLock.Release(); }
+    }
+
     public async Task<ProjectEditor?> DuplicateAsync(ProjectId sourceId, CancellationToken cancellationToken)
     {
         var source = await repository.LoadAsync(sourceId, cancellationToken);
@@ -215,6 +250,19 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
             assets[asset.Id] = buffer.ToArray();
         }
         return await ImportWithAssetsAsync(copy, assets, cancellationToken);
+    }
+
+    private static string NextAvailableTakeName(SongProject project)
+    {
+        var names = project.Assets
+            .Where(asset => asset.Kind == ProjectAssetKind.OriginalVocalTake)
+            .Select(asset => asset.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        for (var takeNumber = 1; ; takeNumber++)
+        {
+            var candidate = $"Take {takeNumber}";
+            if (!names.Contains(candidate)) return candidate;
+        }
     }
 
     public async Task SaveAsync(ProjectEditor editor, CancellationToken cancellationToken) =>

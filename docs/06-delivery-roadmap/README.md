@@ -724,6 +724,16 @@ Activity logs may report the selected asset identity, byte length, outcome, and 
 
 **Deliverable:** an artist can correct an accidental or unwanted saved-take choice without deleting the song, silently weakening revision safety, or mistaking current-version removal for deletion of every protected historical copy.
 
+### Milestone 6.7 — Durable rough-take naming
+
+Advance the project schema to v23 so every registered project asset owns a short, durable display name in addition to its immutable integrity metadata. Schema-v22 packages migrate original-vocal assets in manifest order to deterministic `Take 1`, `Take 2`, and later defaults without changing asset identities, hashes, timestamps, or bytes. New captures choose the first available numbered default so removing an earlier take does not force duplicate labels.
+
+Let an artist rename one saved rough take from Review with an explicit, phone-sized dialog. Names are trimmed, required, limited to eighty characters, and committed only against the current persisted project revision. A stale phone or laptop is refused without changing the active name or recording. The rename updates project metadata, backup state, recovery behavior, duplication, and portable `.maskil` interchange while leaving the immutable original recording byte-for-byte unchanged.
+
+Activity logs report only the project and asset identity plus the rename outcome; the artist-authored name and audio remain outside development telemetry. Trimming, tags, ratings, take reordering, bulk cleanup, timeline placement, analysis, transcription, and comping remain later work.
+
+**Deliverable:** an artist can identify several saved performances by meaning instead of list position, and those names survive project movement without weakening recording integrity or multi-device revision safety.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
