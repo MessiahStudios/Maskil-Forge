@@ -42,9 +42,26 @@ test('rows are chronological and format time, measurements, and confidence for r
   ], 'take-a')
 
   assert.deepEqual(groups[0].rows, [
-    { id: 'earlier', timeLabel: '0.000s–0.080s', measurementLabel: '220.0 Hz', confidenceLabel: 'Confidence 82%' },
-    { id: 'later', timeLabel: '0.400s–0.480s', measurementLabel: '440.3 Hz', confidenceLabel: 'Confidence not reported' },
+    { id: 'earlier', timeLabel: '0.000s–0.080s', measurementLabel: '220.0 Hz', confidenceLabel: 'Confidence 82%', reviewVerdict: null, reviewUpdatedUtc: '' },
+    { id: 'later', timeLabel: '0.400s–0.480s', measurementLabel: '440.3 Hz', confidenceLabel: 'Confidence not reported', reviewVerdict: null, reviewUpdatedUtc: '' },
   ])
+})
+
+test('artist verdicts decorate matching claims without changing analyzer evidence', () => {
+  const source = [observation({ id: 'reviewed' }), observation({ id: 'unreviewed', startMilliseconds: 400 })]
+  const snapshot = structuredClone(source)
+  const groups = buildPerformanceEvidenceGroups(source, 'take-a', {}, [{
+    id: 'review-1',
+    observationId: 'reviewed',
+    verdict: 'Accurate',
+    createdUtc: '2026-08-22T12:01:00Z',
+    updatedUtc: '2026-08-22T12:02:00Z',
+  }])
+
+  assert.equal(groups[0].rows[0].reviewVerdict, 'Accurate')
+  assert.equal(groups[0].rows[0].reviewUpdatedUtc, '2026-08-22T12:02:00Z')
+  assert.equal(groups[0].rows[1].reviewVerdict, null)
+  assert.deepEqual(source, snapshot)
 })
 
 test('loudness and onset evidence use compact human-readable measurements', () => {

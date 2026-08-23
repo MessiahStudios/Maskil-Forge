@@ -178,7 +178,7 @@ public sealed class ProjectAssetTests
         var inspected = PortableProjectImporter.Inspect(document.ToJsonString());
 
         Assert.Equal(21, inspected.SourceSchemaVersion);
-        Assert.Equal(24, inspected.Project.SchemaVersion.Value);
+        Assert.Equal(25, inspected.Project.SchemaVersion.Value);
         Assert.Empty(inspected.Project.Assets);
     }
 

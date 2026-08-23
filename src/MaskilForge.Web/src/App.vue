@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type PerformanceObservationReviewVerdict, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -67,6 +67,7 @@ const pitchAnalysisMessages = reactive<Record<string, string>>({})
 const onsetAnalysisAssetId = ref('')
 const onsetAnalysisMessages = reactive<Record<string, string>>({})
 const performanceEvidenceVisibility = reactive<Record<string, Record<string, number>>>({})
+const performanceReviewMessages = reactive<Record<string, string>>({})
 let roughVocalCaptureSession: RoughVocalCaptureSession | null = null
 let roughVocalAutoStopTimer: number | undefined
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
@@ -153,6 +154,7 @@ const performanceEvidenceByAsset = computed(() => Object.fromEntries((project.va
     project.value?.performanceObservations,
     asset.id,
     performanceEvidenceVisibility[asset.id] ?? {},
+    project.value?.performanceObservationReviews,
   ),
 ])))
 const browserRecoverySummaries = computed(() => browserRecoveries.value.map(summarizeBrowserRecovery))
@@ -1092,6 +1094,53 @@ function performanceEvidenceCount(assetId: string) {
 function showMorePerformanceEvidence(assetId: string, groupKey: string, totalCount: number) {
   const visibility = performanceEvidenceVisibility[assetId] ??= {}
   visibility[groupKey] = nextPerformanceEvidenceVisibleCount(visibility[groupKey], totalCount)
+}
+
+async function reviewPerformanceObservation(
+  assetId: string,
+  observationId: string,
+  verdict: PerformanceObservationReviewVerdict | null,
+) {
+  if (!project.value || !persistedRevision.value || isDirty.value || workspaceConnection.value !== 'ready') return
+  const reviewProjectId = project.value.id
+  busy.value = true
+  performanceReviewMessages[assetId] = verdict === null
+    ? 'Clearing the artist verdict…'
+    : `Marking this analyzer claim ${verdict === 'Accurate' ? 'accurate' : 'inaccurate'}…`
+  try {
+    const next = await projectsApi.reviewPerformanceObservation(
+      reviewProjectId,
+      observationId,
+      persistedRevision.value,
+      verdict,
+    )
+    if (project.value?.id === reviewProjectId) {
+      const message = verdict === null
+        ? 'Analyzer claim returned to unreviewed.'
+        : `Analyzer claim marked ${verdict === 'Accurate' ? 'accurate' : 'inaccurate'} by the artist.`
+      accept(next, message, true)
+      performanceReviewMessages[assetId] = `${message} This verdict does not create or correct musical material.`
+    }
+    activityLog.write('success', 'vocal.observation-review', verdict === null
+      ? 'Artist review cleared from analyzer evidence.'
+      : 'Artist verdict saved for analyzer evidence.', {
+      projectId: reviewProjectId,
+      assetId,
+      observationId,
+      verdict: verdict ?? 'Unreviewed',
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The analyzer claim could not be reviewed.'
+    status.value = message
+    performanceReviewMessages[assetId] = message
+    activityLog.write('error', 'vocal.observation-review', message, {
+      projectId: reviewProjectId,
+      assetId,
+      observationId,
+    })
+  } finally {
+    busy.value = false
+  }
 }
 
 async function analyzeSavedRoughVocal(asset: ProjectAsset) {
@@ -3612,10 +3661,10 @@ onBeforeUnmount(() => {
                 <details v-if="performanceEvidenceCount(asset.id)" class="performance-evidence-inspector">
                   <summary>
                     <span>Inspect analyzer evidence</span>
-                    <small>{{ performanceEvidenceCount(asset.id) }} claim{{ performanceEvidenceCount(asset.id) === 1 ? '' : 's' }} · read only</small>
+                    <small>{{ performanceEvidenceCount(asset.id) }} claim{{ performanceEvidenceCount(asset.id) === 1 ? '' : 's' }} · artist review</small>
                   </summary>
                   <div class="performance-evidence-body">
-                    <p>These measurements describe what each analyzer reported. They are not notes, beats, corrections, or approved gesture data.</p>
+                    <p>These measurements remain analyzer evidence. Marking one accurate or inaccurate records only your verdict; it does not create a note, beat, correction, or approved gesture.</p>
                     <section v-for="group in performanceEvidenceGroups(asset.id)" :key="group.key" class="performance-evidence-group">
                       <header>
                         <h5>{{ group.label }}</h5>
@@ -3627,6 +3676,12 @@ onBeforeUnmount(() => {
                           <time>{{ row.timeLabel }}</time>
                           <span>{{ row.measurementLabel }}</span>
                           <small>{{ row.confidenceLabel }}</small>
+                          <div class="performance-evidence-review" :data-verdict="row.reviewVerdict ?? 'Unreviewed'">
+                            <strong>{{ row.reviewVerdict ? `Artist marked ${row.reviewVerdict.toLowerCase()}` : 'Unreviewed' }}</strong>
+                            <button type="button" class="quiet" :aria-pressed="row.reviewVerdict === 'Accurate'" :disabled="busy || isDirty || workspaceConnection !== 'ready' || row.reviewVerdict === 'Accurate'" @click="reviewPerformanceObservation(asset.id, row.id, 'Accurate')">Accurate</button>
+                            <button type="button" class="quiet" :aria-pressed="row.reviewVerdict === 'Inaccurate'" :disabled="busy || isDirty || workspaceConnection !== 'ready' || row.reviewVerdict === 'Inaccurate'" @click="reviewPerformanceObservation(asset.id, row.id, 'Inaccurate')">Inaccurate</button>
+                            <button v-if="row.reviewVerdict" type="button" class="quiet" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="reviewPerformanceObservation(asset.id, row.id, null)">Clear</button>
+                          </div>
                         </li>
                       </ol>
                       <button v-if="group.remainingCount" type="button" class="quiet performance-evidence-more" @click="showMorePerformanceEvidence(asset.id, group.key, group.count)">Show {{ Math.min(12, group.remainingCount) }} more · {{ group.remainingCount }} remaining</button>
@@ -3636,6 +3691,7 @@ onBeforeUnmount(() => {
                 <p v-if="loudnessAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ loudnessAnalysisMessages[asset.id] }}</p>
                 <p v-if="pitchAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ pitchAnalysisMessages[asset.id] }}</p>
                 <p v-if="onsetAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ onsetAnalysisMessages[asset.id] }}</p>
+                <p v-if="performanceReviewMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ performanceReviewMessages[asset.id] }}</p>
                 <div class="saved-vocal-take-actions">
                   <button type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="analyzeSavedRoughVocal(asset)">{{ loudnessAnalysisAssetId === asset.id ? 'Analyzing loudness…' : loudnessObservationSummary(asset.id) ? 'Reanalyze loudness' : 'Analyze loudness' }}</button>
                   <button type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="analyzeSavedRoughVocalPitch(asset)">{{ pitchAnalysisAssetId === asset.id ? 'Analyzing pitch…' : pitchObservationSummary(asset.id) ? 'Reanalyze pitch' : 'Analyze pitch' }}</button>
@@ -3646,7 +3702,7 @@ onBeforeUnmount(() => {
               </li>
             </ol>
           </section>
-          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. The evidence inspector exposes each time span, measurement, confidence, analyzer, version, and provenance without creating new project data. Silence and uncertainty produce no claim. Onset candidates do not set tempo, quantize timing, or create musical events. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry both source and evidence. Trimming, bulk take cleanup, timing correction, gesture promotion, and automatic musical decisions remain later work.</small>
+          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. The evidence inspector exposes each claim and lets the artist mark it accurate or inaccurate without promoting it into musical material. Rerunning one analyzer replaces its claims and clears only verdicts attached to those replaced claims. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry source, evidence, and current artist verdicts. Trimming, correction values, gesture promotion, and automatic musical decisions remain later work.</small>
         </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>

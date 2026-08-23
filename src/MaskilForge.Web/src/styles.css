@@ -231,6 +231,12 @@ button.journey-step:hover:not(:disabled) { border-color: #6e755f; background: #2
 .performance-evidence-group time { color: #d4c7aa; font-variant-numeric: tabular-nums; }
 .performance-evidence-group li > span { color: #d5d1c7; overflow-wrap: anywhere; }
 .performance-evidence-group li > small { color: #94978d; text-align: right; }
+.performance-evidence-review { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; padding-top: .35rem; border-top: 1px solid #2c312a; }
+.performance-evidence-review strong { margin-right: auto; color: #9da196; font-size: .7rem; letter-spacing: .03em; }
+.performance-evidence-review[data-verdict="Accurate"] strong { color: #a9c9ad; }
+.performance-evidence-review[data-verdict="Inaccurate"] strong { color: #e0ad9f; }
+.performance-evidence-review button { min-height: 2rem; padding: .28rem .5rem; font-size: .7rem; }
+.performance-evidence-review button[aria-pressed="true"] { color: #18150f; background: #d8ba78; border-color: #e7ca85; }
 .performance-evidence-more { justify-self: start; min-height: 2.4rem; }
 .saved-vocal-analysis-status { color: #bdb7aa; font-size: .82rem; }
 @keyframes recording-pulse { 50% { box-shadow: 0 0 0 .25rem rgba(180, 111, 89, .18); } }
@@ -691,6 +697,9 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .performance-evidence-group li { grid-template-columns: 1fr auto; }
   .performance-evidence-group li > span { grid-column: 1 / -1; grid-row: 2; }
   .performance-evidence-group li > small { grid-column: 2; grid-row: 1; }
+  .performance-evidence-review { grid-row: 3; }
+  .performance-evidence-review strong { flex-basis: 100%; }
+  .performance-evidence-review button { flex: 1 1 5.5rem; }
   main { width: min(100% - 1rem, 1180px); }
   .workspace-connection { grid-template-columns: auto minmax(0, 1fr); }
   .workspace-connection.ready { padding: .45rem .7rem; gap: .5rem; }

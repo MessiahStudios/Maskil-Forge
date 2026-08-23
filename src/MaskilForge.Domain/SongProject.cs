@@ -28,6 +28,7 @@ public sealed class SongProject
     private readonly List<MusicalPart> _musicalParts;
     private readonly List<ProjectAsset> _assets;
     private readonly List<PerformanceObservation> _performanceObservations;
+    private readonly List<PerformanceObservationReview> _performanceObservationReviews;
 
     [JsonConstructor]
     public SongProject(
@@ -50,7 +51,8 @@ public sealed class SongProject
         IReadOnlyList<NoteEvent>? noteEvents = null,
         IReadOnlyList<MusicalPart>? musicalParts = null,
         IReadOnlyList<ProjectAsset>? assets = null,
-        IReadOnlyList<PerformanceObservation>? performanceObservations = null)
+        IReadOnlyList<PerformanceObservation>? performanceObservations = null,
+        IReadOnlyList<PerformanceObservationReview>? performanceObservationReviews = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -71,6 +73,7 @@ public sealed class SongProject
         _musicalParts = musicalParts?.ToList() ?? [];
         _assets = assets?.ToList() ?? [];
         _performanceObservations = performanceObservations?.ToList() ?? [];
+        _performanceObservationReviews = performanceObservationReviews?.ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -80,6 +83,7 @@ public sealed class SongProject
         ValidateAllHarmonyCandidates(TimeSignature);
         ValidateLockReferences();
         ValidatePerformanceObservationReferences();
+        ValidatePerformanceObservationReviewReferences();
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
@@ -108,6 +112,7 @@ public sealed class SongProject
     public IReadOnlyList<MusicalPart> MusicalParts => _musicalParts;
     public IReadOnlyList<ProjectAsset> Assets => _assets;
     public IReadOnlyList<PerformanceObservation> PerformanceObservations => _performanceObservations;
+    public IReadOnlyList<PerformanceObservationReview> PerformanceObservationReviews => _performanceObservationReviews;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -129,8 +134,13 @@ public sealed class SongProject
     {
         var asset = _assets.SingleOrDefault(item => item.Id == assetId)
             ?? throw new KeyNotFoundException($"Project asset '{assetId}' was not found.");
+        var removedObservationIds = _performanceObservations
+            .Where(item => item.SourceAssetId == assetId)
+            .Select(item => item.Id)
+            .ToHashSet();
         _assets.Remove(asset);
         _performanceObservations.RemoveAll(item => item.SourceAssetId == assetId);
+        _performanceObservationReviews.RemoveAll(item => removedObservationIds.Contains(item.ObservationId));
         Touch();
         return asset;
     }
@@ -150,8 +160,38 @@ public sealed class SongProject
         var observation = _performanceObservations.SingleOrDefault(item => item.Id == observationId)
             ?? throw new KeyNotFoundException($"Performance observation '{observationId}' was not found.");
         _performanceObservations.Remove(observation);
+        _performanceObservationReviews.RemoveAll(item => item.ObservationId == observationId);
         Touch();
         return observation;
+    }
+
+    public PerformanceObservationReview SetPerformanceObservationReview(
+        PerformanceObservationId observationId,
+        PerformanceObservationReviewVerdict verdict,
+        DateTimeOffset reviewedUtc)
+    {
+        if (_performanceObservations.All(item => item.Id != observationId))
+            throw new KeyNotFoundException($"Performance observation '{observationId}' was not found.");
+        if (reviewedUtc == default) throw new ArgumentException("A review time is required.", nameof(reviewedUtc));
+
+        var index = _performanceObservationReviews.FindIndex(item => item.ObservationId == observationId);
+        var review = index < 0
+            ? new PerformanceObservationReview(
+                PerformanceObservationReviewId.New(), observationId, verdict, reviewedUtc, reviewedUtc)
+            : _performanceObservationReviews[index].Revise(verdict, reviewedUtc);
+        if (index < 0) _performanceObservationReviews.Add(review);
+        else _performanceObservationReviews[index] = review;
+        Touch();
+        return review;
+    }
+
+    public PerformanceObservationReview ClearPerformanceObservationReview(PerformanceObservationId observationId)
+    {
+        var review = _performanceObservationReviews.SingleOrDefault(item => item.ObservationId == observationId)
+            ?? throw new KeyNotFoundException($"Performance observation '{observationId}' has not been reviewed.");
+        _performanceObservationReviews.Remove(review);
+        Touch();
+        return review;
     }
 
     public void ReplacePerformanceObservations(
@@ -188,9 +228,16 @@ public sealed class SongProject
         if (replacements.Any(item => retainedIds.Contains(item.Id)))
             throw new ArgumentException("Replacement observation IDs must be unique across the project.", nameof(replacements));
 
+        var removedObservationIds = _performanceObservations
+            .Where(item => item.SourceAssetId == sourceAssetId
+                && string.Equals(item.AnalyzerId, normalizedAnalyzerId, StringComparison.Ordinal)
+                && string.Equals(item.Kind, normalizedKind, StringComparison.Ordinal))
+            .Select(item => item.Id)
+            .ToHashSet();
         _performanceObservations.RemoveAll(item => item.SourceAssetId == sourceAssetId
             && string.Equals(item.AnalyzerId, normalizedAnalyzerId, StringComparison.Ordinal)
             && string.Equals(item.Kind, normalizedKind, StringComparison.Ordinal));
+        _performanceObservationReviews.RemoveAll(item => removedObservationIds.Contains(item.ObservationId));
         _performanceObservations.AddRange(replacements);
         Touch();
     }
@@ -800,6 +847,10 @@ public sealed class SongProject
             throw new ArgumentException("Project asset IDs must be unique.");
         if (_performanceObservations.Select(item => item.Id).Distinct().Count() != _performanceObservations.Count)
             throw new ArgumentException("Performance observation IDs must be unique.");
+        if (_performanceObservationReviews.Select(item => item.Id).Distinct().Count() != _performanceObservationReviews.Count)
+            throw new ArgumentException("Performance observation review IDs must be unique.");
+        if (_performanceObservationReviews.Select(item => item.ObservationId).Distinct().Count() != _performanceObservationReviews.Count)
+            throw new ArgumentException("A performance observation can have only one artist review.");
         if (_arrangement.Select(item => item.Id).Distinct().Count() != _arrangement.Count)
             throw new ArgumentException("Section arrangement IDs must be unique.");
         if (_arrangement.Select(item => item.SectionId).Distinct().Count() != _arrangement.Count)
@@ -869,6 +920,13 @@ public sealed class SongProject
     {
         if (_assets.All(asset => asset.Id != observation.SourceAssetId || asset.Kind != ProjectAssetKind.OriginalVocalTake))
             throw new ArgumentException($"Performance observation '{observation.Id}' must reference an existing original vocal asset.");
+    }
+
+    private void ValidatePerformanceObservationReviewReferences()
+    {
+        foreach (var review in _performanceObservationReviews)
+            if (_performanceObservations.All(observation => observation.Id != review.ObservationId))
+                throw new ArgumentException($"Performance observation review '{review.Id}' must reference an existing observation.");
     }
 
     private void ValidateLockReferences()
