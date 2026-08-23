@@ -1,4 +1,4 @@
-import type { PerformanceObservation } from './api'
+import type { PerformanceObservation, PerformanceObservationReview, PerformanceObservationReviewVerdict } from './api'
 
 export const performanceEvidencePageSize: 12
 
@@ -7,6 +7,8 @@ export interface PerformanceEvidenceRow {
   timeLabel: string
   measurementLabel: string
   confidenceLabel: string
+  reviewVerdict: PerformanceObservationReviewVerdict | null
+  reviewUpdatedUtc: string
 }
 
 export interface PerformanceEvidenceGroup {
@@ -29,4 +31,5 @@ export function buildPerformanceEvidenceGroups(
   observations: PerformanceObservation[] | null | undefined,
   sourceAssetId: string,
   visibleCounts?: Record<string, number>,
+  reviews?: PerformanceObservationReview[],
 ): PerformanceEvidenceGroup[]

@@ -84,6 +84,10 @@ The host accepts only a dedicated onset-event report with the exact grid, window
 
 Slice 6.12 makes persisted evidence inspectable before artist correction begins. Each saved take can expand a derived, read-only inspector that groups loudness, pitch, onset, and later extensible kinds by analyzer identity and version. Rows remain in source-time order and expose the stored span, measurements, confidence, provenance, and report time. Large reports reveal twelve rows at a time so phone Review stays bounded. This view creates no second evidence store, schema field, analyzer run, note, beat, correction, or gesture; it only explains claims already present in `performanceObservations`.
 
+Slice 6.13 adds the first artist-authored layer over that evidence without changing the evidence itself. Schema v25 stores at most one `PerformanceObservationReview` per present observation, with a stable review ID, an `Accurate` or `Inaccurate` verdict, and creation and update times. The artist can revise or clear the verdict from the inspector. Analyzer confidence remains the analyzer's claim; the verdict records whether the artist agrees with that claim.
+
+Reviews move with the project and remain separately attributable. Removing a source take removes its observations and their reviews. Rerunning one analyzer replaces its prior claims, so reviews attached to exactly those disappearing claims are invalidated while reviews for other analyzers remain. This avoids orphaned verdicts and prevents a decision about an old claim from silently attaching to a new measurement. A review does not supply a corrected value and cannot create a note, beat, curve, MIDI event, approved gesture, or automatic musical decision.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting

@@ -343,6 +343,16 @@ export interface PerformanceObservation {
   createdUtc: string
 }
 
+export type PerformanceObservationReviewVerdict = 'Accurate' | 'Inaccurate'
+
+export interface PerformanceObservationReview {
+  id: string
+  observationId: string
+  verdict: PerformanceObservationReviewVerdict
+  createdUtc: string
+  updatedUtc: string
+}
+
 export interface LoudnessFrameReport {
   startMilliseconds: number
   durationMilliseconds: number
@@ -392,6 +402,7 @@ export interface SongProject {
   musicalParts: MusicalPart[]
   assets: ProjectAsset[]
   performanceObservations: PerformanceObservation[]
+  performanceObservationReviews: PerformanceObservationReview[]
   key: MusicalKey
 }
 
@@ -632,6 +643,15 @@ export const projectsApi = {
   saveOnsetAnalysis: (id: string, assetId: string, baseProjectLastModifiedUtc: string, events: OnsetEventReport[]) => request<ProjectResponse>(
     `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}/onset-analysis`,
     { method: 'PUT', body: JSON.stringify({ baseProjectLastModifiedUtc, events }) },
+  ),
+  reviewPerformanceObservation: (
+    id: string,
+    observationId: string,
+    baseProjectLastModifiedUtc: string,
+    verdict: PerformanceObservationReviewVerdict | null,
+  ) => request<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(id)}/performance-observations/${encodeURIComponent(observationId)}/review`,
+    { method: 'PUT', body: JSON.stringify({ baseProjectLastModifiedUtc, verdict }) },
   ),
   originalVocalTakeUrl: (id: string, assetId: string) => `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}`,
   command: (id: string, project: SongProject, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {

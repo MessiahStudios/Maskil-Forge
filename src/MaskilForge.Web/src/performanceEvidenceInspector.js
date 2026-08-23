@@ -43,7 +43,8 @@ function formatProvenance(value) {
   return titleCase(value)
 }
 
-function evidenceRow(observation) {
+function evidenceRow(observation, reviewsByObservationId) {
+  const review = reviewsByObservationId.get(observation.id)
   return {
     id: observation.id,
     timeLabel: `${formatTime(observation.startMilliseconds)}–${formatTime(observation.startMilliseconds + observation.durationMilliseconds)}`,
@@ -51,6 +52,8 @@ function evidenceRow(observation) {
     confidenceLabel: observation.confidence == null
       ? 'Confidence not reported'
       : `Confidence ${Math.round(Number(observation.confidence) * 100)}%`,
+    reviewVerdict: review?.verdict ?? null,
+    reviewUpdatedUtc: review?.updatedUtc ?? '',
   }
 }
 
@@ -60,7 +63,8 @@ export function nextPerformanceEvidenceVisibleCount(currentCount, totalCount) {
   return Math.min(total, current + performanceEvidencePageSize)
 }
 
-export function buildPerformanceEvidenceGroups(observations, sourceAssetId, visibleCounts = {}) {
+export function buildPerformanceEvidenceGroups(observations, sourceAssetId, visibleCounts = {}, reviews = []) {
+  const reviewsByObservationId = new Map((reviews ?? []).map(review => [review.observationId, review]))
   const grouped = new Map()
   for (const observation of observations ?? []) {
     if (observation?.sourceAssetId !== sourceAssetId) continue
@@ -94,7 +98,7 @@ export function buildPerformanceEvidenceGroups(observations, sourceAssetId, visi
         count: ordered.length,
         visibleCount,
         remainingCount: ordered.length - visibleCount,
-        rows: ordered.slice(0, visibleCount).map(evidenceRow),
+        rows: ordered.slice(0, visibleCount).map(observation => evidenceRow(observation, reviewsByObservationId)),
       }
     })
     .sort((left, right) => left.order - right.order || left.label.localeCompare(right.label)

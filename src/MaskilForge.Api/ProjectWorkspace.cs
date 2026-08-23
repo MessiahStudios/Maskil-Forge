@@ -249,6 +249,40 @@ public sealed class ProjectWorkspace(IProjectRepository repository)
             cancellationToken);
     }
 
+    public async Task<ProjectEditor?> SetPerformanceObservationReviewAsync(
+        ProjectId id,
+        PerformanceObservationId observationId,
+        PerformanceObservationReviewVerdict? verdict,
+        DateTimeOffset expectedLastModifiedUtc,
+        DateTimeOffset reviewedUtc,
+        CancellationToken cancellationToken)
+    {
+        var saveLock = _saveLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+        await saveLock.WaitAsync(cancellationToken);
+        try
+        {
+            var editorLock = _editorLocks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
+            await editorLock.WaitAsync(cancellationToken);
+            try
+            {
+                var project = await repository.LoadAsync(id, cancellationToken);
+                if (project is null) return null;
+                if (project.LastModifiedUtc != expectedLastModifiedUtc)
+                    throw new StaleProjectSessionException();
+
+                if (verdict is null) project.ClearPerformanceObservationReview(observationId);
+                else project.SetPerformanceObservationReview(observationId, verdict.Value, reviewedUtc);
+                await repository.SaveAsync(project, cancellationToken);
+
+                var editor = new ProjectEditor(project);
+                _editors[id] = editor;
+                return editor;
+            }
+            finally { editorLock.Release(); }
+        }
+        finally { saveLock.Release(); }
+    }
+
     public async Task<ProjectEditor?> ReplacePitchObservationsAsync(
         ProjectId id,
         ProjectAssetId assetId,

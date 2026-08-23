@@ -782,6 +782,16 @@ Reveal large groups in deterministic twelve-row pages so a one-minute report rem
 
 **Deliverable:** an artist can inspect exactly what each analyzer claimed and how certain it was before any evidence is allowed to influence editable musical material.
 
+### Milestone 6.13 — Artist verdicts on analyzer claims
+
+Advance the project schema to v25 with a separate `performanceObservationReviews` collection. From a visible evidence row, the artist can mark one claim **Accurate** or **Inaccurate**, revise that verdict, or clear it to **Unreviewed**. Each stored review owns a stable identity, references exactly one present observation, records creation and update times, and remains separate from both analyzer confidence and any later musical approval.
+
+Review writes require the current persisted project revision. A source-take removal cascades through its observations and reviews. Rerunning an analyzer replaces its prior claims and invalidates only reviews attached to those disappearing claim IDs; reviews for unaffected analyzers remain. This prevents an old artist decision from silently attaching to newly measured evidence. Backup, recovery, duplication, Trash, and `.maskil` packages carry the current reviews with the project.
+
+This slice records agreement or disagreement only. It adds no corrected measurement, selection range, note, beat, tempo, quantization target, MIDI event, expression curve, gesture promotion, or automatic musical decision. Those remain explicit later commands built on reviewed evidence.
+
+**Deliverable:** the artist can make a durable, reversible judgment about individual analyzer claims before any correction or gesture data is allowed to exist.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
