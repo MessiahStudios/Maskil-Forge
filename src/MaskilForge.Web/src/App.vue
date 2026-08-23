@@ -28,6 +28,7 @@ import { beginRoughVocalCapture, formatRoughVocalBytes, formatRoughVocalDuration
 import { analyzeSavedVocalTake, loudnessAnalyzerId, loudnessObservationKind } from './loudnessAnalysis.js'
 import { analyzeSavedVocalTakePitch, pitchAnalyzerId, pitchObservationKind } from './pitchAnalysis.js'
 import { analyzeSavedVocalTakeOnsets, onsetAnalyzerId, onsetObservationKind } from './onsetAnalysis.js'
+import { buildPerformanceEvidenceGroups, nextPerformanceEvidenceVisibleCount } from './performanceEvidenceInspector.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -65,6 +66,7 @@ const pitchAnalysisAssetId = ref('')
 const pitchAnalysisMessages = reactive<Record<string, string>>({})
 const onsetAnalysisAssetId = ref('')
 const onsetAnalysisMessages = reactive<Record<string, string>>({})
+const performanceEvidenceVisibility = reactive<Record<string, Record<string, number>>>({})
 let roughVocalCaptureSession: RoughVocalCaptureSession | null = null
 let roughVocalAutoStopTimer: number | undefined
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
@@ -145,6 +147,14 @@ function projectSnapshot(value: SongProject) {
 }
 const serializedProject = computed(() => project.value ? projectSnapshot(project.value) : '')
 const isDirty = computed(() => Boolean(project.value) && serializedProject.value !== savedSnapshot.value)
+const performanceEvidenceByAsset = computed(() => Object.fromEntries((project.value?.assets ?? []).map(asset => [
+  asset.id,
+  buildPerformanceEvidenceGroups(
+    project.value?.performanceObservations,
+    asset.id,
+    performanceEvidenceVisibility[asset.id] ?? {},
+  ),
+])))
 const browserRecoverySummaries = computed(() => browserRecoveries.value.map(summarizeBrowserRecovery))
 const browserProjectSummaries = computed(() => browserProjects.value.map(summarizeBrowserProject))
 const browserProjectDetail = computed(() => browserProjectNotice(browserProjects.value.length))
@@ -1069,6 +1079,19 @@ function onsetObservationSummary(assetId: string) {
   if (!events.length) return ''
   const firstSeconds = (events[0].startMilliseconds / 1000).toFixed(2).replace(/\.?0+$/, '')
   return `${events.length} confident onset candidate${events.length === 1 ? '' : 's'} · first near ${firstSeconds}s · evidence only`
+}
+
+function performanceEvidenceGroups(assetId: string) {
+  return performanceEvidenceByAsset.value[assetId] ?? []
+}
+
+function performanceEvidenceCount(assetId: string) {
+  return performanceEvidenceGroups(assetId).reduce((count, group) => count + group.count, 0)
+}
+
+function showMorePerformanceEvidence(assetId: string, groupKey: string, totalCount: number) {
+  const visibility = performanceEvidenceVisibility[assetId] ??= {}
+  visibility[groupKey] = nextPerformanceEvidenceVisibleCount(visibility[groupKey], totalCount)
 }
 
 async function analyzeSavedRoughVocal(asset: ProjectAsset) {
@@ -3586,6 +3609,30 @@ onBeforeUnmount(() => {
                 <p v-if="loudnessObservationSummary(asset.id)" class="performance-observation-summary">{{ loudnessObservationSummary(asset.id) }}</p>
                 <p v-if="pitchObservationSummary(asset.id)" class="performance-observation-summary pitch">{{ pitchObservationSummary(asset.id) }}</p>
                 <p v-if="onsetObservationSummary(asset.id)" class="performance-observation-summary onset">{{ onsetObservationSummary(asset.id) }}</p>
+                <details v-if="performanceEvidenceCount(asset.id)" class="performance-evidence-inspector">
+                  <summary>
+                    <span>Inspect analyzer evidence</span>
+                    <small>{{ performanceEvidenceCount(asset.id) }} claim{{ performanceEvidenceCount(asset.id) === 1 ? '' : 's' }} · read only</small>
+                  </summary>
+                  <div class="performance-evidence-body">
+                    <p>These measurements describe what each analyzer reported. They are not notes, beats, corrections, or approved gesture data.</p>
+                    <section v-for="group in performanceEvidenceGroups(asset.id)" :key="group.key" class="performance-evidence-group">
+                      <header>
+                        <h5>{{ group.label }}</h5>
+                        <span>{{ group.count }}</span>
+                      </header>
+                      <p class="performance-evidence-provenance"><code>{{ group.analyzerId }}</code> · v{{ group.analyzerVersion }} · {{ group.provenanceLabel }} · {{ new Date(group.createdUtc).toLocaleString() }}</p>
+                      <ol>
+                        <li v-for="row in group.rows" :key="row.id">
+                          <time>{{ row.timeLabel }}</time>
+                          <span>{{ row.measurementLabel }}</span>
+                          <small>{{ row.confidenceLabel }}</small>
+                        </li>
+                      </ol>
+                      <button v-if="group.remainingCount" type="button" class="quiet performance-evidence-more" @click="showMorePerformanceEvidence(asset.id, group.key, group.count)">Show {{ Math.min(12, group.remainingCount) }} more · {{ group.remainingCount }} remaining</button>
+                    </section>
+                  </div>
+                </details>
                 <p v-if="loudnessAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ loudnessAnalysisMessages[asset.id] }}</p>
                 <p v-if="pitchAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ pitchAnalysisMessages[asset.id] }}</p>
                 <p v-if="onsetAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ onsetAnalysisMessages[asset.id] }}</p>
@@ -3599,7 +3646,7 @@ onBeforeUnmount(() => {
               </li>
             </ol>
           </section>
-          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. Silence and uncertainty produce no claim. Onset candidates do not set tempo, quantize timing, or create musical events. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry both source and evidence. Trimming, bulk take cleanup, timing correction, gesture promotion, and automatic musical decisions remain later work.</small>
+          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. The evidence inspector exposes each time span, measurement, confidence, analyzer, version, and provenance without creating new project data. Silence and uncertainty produce no claim. Onset candidates do not set tempo, quantize timing, or create musical events. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry both source and evidence. Trimming, bulk take cleanup, timing correction, gesture promotion, and automatic musical decisions remain later work.</small>
         </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>

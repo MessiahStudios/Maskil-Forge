@@ -774,6 +774,14 @@ Review shows the candidate count and first approximate position with an evidence
 
 **Deliverable:** a saved human performance can expose bounded rhythmic-transition evidence without turning analyzer timing into artist-approved musical structure.
 
+### Milestone 6.12 — Saved-take evidence inspector
+
+Add an expandable, read-only evidence inspector beneath each saved take in phone Review. Group persisted observations by kind, analyzer identity, and analyzer version; show provenance and report time; and order individual claims by their source-audio span. Each row exposes the stored span, measurements, and confidence rather than only the existing count, median, or strongest-value summary. Known loudness, pitch, and onset measurements receive compact readable labels, while unknown future kinds remain visible through generic formatting.
+
+Reveal large groups in deterministic twelve-row pages so a one-minute report remains usable on a narrow phone without mounting every possible claim at once. Paging is transient display state. The inspector reads the existing schema-v24 collection and writes no project data, reruns no analyzer, and creates no note, tempo, beat, quantization target, correction, approval, or gesture. Artist correction and gesture promotion remain later explicit, reversible slices.
+
+**Deliverable:** an artist can inspect exactly what each analyzer claimed and how certain it was before any evidence is allowed to influence editable musical material.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
