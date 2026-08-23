@@ -1,0 +1,90 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import {
+  buildPerformanceEvidenceGroups,
+  nextPerformanceEvidenceVisibleCount,
+  performanceEvidencePageSize,
+} from './performanceEvidenceInspector.js'
+
+function observation(overrides = {}) {
+  return {
+    id: crypto.randomUUID(),
+    sourceAssetId: 'take-a',
+    kind: 'pitch.frame',
+    startMilliseconds: 200,
+    durationMilliseconds: 80,
+    measurements: [{ name: 'frequencyHertz', value: 440.25, unit: 'hertz' }],
+    confidence: .82,
+    analyzerId: 'maskil.browser.pitch-acf',
+    analyzerVersion: '1.0.0',
+    provenance: 'DeterministicAnalyzer',
+    createdUtc: '2026-08-22T12:00:00Z',
+    ...overrides,
+  }
+}
+
+test('evidence inspector filters one source and orders known analyzer groups', () => {
+  const groups = buildPerformanceEvidenceGroups([
+    observation({ kind: 'onset.event', analyzerId: 'maskil.browser.onset-energy', measurements: [{ name: 'strength', value: .71, unit: 'normalized' }] }),
+    observation({ sourceAssetId: 'take-b' }),
+    observation({ kind: 'loudness.frame', analyzerId: 'maskil.browser.loudness', measurements: [{ name: 'rmsDbfs', value: -18.2, unit: 'dBFS' }] }),
+    observation(),
+  ], 'take-a')
+
+  assert.deepEqual(groups.map(group => group.label), ['Loudness frames', 'Pitch frames', 'Onset candidates'])
+  assert.equal(groups.reduce((count, group) => count + group.count, 0), 3)
+})
+
+test('rows are chronological and format time, measurements, and confidence for review', () => {
+  const groups = buildPerformanceEvidenceGroups([
+    observation({ id: 'later', startMilliseconds: 400, confidence: null }),
+    observation({ id: 'earlier', startMilliseconds: 0, measurements: [{ name: 'frequencyHertz', value: 220, unit: 'hertz' }] }),
+  ], 'take-a')
+
+  assert.deepEqual(groups[0].rows, [
+    { id: 'earlier', timeLabel: '0.000s–0.080s', measurementLabel: '220.0 Hz', confidenceLabel: 'Confidence 82%' },
+    { id: 'later', timeLabel: '0.400s–0.480s', measurementLabel: '440.3 Hz', confidenceLabel: 'Confidence not reported' },
+  ])
+})
+
+test('loudness and onset evidence use compact human-readable measurements', () => {
+  const groups = buildPerformanceEvidenceGroups([
+    observation({ kind: 'loudness.frame', analyzerId: 'maskil.browser.loudness', measurements: [
+      { name: 'rmsDbfs', value: -18.25, unit: 'dBFS' },
+      { name: 'peakDbfs', value: -4.04, unit: 'dBFS' },
+    ], confidence: null }),
+    observation({ kind: 'onset.event', analyzerId: 'maskil.browser.onset-energy', measurements: [{ name: 'strength', value: .707, unit: 'normalized' }] }),
+  ], 'take-a')
+
+  assert.equal(groups[0].rows[0].measurementLabel, 'RMS −18.3 dBFS · peak −4.0 dBFS')
+  assert.equal(groups[1].rows[0].measurementLabel, 'strength 71%')
+})
+
+test('large reports reveal one bounded page at a time', () => {
+  const observations = Array.from({ length: 29 }, (_, index) => observation({ id: String(index), startMilliseconds: index * 200 }))
+  const first = buildPerformanceEvidenceGroups(observations, 'take-a')[0]
+  assert.equal(first.rows.length, performanceEvidencePageSize)
+  assert.equal(first.remainingCount, 17)
+
+  const nextCount = nextPerformanceEvidenceVisibleCount(first.visibleCount, first.count)
+  const second = buildPerformanceEvidenceGroups(observations, 'take-a', { [first.key]: nextCount })[0]
+  assert.equal(second.rows.length, 24)
+  assert.equal(nextPerformanceEvidenceVisibleCount(second.visibleCount, second.count), 29)
+})
+
+test('extensible unknown evidence remains visible without mutating input', () => {
+  const source = [observation({
+    kind: 'spectral.centroid',
+    analyzerId: 'future.analyzer',
+    analyzerVersion: '2.1.0',
+    provenance: 'ImportedAnalyzer',
+    measurements: [{ name: 'centroidHertz', value: 1234.5678, unit: 'hertz' }],
+  })]
+  const snapshot = structuredClone(source)
+  const group = buildPerformanceEvidenceGroups(source, 'take-a')[0]
+
+  assert.equal(group.label, 'Spectral Centroid')
+  assert.equal(group.provenanceLabel, 'Imported analyzer')
+  assert.equal(group.rows[0].measurementLabel, 'Centroid Hertz 1234.568 hertz')
+  assert.deepEqual(source, snapshot)
+})
