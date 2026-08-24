@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentExpressiveQuality, type InstrumentProfileCatalog, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -76,6 +76,7 @@ const trashedProjects = ref<TrashedProjectSummary[]>([])
 const libraryBusy = ref(true)
 const workspaceConnection = ref<'checking' | 'ready' | 'unavailable'>('checking')
 const workspaceHealth = ref<WorkspaceHealth | null>(null)
+const instrumentProfiles = ref<InstrumentProfileCatalog | null>(null)
 const workspaceCheckBusy = ref(false)
 const installPrompt = ref<InstallPromptEvent | null>(null)
 const applicationInstalled = ref(isStandaloneApplication())
@@ -1867,11 +1868,22 @@ async function refreshWorkspaceHealth() {
         webClientHosted: workspaceHealth.value.webClientHosted,
       })
     }
+    try {
+      instrumentProfiles.value = await projectsApi.instrumentProfiles()
+      activityLog.write('info', 'instrument-knowledge.load', 'Instrument profiles loaded.', {
+        version: instrumentProfiles.value.version,
+        instrumentCount: instrumentProfiles.value.instruments.length,
+      })
+    } catch (error) {
+      instrumentProfiles.value = null
+      activityLog.write('warning', 'instrument-knowledge.load', error instanceof Error ? error.message : 'Instrument profiles could not be loaded.')
+    }
     await refreshBrowserRecovery()
     await syncBrowserRecovery()
   } catch {
     activityLog.configureRemote(false)
     workspaceHealth.value = null
+    instrumentProfiles.value = null
     workspaceConnection.value = 'unavailable'
     if (previousConnection !== 'unavailable') {
       activityLog.write('warning', 'delivery.workspace', 'Local project service is unavailable. Host-owned editing is paused; browser-owned lyric capture remains available.')
@@ -2456,6 +2468,17 @@ function formatHarmonyCandidateEvent(item: SongProject['sections'][number]['harm
 function formatRegisteredPitch(pitch: RegisteredPitch) {
   const accidental = pitch.accidental === 'Sharp' ? '#' : pitch.accidental === 'Flat' ? 'b' : ''
   return `${pitch.letter}${accidental}${pitch.octave}`
+}
+function instrumentArticulationLabel(articulation: InstrumentArticulation) {
+  if (articulation === 'BowExpression') return 'Bow expression'
+  if (articulation === 'HammerOn') return 'Hammer-on'
+  return articulation
+}
+function instrumentQualityLabel(quality: InstrumentExpressiveQuality) {
+  return quality
+}
+function instrumentRoleLabel(role: ArrangementRole) {
+  return arrangementRoles.find(item => item.id === role)?.label ?? role
 }
 function parseRegisteredPitch(token: string): RegisteredPitch {
   const match = /^([A-Ga-g])([#b]?)(-?\d)$/.exec(token.trim())
@@ -4658,6 +4681,23 @@ onBeforeUnmount(() => {
           <h2 id="arrangement-title">Shape the song’s energy</h2>
           <p>Describe how each section should feel before choosing instruments. These are creative intentions, not generated performances.</p>
         </div>
+        <section id="instrument-knowledge" class="instrument-knowledge" aria-labelledby="instrument-knowledge-title">
+          <div>
+            <span class="eyebrow">Host knowledge</span>
+            <h3 id="instrument-knowledge-title">Instrument profiles</h3>
+            <p>These profiles describe range, musical jobs, articulations, and expressive qualities. They do not assign an instrument to a part, recommend a choice, or retarget a gesture.</p>
+          </div>
+          <p v-if="!instrumentProfiles" class="note-event-empty">Instrument knowledge is unavailable until the local host is connected.</p>
+          <article v-for="instrument in instrumentProfiles?.instruments ?? []" :key="instrument.id" class="instrument-profile" :aria-label="`${instrument.name} instrument profile`">
+            <div>
+              <strong>{{ instrument.name }}</strong>
+              <small>{{ instrument.expressiveQualities.map(instrumentQualityLabel).join(' · ') }}</small>
+            </div>
+            <p>Range {{ formatRegisteredPitch(instrument.minimumPitch) }}–{{ formatRegisteredPitch(instrument.maximumPitch) }}</p>
+            <p>Jobs {{ instrument.roles.map(instrumentRoleLabel).join(', ') }}</p>
+            <p>Articulations {{ instrument.articulations.map(instrumentArticulationLabel).join(', ') }}</p>
+          </article>
+        </section>
         <section class="demo-readiness" aria-labelledby="demo-readiness-title">
           <div class="readiness-next-step">
             <span class="eyebrow">Hear–revise readiness</span>

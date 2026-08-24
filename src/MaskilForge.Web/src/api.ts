@@ -20,6 +20,23 @@ export type SectionEnergy = 'Intimate' | 'Gentle' | 'Building' | 'Strong' | 'Pea
 export type SectionDensity = 'Sparse' | 'Light' | 'Balanced' | 'Full' | 'Dense'
 export type ArrangementProvenance = 'Manual' | 'Analyzer' | 'Imported'
 export type ArrangementRole = 'Foundation' | 'Pulse' | 'Harmony' | 'LowEndSupport' | 'Texture' | 'Accent' | 'Transition' | 'Countermelody' | 'HookReinforcement'
+export type InstrumentArticulation = 'Legato' | 'BowExpression' | 'Slide' | 'Picking' | 'Bend' | 'HammerOn'
+export type InstrumentExpressiveQuality = 'Warm' | 'Bright' | 'Intimate' | 'Sustained' | 'Percussive' | 'Agile'
+
+export interface InstrumentProfile {
+  id: string
+  name: string
+  minimumPitch: RegisteredPitch
+  maximumPitch: RegisteredPitch
+  roles: ArrangementRole[]
+  articulations: InstrumentArticulation[]
+  expressiveQualities: InstrumentExpressiveQuality[]
+}
+
+export interface InstrumentProfileCatalog {
+  version: number
+  instruments: InstrumentProfile[]
+}
 
 export interface SectionArrangement {
   id: string
@@ -633,6 +650,7 @@ async function requestBlob(url: string, init?: RequestInit): Promise<Blob> {
 
 export const projectsApi = {
   health: () => request<WorkspaceHealth>('/api/health'),
+  instrumentProfiles: () => request<InstrumentProfileCatalog>('/api/instrument-profiles'),
   list: () => request<ProjectSummary[]>('/api/projects'),
   listRecovery: () => request<RecoverySummary[]>('/api/recovery'),
   loadRecovery: (id: string) => request<RecoveryProjectResponse>(`/api/recovery/${id}`),

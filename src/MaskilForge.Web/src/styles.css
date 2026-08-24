@@ -503,6 +503,14 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .harmony-candidate-events { display: grid; gap: .18rem; margin: 0; padding-left: 1.4rem; font: .75rem ui-monospace, Consolas, monospace; }
 .harmony-candidate-actions { display: flex; gap: .45rem; align-items: end; }
 .arrangement-blueprint { display: grid; gap: 1rem; margin: 1rem 0; padding: 1rem; background: #151813; border: 1px solid #4a5044; border-radius: .45rem; }
+.instrument-knowledge { display: grid; gap: .75rem; padding: .85rem; background: #121510; border: 1px solid #3d4338; border-radius: .4rem; }
+.instrument-knowledge > div:first-child { display: grid; gap: .2rem; }
+.instrument-knowledge h3, .instrument-knowledge p { margin: 0; }
+.instrument-knowledge > div:first-child p { max-width: 52rem; color: #b8b5a8; }
+.instrument-profile { display: grid; gap: .2rem; padding: .7rem; background: #1b1f1a; border: 1px solid #41473d; border-radius: .35rem; }
+.instrument-profile > div { display: grid; gap: .15rem; }
+.instrument-profile strong { color: #ead9b2; }
+.instrument-profile small, .instrument-profile p { color: #9fa596; }
 .arrangement-heading { display: grid; gap: .25rem; }
 .arrangement-heading h2, .arrangement-heading p { margin: 0; }
 .arrangement-heading > p:last-child, .arrangement-boundary { color: #9fa596; }

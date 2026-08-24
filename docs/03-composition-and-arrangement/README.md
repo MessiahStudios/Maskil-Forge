@@ -19,6 +19,8 @@ Genre profiles describe probabilities and tendencies: tempo, meter, density, dyn
 
 Profiles belong in versioned data files, not hardcoded conditionals.
 
+Slice 7.1 adds the first catalog: cello and guitar profiles that name range, arrangement roles, articulations, and expressive qualities. Desktop Arrangement can inspect that knowledge. Recommendations, range checks on existing notes, articulation maps, and performance retargeters remain later Milestone 7 slices.
+
 ## Generator order
 
 1. Section energy and density plan

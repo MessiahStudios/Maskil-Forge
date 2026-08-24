@@ -4,6 +4,10 @@
     <ProjectReference Include="..\MaskilForge.Domain\MaskilForge.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Knowledge\instrument-profiles.v1.json" LogicalName="MaskilForge.Engine.Knowledge.instrument-profiles.v1.json" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

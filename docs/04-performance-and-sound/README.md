@@ -104,6 +104,8 @@ Slice 6.20 projects approved loudness gestures into a transient playable-note sk
 
 Slice 6.21 stores an artist-authored dynamics curve as Song Graph data. Schema v29 keeps `expressionCurves` in a separate collection. Desktop Music previews a transient loudness-gesture sketch, then explicitly accepts one Dynamics curve whose points are MIDI expression 0–127. MIDI export can translate those points to CC 11 when playable notes exist. Placement changes do not move accepted points, and removing the take does not drop the curve. Phone Review does not create curves. Freehand point editing, extra curve kinds, and instrument retargeting remain later work.
 
+Slice 7.1 stores cello and guitar as versioned host-owned instrument profiles: range, arrangement roles, articulations, and expressive qualities. Desktop Arrangement can inspect them. The catalog does not assign an instrument, recommend a choice, or retarget a gesture.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting

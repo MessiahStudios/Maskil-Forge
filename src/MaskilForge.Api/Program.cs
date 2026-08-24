@@ -61,6 +61,8 @@ app.MapGet("/api/health", () => Results.Ok(new WorkspaceHealthResponse(
     webClient.IsAvailable,
     app.Environment.IsDevelopment())));
 
+app.MapGet("/api/instrument-profiles", () => Results.Ok(InstrumentProfileCatalogLoader.Current));
+
 if (app.Environment.IsDevelopment())
 {
     app.MapPost("/api/dev/activity-logs", (

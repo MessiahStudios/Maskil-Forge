@@ -862,6 +862,14 @@ Desktop Music can preview the sketch and explicitly accept it. Acceptance adds o
 
 **Deliverable:** an artist can preview and explicitly accept a dynamics curve from approved loudness gestures, persist it as Song Graph data, and export it as MIDI expression without automatic musical decisions.
 
+### Milestone 7.1 — Instrument profile foundation
+
+Give the host a versioned instrument-knowledge catalog rather than hardcoded conditionals. Version 1 names cello and guitar: each profile has a stable slug, display name, playable range as registered pitches, the arrangement roles it can fulfill, named articulations, and expressive qualities. Desktop Arrangement can inspect those profiles. The catalog is host knowledge, not Song Graph data, so schema stays at v29.
+
+The slice does not assign an instrument to a musical part, rank or recommend a choice, report range collisions on existing notes, map articulations to MIDI or technique, or retarget a gesture. Phone Arrangement remains hidden. Later slices can recommend from this knowledge, check range, and retarget cello versus guitar with different articulations.
+
+**Deliverable:** Maskil Forge can describe two instruments by range, role, articulation, and expressive quality without choosing one for the artist or changing the song.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

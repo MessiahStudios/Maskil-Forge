@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "instruments": [
+    {
+      "id": "cello",
+      "name": "Cello",
+      "minimumPitch": { "letter": "C", "accidental": "Natural", "octave": 2 },
+      "maximumPitch": { "letter": "A", "accidental": "Natural", "octave": 5 },
+      "roles": ["Foundation", "Harmony", "Texture", "Countermelody"],
+      "articulations": ["Legato", "BowExpression", "Slide"],
+      "expressiveQualities": ["Warm", "Intimate", "Sustained"]
+    },
+    {
+      "id": "guitar",
+      "name": "Guitar",
+      "minimumPitch": { "letter": "E", "accidental": "Natural", "octave": 2 },
+      "maximumPitch": { "letter": "B", "accidental": "Natural", "octave": 5 },
+      "roles": ["Pulse", "Harmony", "Texture", "Accent", "Countermelody", "HookReinforcement"],
+      "articulations": ["Picking", "Bend", "HammerOn"],
+      "expressiveQualities": ["Bright", "Percussive", "Agile"]
+    }
+  ]
+}
