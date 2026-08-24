@@ -1,4 +1,4 @@
-import type { PerformanceObservation, PerformanceObservationCorrection, PerformanceObservationReview, PerformanceObservationReviewVerdict } from './api'
+import type { PerformanceObservation, PerformanceObservationCorrection, PerformanceObservationGesture, PerformanceObservationReview, PerformanceObservationReviewVerdict } from './api'
 
 export const performanceEvidencePageSize: 12
 
@@ -22,6 +22,9 @@ export interface PerformanceEvidenceRow {
   correctionLabel: string
   hasCorrection: boolean
   correctionFields: PerformanceEvidenceCorrectionField[]
+  canPromote: boolean
+  hasGesture: boolean
+  gestureLabel: string
 }
 
 export interface PerformanceEvidenceGroup {
@@ -46,4 +49,5 @@ export function buildPerformanceEvidenceGroups(
   visibleCounts?: Record<string, number>,
   reviews?: PerformanceObservationReview[],
   corrections?: PerformanceObservationCorrection[],
+  gestures?: PerformanceObservationGesture[],
 ): PerformanceEvidenceGroup[]

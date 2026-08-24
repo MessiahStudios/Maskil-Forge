@@ -465,6 +465,42 @@ app.MapPut("/api/projects/{id}/performance-observations/{observationId}/correcti
     }
 });
 
+app.MapPut("/api/projects/{id}/performance-observations/{observationId}/gesture", async (
+    string id,
+    string observationId,
+    PerformanceObservationGestureRequest request,
+    ProjectWorkspace workspace,
+    CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId) || !Guid.TryParse(observationId, out var observationGuid))
+        return Results.BadRequest(new ApiError("Invalid project or performance-observation ID."));
+    try
+    {
+        var editor = await workspace.SetPerformanceObservationGestureAsync(
+            projectId,
+            new PerformanceObservationId(observationGuid),
+            request.Promoted,
+            request.BaseProjectLastModifiedUtc,
+            DateTimeOffset.UtcNow,
+            cancellationToken);
+        return editor is null
+            ? Results.NotFound(new ApiError("Project not found."))
+            : Results.Ok(ProjectResponse.From(editor));
+    }
+    catch (ArgumentException exception)
+    {
+        return Results.BadRequest(new ApiError(exception.Message));
+    }
+    catch (InvalidOperationException exception)
+    {
+        return Results.BadRequest(new ApiError(exception.Message));
+    }
+    catch (KeyNotFoundException exception)
+    {
+        return Results.NotFound(new ApiError(exception.Message));
+    }
+});
+
 app.MapPut("/api/projects/{id}/vocal-takes/{assetId}/pitch-analysis", async (
     string id,
     string assetId,
@@ -1204,6 +1240,9 @@ public sealed record PerformanceObservationReviewRequest(
 public sealed record PerformanceObservationCorrectionRequest(
     DateTimeOffset BaseProjectLastModifiedUtc,
     IReadOnlyList<PerformanceMeasurement>? Measurements);
+public sealed record PerformanceObservationGestureRequest(
+    DateTimeOffset BaseProjectLastModifiedUtc,
+    bool? Promoted);
 public sealed record RecoverySnapshotRequest(SongProject Project, DateTimeOffset BaseProjectLastModifiedUtc, string SessionId);
 public sealed record EditorStateRequest(SongProject Project);
 public sealed record ProsodyScoreRequest(

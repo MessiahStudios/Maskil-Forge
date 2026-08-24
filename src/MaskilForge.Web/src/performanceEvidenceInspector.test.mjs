@@ -42,8 +42,8 @@ test('rows are chronological and format time, measurements, and confidence for r
   ], 'take-a')
 
   assert.deepEqual(groups[0].rows, [
-    { id: 'earlier', timeLabel: '0.000s–0.080s', measurementLabel: '220.0 Hz', confidenceLabel: 'Confidence 82%', reviewVerdict: null, reviewUpdatedUtc: '', correctionLabel: '', hasCorrection: false, correctionFields: [] },
-    { id: 'later', timeLabel: '0.400s–0.480s', measurementLabel: '440.3 Hz', confidenceLabel: 'Confidence not reported', reviewVerdict: null, reviewUpdatedUtc: '', correctionLabel: '', hasCorrection: false, correctionFields: [] },
+    { id: 'earlier', timeLabel: '0.000s–0.080s', measurementLabel: '220.0 Hz', confidenceLabel: 'Confidence 82%', reviewVerdict: null, reviewUpdatedUtc: '', correctionLabel: '', hasCorrection: false, correctionFields: [], canPromote: false, hasGesture: false, gestureLabel: '' },
+    { id: 'later', timeLabel: '0.400s–0.480s', measurementLabel: '440.3 Hz', confidenceLabel: 'Confidence not reported', reviewVerdict: null, reviewUpdatedUtc: '', correctionLabel: '', hasCorrection: false, correctionFields: [], canPromote: false, hasGesture: false, gestureLabel: '' },
   ])
 })
 
@@ -62,6 +62,8 @@ test('artist verdicts decorate matching claims without changing analyzer evidenc
   assert.equal(groups[0].rows[0].reviewUpdatedUtc, '2026-08-22T12:02:00Z')
   assert.equal(groups[0].rows[1].reviewVerdict, null)
   assert.equal(groups[0].rows[0].hasCorrection, false)
+  assert.equal(groups[0].rows[0].canPromote, true)
+  assert.equal(groups[0].rows[0].hasGesture, false)
   assert.deepEqual(source, snapshot)
 })
 
@@ -86,6 +88,8 @@ test('inaccurate claims expose a correction form without rewriting analyzer meas
   assert.equal(groups[0].rows[0].reviewVerdict, 'Inaccurate')
   assert.equal(groups[0].rows[0].hasCorrection, true)
   assert.equal(groups[0].rows[0].correctionLabel, 'Artist correction · 196.2 Hz')
+  assert.equal(groups[0].rows[0].canPromote, true)
+  assert.equal(groups[0].rows[0].hasGesture, false)
   assert.deepEqual(groups[0].rows[0].correctionFields, [{
     name: 'frequencyHertz',
     unit: 'hertz',
@@ -96,6 +100,47 @@ test('inaccurate claims expose a correction form without rewriting analyzer meas
     step: '0.1',
   }])
   assert.deepEqual(source, snapshot)
+})
+
+test('eligible claims can promote a gesture snapshot without rewriting analyzer measurements', () => {
+  const source = [
+    observation({ id: 'accurate', measurements: [{ name: 'frequencyHertz', value: 440.25, unit: 'hertz' }] }),
+    observation({ id: 'inaccurate', startMilliseconds: 400, measurements: [{ name: 'frequencyHertz', value: 440.25, unit: 'hertz' }] }),
+  ]
+  const snapshot = structuredClone(source)
+  const groups = buildPerformanceEvidenceGroups(source, 'take-a', {}, [
+    { id: 'review-accurate', observationId: 'accurate', verdict: 'Accurate', createdUtc: '2026-08-23T12:01:00Z', updatedUtc: '2026-08-23T12:02:00Z' },
+    { id: 'review-inaccurate', observationId: 'inaccurate', verdict: 'Inaccurate', createdUtc: '2026-08-23T12:01:00Z', updatedUtc: '2026-08-23T12:02:00Z' },
+  ], [
+    { id: 'correction-1', observationId: 'inaccurate', measurements: [{ name: 'frequencyHertz', value: 196.2, unit: 'hertz' }], createdUtc: '2026-08-23T12:03:00Z', updatedUtc: '2026-08-23T12:04:00Z' },
+  ], [
+    { id: 'gesture-1', observationId: 'accurate', measurements: [{ name: 'frequencyHertz', value: 440.25, unit: 'hertz' }], createdUtc: '2026-08-23T12:05:00Z', updatedUtc: '2026-08-23T12:06:00Z' },
+  ])
+
+  assert.equal(groups[0].rows[0].measurementLabel, '440.3 Hz')
+  assert.equal(groups[0].rows[0].canPromote, true)
+  assert.equal(groups[0].rows[0].hasGesture, true)
+  assert.equal(groups[0].rows[0].gestureLabel, 'Artist gesture · 440.3 Hz')
+  assert.equal(groups[0].rows[1].canPromote, true)
+  assert.equal(groups[0].rows[1].hasGesture, false)
+  assert.equal(groups[0].rows[1].gestureLabel, '')
+  assert.deepEqual(source, snapshot)
+})
+
+test('unreviewed and uncorrected inaccurate claims cannot promote a gesture', () => {
+  const groups = buildPerformanceEvidenceGroups([
+    observation({ id: 'unreviewed' }),
+    observation({ id: 'inaccurate', startMilliseconds: 400 }),
+  ], 'take-a', {}, [{
+    id: 'review-1',
+    observationId: 'inaccurate',
+    verdict: 'Inaccurate',
+    createdUtc: '2026-08-23T12:01:00Z',
+    updatedUtc: '2026-08-23T12:02:00Z',
+  }])
+
+  assert.equal(groups[0].rows[0].canPromote, false)
+  assert.equal(groups[0].rows[1].canPromote, false)
 })
 
 test('loudness and onset evidence use compact human-readable measurements', () => {

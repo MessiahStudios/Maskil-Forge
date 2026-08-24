@@ -361,6 +361,14 @@ export interface PerformanceObservationCorrection {
   updatedUtc: string
 }
 
+export interface PerformanceObservationGesture {
+  id: string
+  observationId: string
+  measurements: PerformanceMeasurement[]
+  createdUtc: string
+  updatedUtc: string
+}
+
 export interface LoudnessFrameReport {
   startMilliseconds: number
   durationMilliseconds: number
@@ -412,6 +420,7 @@ export interface SongProject {
   performanceObservations: PerformanceObservation[]
   performanceObservationReviews: PerformanceObservationReview[]
   performanceObservationCorrections: PerformanceObservationCorrection[]
+  performanceObservationGestures: PerformanceObservationGesture[]
   key: MusicalKey
 }
 
@@ -670,6 +679,15 @@ export const projectsApi = {
   ) => request<ProjectResponse>(
     `/api/projects/${encodeURIComponent(id)}/performance-observations/${encodeURIComponent(observationId)}/correction`,
     { method: 'PUT', body: JSON.stringify({ baseProjectLastModifiedUtc, measurements }) },
+  ),
+  promotePerformanceObservation: (
+    id: string,
+    observationId: string,
+    baseProjectLastModifiedUtc: string,
+    promoted: true | null,
+  ) => request<ProjectResponse>(
+    `/api/projects/${encodeURIComponent(id)}/performance-observations/${encodeURIComponent(observationId)}/gesture`,
+    { method: 'PUT', body: JSON.stringify({ baseProjectLastModifiedUtc, promoted }) },
   ),
   originalVocalTakeUrl: (id: string, assetId: string) => `/api/projects/${encodeURIComponent(id)}/vocal-takes/${encodeURIComponent(assetId)}`,
   command: (id: string, project: SongProject, command: ProjectCommand) => request<ProjectResponse>(`/api/projects/${id}/commands`, {

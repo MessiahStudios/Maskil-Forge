@@ -73,10 +73,12 @@ function correctionFields(observation, correction) {
   }))
 }
 
-function evidenceRow(observation, reviewsByObservationId, correctionsByObservationId) {
+function evidenceRow(observation, reviewsByObservationId, correctionsByObservationId, gesturesByObservationId) {
   const review = reviewsByObservationId.get(observation.id)
   const correction = correctionsByObservationId.get(observation.id)
+  const gesture = gesturesByObservationId.get(observation.id)
   const inaccurate = review?.verdict === 'Inaccurate'
+  const canPromote = review?.verdict === 'Accurate' || (inaccurate && Boolean(correction))
   return {
     id: observation.id,
     timeLabel: `${formatTime(observation.startMilliseconds)}–${formatTime(observation.startMilliseconds + observation.durationMilliseconds)}`,
@@ -91,6 +93,11 @@ function evidenceRow(observation, reviewsByObservationId, correctionsByObservati
       : '',
     hasCorrection: Boolean(correction),
     correctionFields: inaccurate ? correctionFields(observation, correction) : [],
+    canPromote,
+    hasGesture: Boolean(gesture),
+    gestureLabel: gesture
+      ? `Artist gesture · ${(gesture.measurements ?? []).map(formatMeasurement).join(' · ')}`
+      : '',
   }
 }
 
@@ -100,9 +107,10 @@ export function nextPerformanceEvidenceVisibleCount(currentCount, totalCount) {
   return Math.min(total, current + performanceEvidencePageSize)
 }
 
-export function buildPerformanceEvidenceGroups(observations, sourceAssetId, visibleCounts = {}, reviews = [], corrections = []) {
+export function buildPerformanceEvidenceGroups(observations, sourceAssetId, visibleCounts = {}, reviews = [], corrections = [], gestures = []) {
   const reviewsByObservationId = new Map((reviews ?? []).map(review => [review.observationId, review]))
   const correctionsByObservationId = new Map((corrections ?? []).map(correction => [correction.observationId, correction]))
+  const gesturesByObservationId = new Map((gestures ?? []).map(gesture => [gesture.observationId, gesture]))
   const grouped = new Map()
   for (const observation of observations ?? []) {
     if (observation?.sourceAssetId !== sourceAssetId) continue
@@ -136,7 +144,7 @@ export function buildPerformanceEvidenceGroups(observations, sourceAssetId, visi
         count: ordered.length,
         visibleCount,
         remainingCount: ordered.length - visibleCount,
-        rows: ordered.slice(0, visibleCount).map(observation => evidenceRow(observation, reviewsByObservationId, correctionsByObservationId)),
+        rows: ordered.slice(0, visibleCount).map(observation => evidenceRow(observation, reviewsByObservationId, correctionsByObservationId, gesturesByObservationId)),
       }
     })
     .sort((left, right) => left.order - right.order || left.label.localeCompare(right.label)

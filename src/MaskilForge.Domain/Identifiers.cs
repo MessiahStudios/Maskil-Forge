@@ -44,6 +44,13 @@ public readonly record struct PerformanceObservationCorrectionId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(PerformanceObservationGestureIdJsonConverter))]
+public readonly record struct PerformanceObservationGestureId(Guid Value)
+{
+    public static PerformanceObservationGestureId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(SectionIdJsonConverter))]
 public readonly record struct SectionId(Guid Value)
 {
@@ -215,7 +222,7 @@ public readonly record struct HarmonyCandidateEventId(Guid Value)
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(26);
+    public static SchemaVersion Current => new(27);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -282,6 +289,12 @@ internal sealed class PerformanceObservationCorrectionIdJsonConverter : GuidIdJs
 {
     protected override PerformanceObservationCorrectionId Create(Guid value) => new(value);
     protected override Guid GetValue(PerformanceObservationCorrectionId value) => value.Value;
+}
+
+internal sealed class PerformanceObservationGestureIdJsonConverter : GuidIdJsonConverter<PerformanceObservationGestureId>
+{
+    protected override PerformanceObservationGestureId Create(Guid value) => new(value);
+    protected override Guid GetValue(PerformanceObservationGestureId value) => value.Value;
 }
 
 internal sealed class SectionIdJsonConverter : GuidIdJsonConverter<SectionId>

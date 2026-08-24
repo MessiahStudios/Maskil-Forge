@@ -30,6 +30,7 @@ public sealed class SongProject
     private readonly List<PerformanceObservation> _performanceObservations;
     private readonly List<PerformanceObservationReview> _performanceObservationReviews;
     private readonly List<PerformanceObservationCorrection> _performanceObservationCorrections;
+    private readonly List<PerformanceObservationGesture> _performanceObservationGestures;
 
     [JsonConstructor]
     public SongProject(
@@ -54,7 +55,8 @@ public sealed class SongProject
         IReadOnlyList<ProjectAsset>? assets = null,
         IReadOnlyList<PerformanceObservation>? performanceObservations = null,
         IReadOnlyList<PerformanceObservationReview>? performanceObservationReviews = null,
-        IReadOnlyList<PerformanceObservationCorrection>? performanceObservationCorrections = null)
+        IReadOnlyList<PerformanceObservationCorrection>? performanceObservationCorrections = null,
+        IReadOnlyList<PerformanceObservationGesture>? performanceObservationGestures = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -77,6 +79,7 @@ public sealed class SongProject
         _performanceObservations = performanceObservations?.ToList() ?? [];
         _performanceObservationReviews = performanceObservationReviews?.ToList() ?? [];
         _performanceObservationCorrections = performanceObservationCorrections?.ToList() ?? [];
+        _performanceObservationGestures = performanceObservationGestures?.ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -88,6 +91,7 @@ public sealed class SongProject
         ValidatePerformanceObservationReferences();
         ValidatePerformanceObservationReviewReferences();
         ValidatePerformanceObservationCorrectionReferences();
+        ValidatePerformanceObservationGestureReferences();
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
@@ -118,6 +122,7 @@ public sealed class SongProject
     public IReadOnlyList<PerformanceObservation> PerformanceObservations => _performanceObservations;
     public IReadOnlyList<PerformanceObservationReview> PerformanceObservationReviews => _performanceObservationReviews;
     public IReadOnlyList<PerformanceObservationCorrection> PerformanceObservationCorrections => _performanceObservationCorrections;
+    public IReadOnlyList<PerformanceObservationGesture> PerformanceObservationGestures => _performanceObservationGestures;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -188,6 +193,7 @@ public sealed class SongProject
         else _performanceObservationReviews[index] = review;
         if (verdict != PerformanceObservationReviewVerdict.Inaccurate)
             _performanceObservationCorrections.RemoveAll(item => item.ObservationId == observationId);
+        RefreshOrDropGesture(observationId, reviewedUtc);
         Touch();
         return review;
     }
@@ -198,6 +204,7 @@ public sealed class SongProject
             ?? throw new KeyNotFoundException($"Performance observation '{observationId}' has not been reviewed.");
         _performanceObservationReviews.Remove(review);
         _performanceObservationCorrections.RemoveAll(item => item.ObservationId == observationId);
+        _performanceObservationGestures.RemoveAll(item => item.ObservationId == observationId);
         Touch();
         return review;
     }
@@ -222,6 +229,7 @@ public sealed class SongProject
             : _performanceObservationCorrections[index].Revise(measurements, updatedUtc);
         if (index < 0) _performanceObservationCorrections.Add(correction);
         else _performanceObservationCorrections[index] = correction;
+        RefreshOrDropGesture(observationId, updatedUtc);
         Touch();
         return correction;
     }
@@ -231,8 +239,39 @@ public sealed class SongProject
         var correction = _performanceObservationCorrections.SingleOrDefault(item => item.ObservationId == observationId)
             ?? throw new KeyNotFoundException($"Performance observation '{observationId}' has no artist correction.");
         _performanceObservationCorrections.Remove(correction);
+        RefreshOrDropGesture(observationId, DateTimeOffset.UtcNow);
         Touch();
         return correction;
+    }
+
+    public PerformanceObservationGesture SetPerformanceObservationGesture(
+        PerformanceObservationId observationId,
+        DateTimeOffset updatedUtc)
+    {
+        if (updatedUtc == default) throw new ArgumentException("A gesture time is required.", nameof(updatedUtc));
+        if (_performanceObservations.All(item => item.Id != observationId))
+            throw new KeyNotFoundException($"Performance observation '{observationId}' was not found.");
+        if (!TryGetApprovedGestureMeasurements(observationId, out var measurements))
+            throw new InvalidOperationException("A gesture can be stored only for an accurate claim or an inaccurate claim that already has a correction.");
+
+        var index = _performanceObservationGestures.FindIndex(item => item.ObservationId == observationId);
+        var gesture = index < 0
+            ? new PerformanceObservationGesture(
+                PerformanceObservationGestureId.New(), observationId, measurements, updatedUtc, updatedUtc)
+            : _performanceObservationGestures[index].Revise(measurements, updatedUtc);
+        if (index < 0) _performanceObservationGestures.Add(gesture);
+        else _performanceObservationGestures[index] = gesture;
+        Touch();
+        return gesture;
+    }
+
+    public PerformanceObservationGesture ClearPerformanceObservationGesture(PerformanceObservationId observationId)
+    {
+        var gesture = _performanceObservationGestures.SingleOrDefault(item => item.ObservationId == observationId)
+            ?? throw new KeyNotFoundException($"Performance observation '{observationId}' has no artist gesture.");
+        _performanceObservationGestures.Remove(gesture);
+        Touch();
+        return gesture;
     }
 
     public void ReplacePerformanceObservations(
@@ -896,6 +935,10 @@ public sealed class SongProject
             throw new ArgumentException("Performance observation correction IDs must be unique.");
         if (_performanceObservationCorrections.Select(item => item.ObservationId).Distinct().Count() != _performanceObservationCorrections.Count)
             throw new ArgumentException("A performance observation can have only one artist correction.");
+        if (_performanceObservationGestures.Select(item => item.Id).Distinct().Count() != _performanceObservationGestures.Count)
+            throw new ArgumentException("Performance observation gesture IDs must be unique.");
+        if (_performanceObservationGestures.Select(item => item.ObservationId).Distinct().Count() != _performanceObservationGestures.Count)
+            throw new ArgumentException("A performance observation can have only one artist gesture.");
         if (_arrangement.Select(item => item.Id).Distinct().Count() != _arrangement.Count)
             throw new ArgumentException("Section arrangement IDs must be unique.");
         if (_arrangement.Select(item => item.SectionId).Distinct().Count() != _arrangement.Count)
@@ -989,11 +1032,59 @@ public sealed class SongProject
         }
     }
 
+    private void ValidatePerformanceObservationGestureReferences()
+    {
+        foreach (var gesture in _performanceObservationGestures)
+        {
+            if (!TryGetApprovedGestureMeasurements(gesture.ObservationId, out var approved))
+                throw new ArgumentException($"Performance observation gesture '{gesture.Id}' can exist only for an accurate claim or an inaccurate claim that already has a correction.");
+            var observation = _performanceObservations.Single(item => item.Id == gesture.ObservationId);
+            PerformanceObservationGesture.ValidateAgainst(observation, gesture.Measurements);
+            if (!PerformanceObservationGesture.ValuesEqual(gesture.Measurements, approved))
+                throw new ArgumentException($"Performance observation gesture '{gesture.Id}' must copy the currently approved measurements.");
+        }
+    }
+
+    private bool TryGetApprovedGestureMeasurements(
+        PerformanceObservationId observationId,
+        out IReadOnlyList<PerformanceMeasurement> measurements)
+    {
+        measurements = [];
+        var observation = _performanceObservations.SingleOrDefault(item => item.Id == observationId);
+        if (observation is null) return false;
+        var review = _performanceObservationReviews.SingleOrDefault(item => item.ObservationId == observationId);
+        if (review is null) return false;
+        if (review.Verdict == PerformanceObservationReviewVerdict.Accurate)
+        {
+            measurements = observation.Measurements;
+            return true;
+        }
+
+        var correction = _performanceObservationCorrections.SingleOrDefault(item => item.ObservationId == observationId);
+        if (review.Verdict != PerformanceObservationReviewVerdict.Inaccurate || correction is null) return false;
+        measurements = correction.Measurements;
+        return true;
+    }
+
+    private void RefreshOrDropGesture(PerformanceObservationId observationId, DateTimeOffset updatedUtc)
+    {
+        var index = _performanceObservationGestures.FindIndex(item => item.ObservationId == observationId);
+        if (index < 0) return;
+        if (!TryGetApprovedGestureMeasurements(observationId, out var measurements))
+        {
+            _performanceObservationGestures.RemoveAt(index);
+            return;
+        }
+
+        _performanceObservationGestures[index] = _performanceObservationGestures[index].Revise(measurements, updatedUtc);
+    }
+
     private void RemoveDependentObservationRecords(IEnumerable<PerformanceObservationId> observationIds)
     {
         var removed = observationIds as IReadOnlySet<PerformanceObservationId> ?? observationIds.ToHashSet();
         _performanceObservationReviews.RemoveAll(item => removed.Contains(item.ObservationId));
         _performanceObservationCorrections.RemoveAll(item => removed.Contains(item.ObservationId));
+        _performanceObservationGestures.RemoveAll(item => removed.Contains(item.ObservationId));
     }
 
     private void ValidateLockReferences()

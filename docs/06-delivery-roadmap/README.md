@@ -802,6 +802,16 @@ This slice still creates no note, beat, tempo, MIDI event, expression curve, ges
 
 **Deliverable:** an artist can record a durable, reversible numeric correction for an inaccurate analyzer claim without overwriting the original evidence or promoting it into musical material.
 
+### Milestone 6.15 — Artist-approved performance gestures
+
+Advance the project schema to v27 with a separate `performanceObservationGestures` collection. From a reviewed evidence row, the artist can promote one claim into an approved gesture snapshot, revise that snapshot, or remove it. Promotion is allowed only while the claim is **Accurate**, or **Inaccurate** with a stored correction. The host copies the approved measurements itself; the client sends only promote or clear. Unreviewed claims and inaccurate claims without a correction cannot be promoted, and any existing gesture for that claim is dropped.
+
+Writes require the current persisted project revision. Changing the review or correction of a promoted claim refreshes the snapshot in place when it remains eligible, or drops it when eligibility is lost. Removing a source take, removing an observation, clearing the review, or rerunning the analyzer that owns a claim also removes gestures attached to disappearing claim IDs. Backup, recovery, duplication, Trash, and `.maskil` packages carry current gestures with the project. Activity logs retain project and observation identity plus outcome (`promoted` or `cleared`), not measurement values, audio, or microphone labels.
+
+This slice still creates no note, beat, tempo, MIDI event, expression curve, or automatic musical decision. A gesture is an artist-approved snapshot of reviewed evidence, not a rewrite of the recording and not yet a musical change.
+
+**Deliverable:** an artist can promote reviewed analyzer evidence into a durable, reversible gesture snapshot without creating notes, MIDI, or automatic musical decisions.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

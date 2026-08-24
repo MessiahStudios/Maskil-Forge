@@ -157,6 +157,7 @@ const performanceEvidenceByAsset = computed(() => Object.fromEntries((project.va
     performanceEvidenceVisibility[asset.id] ?? {},
     project.value?.performanceObservationReviews,
     project.value?.performanceObservationCorrections,
+    project.value?.performanceObservationGestures,
   ),
 ])))
 const browserRecoverySummaries = computed(() => browserRecoveries.value.map(summarizeBrowserRecovery))
@@ -1237,6 +1238,49 @@ async function clearPerformanceObservationCorrection(assetId: string, observatio
     performanceReviewMessages[assetId] = message
     activityLog.write('error', 'vocal.observation-correction', message, {
       projectId: correctionProjectId,
+      assetId,
+      observationId,
+    })
+  } finally {
+    busy.value = false
+  }
+}
+
+async function setPerformanceObservationGesture(assetId: string, observationId: string, promoted: true | null) {
+  if (!project.value || !persistedRevision.value || isDirty.value || workspaceConnection.value !== 'ready') return
+  const gestureProjectId = project.value.id
+  busy.value = true
+  performanceReviewMessages[assetId] = promoted
+    ? 'Promoting approved measurements into an artist gesture…'
+    : 'Removing the artist gesture…'
+  try {
+    const next = await projectsApi.promotePerformanceObservation(
+      gestureProjectId,
+      observationId,
+      persistedRevision.value,
+      promoted,
+    )
+    if (project.value?.id === gestureProjectId) {
+      const message = promoted
+        ? 'Artist gesture saved from the approved measurements. Analyzer evidence was not rewritten.'
+        : 'Artist gesture removed. Analyzer evidence is unchanged.'
+      accept(next, message, true)
+      performanceReviewMessages[assetId] = message
+    }
+    activityLog.write('success', 'vocal.observation-gesture', promoted
+      ? 'Artist gesture promoted from approved analyzer evidence.'
+      : 'Artist gesture cleared from analyzer evidence.', {
+      projectId: gestureProjectId,
+      assetId,
+      observationId,
+      outcome: promoted ? 'promoted' : 'cleared',
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The artist gesture could not be updated.'
+    status.value = message
+    performanceReviewMessages[assetId] = message
+    activityLog.write('error', 'vocal.observation-gesture', message, {
+      projectId: gestureProjectId,
       assetId,
       observationId,
     })
@@ -3766,7 +3810,7 @@ onBeforeUnmount(() => {
                     <small>{{ performanceEvidenceCount(asset.id) }} claim{{ performanceEvidenceCount(asset.id) === 1 ? '' : 's' }} · artist review</small>
                   </summary>
                   <div class="performance-evidence-body">
-                    <p>These measurements remain analyzer evidence. Marking a claim inaccurate lets you store a separate correction; the original analyzer values stay unchanged. A verdict or correction still does not create a note, beat, or approved gesture.</p>
+                    <p>These measurements remain analyzer evidence. Marking a claim inaccurate lets you store a separate correction; the original analyzer values stay unchanged. Accurate claims, or inaccurate claims with a stored correction, can be promoted into an artist gesture snapshot. Promotion still does not create a note, beat, or MIDI event.</p>
                     <section v-for="group in performanceEvidenceGroups(asset.id)" :key="group.key" class="performance-evidence-group">
                       <header>
                         <h5>{{ group.label }}</h5>
@@ -3807,6 +3851,13 @@ onBeforeUnmount(() => {
                               <button v-if="row.hasCorrection" type="button" class="quiet" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="clearPerformanceObservationCorrection(asset.id, row.id)">Remove correction</button>
                             </div>
                           </form>
+                          <div v-if="row.canPromote || row.hasGesture" class="performance-evidence-gesture">
+                            <p>{{ row.gestureLabel || 'Promote the approved measurements into an artist gesture. This still does not create a note or MIDI event.' }}</p>
+                            <div class="performance-evidence-gesture-actions">
+                              <button v-if="row.canPromote" type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="setPerformanceObservationGesture(asset.id, row.id, true)">{{ row.hasGesture ? 'Update gesture' : 'Promote gesture' }}</button>
+                              <button v-if="row.hasGesture" type="button" class="quiet" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="setPerformanceObservationGesture(asset.id, row.id, null)">Remove gesture</button>
+                            </div>
+                          </div>
                         </li>
                       </ol>
                       <button v-if="group.remainingCount" type="button" class="quiet performance-evidence-more" @click="showMorePerformanceEvidence(asset.id, group.key, group.count)">Show {{ Math.min(12, group.remainingCount) }} more · {{ group.remainingCount }} remaining</button>
@@ -3827,7 +3878,7 @@ onBeforeUnmount(() => {
               </li>
             </ol>
           </section>
-          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. The evidence inspector exposes each claim and lets the artist mark it accurate or inaccurate and, when inaccurate, store a separate correction without rewriting analyzer evidence. Rerunning one analyzer replaces its claims and clears only verdicts and corrections attached to those replaced claims. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry source, evidence, artist verdicts, and current corrections. Gesture promotion and automatic musical decisions remain later work.</small>
+          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. The evidence inspector exposes each claim and lets the artist mark it accurate or inaccurate, store a separate correction when inaccurate, and promote approved measurements into an artist gesture snapshot. Rerunning one analyzer replaces its claims and clears only verdicts, corrections, and gestures attached to those replaced claims. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry source, evidence, artist verdicts, current corrections, and current gestures. Gesture snapshots still do not create notes, beats, MIDI, or automatic musical decisions.</small>
         </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>
