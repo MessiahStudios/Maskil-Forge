@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -230,6 +230,7 @@ const harmonyNoteSketches = reactive<Record<string, HarmonyNoteSketch>>({})
 const pitchGestureNoteSketches = reactive<Record<string, PitchGestureNoteSketch>>({})
 const onsetGestureNoteSketches = reactive<Record<string, OnsetGestureNoteSketch>>({})
 const loudnessGestureNoteSketches = reactive<Record<string, LoudnessGestureNoteSketch>>({})
+const loudnessGestureExpressionSketches = reactive<Record<string, LoudnessGestureExpressionSketch>>({})
 const lowEndSupportProposals = reactive<Record<string, LowEndSupportProposal>>({})
 const pulseProposals = reactive<Record<string, PulseProposal>>({})
 const harmonySupportProposals = reactive<Record<string, HarmonySupportProposal>>({})
@@ -2841,6 +2842,42 @@ function useLoudnessGestureNoteSketch(assetId: string) {
     'midi.loudness-gesture.use',
     { assetId, noteCount })
 }
+async function prepareLoudnessGestureExpressionSketch(assetId: string) {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'midi.loudness-expression.prepare', 'Loudness-gesture expression sketch requested.', { assetId })
+  try {
+    const sketch = await projectsApi.loudnessGestureExpressionSketch(project.value.id, project.value, assetId)
+    loudnessGestureExpressionSketches[assetId] = sketch
+    status.value = `${sketch.points.length} dynamics points prepared from loudness gestures.`
+    activityLog.write('success', 'midi.loudness-expression.prepare', status.value, {
+      assetId, pointCount: sketch.points.length,
+    })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The loudness-gesture expression sketch could not be prepared.'
+    activityLog.write('error', 'midi.loudness-expression.prepare', status.value, { assetId })
+  } finally {
+    busy.value = false
+  }
+}
+function useLoudnessGestureExpressionSketch(assetId: string) {
+  if (!project.value) return
+  const pointCount = loudnessGestureExpressionSketches[assetId]?.points.length ?? 0
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'use-loudness-gesture-expression-sketch', assetId }),
+    `${pointCount} dynamics points added from this loudness-gesture sketch.`,
+    'midi.loudness-expression.use',
+    { assetId, pointCount })
+}
+function removeExpressionCurve(expressionCurveId: string, name: string) {
+  if (!project.value) return
+  const pointCount = project.value.expressionCurves?.find(item => item.id === expressionCurveId)?.points.length ?? 0
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'remove-expression-curve', expressionCurveId }),
+    `${name} removed from the song.`,
+    'midi.expression-curve.remove',
+    { expressionCurveId, pointCount })
+}
 function vocalTakePlacement(assetId: string) {
   return project.value?.vocalTakePlacements?.find(item => item.assetId === assetId) ?? null
 }
@@ -2868,7 +2905,8 @@ function setVocalTakePlacement(assetId: string, event: Event) {
     if (!succeeded) return
     if (pitchGestureNoteSketches[assetId]) await preparePitchGestureNoteSketch(assetId)
     if (onsetGestureNoteSketches[assetId]) await prepareOnsetGestureNoteSketch(assetId)
-    if (loudnessGestureNoteSketches[assetId]) return prepareLoudnessGestureNoteSketch(assetId)
+    if (loudnessGestureNoteSketches[assetId]) await prepareLoudnessGestureNoteSketch(assetId)
+    if (loudnessGestureExpressionSketches[assetId]) return prepareLoudnessGestureExpressionSketch(assetId)
   })
 }
 function clearVocalTakePlacement(assetId: string) {
@@ -2882,7 +2920,8 @@ function clearVocalTakePlacement(assetId: string) {
     if (!succeeded) return
     if (pitchGestureNoteSketches[assetId]) await preparePitchGestureNoteSketch(assetId)
     if (onsetGestureNoteSketches[assetId]) await prepareOnsetGestureNoteSketch(assetId)
-    if (loudnessGestureNoteSketches[assetId]) return prepareLoudnessGestureNoteSketch(assetId)
+    if (loudnessGestureNoteSketches[assetId]) await prepareLoudnessGestureNoteSketch(assetId)
+    if (loudnessGestureExpressionSketches[assetId]) return prepareLoudnessGestureExpressionSketch(assetId)
   })
 }
 function addHarmonyChord(sectionId: string) {
@@ -5105,7 +5144,7 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">From a reviewed take</span>
           <h2 id="loudness-gesture-notes-title">Sketch notes from loudness gestures</h2>
-          <p>Preview short C4 hits from approved loudness gestures on one saved take. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo; an unplaced take still starts at tick 0. RMS between −60 and 0 dBFS becomes velocity; quieter frames stay at velocity 1. Peak stays unused. Expression curves remain later work. Nothing is added until you choose “Use this sketch.”</p>
+          <p>Preview short C4 hits from approved loudness gestures on one saved take. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo; an unplaced take still starts at tick 0. RMS between −60 and 0 dBFS becomes velocity; quieter frames stay at velocity 1. Peak stays unused. Nothing is added until you choose “Use this sketch.”</p>
         </div>
         <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a loudness claim first.</p>
         <p v-else-if="!loudnessGestureTakes.length" class="note-event-empty">Promote at least one loudness claim to a gesture in the take inspector above.</p>
@@ -5132,6 +5171,47 @@ onBeforeUnmount(() => {
             <button type="button" :disabled="busy" @click="useLoudnessGestureNoteSketch(asset.id)">Use this sketch</button>
           </div>
         </article>
+      </section>
+
+      <section v-if="!phoneCaptureMode" id="loudness-expression-curves" class="loudness-expression-curves" aria-labelledby="loudness-expression-curves-title">
+        <div>
+          <span class="eyebrow">From a reviewed take</span>
+          <h2 id="loudness-expression-curves-title">Sketch a dynamics curve from loudness gestures</h2>
+          <p>Preview a dynamics curve from approved loudness gestures on one saved take. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo; an unplaced take still starts at tick 0. RMS between −60 and 0 dBFS becomes MIDI expression 0–127; quieter frames stay at 0. Peak stays unused. MIDI export can send these points as CC 11 when the song also has playable notes. Nothing is stored until you choose “Use this sketch.” Changing placement later does not move accepted points, and removing the take does not drop the curve.</p>
+        </div>
+        <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a loudness claim first.</p>
+        <p v-else-if="!loudnessGestureTakes.length" class="note-event-empty">Promote at least one loudness claim to a gesture in the take inspector above.</p>
+        <article v-for="asset in loudnessGestureTakes" :key="asset.id" class="harmony-note-sketch" :aria-label="`Loudness-gesture expression sketch for ${asset.name}`">
+          <div>
+            <strong>{{ asset.name }}</strong>
+            <small>{{ loudnessGestureCountForAsset(asset.id) }} loudness gesture{{ loudnessGestureCountForAsset(asset.id) === 1 ? '' : 's' }} · {{ vocalTakePlacementLabel(asset.id) }}</small>
+          </div>
+          <button type="button" class="secondary" :disabled="busy" @click="prepareLoudnessGestureExpressionSketch(asset.id)">
+            {{ loudnessGestureExpressionSketches[asset.id] ? 'Refresh expression sketch' : 'Prepare expression sketch' }}
+          </button>
+          <div v-if="loudnessGestureExpressionSketches[asset.id]" class="harmony-note-sketch-result">
+            <p>
+              <strong>{{ loudnessGestureExpressionSketches[asset.id].points.length }} dynamics points ready to review</strong>
+              <span>{{ loudnessGestureExpressionSketches[asset.id].name }} · MIDI CC 11. Uses the first tempo only. Existing curves stay until you accept, and changing placement later does not move accepted points.</span>
+            </p>
+            <ol>
+              <li v-for="(point, pointIndex) in loudnessGestureExpressionSketches[asset.id].points" :key="`${point.tick}:${point.value}:${pointIndex}`">
+                <strong>tick {{ point.tick }}</strong>
+                <span>expression {{ point.value }}</span>
+              </li>
+            </ol>
+            <button type="button" :disabled="busy" @click="useLoudnessGestureExpressionSketch(asset.id)">Use this sketch</button>
+          </div>
+        </article>
+        <ol v-if="project.expressionCurves.length" class="note-event-list">
+          <li v-for="curve in project.expressionCurves" :key="curve.id">
+            <div>
+              <strong>{{ curve.name }}</strong>
+              <span>{{ curve.points.length }} point{{ curve.points.length === 1 ? '' : 's' }} · MIDI CC 11</span>
+            </div>
+            <button type="button" class="danger" :disabled="busy" @click="removeExpressionCurve(curve.id, curve.name)">Remove</button>
+          </li>
+        </ol>
       </section>
 
       <details v-if="!phoneCaptureMode" class="disclosure-panel note-event-foundation">

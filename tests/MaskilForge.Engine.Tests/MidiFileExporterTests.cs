@@ -44,6 +44,31 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_EmitsDynamicsAsExpressionControlChangeBeforeNoteOn()
+    {
+        var project = SongProject.Create("Expression MIDI");
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+        project.AddExpressionCurve(
+            "Take dynamics",
+            ExpressionCurveKind.Dynamics,
+            [new ExpressionCurvePoint(0, 88), new ExpressionCurvePoint(480, 40)]);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var timed = parsed.Events
+            .Where(item => item.Bytes[0] is 0x80 or 0x90 or 0xB0)
+            .Select(item => (item.Tick, (int)item.Bytes[0], (int)item.Bytes[1], (int)item.Bytes[2]))
+            .ToArray();
+
+        Assert.Equal(new[]
+        {
+            (0L, 0xB0, 11, 88),
+            (0L, 0x90, 60, 100),
+            (480L, 0xB0, 11, 40),
+            (480L, 0x80, 60, 0)
+        }, timed);
+    }
+
+    [Fact]
     public void Export_RequiresApprovedPlayableNotes()
     {
         var exception = Assert.Throws<InvalidOperationException>(() => MidiFileExporter.Export(SongProject.Create("Empty")));

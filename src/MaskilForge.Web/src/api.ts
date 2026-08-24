@@ -76,6 +76,15 @@ export interface OnsetGestureNoteSketchEvent extends Omit<NoteEvent, 'id'> { ges
 export interface OnsetGestureNoteSketch { sourceAssetId: string; startTick: number; events: OnsetGestureNoteSketchEvent[] }
 export interface LoudnessGestureNoteSketchEvent extends Omit<NoteEvent, 'id'> { gestureId: string; observationId: string }
 export interface LoudnessGestureNoteSketch { sourceAssetId: string; startTick: number; events: LoudnessGestureNoteSketchEvent[] }
+export interface ExpressionCurvePoint { tick: number; value: number }
+export interface ExpressionCurve { id: string; name: string; kind: 'Dynamics'; points: ExpressionCurvePoint[] }
+export interface LoudnessGestureExpressionSketch {
+  sourceAssetId: string
+  name: string
+  kind: 'Dynamics'
+  startTick: number
+  points: ExpressionCurvePoint[]
+}
 export interface LowEndSupportProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
 export interface LowEndSupportProposal { sectionId: string; partLabel: string; events: LowEndSupportProposalEvent[]; reusedNoteCount: number }
 export interface PulseProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
@@ -436,6 +445,7 @@ export interface SongProject {
   performanceObservationCorrections: PerformanceObservationCorrection[]
   performanceObservationGestures: PerformanceObservationGesture[]
   vocalTakePlacements: VocalTakePlacement[]
+  expressionCurves: ExpressionCurve[]
   key: MusicalKey
 }
 
@@ -550,6 +560,7 @@ export interface ProjectCommand {
   durationTicks?: number
   velocity?: number
   start?: { bar: number; beat: number; tick: number }
+  expressionCurveId?: string
   text?: string
   syllables?: string[]
 }
@@ -747,6 +758,10 @@ export const projectsApi = {
     }),
   loudnessGestureNoteSketch: (id: string, project: SongProject, assetId: string) =>
     request<LoudnessGestureNoteSketch>(`/api/projects/${id}/loudness-gesture-note-sketch`, {
+      method: 'POST', body: JSON.stringify({ project, assetId }),
+    }),
+  loudnessGestureExpressionSketch: (id: string, project: SongProject, assetId: string) =>
+    request<LoudnessGestureExpressionSketch>(`/api/projects/${id}/loudness-gesture-expression-sketch`, {
       method: 'POST', body: JSON.stringify({ project, assetId }),
     }),
   lowEndSupportProposal: (id: string, project: SongProject, sectionId: string) =>

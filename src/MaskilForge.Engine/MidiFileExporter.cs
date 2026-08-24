@@ -73,13 +73,24 @@ public static class MidiFileExporter
             ]));
         }
 
+        foreach (var curve in project.ExpressionCurves)
+        {
+            if (curve.Kind != ExpressionCurveKind.Dynamics) continue;
+            foreach (var point in curve.Points)
+            {
+                if (point.Tick > MaximumVariableLengthValue)
+                    throw new InvalidOperationException("An expression curve extends beyond the timing range supported by a Standard MIDI File.");
+                events.Add(new MidiEvent(point.Tick, 2, 11, curve.Id.Value, [0xB0, 11, checked((byte)point.Value)]));
+            }
+        }
+
         foreach (var note in project.NoteEvents)
         {
             if (note.EndTickExclusive > MaximumVariableLengthValue)
                 throw new InvalidOperationException("A playable note extends beyond the timing range supported by a Standard MIDI File.");
             var pitch = checked((byte)note.Pitch.MidiNumber);
-            events.Add(new MidiEvent(note.StartTick, 3, pitch, note.Id.Value, [0x90, pitch, checked((byte)note.Velocity)]));
-            events.Add(new MidiEvent(note.EndTickExclusive, 2, pitch, note.Id.Value, [0x80, pitch, 0x00]));
+            events.Add(new MidiEvent(note.StartTick, 4, pitch, note.Id.Value, [0x90, pitch, checked((byte)note.Velocity)]));
+            events.Add(new MidiEvent(note.EndTickExclusive, 3, pitch, note.Id.Value, [0x80, pitch, 0x00]));
         }
 
         return events
@@ -115,5 +126,6 @@ public static class MidiFileExporter
         stream.Write(buffer);
     }
 
+    // Priority: tempo 0, meter 1, CC 2, note-off 3, note-on 4.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, Guid NoteId, byte[] Data);
 }

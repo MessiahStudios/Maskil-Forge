@@ -742,6 +742,25 @@ app.MapPost("/api/projects/{id}/loudness-gesture-note-sketch", async (string id,
     }
 });
 
+app.MapPost("/api/projects/{id}/loudness-gesture-expression-sketch", async (string id, LoudnessGestureExpressionSketchRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var sketch = await workspace.UseAsync(
+            projectId,
+            request.Project,
+            editor => LoudnessGestureExpressionSketcher.Project(editor.Project, request.AssetId),
+            cancellationToken);
+        return sketch is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(sketch);
+    }
+    catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/low-end-support-proposal", async (string id, LowEndSupportProposalRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -1067,6 +1086,9 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "use-pitch-gesture-note-sketch": editor.Execute(new UsePitchGestureNoteSketchCommand(RequiredAssetId(request))); break;
         case "use-onset-gesture-note-sketch": editor.Execute(new UseOnsetGestureNoteSketchCommand(RequiredAssetId(request))); break;
         case "use-loudness-gesture-note-sketch": editor.Execute(new UseLoudnessGestureNoteSketchCommand(RequiredAssetId(request))); break;
+        case "use-loudness-gesture-expression-sketch": editor.Execute(new UseLoudnessGestureExpressionSketchCommand(RequiredAssetId(request))); break;
+        case "remove-expression-curve": editor.Execute(new RemoveExpressionCurveCommand(
+            request.ExpressionCurveId ?? throw new ArgumentException("Expression-curve ID is required."))); break;
         case "set-vocal-take-placement": editor.Execute(new SetVocalTakePlacementCommand(
             RequiredAssetId(request),
             request.Start ?? throw new ArgumentException("Start position is required."))); break;
@@ -1322,6 +1344,7 @@ public sealed record HarmonyNoteSketchRequest(SongProject Project, SectionId Sec
 public sealed record PitchGestureNoteSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record OnsetGestureNoteSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record LoudnessGestureNoteSketchRequest(SongProject Project, ProjectAssetId AssetId);
+public sealed record LoudnessGestureExpressionSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record LowEndSupportProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record PulseProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record HarmonySupportProposalRequest(SongProject Project, SectionId SectionId);
@@ -1398,6 +1421,7 @@ public sealed record ProjectCommandRequest(
     long? DurationTicks = null,
     int? Velocity = null,
     MusicalPosition? Start = null,
+    ExpressionCurveId? ExpressionCurveId = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

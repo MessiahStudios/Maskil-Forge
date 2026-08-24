@@ -911,6 +911,46 @@ public sealed class UseLoudnessGestureNoteSketchCommand(ProjectAssetId assetId) 
     }
 }
 
+public sealed class UseLoudnessGestureExpressionSketchCommand(ProjectAssetId assetId) : IProjectCommand
+{
+    private ExpressionCurve? _created;
+
+    public void Execute(SongProject project)
+    {
+        if (_created is null)
+        {
+            var sketch = LoudnessGestureExpressionSketcher.Project(project, assetId);
+            _created = project.AddExpressionCurve(sketch.Name, sketch.Kind, sketch.Points);
+            return;
+        }
+
+        project.RestoreExpressionCurve(_created);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_created is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RemoveExpressionCurve(_created.Id);
+    }
+}
+
+public sealed class RemoveExpressionCurveCommand(ExpressionCurveId expressionCurveId) : IProjectCommand
+{
+    private ExpressionCurve? _removed;
+
+    public void Execute(SongProject project)
+    {
+        if (_removed is null) _removed = project.RemoveExpressionCurve(expressionCurveId);
+        else project.RemoveExpressionCurve(expressionCurveId);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_removed is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RestoreExpressionCurve(_removed);
+    }
+}
+
 public sealed class SetVocalTakePlacementCommand(ProjectAssetId assetId, MusicalPosition start) : IProjectCommand
 {
     private VocalTakePlacement? _previous;

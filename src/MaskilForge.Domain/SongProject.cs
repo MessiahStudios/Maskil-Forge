@@ -32,6 +32,7 @@ public sealed class SongProject
     private readonly List<PerformanceObservationCorrection> _performanceObservationCorrections;
     private readonly List<PerformanceObservationGesture> _performanceObservationGestures;
     private readonly List<VocalTakePlacement> _vocalTakePlacements;
+    private readonly List<ExpressionCurve> _expressionCurves;
 
     [JsonConstructor]
     public SongProject(
@@ -58,7 +59,8 @@ public sealed class SongProject
         IReadOnlyList<PerformanceObservationReview>? performanceObservationReviews = null,
         IReadOnlyList<PerformanceObservationCorrection>? performanceObservationCorrections = null,
         IReadOnlyList<PerformanceObservationGesture>? performanceObservationGestures = null,
-        IReadOnlyList<VocalTakePlacement>? vocalTakePlacements = null)
+        IReadOnlyList<VocalTakePlacement>? vocalTakePlacements = null,
+        IReadOnlyList<ExpressionCurve>? expressionCurves = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -83,6 +85,7 @@ public sealed class SongProject
         _performanceObservationCorrections = performanceObservationCorrections?.ToList() ?? [];
         _performanceObservationGestures = performanceObservationGestures?.ToList() ?? [];
         _vocalTakePlacements = vocalTakePlacements?.ToList() ?? [];
+        _expressionCurves = expressionCurves?.ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -128,6 +131,7 @@ public sealed class SongProject
     public IReadOnlyList<PerformanceObservationCorrection> PerformanceObservationCorrections => _performanceObservationCorrections;
     public IReadOnlyList<PerformanceObservationGesture> PerformanceObservationGestures => _performanceObservationGestures;
     public IReadOnlyList<VocalTakePlacement> VocalTakePlacements => _vocalTakePlacements;
+    public IReadOnlyList<ExpressionCurve> ExpressionCurves => _expressionCurves;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -669,6 +673,33 @@ public sealed class SongProject
         Touch();
     }
 
+    public ExpressionCurve AddExpressionCurve(string name, ExpressionCurveKind kind, IReadOnlyList<ExpressionCurvePoint> points)
+    {
+        var created = new ExpressionCurve(ExpressionCurveId.New(), name, kind, points);
+        RestoreExpressionCurve(created);
+        return created;
+    }
+
+    public ExpressionCurve RemoveExpressionCurve(ExpressionCurveId expressionCurveId)
+    {
+        var existing = _expressionCurves.SingleOrDefault(item => item.Id == expressionCurveId)
+            ?? throw new KeyNotFoundException($"Expression curve '{expressionCurveId}' was not found.");
+        _expressionCurves.Remove(existing);
+        Touch();
+        return existing;
+    }
+
+    public void RestoreExpressionCurve(ExpressionCurve curve)
+    {
+        ArgumentNullException.ThrowIfNull(curve);
+        _expressionCurves.RemoveAll(item => item.Id == curve.Id);
+        _expressionCurves.Add(curve);
+        Touch();
+    }
+
+    public ExpressionCurve? FindExpressionCurve(ExpressionCurveId expressionCurveId) =>
+        _expressionCurves.SingleOrDefault(item => item.Id == expressionCurveId);
+
     public HarmonyChord AddHarmonyChord(SectionId sectionId, ChordSymbol chord, BeatPosition start, int durationBars = 1)
     {
         ValidateHarmonySpan(sectionId, start, durationBars, TimeSignature);
@@ -993,6 +1024,8 @@ public sealed class SongProject
             throw new ArgumentException("Vocal-take placement IDs must be unique.");
         if (_vocalTakePlacements.Select(item => item.AssetId).Distinct().Count() != _vocalTakePlacements.Count)
             throw new ArgumentException("An original vocal take can have only one song placement.");
+        if (_expressionCurves.Select(item => item.Id).Distinct().Count() != _expressionCurves.Count)
+            throw new ArgumentException("Expression-curve IDs must be unique.");
         if (_arrangement.Select(item => item.Id).Distinct().Count() != _arrangement.Count)
             throw new ArgumentException("Section arrangement IDs must be unique.");
         if (_arrangement.Select(item => item.SectionId).Distinct().Count() != _arrangement.Count)

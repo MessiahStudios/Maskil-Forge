@@ -121,6 +121,7 @@ public sealed class VocalTakePlacementTests
         Assert.Equal(SchemaVersion.Current.Value, inspected.Project.SchemaVersion.Value);
         Assert.Empty(inspected.Project.VocalTakePlacements);
         Assert.Empty(inspected.Project.PerformanceObservationGestures);
+        Assert.Empty(inspected.Project.ExpressionCurves);
     }
 
     [Fact]

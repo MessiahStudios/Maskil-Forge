@@ -102,6 +102,8 @@ Slice 6.19 projects approved onset gestures into a transient playable-note sketc
 
 Slice 6.20 projects approved loudness gestures into a transient playable-note sketch of short C4 hits. Millisecond spans become ticks from the first tempo plus the take's song start, and RMS between −60 and 0 dBFS becomes velocity. Peak stays unused. Desktop Music previews the sketch; notes enter the Song Graph only after an explicit accept. Pitch and onset gestures keep their own sketches. Expression curves, musical parts, and automatic retargeting remain later work. Phone Review does not create notes.
 
+Slice 6.21 stores an artist-authored dynamics curve as Song Graph data. Schema v29 keeps `expressionCurves` in a separate collection. Desktop Music previews a transient loudness-gesture sketch, then explicitly accepts one Dynamics curve whose points are MIDI expression 0–127. MIDI export can translate those points to CC 11 when playable notes exist. Placement changes do not move accepted points, and removing the take does not drop the curve. Phone Review does not create curves. Freehand point editing, extra curve kinds, and instrument retargeting remain later work.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting

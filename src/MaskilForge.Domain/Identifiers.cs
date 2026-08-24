@@ -58,6 +58,13 @@ public readonly record struct VocalTakePlacementId(Guid Value)
     public override string ToString() => Value.ToString();
 }
 
+[JsonConverter(typeof(ExpressionCurveIdJsonConverter))]
+public readonly record struct ExpressionCurveId(Guid Value)
+{
+    public static ExpressionCurveId New() => new(Guid.NewGuid());
+    public override string ToString() => Value.ToString();
+}
+
 [JsonConverter(typeof(SectionIdJsonConverter))]
 public readonly record struct SectionId(Guid Value)
 {
@@ -229,7 +236,7 @@ public readonly record struct HarmonyCandidateEventId(Guid Value)
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(28);
+    public static SchemaVersion Current => new(29);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>
@@ -308,6 +315,12 @@ internal sealed class VocalTakePlacementIdJsonConverter : GuidIdJsonConverter<Vo
 {
     protected override VocalTakePlacementId Create(Guid value) => new(value);
     protected override Guid GetValue(VocalTakePlacementId value) => value.Value;
+}
+
+internal sealed class ExpressionCurveIdJsonConverter : GuidIdJsonConverter<ExpressionCurveId>
+{
+    protected override ExpressionCurveId Create(Guid value) => new(value);
+    protected override Guid GetValue(ExpressionCurveId value) => value.Value;
 }
 
 internal sealed class SectionIdJsonConverter : GuidIdJsonConverter<SectionId>

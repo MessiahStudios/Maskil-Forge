@@ -243,6 +243,7 @@ public sealed class JsonPersistenceTests
             Assert.Empty(root.GetProperty("assets").EnumerateArray());
             Assert.Empty(root.GetProperty("performanceObservationReviews").EnumerateArray());
             Assert.Empty(root.GetProperty("vocalTakePlacements").EnumerateArray());
+            Assert.Empty(root.GetProperty("expressionCurves").EnumerateArray());
             Assert.False(root.TryGetProperty("tempo", out _));
             Assert.False(root.TryGetProperty("timeSignature", out _));
             var timeline = root.GetProperty("timeline");

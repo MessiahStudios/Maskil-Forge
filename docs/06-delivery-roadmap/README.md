@@ -854,6 +854,14 @@ Desktop Music can preview the sketch and explicitly accept it. Acceptance adds `
 
 **Deliverable:** an artist can preview and explicitly accept short C4 notes from approved loudness gestures on one take, with RMS mapped to velocity, without automatic musical decisions.
 
+### Milestone 6.21 — Loudness-gesture expression curves
+
+Advance the Song Graph to schema v29 with a separate `expressionCurves` collection. Convert approved loudness gestures on one original-vocal take into a transient, inspectable dynamics sketch. Each gesture whose observation kind is `loudness.frame` becomes one point. Time uses the first tempo event only: `ticks = milliseconds * BPM * 480 / 60000`, rounded away from zero, plus the take's vocal-take placement when present. Value maps RMS `rmsDbfs` from −60 to 0 dBFS onto 0–127; quieter frames clamp to 0; missing RMS uses 96. Peak is ignored. Pitch-frequency and onset gestures are ignored. Preparing the sketch does not modify the Song Graph. Schema-v28 projects migrate to an empty collection.
+
+Desktop Music can preview the sketch and explicitly accept it. Acceptance adds one `Dynamics` curve through the existing add/restore path; undo removes only that curve; existing curves stay. After reopen, Remove drops the curve through a command. Dropping a gesture later or changing placement does not delete or move already-accepted points. Removing the take does not drop the curve. MIDI export still requires playable notes; when dynamics curves exist it emits CC 11, ordered before note-on at the same tick. A take with no loudness gestures cannot prepare a sketch. Activity logs retain project, take, curve, and point-count identity, not dB or audio. Phone Review stays capture, review, and promote; it does not create curves. Freehand point editing, extra curve kinds, CC 7, musical parts, and automatic retargeting remain later work.
+
+**Deliverable:** an artist can preview and explicitly accept a dynamics curve from approved loudness gestures, persist it as Song Graph data, and export it as MIDI expression without automatic musical decisions.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
