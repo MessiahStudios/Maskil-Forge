@@ -42,8 +42,8 @@ test('rows are chronological and format time, measurements, and confidence for r
   ], 'take-a')
 
   assert.deepEqual(groups[0].rows, [
-    { id: 'earlier', timeLabel: '0.000s–0.080s', measurementLabel: '220.0 Hz', confidenceLabel: 'Confidence 82%', reviewVerdict: null, reviewUpdatedUtc: '' },
-    { id: 'later', timeLabel: '0.400s–0.480s', measurementLabel: '440.3 Hz', confidenceLabel: 'Confidence not reported', reviewVerdict: null, reviewUpdatedUtc: '' },
+    { id: 'earlier', timeLabel: '0.000s–0.080s', measurementLabel: '220.0 Hz', confidenceLabel: 'Confidence 82%', reviewVerdict: null, reviewUpdatedUtc: '', correctionLabel: '', hasCorrection: false, correctionFields: [] },
+    { id: 'later', timeLabel: '0.400s–0.480s', measurementLabel: '440.3 Hz', confidenceLabel: 'Confidence not reported', reviewVerdict: null, reviewUpdatedUtc: '', correctionLabel: '', hasCorrection: false, correctionFields: [] },
   ])
 })
 
@@ -61,6 +61,40 @@ test('artist verdicts decorate matching claims without changing analyzer evidenc
   assert.equal(groups[0].rows[0].reviewVerdict, 'Accurate')
   assert.equal(groups[0].rows[0].reviewUpdatedUtc, '2026-08-22T12:02:00Z')
   assert.equal(groups[0].rows[1].reviewVerdict, null)
+  assert.equal(groups[0].rows[0].hasCorrection, false)
+  assert.deepEqual(source, snapshot)
+})
+
+test('inaccurate claims expose a correction form without rewriting analyzer measurements', () => {
+  const source = [observation({ id: 'corrected', measurements: [{ name: 'frequencyHertz', value: 440.25, unit: 'hertz' }] })]
+  const snapshot = structuredClone(source)
+  const groups = buildPerformanceEvidenceGroups(source, 'take-a', {}, [{
+    id: 'review-1',
+    observationId: 'corrected',
+    verdict: 'Inaccurate',
+    createdUtc: '2026-08-23T12:01:00Z',
+    updatedUtc: '2026-08-23T12:02:00Z',
+  }], [{
+    id: 'correction-1',
+    observationId: 'corrected',
+    measurements: [{ name: 'frequencyHertz', value: 196.2, unit: 'hertz' }],
+    createdUtc: '2026-08-23T12:03:00Z',
+    updatedUtc: '2026-08-23T12:04:00Z',
+  }])
+
+  assert.equal(groups[0].rows[0].measurementLabel, '440.3 Hz')
+  assert.equal(groups[0].rows[0].reviewVerdict, 'Inaccurate')
+  assert.equal(groups[0].rows[0].hasCorrection, true)
+  assert.equal(groups[0].rows[0].correctionLabel, 'Artist correction · 196.2 Hz')
+  assert.deepEqual(groups[0].rows[0].correctionFields, [{
+    name: 'frequencyHertz',
+    unit: 'hertz',
+    value: 196.2,
+    label: 'Frequency Hz',
+    min: '65',
+    max: '1000',
+    step: '0.1',
+  }])
   assert.deepEqual(source, snapshot)
 })
 

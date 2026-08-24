@@ -43,8 +43,40 @@ function formatProvenance(value) {
   return titleCase(value)
 }
 
-function evidenceRow(observation, reviewsByObservationId) {
+function measurementFieldLabel(measurement) {
+  const name = String(measurement?.name ?? '')
+  const unit = String(measurement?.unit ?? '')
+  if (name === 'rmsDbfs') return 'RMS dBFS'
+  if (name === 'peakDbfs') return 'Peak dBFS'
+  if (name === 'frequencyHertz') return 'Frequency Hz'
+  if (name === 'strength' && unit === 'normalized') return 'Strength'
+  return `${titleCase(name)}${unit ? ` (${unit})` : ''}`
+}
+
+function measurementInputBounds(measurement) {
+  const name = String(measurement?.name ?? '')
+  const unit = String(measurement?.unit ?? '')
+  if (name === 'frequencyHertz' || unit === 'hertz') return { min: '65', max: '1000', step: '0.1' }
+  if (unit === 'dBFS') return { min: '-120', max: '0', step: '0.01' }
+  if (unit === 'normalized') return { min: '0', max: '1', step: '0.01' }
+  return { min: '', max: '', step: '0.01' }
+}
+
+function correctionFields(observation, correction) {
+  const measurements = correction?.measurements?.length ? correction.measurements : observation.measurements ?? []
+  return measurements.map(measurement => ({
+    name: measurement.name,
+    unit: measurement.unit,
+    value: measurement.value,
+    label: measurementFieldLabel(measurement),
+    ...measurementInputBounds(measurement),
+  }))
+}
+
+function evidenceRow(observation, reviewsByObservationId, correctionsByObservationId) {
   const review = reviewsByObservationId.get(observation.id)
+  const correction = correctionsByObservationId.get(observation.id)
+  const inaccurate = review?.verdict === 'Inaccurate'
   return {
     id: observation.id,
     timeLabel: `${formatTime(observation.startMilliseconds)}–${formatTime(observation.startMilliseconds + observation.durationMilliseconds)}`,
@@ -54,6 +86,11 @@ function evidenceRow(observation, reviewsByObservationId) {
       : `Confidence ${Math.round(Number(observation.confidence) * 100)}%`,
     reviewVerdict: review?.verdict ?? null,
     reviewUpdatedUtc: review?.updatedUtc ?? '',
+    correctionLabel: correction
+      ? `Artist correction · ${(correction.measurements ?? []).map(formatMeasurement).join(' · ')}`
+      : '',
+    hasCorrection: Boolean(correction),
+    correctionFields: inaccurate ? correctionFields(observation, correction) : [],
   }
 }
 
@@ -63,8 +100,9 @@ export function nextPerformanceEvidenceVisibleCount(currentCount, totalCount) {
   return Math.min(total, current + performanceEvidencePageSize)
 }
 
-export function buildPerformanceEvidenceGroups(observations, sourceAssetId, visibleCounts = {}, reviews = []) {
+export function buildPerformanceEvidenceGroups(observations, sourceAssetId, visibleCounts = {}, reviews = [], corrections = []) {
   const reviewsByObservationId = new Map((reviews ?? []).map(review => [review.observationId, review]))
+  const correctionsByObservationId = new Map((corrections ?? []).map(correction => [correction.observationId, correction]))
   const grouped = new Map()
   for (const observation of observations ?? []) {
     if (observation?.sourceAssetId !== sourceAssetId) continue
@@ -98,7 +136,7 @@ export function buildPerformanceEvidenceGroups(observations, sourceAssetId, visi
         count: ordered.length,
         visibleCount,
         remainingCount: ordered.length - visibleCount,
-        rows: ordered.slice(0, visibleCount).map(observation => evidenceRow(observation, reviewsByObservationId)),
+        rows: ordered.slice(0, visibleCount).map(observation => evidenceRow(observation, reviewsByObservationId, correctionsByObservationId)),
       }
     })
     .sort((left, right) => left.order - right.order || left.label.localeCompare(right.label)

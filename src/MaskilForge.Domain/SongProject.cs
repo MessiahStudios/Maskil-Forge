@@ -29,6 +29,7 @@ public sealed class SongProject
     private readonly List<ProjectAsset> _assets;
     private readonly List<PerformanceObservation> _performanceObservations;
     private readonly List<PerformanceObservationReview> _performanceObservationReviews;
+    private readonly List<PerformanceObservationCorrection> _performanceObservationCorrections;
 
     [JsonConstructor]
     public SongProject(
@@ -52,7 +53,8 @@ public sealed class SongProject
         IReadOnlyList<MusicalPart>? musicalParts = null,
         IReadOnlyList<ProjectAsset>? assets = null,
         IReadOnlyList<PerformanceObservation>? performanceObservations = null,
-        IReadOnlyList<PerformanceObservationReview>? performanceObservationReviews = null)
+        IReadOnlyList<PerformanceObservationReview>? performanceObservationReviews = null,
+        IReadOnlyList<PerformanceObservationCorrection>? performanceObservationCorrections = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -74,6 +76,7 @@ public sealed class SongProject
         _assets = assets?.ToList() ?? [];
         _performanceObservations = performanceObservations?.ToList() ?? [];
         _performanceObservationReviews = performanceObservationReviews?.ToList() ?? [];
+        _performanceObservationCorrections = performanceObservationCorrections?.ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -84,6 +87,7 @@ public sealed class SongProject
         ValidateLockReferences();
         ValidatePerformanceObservationReferences();
         ValidatePerformanceObservationReviewReferences();
+        ValidatePerformanceObservationCorrectionReferences();
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
@@ -113,6 +117,7 @@ public sealed class SongProject
     public IReadOnlyList<ProjectAsset> Assets => _assets;
     public IReadOnlyList<PerformanceObservation> PerformanceObservations => _performanceObservations;
     public IReadOnlyList<PerformanceObservationReview> PerformanceObservationReviews => _performanceObservationReviews;
+    public IReadOnlyList<PerformanceObservationCorrection> PerformanceObservationCorrections => _performanceObservationCorrections;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -140,7 +145,7 @@ public sealed class SongProject
             .ToHashSet();
         _assets.Remove(asset);
         _performanceObservations.RemoveAll(item => item.SourceAssetId == assetId);
-        _performanceObservationReviews.RemoveAll(item => removedObservationIds.Contains(item.ObservationId));
+        RemoveDependentObservationRecords(removedObservationIds);
         Touch();
         return asset;
     }
@@ -160,7 +165,7 @@ public sealed class SongProject
         var observation = _performanceObservations.SingleOrDefault(item => item.Id == observationId)
             ?? throw new KeyNotFoundException($"Performance observation '{observationId}' was not found.");
         _performanceObservations.Remove(observation);
-        _performanceObservationReviews.RemoveAll(item => item.ObservationId == observationId);
+        RemoveDependentObservationRecords([observationId]);
         Touch();
         return observation;
     }
@@ -181,6 +186,8 @@ public sealed class SongProject
             : _performanceObservationReviews[index].Revise(verdict, reviewedUtc);
         if (index < 0) _performanceObservationReviews.Add(review);
         else _performanceObservationReviews[index] = review;
+        if (verdict != PerformanceObservationReviewVerdict.Inaccurate)
+            _performanceObservationCorrections.RemoveAll(item => item.ObservationId == observationId);
         Touch();
         return review;
     }
@@ -190,8 +197,42 @@ public sealed class SongProject
         var review = _performanceObservationReviews.SingleOrDefault(item => item.ObservationId == observationId)
             ?? throw new KeyNotFoundException($"Performance observation '{observationId}' has not been reviewed.");
         _performanceObservationReviews.Remove(review);
+        _performanceObservationCorrections.RemoveAll(item => item.ObservationId == observationId);
         Touch();
         return review;
+    }
+
+    public PerformanceObservationCorrection SetPerformanceObservationCorrection(
+        PerformanceObservationId observationId,
+        IReadOnlyList<PerformanceMeasurement> measurements,
+        DateTimeOffset updatedUtc)
+    {
+        var observation = _performanceObservations.SingleOrDefault(item => item.Id == observationId)
+            ?? throw new KeyNotFoundException($"Performance observation '{observationId}' was not found.");
+        var review = _performanceObservationReviews.SingleOrDefault(item => item.ObservationId == observationId);
+        if (review is null || review.Verdict != PerformanceObservationReviewVerdict.Inaccurate)
+            throw new InvalidOperationException("A correction can be stored only after the artist marks the claim inaccurate.");
+        if (updatedUtc == default) throw new ArgumentException("A correction time is required.", nameof(updatedUtc));
+        PerformanceObservationCorrection.ValidateAgainst(observation, measurements);
+
+        var index = _performanceObservationCorrections.FindIndex(item => item.ObservationId == observationId);
+        var correction = index < 0
+            ? new PerformanceObservationCorrection(
+                PerformanceObservationCorrectionId.New(), observationId, measurements, updatedUtc, updatedUtc)
+            : _performanceObservationCorrections[index].Revise(measurements, updatedUtc);
+        if (index < 0) _performanceObservationCorrections.Add(correction);
+        else _performanceObservationCorrections[index] = correction;
+        Touch();
+        return correction;
+    }
+
+    public PerformanceObservationCorrection ClearPerformanceObservationCorrection(PerformanceObservationId observationId)
+    {
+        var correction = _performanceObservationCorrections.SingleOrDefault(item => item.ObservationId == observationId)
+            ?? throw new KeyNotFoundException($"Performance observation '{observationId}' has no artist correction.");
+        _performanceObservationCorrections.Remove(correction);
+        Touch();
+        return correction;
     }
 
     public void ReplacePerformanceObservations(
@@ -237,7 +278,7 @@ public sealed class SongProject
         _performanceObservations.RemoveAll(item => item.SourceAssetId == sourceAssetId
             && string.Equals(item.AnalyzerId, normalizedAnalyzerId, StringComparison.Ordinal)
             && string.Equals(item.Kind, normalizedKind, StringComparison.Ordinal));
-        _performanceObservationReviews.RemoveAll(item => removedObservationIds.Contains(item.ObservationId));
+        RemoveDependentObservationRecords(removedObservationIds);
         _performanceObservations.AddRange(replacements);
         Touch();
     }
@@ -851,6 +892,10 @@ public sealed class SongProject
             throw new ArgumentException("Performance observation review IDs must be unique.");
         if (_performanceObservationReviews.Select(item => item.ObservationId).Distinct().Count() != _performanceObservationReviews.Count)
             throw new ArgumentException("A performance observation can have only one artist review.");
+        if (_performanceObservationCorrections.Select(item => item.Id).Distinct().Count() != _performanceObservationCorrections.Count)
+            throw new ArgumentException("Performance observation correction IDs must be unique.");
+        if (_performanceObservationCorrections.Select(item => item.ObservationId).Distinct().Count() != _performanceObservationCorrections.Count)
+            throw new ArgumentException("A performance observation can have only one artist correction.");
         if (_arrangement.Select(item => item.Id).Distinct().Count() != _arrangement.Count)
             throw new ArgumentException("Section arrangement IDs must be unique.");
         if (_arrangement.Select(item => item.SectionId).Distinct().Count() != _arrangement.Count)
@@ -927,6 +972,28 @@ public sealed class SongProject
         foreach (var review in _performanceObservationReviews)
             if (_performanceObservations.All(observation => observation.Id != review.ObservationId))
                 throw new ArgumentException($"Performance observation review '{review.Id}' must reference an existing observation.");
+    }
+
+    private void ValidatePerformanceObservationCorrectionReferences()
+    {
+        var reviews = _performanceObservationReviews.ToDictionary(item => item.ObservationId);
+        var observations = _performanceObservations.ToDictionary(item => item.Id);
+        foreach (var correction in _performanceObservationCorrections)
+        {
+            if (!observations.TryGetValue(correction.ObservationId, out var observation))
+                throw new ArgumentException($"Performance observation correction '{correction.Id}' must reference an existing observation.");
+            if (!reviews.TryGetValue(correction.ObservationId, out var review)
+                || review.Verdict != PerformanceObservationReviewVerdict.Inaccurate)
+                throw new ArgumentException($"Performance observation correction '{correction.Id}' can exist only for an inaccurate claim.");
+            PerformanceObservationCorrection.ValidateAgainst(observation, correction.Measurements);
+        }
+    }
+
+    private void RemoveDependentObservationRecords(IEnumerable<PerformanceObservationId> observationIds)
+    {
+        var removed = observationIds as IReadOnlySet<PerformanceObservationId> ?? observationIds.ToHashSet();
+        _performanceObservationReviews.RemoveAll(item => removed.Contains(item.ObservationId));
+        _performanceObservationCorrections.RemoveAll(item => removed.Contains(item.ObservationId));
     }
 
     private void ValidateLockReferences()

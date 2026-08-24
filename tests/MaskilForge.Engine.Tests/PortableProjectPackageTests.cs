@@ -44,7 +44,7 @@ public sealed class PortableProjectPackageTests
         var inspected = PortableProjectPackage.Inspect(migratedPackage);
 
         Assert.Equal(22, inspected.SourceSchemaVersion);
-        Assert.Equal(25, inspected.Project.SchemaVersion.Value);
+        Assert.Equal(26, inspected.Project.SchemaVersion.Value);
         Assert.Equal("Take 1", Assert.Single(inspected.Project.Assets).Name);
         Assert.Equal(content, inspected.Assets[asset.Id]);
     }

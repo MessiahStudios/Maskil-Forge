@@ -792,6 +792,16 @@ This slice records agreement or disagreement only. It adds no corrected measurem
 
 **Deliverable:** the artist can make a durable, reversible judgment about individual analyzer claims before any correction or gesture data is allowed to exist.
 
+### Milestone 6.14 — Artist-authored observation corrections
+
+Advance the project schema to v26 with a separate `performanceObservationCorrections` collection. After an evidence row is marked **Inaccurate**, the artist can store one correction for that claim, revise it, or remove it. The original observation stays immutable. A correction uses the same measurement names, units, and count as the analyzer claim, changes at least one value, and stays inside the existing loudness, pitch, and onset bounds. Marking the claim **Accurate** or returning it to **Unreviewed** drops any stored correction.
+
+Writes require the current persisted project revision. Removing a source take, removing an observation, or rerunning the analyzer that owns a claim also removes corrections attached to disappearing claim IDs. Backup, recovery, duplication, Trash, and `.maskil` packages carry current corrections with the project. Activity logs retain project and observation identity plus outcome, not measurement values, audio, or microphone labels.
+
+This slice still creates no note, beat, tempo, MIDI event, expression curve, gesture promotion, or automatic musical decision. A correction is artist-authored evidence beside the analyzer claim, not a rewrite of the recording or an approved musical change.
+
+**Deliverable:** an artist can record a durable, reversible numeric correction for an inaccurate analyzer claim without overwriting the original evidence or promoting it into musical material.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

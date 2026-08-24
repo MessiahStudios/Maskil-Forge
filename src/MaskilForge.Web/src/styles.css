@@ -237,6 +237,14 @@ button.journey-step:hover:not(:disabled) { border-color: #6e755f; background: #2
 .performance-evidence-review[data-verdict="Inaccurate"] strong { color: #e0ad9f; }
 .performance-evidence-review button { min-height: 2rem; padding: .28rem .5rem; font-size: .7rem; }
 .performance-evidence-review button[aria-pressed="true"] { color: #18150f; background: #d8ba78; border-color: #e7ca85; }
+.performance-evidence-correction { grid-column: 1 / -1; display: grid; gap: .4rem; padding-top: .4rem; }
+.performance-evidence-correction > p { margin: 0; color: #c4b49a; font-size: .72rem; line-height: 1.4; }
+.performance-evidence-correction-fields { display: grid; gap: .35rem; }
+.performance-evidence-correction-field { display: grid; grid-template-columns: minmax(5.5rem, 8.5rem) minmax(0, 1fr); gap: .35rem .6rem; align-items: center; }
+.performance-evidence-correction-field span { color: #b7b9ae; font-size: .7rem; }
+.performance-evidence-correction-field input { min-height: 2.4rem; width: 100%; }
+.performance-evidence-correction-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+.performance-evidence-correction-actions button { min-height: 2.4rem; }
 .performance-evidence-more { justify-self: start; min-height: 2.4rem; }
 .saved-vocal-analysis-status { color: #bdb7aa; font-size: .82rem; }
 @keyframes recording-pulse { 50% { box-shadow: 0 0 0 .25rem rgba(180, 111, 89, .18); } }
@@ -700,6 +708,9 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .performance-evidence-review { grid-row: 3; }
   .performance-evidence-review strong { flex-basis: 100%; }
   .performance-evidence-review button { flex: 1 1 5.5rem; }
+  .performance-evidence-correction { grid-row: 4; }
+  .performance-evidence-correction-field { grid-template-columns: 1fr; }
+  .performance-evidence-correction-actions button { flex: 1 1 8rem; }
   main { width: min(100% - 1rem, 1180px); }
   .workspace-connection { grid-template-columns: auto minmax(0, 1fr); }
   .workspace-connection.ready { padding: .45rem .7rem; gap: .5rem; }

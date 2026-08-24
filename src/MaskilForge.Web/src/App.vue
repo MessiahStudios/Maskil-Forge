@@ -68,6 +68,7 @@ const onsetAnalysisAssetId = ref('')
 const onsetAnalysisMessages = reactive<Record<string, string>>({})
 const performanceEvidenceVisibility = reactive<Record<string, Record<string, number>>>({})
 const performanceReviewMessages = reactive<Record<string, string>>({})
+const observationCorrectionDrafts = reactive<Record<string, Record<string, string>>>({})
 let roughVocalCaptureSession: RoughVocalCaptureSession | null = null
 let roughVocalAutoStopTimer: number | undefined
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
@@ -155,6 +156,7 @@ const performanceEvidenceByAsset = computed(() => Object.fromEntries((project.va
     asset.id,
     performanceEvidenceVisibility[asset.id] ?? {},
     project.value?.performanceObservationReviews,
+    project.value?.performanceObservationCorrections,
   ),
 ])))
 const browserRecoverySummaries = computed(() => browserRecoveries.value.map(summarizeBrowserRecovery))
@@ -1119,8 +1121,11 @@ async function reviewPerformanceObservation(
         ? 'Analyzer claim returned to unreviewed.'
         : `Analyzer claim marked ${verdict === 'Accurate' ? 'accurate' : 'inaccurate'} by the artist.`
       accept(next, message, true)
-      performanceReviewMessages[assetId] = `${message} This verdict does not create or correct musical material.`
+      performanceReviewMessages[assetId] = verdict === null
+        ? `${message} Any stored correction was removed with the verdict.`
+        : `${message} ${verdict === 'Inaccurate' ? 'You can now store a separate correction without changing analyzer evidence.' : 'This verdict does not create or correct musical material.'}`
     }
+    if (verdict !== 'Inaccurate') delete observationCorrectionDrafts[observationId]
     activityLog.write('success', 'vocal.observation-review', verdict === null
       ? 'Artist review cleared from analyzer evidence.'
       : 'Artist verdict saved for analyzer evidence.', {
@@ -1135,6 +1140,103 @@ async function reviewPerformanceObservation(
     performanceReviewMessages[assetId] = message
     activityLog.write('error', 'vocal.observation-review', message, {
       projectId: reviewProjectId,
+      assetId,
+      observationId,
+    })
+  } finally {
+    busy.value = false
+  }
+}
+
+function correctionDraftValue(rowId: string, field: { name: string; value: number }) {
+  return observationCorrectionDrafts[rowId]?.[field.name] ?? String(field.value)
+}
+
+function setCorrectionDraft(rowId: string, name: string, value: string) {
+  observationCorrectionDrafts[rowId] ??= {}
+  observationCorrectionDrafts[rowId][name] = value
+}
+
+async function savePerformanceObservationCorrection(
+  assetId: string,
+  row: { id: string; correctionFields: Array<{ name: string; unit: string; value: number }> },
+) {
+  if (!project.value || !persistedRevision.value || isDirty.value || workspaceConnection.value !== 'ready') return
+  const correctionProjectId = project.value.id
+  const measurements = row.correctionFields.map(field => ({
+    name: field.name,
+    unit: field.unit,
+    value: Number(correctionDraftValue(row.id, field)),
+  }))
+  if (measurements.some(item => !Number.isFinite(item.value))) {
+    performanceReviewMessages[assetId] = 'A correction needs a finite number for every measurement.'
+    return
+  }
+  busy.value = true
+  performanceReviewMessages[assetId] = 'Saving the artist correction…'
+  try {
+    const next = await projectsApi.correctPerformanceObservation(
+      correctionProjectId,
+      row.id,
+      persistedRevision.value,
+      measurements,
+    )
+    delete observationCorrectionDrafts[row.id]
+    if (project.value?.id === correctionProjectId) {
+      const message = 'Artist correction saved beside the original analyzer claim.'
+      accept(next, message, true)
+      performanceReviewMessages[assetId] = `${message} Analyzer evidence was not rewritten.`
+    }
+    activityLog.write('success', 'vocal.observation-correction', 'Artist correction saved for analyzer evidence.', {
+      projectId: correctionProjectId,
+      assetId,
+      observationId: row.id,
+      outcome: 'saved',
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The analyzer claim could not be corrected.'
+    status.value = message
+    performanceReviewMessages[assetId] = message
+    activityLog.write('error', 'vocal.observation-correction', message, {
+      projectId: correctionProjectId,
+      assetId,
+      observationId: row.id,
+    })
+  } finally {
+    busy.value = false
+  }
+}
+
+async function clearPerformanceObservationCorrection(assetId: string, observationId: string) {
+  if (!project.value || !persistedRevision.value || isDirty.value || workspaceConnection.value !== 'ready') return
+  const correctionProjectId = project.value.id
+  busy.value = true
+  performanceReviewMessages[assetId] = 'Removing the artist correction…'
+  try {
+    const next = await projectsApi.correctPerformanceObservation(
+      correctionProjectId,
+      observationId,
+      persistedRevision.value,
+      null,
+    )
+    delete observationCorrectionDrafts[observationId]
+    if (project.value?.id === correctionProjectId) {
+      const message = 'Artist correction removed. Analyzer evidence is unchanged.'
+      accept(next, message, true)
+      performanceReviewMessages[assetId] = message
+    }
+    activityLog.write('success', 'vocal.observation-correction', 'Artist correction cleared from analyzer evidence.', {
+      projectId: correctionProjectId,
+      assetId,
+      observationId,
+      outcome: 'cleared',
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The artist correction could not be removed.'
+    status.value = message
+    performanceReviewMessages[assetId] = message
+    activityLog.write('error', 'vocal.observation-correction', message, {
+      projectId: correctionProjectId,
       assetId,
       observationId,
     })
@@ -3664,7 +3766,7 @@ onBeforeUnmount(() => {
                     <small>{{ performanceEvidenceCount(asset.id) }} claim{{ performanceEvidenceCount(asset.id) === 1 ? '' : 's' }} · artist review</small>
                   </summary>
                   <div class="performance-evidence-body">
-                    <p>These measurements remain analyzer evidence. Marking one accurate or inaccurate records only your verdict; it does not create a note, beat, correction, or approved gesture.</p>
+                    <p>These measurements remain analyzer evidence. Marking a claim inaccurate lets you store a separate correction; the original analyzer values stay unchanged. A verdict or correction still does not create a note, beat, or approved gesture.</p>
                     <section v-for="group in performanceEvidenceGroups(asset.id)" :key="group.key" class="performance-evidence-group">
                       <header>
                         <h5>{{ group.label }}</h5>
@@ -3682,6 +3784,29 @@ onBeforeUnmount(() => {
                             <button type="button" class="quiet" :aria-pressed="row.reviewVerdict === 'Inaccurate'" :disabled="busy || isDirty || workspaceConnection !== 'ready' || row.reviewVerdict === 'Inaccurate'" @click="reviewPerformanceObservation(asset.id, row.id, 'Inaccurate')">Inaccurate</button>
                             <button v-if="row.reviewVerdict" type="button" class="quiet" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="reviewPerformanceObservation(asset.id, row.id, null)">Clear</button>
                           </div>
+                          <form v-if="row.reviewVerdict === 'Inaccurate'" class="performance-evidence-correction" @submit.prevent="savePerformanceObservationCorrection(asset.id, row)">
+                            <p>{{ row.correctionLabel || 'Record a separate correction. Analyzer values stay unchanged.' }}</p>
+                            <div class="performance-evidence-correction-fields">
+                              <label v-for="field in row.correctionFields" :key="field.name" class="performance-evidence-correction-field">
+                                <span>{{ field.label }}</span>
+                                <input
+                                  type="number"
+                                  inputmode="decimal"
+                                  :min="field.min || undefined"
+                                  :max="field.max || undefined"
+                                  :step="field.step"
+                                  :value="correctionDraftValue(row.id, field)"
+                                  :disabled="busy || isDirty || workspaceConnection !== 'ready'"
+                                  :aria-label="field.label"
+                                  @input="setCorrectionDraft(row.id, field.name, ($event.target as HTMLInputElement).value)"
+                                >
+                              </label>
+                            </div>
+                            <div class="performance-evidence-correction-actions">
+                              <button type="submit" :disabled="busy || isDirty || workspaceConnection !== 'ready'">{{ row.hasCorrection ? 'Update correction' : 'Save correction' }}</button>
+                              <button v-if="row.hasCorrection" type="button" class="quiet" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="clearPerformanceObservationCorrection(asset.id, row.id)">Remove correction</button>
+                            </div>
+                          </form>
                         </li>
                       </ol>
                       <button v-if="group.remainingCount" type="button" class="quiet performance-evidence-more" @click="showMorePerformanceEvidence(asset.id, group.key, group.count)">Show {{ Math.min(12, group.remainingCount) }} more · {{ group.remainingCount }} remaining</button>
@@ -3702,7 +3827,7 @@ onBeforeUnmount(() => {
               </li>
             </ol>
           </section>
-          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. The evidence inspector exposes each claim and lets the artist mark it accurate or inaccurate without promoting it into musical material. Rerunning one analyzer replaces its claims and clears only verdicts attached to those replaced claims. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry source, evidence, and current artist verdicts. Trimming, correction values, gesture promotion, and automatic musical decisions remain later work.</small>
+          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. The evidence inspector exposes each claim and lets the artist mark it accurate or inaccurate and, when inaccurate, store a separate correction without rewriting analyzer evidence. Rerunning one analyzer replaces its claims and clears only verdicts and corrections attached to those replaced claims. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry source, evidence, artist verdicts, and current corrections. Gesture promotion and automatic musical decisions remain later work.</small>
         </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>

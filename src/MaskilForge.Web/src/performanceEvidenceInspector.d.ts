@@ -1,6 +1,16 @@
-import type { PerformanceObservation, PerformanceObservationReview, PerformanceObservationReviewVerdict } from './api'
+import type { PerformanceObservation, PerformanceObservationCorrection, PerformanceObservationReview, PerformanceObservationReviewVerdict } from './api'
 
 export const performanceEvidencePageSize: 12
+
+export interface PerformanceEvidenceCorrectionField {
+  name: string
+  unit: string
+  value: number
+  label: string
+  min: string
+  max: string
+  step: string
+}
 
 export interface PerformanceEvidenceRow {
   id: string
@@ -9,6 +19,9 @@ export interface PerformanceEvidenceRow {
   confidenceLabel: string
   reviewVerdict: PerformanceObservationReviewVerdict | null
   reviewUpdatedUtc: string
+  correctionLabel: string
+  hasCorrection: boolean
+  correctionFields: PerformanceEvidenceCorrectionField[]
 }
 
 export interface PerformanceEvidenceGroup {
@@ -32,4 +45,5 @@ export function buildPerformanceEvidenceGroups(
   sourceAssetId: string,
   visibleCounts?: Record<string, number>,
   reviews?: PerformanceObservationReview[],
+  corrections?: PerformanceObservationCorrection[],
 ): PerformanceEvidenceGroup[]
