@@ -820,6 +820,14 @@ Desktop Music can preview the sketch and explicitly accept it. Acceptance adds `
 
 **Deliverable:** an artist can preview and explicitly accept playable notes from approved pitch gestures on one take, with take-relative timing from tick 0, without automatic musical decisions.
 
+### Milestone 6.17 — Desktop saved-take studio
+
+Expose saved original-vocal takes on the desktop Music workspace so the studio screen can play, analyze, review, correct, and promote the same host-owned recordings phone Review already owns. Recording remains an explicit MediaRecorder action against the current saved revision. The evidence inspector, artist verdicts, corrections, and gesture snapshots use the existing APIs and schema v27 collections; this slice does not bump schema, place takes on the timeline, or create notes.
+
+Desktop Music lands on this take studio, then the existing pitch-gesture sketch. Phone Review stays the capture companion and still does not create notes. Activity logs keep the same take and observation identity rules: no audio bytes, frequencies, or microphone labels.
+
+**Deliverable:** an artist can inspect and promote a saved rough take on the studio screen, then explicitly sketch notes from pitch gestures, without turning desktop into a miniature DAW or moving take placement into the Song Graph.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

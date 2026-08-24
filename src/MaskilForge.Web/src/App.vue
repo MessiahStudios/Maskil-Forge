@@ -3855,7 +3855,7 @@ onBeforeUnmount(() => {
                     <small>{{ performanceEvidenceCount(asset.id) }} claim{{ performanceEvidenceCount(asset.id) === 1 ? '' : 's' }} · artist review</small>
                   </summary>
                   <div class="performance-evidence-body">
-                    <p>These measurements remain analyzer evidence. Marking a claim inaccurate lets you store a separate correction; the original analyzer values stay unchanged. Accurate claims, or inaccurate claims with a stored correction, can be promoted into an artist gesture snapshot. Promotion still does not create a note, beat, or MIDI event; desktop Music can later sketch notes from pitch gestures.</p>
+                    <p>These measurements remain analyzer evidence. Marking a claim inaccurate lets you store a separate correction; the original analyzer values stay unchanged. Accurate claims, or inaccurate claims with a stored correction, can be promoted into an artist gesture snapshot. Promotion still does not create a note, beat, or MIDI event. Desktop Music can inspect these takes and sketch notes from pitch gestures.</p>
                     <section v-for="group in performanceEvidenceGroups(asset.id)" :key="group.key" class="performance-evidence-group">
                       <header>
                         <h5>{{ group.label }}</h5>
@@ -4767,14 +4767,146 @@ onBeforeUnmount(() => {
         <button type="button" :disabled="busy || !project.noteEvents.length" @click="exportMidi">Export MIDI</button>
       </section>
 
+      <section v-if="!phoneCaptureMode" id="vocal-take-studio" class="vocal-take-studio" aria-labelledby="vocal-take-studio-title">
+        <div>
+          <span class="eyebrow">Original performance</span>
+          <h2 id="vocal-take-studio-title">Saved rough takes</h2>
+          <p>Play, analyze, review, and promote takes here on the studio screen. Recording still requires a saved song revision. Pitch gestures become notes only after you preview and accept the sketch below.</p>
+        </div>
+        <section class="microphone-preflight" aria-labelledby="desktop-microphone-preflight-title">
+          <div>
+            <h3 id="desktop-microphone-preflight-title">Record a rough vocal take</h3>
+            <p>Recording starts only when you ask. The take stays temporary in this tab until you listen and choose Save take.</p>
+          </div>
+          <p v-if="!roughVocalSupport.supported" class="microphone-preflight-status unavailable" role="status">{{ roughVocalSupport.reason }}</p>
+          <p v-else-if="microphonePreflightState === 'ready'" class="microphone-preflight-status ready" role="status"><strong>{{ microphonePreflightLabel }}</strong>{{ microphonePreflightMessage }}</p>
+          <p v-else-if="microphonePreflightMessage" class="microphone-preflight-status" :class="{ unavailable: microphonePreflightState === 'failed' }" role="status">{{ microphonePreflightMessage }}</p>
+          <p v-if="isDirty" class="microphone-preflight-status unavailable" role="status">Save the current words and structure before attaching a recording to this version.</p>
+          <p v-if="roughVocalCaptureMessage" class="microphone-preflight-status" :class="{ ready: roughVocalCaptureState === 'saved' || roughVocalCaptureState === 'review', unavailable: roughVocalCaptureState === 'failed' }" role="status">{{ roughVocalCaptureMessage }}</p>
+          <div class="rough-vocal-actions">
+            <button
+              type="button"
+              class="secondary"
+              :disabled="!roughVocalSupport.supported || microphonePreflightState === 'checking' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
+              @click="checkRoughVocalMicrophone">
+              {{ microphonePreflightState === 'checking' ? 'Checking microphone…' : microphonePreflightState === 'ready' ? 'Check again' : 'Check microphone' }}
+            </button>
+            <button
+              v-if="roughVocalCaptureState !== 'recording'"
+              type="button"
+              :disabled="!roughVocalSupport.supported || busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
+              @click="startRoughVocalRecording">
+              {{ roughVocalCaptureState === 'requesting' ? 'Opening microphone…' : project.assets.length ? 'Record another take' : 'Record rough take' }}
+            </button>
+            <button v-else type="button" class="danger recording-stop" @click="stopRoughVocalRecording(false)">Stop recording</button>
+          </div>
+          <section v-if="pendingRoughVocal" class="rough-vocal-review" aria-labelledby="desktop-rough-vocal-review-title">
+            <div>
+              <p class="eyebrow">Temporary take</p>
+              <h4 id="desktop-rough-vocal-review-title">Listen before saving</h4>
+              <p>{{ formatRoughVocalDuration(pendingRoughVocal.durationMs) }} · {{ formatRoughVocalBytes(pendingRoughVocal.blob.size) }}</p>
+            </div>
+            <audio controls preload="metadata" :src="pendingRoughVocal.url" @play="logRoughVocalPlayback('temporary')">Your browser cannot play this temporary recording.</audio>
+            <div class="rough-vocal-actions">
+              <button type="button" :disabled="roughVocalCaptureState === 'saving' || isDirty" @click="savePendingRoughVocal">{{ roughVocalCaptureState === 'saving' ? 'Saving take…' : 'Save take' }}</button>
+              <button type="button" class="danger" :disabled="roughVocalCaptureState === 'saving'" @click="discardPendingRoughVocal(true)">Discard take</button>
+            </div>
+          </section>
+        </section>
+        <p v-if="!project.assets.length" class="note-event-empty">No saved takes yet. Record one here, or capture it in phone Review. Immutable audio, analyzer evidence, and artist gestures travel with the song.</p>
+        <section v-else class="saved-vocal-takes" aria-labelledby="desktop-saved-vocal-takes-title">
+          <h4 id="desktop-saved-vocal-takes-title">Takes on this song</h4>
+          <ol>
+            <li v-for="(asset, index) in project.assets" :key="`desktop-${asset.id}`">
+              <div><strong>{{ asset.name }}</strong><small>{{ new Date(asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(asset.byteLength) }}</small></div>
+              <audio controls preload="none" :src="projectsApi.originalVocalTakeUrl(project.id, asset.id)" @play="logRoughVocalPlayback('saved', asset.id)">Your browser cannot play this saved take.</audio>
+              <p v-if="loudnessObservationSummary(asset.id)" class="performance-observation-summary">{{ loudnessObservationSummary(asset.id) }}</p>
+              <p v-if="pitchObservationSummary(asset.id)" class="performance-observation-summary pitch">{{ pitchObservationSummary(asset.id) }}</p>
+              <p v-if="onsetObservationSummary(asset.id)" class="performance-observation-summary onset">{{ onsetObservationSummary(asset.id) }}</p>
+              <details v-if="performanceEvidenceCount(asset.id)" class="performance-evidence-inspector">
+                <summary>
+                  <span>Inspect analyzer evidence</span>
+                  <small>{{ performanceEvidenceCount(asset.id) }} claim{{ performanceEvidenceCount(asset.id) === 1 ? '' : 's' }} · artist review</small>
+                </summary>
+                <div class="performance-evidence-body">
+                  <p>These measurements remain analyzer evidence. Marking a claim inaccurate lets you store a separate correction; the original analyzer values stay unchanged. Accurate claims, or inaccurate claims with a stored correction, can be promoted into an artist gesture snapshot. Use the pitch-gesture sketch below to turn promoted pitch into notes.</p>
+                  <section v-for="group in performanceEvidenceGroups(asset.id)" :key="`desktop-${group.key}`" class="performance-evidence-group">
+                    <header>
+                      <h5>{{ group.label }}</h5>
+                      <span>{{ group.count }}</span>
+                    </header>
+                    <p class="performance-evidence-provenance"><code>{{ group.analyzerId }}</code> · v{{ group.analyzerVersion }} · {{ group.provenanceLabel }} · {{ new Date(group.createdUtc).toLocaleString() }}</p>
+                    <ol>
+                      <li v-for="row in group.rows" :key="`desktop-${row.id}`">
+                        <time>{{ row.timeLabel }}</time>
+                        <span>{{ row.measurementLabel }}</span>
+                        <small>{{ row.confidenceLabel }}</small>
+                        <div class="performance-evidence-review" :data-verdict="row.reviewVerdict ?? 'Unreviewed'">
+                          <strong>{{ row.reviewVerdict ? `Artist marked ${row.reviewVerdict.toLowerCase()}` : 'Unreviewed' }}</strong>
+                          <button type="button" class="quiet" :aria-pressed="row.reviewVerdict === 'Accurate'" :disabled="busy || isDirty || workspaceConnection !== 'ready' || row.reviewVerdict === 'Accurate'" @click="reviewPerformanceObservation(asset.id, row.id, 'Accurate')">Accurate</button>
+                          <button type="button" class="quiet" :aria-pressed="row.reviewVerdict === 'Inaccurate'" :disabled="busy || isDirty || workspaceConnection !== 'ready' || row.reviewVerdict === 'Inaccurate'" @click="reviewPerformanceObservation(asset.id, row.id, 'Inaccurate')">Inaccurate</button>
+                          <button v-if="row.reviewVerdict" type="button" class="quiet" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="reviewPerformanceObservation(asset.id, row.id, null)">Clear</button>
+                        </div>
+                        <form v-if="row.reviewVerdict === 'Inaccurate'" class="performance-evidence-correction" @submit.prevent="savePerformanceObservationCorrection(asset.id, row)">
+                          <p>{{ row.correctionLabel || 'Record a separate correction. Analyzer values stay unchanged.' }}</p>
+                          <div class="performance-evidence-correction-fields">
+                            <label v-for="field in row.correctionFields" :key="`desktop-${row.id}-${field.name}`" class="performance-evidence-correction-field">
+                              <span>{{ field.label }}</span>
+                              <input
+                                type="number"
+                                inputmode="decimal"
+                                :min="field.min || undefined"
+                                :max="field.max || undefined"
+                                :step="field.step"
+                                :value="correctionDraftValue(row.id, field)"
+                                :disabled="busy || isDirty || workspaceConnection !== 'ready'"
+                                :aria-label="field.label"
+                                @input="setCorrectionDraft(row.id, field.name, ($event.target as HTMLInputElement).value)"
+                              >
+                            </label>
+                          </div>
+                          <div class="performance-evidence-correction-actions">
+                            <button type="submit" :disabled="busy || isDirty || workspaceConnection !== 'ready'">{{ row.hasCorrection ? 'Update correction' : 'Save correction' }}</button>
+                            <button v-if="row.hasCorrection" type="button" class="quiet" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="clearPerformanceObservationCorrection(asset.id, row.id)">Remove correction</button>
+                          </div>
+                        </form>
+                        <div v-if="row.canPromote || row.hasGesture" class="performance-evidence-gesture">
+                          <p>{{ row.gestureLabel || 'Promote the approved measurements into an artist gesture. Notes are added only after you accept a pitch-gesture sketch.' }}</p>
+                          <div class="performance-evidence-gesture-actions">
+                            <button v-if="row.canPromote" type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="setPerformanceObservationGesture(asset.id, row.id, true)">{{ row.hasGesture ? 'Update gesture' : 'Promote gesture' }}</button>
+                            <button v-if="row.hasGesture" type="button" class="quiet" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="setPerformanceObservationGesture(asset.id, row.id, null)">Remove gesture</button>
+                          </div>
+                        </div>
+                      </li>
+                    </ol>
+                    <button v-if="group.remainingCount" type="button" class="quiet performance-evidence-more" @click="showMorePerformanceEvidence(asset.id, group.key, group.count)">Show {{ Math.min(12, group.remainingCount) }} more · {{ group.remainingCount }} remaining</button>
+                  </section>
+                </div>
+              </details>
+              <p v-if="loudnessAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ loudnessAnalysisMessages[asset.id] }}</p>
+              <p v-if="pitchAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ pitchAnalysisMessages[asset.id] }}</p>
+              <p v-if="onsetAnalysisMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ onsetAnalysisMessages[asset.id] }}</p>
+              <p v-if="performanceReviewMessages[asset.id]" class="saved-vocal-analysis-status" role="status">{{ performanceReviewMessages[asset.id] }}</p>
+              <div class="saved-vocal-take-actions">
+                <button type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="analyzeSavedRoughVocal(asset)">{{ loudnessAnalysisAssetId === asset.id ? 'Analyzing loudness…' : loudnessObservationSummary(asset.id) ? 'Reanalyze loudness' : 'Analyze loudness' }}</button>
+                <button type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="analyzeSavedRoughVocalPitch(asset)">{{ pitchAnalysisAssetId === asset.id ? 'Analyzing pitch…' : pitchObservationSummary(asset.id) ? 'Reanalyze pitch' : 'Analyze pitch' }}</button>
+                <button type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="analyzeSavedRoughVocalOnsets(asset)">{{ onsetAnalysisAssetId === asset.id ? 'Analyzing onsets…' : onsetObservationSummary(asset.id) ? 'Reanalyze onsets' : 'Analyze onsets' }}</button>
+                <button type="button" class="secondary" :disabled="busy || isDirty || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="requestRenameSavedRoughVocal(asset)">Rename</button>
+                <button type="button" class="danger" :disabled="busy || isDirty || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="requestRemoveSavedRoughVocal(asset, index + 1)">Remove take</button>
+              </div>
+            </li>
+          </ol>
+        </section>
+      </section>
+
       <section v-if="!phoneCaptureMode" id="pitch-gesture-notes" class="pitch-gesture-notes" aria-labelledby="pitch-gesture-notes-title">
         <div>
           <span class="eyebrow">From a reviewed take</span>
           <h2 id="pitch-gesture-notes-title">Sketch notes from pitch gestures</h2>
           <p>Preview notes from approved pitch gestures on one saved take. Timing starts at song tick 0 using the first tempo; placing the take on the timeline comes later. Loudness and onset gestures stay unused. Nothing is added until you choose “Use this sketch.”</p>
         </div>
-        <p v-if="!project.assets.length" class="note-event-empty">Record a rough take in Review and promote a pitch claim first.</p>
-        <p v-else-if="!pitchGestureTakes.length" class="note-event-empty">Promote at least one pitch claim to a gesture in Review first. Loudness and onset gestures cannot become notes yet.</p>
+        <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch claim first.</p>
+        <p v-else-if="!pitchGestureTakes.length" class="note-event-empty">Promote at least one pitch claim to a gesture in the take inspector above. Loudness and onset gestures cannot become notes yet.</p>
         <article v-for="asset in pitchGestureTakes" :key="asset.id" class="harmony-note-sketch" :aria-label="`Pitch-gesture note sketch for ${asset.name}`">
           <div>
             <strong>{{ asset.name }}</strong>

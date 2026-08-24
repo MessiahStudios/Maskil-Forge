@@ -94,6 +94,8 @@ Slice 6.15 promotes a reviewed claim into an artist-approved gesture snapshot. S
 
 Slice 6.16 projects those pitch gestures into a transient playable-note sketch. Frequency becomes the nearest MIDI note, millisecond spans become ticks from the first tempo, and the take is placed at song tick 0 until a later placement slice exists. Desktop Music previews the sketch; notes enter the Song Graph only after an explicit accept. Loudness and onset gestures, musical parts, expression curves, and automatic retargeting remain later work. Phone Review does not create notes.
 
+Slice 6.17 lets the desktop Music workspace inspect those same saved takes: playback, analyzer runs, artist verdicts, corrections, and gesture promotion. Recording on the studio screen still requires a saved revision and never uploads until the artist reviews a temporary take. The slice adds no schema fields and does not place a take on the timeline.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting

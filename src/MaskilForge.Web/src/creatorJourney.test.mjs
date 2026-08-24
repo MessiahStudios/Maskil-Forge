@@ -16,7 +16,7 @@ test('words has a distinct focusable destination from idea', () => {
 })
 
 test('music and harmony reveal their optional panels', () => {
-  assert.deepEqual(creatorDestination('music'), { view: 'structure', target: 'musical-refinement', open: true, focus: false })
+  assert.deepEqual(creatorDestination('music'), { view: 'structure', target: 'vocal-take-studio', open: false, focus: false })
   assert.deepEqual(creatorDestination('harmony'), { view: 'structure', target: 'harmony-tools', open: true, focus: false })
   assert.deepEqual(creatorDestination('arrangement'), { view: 'structure', target: 'arrangement-blueprint', open: false, focus: false })
 })
