@@ -838,6 +838,14 @@ This slice still creates no onset or loudness notes, musical part, expression cu
 
 **Deliverable:** an artist can place a saved rough take in song time so sketched notes follow that start, without turning the take into a DAW clip or moving already-accepted notes.
 
+### Milestone 6.19 — Onset-gesture note sketch
+
+Convert approved onset gestures on one original-vocal take into a transient, inspectable playable-note sketch. Each gesture whose observation kind is `onset.event` becomes a natural C4 hit. Time uses the first tempo event only: `ticks = milliseconds * BPM * 480 / 60000`, rounded away from zero, with duration at least one tick, plus the take's vocal-take placement when present. Velocity is `Clamp(Round(strength * 127, AwayFromZero), 1, 127)` from the gesture measurement named `strength`; missing strength uses 96. Pitch-frequency and loudness gestures are ignored. Preparing the sketch does not modify the Song Graph and does not bump schema.
+
+Desktop Music can preview the sketch and explicitly accept it. Acceptance adds `NoteEvent`s through the existing add/restore path; undo removes only those accepted notes; existing notes stay. Dropping a gesture later or changing placement does not delete or move already-accepted notes. The sketch assigns no musical part and creates no expression curves. A take with no onset gestures cannot prepare a sketch. Activity logs retain project, take, and note-count identity, not strength or audio. Phone Review stays capture, review, and promote; it does not create notes.
+
+**Deliverable:** an artist can preview and explicitly accept short C4 notes from approved onset gestures on one take, with take-relative timing plus song placement, without automatic musical decisions.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

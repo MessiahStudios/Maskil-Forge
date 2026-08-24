@@ -704,6 +704,25 @@ app.MapPost("/api/projects/{id}/pitch-gesture-note-sketch", async (string id, Pi
     }
 });
 
+app.MapPost("/api/projects/{id}/onset-gesture-note-sketch", async (string id, OnsetGestureNoteSketchRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var sketch = await workspace.UseAsync(
+            projectId,
+            request.Project,
+            editor => OnsetGestureNoteSketcher.Project(editor.Project, request.AssetId),
+            cancellationToken);
+        return sketch is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(sketch);
+    }
+    catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/low-end-support-proposal", async (string id, LowEndSupportProposalRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -1027,6 +1046,7 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             request.NoteEventId ?? throw new ArgumentException("Note-event ID is required."))); break;
         case "use-harmony-note-sketch": editor.Execute(new UseHarmonyNoteSketchCommand(RequiredSectionId(request))); break;
         case "use-pitch-gesture-note-sketch": editor.Execute(new UsePitchGestureNoteSketchCommand(RequiredAssetId(request))); break;
+        case "use-onset-gesture-note-sketch": editor.Execute(new UseOnsetGestureNoteSketchCommand(RequiredAssetId(request))); break;
         case "set-vocal-take-placement": editor.Execute(new SetVocalTakePlacementCommand(
             RequiredAssetId(request),
             request.Start ?? throw new ArgumentException("Start position is required."))); break;
@@ -1280,6 +1300,7 @@ public sealed record ProsodyScoreRequest(
 public sealed record VoiceLeadingReviewRequest(SongProject Project, SectionId SectionId);
 public sealed record HarmonyNoteSketchRequest(SongProject Project, SectionId SectionId);
 public sealed record PitchGestureNoteSketchRequest(SongProject Project, ProjectAssetId AssetId);
+public sealed record OnsetGestureNoteSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record LowEndSupportProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record PulseProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record HarmonySupportProposalRequest(SongProject Project, SectionId SectionId);

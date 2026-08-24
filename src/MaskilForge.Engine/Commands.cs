@@ -857,6 +857,33 @@ public sealed class UsePitchGestureNoteSketchCommand(ProjectAssetId assetId) : I
     }
 }
 
+public sealed class UseOnsetGestureNoteSketchCommand(ProjectAssetId assetId) : IProjectCommand
+{
+    private IReadOnlyList<NoteEvent>? _created;
+
+    public void Execute(SongProject project)
+    {
+        if (_created is null)
+        {
+            var sketch = OnsetGestureNoteSketcher.Project(project, assetId);
+            _created = sketch.Events.Select(item => project.AddNoteEvent(
+                item.Pitch,
+                item.StartTick,
+                item.DurationTicks,
+                item.Velocity)).ToList();
+            return;
+        }
+
+        foreach (var noteEvent in _created) project.RestoreNoteEvent(noteEvent);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_created is null) throw new InvalidOperationException("Command has not been executed.");
+        foreach (var noteEvent in _created) project.RemoveNoteEvent(noteEvent.Id);
+    }
+}
+
 public sealed class SetVocalTakePlacementCommand(ProjectAssetId assetId, MusicalPosition start) : IProjectCommand
 {
     private VocalTakePlacement? _previous;
