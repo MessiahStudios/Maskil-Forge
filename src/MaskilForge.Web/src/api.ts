@@ -20,14 +20,15 @@ export type SectionEnergy = 'Intimate' | 'Gentle' | 'Building' | 'Strong' | 'Pea
 export type SectionDensity = 'Sparse' | 'Light' | 'Balanced' | 'Full' | 'Dense'
 export type ArrangementProvenance = 'Manual' | 'Analyzer' | 'Imported'
 export type ArrangementRole = 'Foundation' | 'Pulse' | 'Harmony' | 'LowEndSupport' | 'Texture' | 'Accent' | 'Transition' | 'Countermelody' | 'HookReinforcement'
-export type InstrumentArticulation = 'Legato' | 'BowExpression' | 'Slide' | 'Picking' | 'Bend' | 'HammerOn'
+export type InstrumentArticulation = 'Legato' | 'BowExpression' | 'Slide' | 'Picking' | 'Bend' | 'HammerOn' | 'Strike' | 'Pedal' | 'Finger' | 'Slap' | 'Hit' | 'Choke'
 export type InstrumentExpressiveQuality = 'Warm' | 'Bright' | 'Intimate' | 'Sustained' | 'Percussive' | 'Agile'
 
 export interface InstrumentProfile {
   id: string
   name: string
-  minimumPitch: RegisteredPitch
-  maximumPitch: RegisteredPitch
+  pitched: boolean
+  minimumPitch: RegisteredPitch | null
+  maximumPitch: RegisteredPitch | null
   roles: ArrangementRole[]
   articulations: InstrumentArticulation[]
   expressiveQualities: InstrumentExpressiveQuality[]

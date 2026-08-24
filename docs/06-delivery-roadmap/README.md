@@ -874,9 +874,25 @@ The slice does not assign an instrument to a musical part, rank or recommend a c
 
 Derive inspectable instrument recommendations from the version-1 catalog. An assigned arrangement role matches every catalog instrument whose roles include that job. An optional expressive-quality filter further requires that feeling. Matches stay in catalog order; the slice does not score, rank, or auto-pick a winner.
 
-Desktop Arrangement can filter by feeling and inspect matches for each assigned section role. Recommendations are not Song Graph data, so schema stays at v29. The slice does not assign `instrumentProfileId` to a musical part, report range collisions on existing notes, map articulations to MIDI, or retarget a gesture. Phone Arrangement remains hidden. Later slices can check range, map articulations, and retarget cello versus guitar.
+Desktop Arrangement can filter by feeling and inspect matches for each assigned section role. Recommendations are not Song Graph data, so schema stays at v29. The slice does not assign `instrumentProfileId` to a musical part, report range collisions on existing notes, map articulations to MIDI, or retarget a gesture. Phone Arrangement remains hidden. Later slices can grow the catalog, check range, and retarget across distinct instrument families.
 
 **Deliverable:** an artist can see which catalog instruments can cover a job and a feeling without assigning one.
+
+### Milestone 7.3 — Core proof catalog
+
+Grow the host-owned catalog to version 2 with five instrument concepts chosen to force different performance behavior, not to imitate a sample library:
+
+- Cello — warm, sustained, intimate; foundation, harmony, low-end, texture, countermelody
+- Acoustic Guitar — intimate, percussive, agile; pulse, harmony, texture
+- Piano — bright, percussive, sustained; foundation, pulse, harmony, hook reinforcement; broad melodic range
+- Electric Bass — warm, sustained; foundation, pulse, low-end
+- Drum Kit — percussive; pulse and accents; unpitched, with no melodic range
+
+Desktop Arrangement inspects the larger catalog through the existing profile and recommendation views. The catalog remains host knowledge, so schema stays at v29. Guitar keeps the `acoustic-guitar` slug because nothing has been assigned yet.
+
+The slice does not add violin, flute, clarinet, trumpet, electric guitar, synths, or other later-wave instruments. It does not assign an instrument, map articulations to MIDI, check existing notes against range, or retarget a gesture. Phone Arrangement remains hidden. Later slices can check range and retarget across this proof set; later catalog waves can add orchestration vocabulary and modern production instruments.
+
+**Deliverable:** Maskil Forge can describe five musically diverse instrument concepts, including an unpitched kit, without choosing a renderer or assigning one to the artist.
 
 ## Delivery foundation — Portable before platform-specific
 
@@ -896,7 +912,7 @@ Build recording, pitch/onset/loudness extraction, extensible `PerformanceObserva
 
 ## Milestone 7 — Instrument intelligence
 
-Expand instrument knowledge, recommendations, range checks, articulation maps, and at least two performance retargeters.
+Expand instrument knowledge in three catalog waves of instrument concepts, then recommendations, range checks, articulation maps, and at least two performance retargeters. Wave 1 is the cello / acoustic guitar / piano / electric bass / drum kit proof set. Wave 2 adds orchestration vocabulary. Wave 3 adds modern production instruments. The catalog must not jump to dozens of shallow patches, and instrument identity must not depend on whichever renderer is installed.
 
 **Deliverable:** an artist can choose by emotional quality instead of orchestration vocabulary.
 

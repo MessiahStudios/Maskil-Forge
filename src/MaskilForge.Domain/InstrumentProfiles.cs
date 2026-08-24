@@ -10,7 +10,13 @@ public enum InstrumentArticulation
     Slide,
     Picking,
     Bend,
-    HammerOn
+    HammerOn,
+    Strike,
+    Pedal,
+    Finger,
+    Slap,
+    Hit,
+    Choke
 }
 
 public enum InstrumentExpressiveQuality
@@ -24,8 +30,8 @@ public enum InstrumentExpressiveQuality
 }
 
 /// <summary>
-/// Host-owned knowledge about one instrument. It is not a song assignment, renderer
-/// mapping, or retargeted performance.
+/// Host-owned knowledge about one instrument concept. It is not a song assignment,
+/// sample-library patch, renderer mapping, or retargeted performance.
 /// </summary>
 public sealed class InstrumentProfile
 {
@@ -35,8 +41,9 @@ public sealed class InstrumentProfile
     public InstrumentProfile(
         string id,
         string name,
-        RegisteredPitch minimumPitch,
-        RegisteredPitch maximumPitch,
+        bool pitched,
+        RegisteredPitch? minimumPitch,
+        RegisteredPitch? maximumPitch,
         IReadOnlyList<ArrangementRole> roles,
         IReadOnlyList<InstrumentArticulation> articulations,
         IReadOnlyList<InstrumentExpressiveQuality> expressiveQualities)
@@ -46,10 +53,17 @@ public sealed class InstrumentProfile
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("An instrument profile name is required.", nameof(name));
         var normalizedName = name.Trim();
         if (normalizedName.Length > 80) throw new ArgumentOutOfRangeException(nameof(name), "An instrument profile name cannot exceed 80 characters.");
-        ArgumentNullException.ThrowIfNull(minimumPitch);
-        ArgumentNullException.ThrowIfNull(maximumPitch);
-        if (minimumPitch.MidiNumber > maximumPitch.MidiNumber)
-            throw new ArgumentException("An instrument profile maximum pitch cannot sit below its minimum pitch.", nameof(maximumPitch));
+        if (pitched)
+        {
+            ArgumentNullException.ThrowIfNull(minimumPitch);
+            ArgumentNullException.ThrowIfNull(maximumPitch);
+            if (minimumPitch.MidiNumber > maximumPitch.MidiNumber)
+                throw new ArgumentException("An instrument profile maximum pitch cannot sit below its minimum pitch.", nameof(maximumPitch));
+        }
+        else if (minimumPitch is not null || maximumPitch is not null)
+        {
+            throw new ArgumentException("An unpitched instrument cannot name a melodic range.", nameof(minimumPitch));
+        }
         ArgumentNullException.ThrowIfNull(roles);
         if (roles.Count == 0) throw new ArgumentException("An instrument profile must name at least one arrangement role.", nameof(roles));
         if (roles.Any(role => !Enum.IsDefined(role))) throw new ArgumentOutOfRangeException(nameof(roles), "Instrument-profile role is invalid.");
@@ -70,6 +84,7 @@ public sealed class InstrumentProfile
 
         Id = id;
         Name = normalizedName;
+        Pitched = pitched;
         MinimumPitch = minimumPitch;
         MaximumPitch = maximumPitch;
         Roles = roles.ToList();
@@ -79,8 +94,9 @@ public sealed class InstrumentProfile
 
     public string Id { get; }
     public string Name { get; }
-    public RegisteredPitch MinimumPitch { get; }
-    public RegisteredPitch MaximumPitch { get; }
+    public bool Pitched { get; }
+    public RegisteredPitch? MinimumPitch { get; }
+    public RegisteredPitch? MaximumPitch { get; }
     public IReadOnlyList<ArrangementRole> Roles { get; }
     public IReadOnlyList<InstrumentArticulation> Articulations { get; }
     public IReadOnlyList<InstrumentExpressiveQuality> ExpressiveQualities { get; }

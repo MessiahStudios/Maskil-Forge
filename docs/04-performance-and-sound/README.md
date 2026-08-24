@@ -106,13 +106,15 @@ Slice 6.21 stores an artist-authored dynamics curve as Song Graph data. Schema v
 
 Slice 7.1 stores cello and guitar as versioned host-owned instrument profiles: range, arrangement roles, articulations, and expressive qualities. Desktop Arrangement can inspect them. The catalog does not assign an instrument, recommend a choice, or retarget a gesture.
 
-Slice 7.2 lists catalog instruments that can cover an assigned job, optionally filtered by expressive quality. Matches stay in catalog order and are not written to the Song Graph. Range checks on existing notes, articulation maps, and cello versus guitar retargeters remain later work.
+Slice 7.2 lists catalog instruments that can cover an assigned job, optionally filtered by expressive quality. Matches stay in catalog order and are not written to the Song Graph.
+
+Slice 7.3 grows that catalog to a five-instrument proof set chosen for different performance behavior: bowed cello, plucked acoustic guitar, struck piano, grooving electric bass, and unpitched drum kit. Articulation maps and cello versus guitar retargeters remain later work. Orchestration-vocabulary and modern-production instruments are later catalog waves, not this slice.
 
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting
 
-Voice-to-instrument is treated as performance capture and retargeting. A neutral gesture should be adapted to the target instrument: cello may translate a swell into bow expression and a slide into legato; guitar may translate the same input into picking dynamics, bends, and hammer-ons. Adapters should enforce range and articulation limitations.
+Voice-to-instrument is treated as performance capture and retargeting. A neutral gesture should be adapted to the target instrument concept: cello may translate a swell into bow expression and a slide into legato; acoustic guitar may translate the same input into picking dynamics, bends, and hammer-ons; piano into strike and decay; flute, later, into breath-shaped sustain. Adapters should enforce range and articulation limitations, and must not assume every target is cello-like. Drum kit is an unpitched target.
 
 Retargeted instrumental parts remain editable project data. They do not replace the artist's lead vocal.
 

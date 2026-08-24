@@ -4732,7 +4732,7 @@ onBeforeUnmount(() => {
           <div>
             <span class="eyebrow">Host knowledge</span>
             <h3 id="instrument-knowledge-title">Instrument profiles</h3>
-            <p>These profiles describe range, musical jobs, articulations, and expressive qualities. They do not assign an instrument to a part or retarget a gesture. Matching below is inspectable only.</p>
+            <p>These profiles are instrument concepts: range, musical jobs, articulations, and expressive qualities. They are not sample libraries or VST patches. They do not assign an instrument to a part or retarget a gesture. Matching below is inspectable only.</p>
           </div>
           <label class="instrument-feeling-filter">Choose by feeling
             <select v-model="instrumentQualityFilter" :disabled="workspaceConnection !== 'ready'">
@@ -4746,7 +4746,8 @@ onBeforeUnmount(() => {
               <strong>{{ instrument.name }}</strong>
               <small>{{ instrument.expressiveQualities.map(instrumentQualityLabel).join(' · ') }}</small>
             </div>
-            <p>Range {{ formatRegisteredPitch(instrument.minimumPitch) }}–{{ formatRegisteredPitch(instrument.maximumPitch) }}</p>
+            <p v-if="instrument.pitched && instrument.minimumPitch && instrument.maximumPitch">Range {{ formatRegisteredPitch(instrument.minimumPitch) }}–{{ formatRegisteredPitch(instrument.maximumPitch) }}</p>
+            <p v-else-if="!instrument.pitched">Unpitched. Kit pieces are not a melodic range.</p>
             <p>Jobs {{ instrument.roles.map(instrumentRoleLabel).join(', ') }}</p>
             <p>Articulations {{ instrument.articulations.map(instrumentArticulationLabel).join(', ') }}</p>
           </article>

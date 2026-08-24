@@ -1,0 +1,55 @@
+{
+  "version": 2,
+  "instruments": [
+    {
+      "id": "cello",
+      "name": "Cello",
+      "pitched": true,
+      "minimumPitch": { "letter": "C", "accidental": "Natural", "octave": 2 },
+      "maximumPitch": { "letter": "A", "accidental": "Natural", "octave": 5 },
+      "roles": ["Foundation", "Harmony", "LowEndSupport", "Texture", "Countermelody"],
+      "articulations": ["Legato", "BowExpression", "Slide"],
+      "expressiveQualities": ["Warm", "Intimate", "Sustained"]
+    },
+    {
+      "id": "acoustic-guitar",
+      "name": "Acoustic Guitar",
+      "pitched": true,
+      "minimumPitch": { "letter": "E", "accidental": "Natural", "octave": 2 },
+      "maximumPitch": { "letter": "B", "accidental": "Natural", "octave": 5 },
+      "roles": ["Pulse", "Harmony", "Texture"],
+      "articulations": ["Picking", "Bend", "HammerOn"],
+      "expressiveQualities": ["Intimate", "Percussive", "Agile"]
+    },
+    {
+      "id": "piano",
+      "name": "Piano",
+      "pitched": true,
+      "minimumPitch": { "letter": "A", "accidental": "Natural", "octave": 0 },
+      "maximumPitch": { "letter": "C", "accidental": "Natural", "octave": 8 },
+      "roles": ["Foundation", "Pulse", "Harmony", "HookReinforcement"],
+      "articulations": ["Strike", "Pedal"],
+      "expressiveQualities": ["Bright", "Percussive", "Sustained"]
+    },
+    {
+      "id": "electric-bass",
+      "name": "Electric Bass",
+      "pitched": true,
+      "minimumPitch": { "letter": "E", "accidental": "Natural", "octave": 1 },
+      "maximumPitch": { "letter": "G", "accidental": "Natural", "octave": 4 },
+      "roles": ["Foundation", "Pulse", "LowEndSupport"],
+      "articulations": ["Finger", "Picking", "Slap"],
+      "expressiveQualities": ["Warm", "Sustained"]
+    },
+    {
+      "id": "drum-kit",
+      "name": "Drum Kit",
+      "pitched": false,
+      "minimumPitch": null,
+      "maximumPitch": null,
+      "roles": ["Pulse", "Accent"],
+      "articulations": ["Hit", "Choke"],
+      "expressiveQualities": ["Percussive"]
+    }
+  ]
+}

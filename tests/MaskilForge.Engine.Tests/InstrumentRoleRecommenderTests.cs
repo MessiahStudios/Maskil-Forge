@@ -12,8 +12,10 @@ public sealed class InstrumentRoleRecommenderTests
 
         Assert.Null(set.Quality);
         Assert.Equal([ArrangementRole.Countermelody, ArrangementRole.Pulse], set.Recommendations.Select(item => item.Role));
-        Assert.Equal(["cello", "guitar"], Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Countermelody).Instruments.Select(item => item.Id));
-        Assert.Equal(["guitar"], Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Pulse).Instruments.Select(item => item.Id));
+        Assert.Equal(["cello"], Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Countermelody).Instruments.Select(item => item.Id));
+        Assert.Equal(
+            ["acoustic-guitar", "piano", "electric-bass", "drum-kit"],
+            Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Pulse).Instruments.Select(item => item.Id));
     }
 
     [Fact]
@@ -25,7 +27,7 @@ public sealed class InstrumentRoleRecommenderTests
 
         Assert.Equal(InstrumentExpressiveQuality.Warm, set.Quality);
         Assert.Equal(["cello"], Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Countermelody).Instruments.Select(item => item.Id));
-        Assert.Empty(Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Pulse).Instruments);
+        Assert.Equal(["electric-bass"], Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Pulse).Instruments.Select(item => item.Id));
     }
 
     [Fact]
@@ -36,7 +38,7 @@ public sealed class InstrumentRoleRecommenderTests
             InstrumentExpressiveQuality.Bright);
 
         Assert.Equal([ArrangementRole.Foundation, ArrangementRole.LowEndSupport], set.Recommendations.Select(item => item.Role));
-        Assert.Empty(Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Foundation).Instruments);
+        Assert.Equal(["piano"], Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Foundation).Instruments.Select(item => item.Id));
         Assert.Empty(Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.LowEndSupport).Instruments);
     }
 
