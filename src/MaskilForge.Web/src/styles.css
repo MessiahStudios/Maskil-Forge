@@ -560,10 +560,10 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .midi-export-panel h2, .midi-export-panel p { margin: 0; }
 .midi-export-panel p { max-width: 52rem; color: #b8b5a8; }
 .midi-export-panel button { min-width: 9rem; }
-.pitch-gesture-notes, .onset-gesture-notes { display: grid; gap: .85rem; margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, #1c211a, #151914); border: 1px solid #625b3e; border-radius: .45rem; }
-.pitch-gesture-notes > div:first-child, .onset-gesture-notes > div:first-child { display: grid; gap: .25rem; }
-.pitch-gesture-notes h2, .pitch-gesture-notes p, .onset-gesture-notes h2, .onset-gesture-notes p { margin: 0; }
-.pitch-gesture-notes > div:first-child p, .onset-gesture-notes > div:first-child p { max-width: 52rem; color: #b8b5a8; }
+.pitch-gesture-notes, .onset-gesture-notes, .loudness-gesture-notes { display: grid; gap: .85rem; margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, #1c211a, #151914); border: 1px solid #625b3e; border-radius: .45rem; }
+.pitch-gesture-notes > div:first-child, .onset-gesture-notes > div:first-child, .loudness-gesture-notes > div:first-child { display: grid; gap: .25rem; }
+.pitch-gesture-notes h2, .pitch-gesture-notes p, .onset-gesture-notes h2, .onset-gesture-notes p, .loudness-gesture-notes h2, .loudness-gesture-notes p { margin: 0; }
+.pitch-gesture-notes > div:first-child p, .onset-gesture-notes > div:first-child p, .loudness-gesture-notes > div:first-child p { max-width: 52rem; color: #b8b5a8; }
 .vocal-take-studio { display: grid; gap: .85rem; margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, #1c211a, #151914); border: 1px solid #625b3e; border-radius: .45rem; scroll-margin-top: 6rem; }
 .vocal-take-studio > div:first-child { display: grid; gap: .25rem; }
 .vocal-take-studio h2, .vocal-take-studio > div:first-child p { margin: 0; }

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -229,6 +229,7 @@ const voiceLeadingReviews = reactive<Record<string, VoiceLeadingReview>>({})
 const harmonyNoteSketches = reactive<Record<string, HarmonyNoteSketch>>({})
 const pitchGestureNoteSketches = reactive<Record<string, PitchGestureNoteSketch>>({})
 const onsetGestureNoteSketches = reactive<Record<string, OnsetGestureNoteSketch>>({})
+const loudnessGestureNoteSketches = reactive<Record<string, LoudnessGestureNoteSketch>>({})
 const lowEndSupportProposals = reactive<Record<string, LowEndSupportProposal>>({})
 const pulseProposals = reactive<Record<string, PulseProposal>>({})
 const harmonySupportProposals = reactive<Record<string, HarmonySupportProposal>>({})
@@ -1125,6 +1126,20 @@ function onsetGestureCountForAsset(assetId: string) {
 
 const onsetGestureTakes = computed(() =>
   (project.value?.assets ?? []).filter(asset => onsetGestureCountForAsset(asset.id) > 0))
+
+function loudnessGestureCountForAsset(assetId: string) {
+  const current = project.value
+  if (!current) return 0
+  const observationIds = new Set(
+    current.performanceObservations
+      .filter(observation => observation.sourceAssetId === assetId && observation.kind === loudnessObservationKind)
+      .map(observation => observation.id),
+  )
+  return current.performanceObservationGestures.filter(gesture => observationIds.has(gesture.observationId)).length
+}
+
+const loudnessGestureTakes = computed(() =>
+  (project.value?.assets ?? []).filter(asset => loudnessGestureCountForAsset(asset.id) > 0))
 
 
 function showMorePerformanceEvidence(assetId: string, groupKey: string, totalCount: number) {
@@ -2799,6 +2814,33 @@ function useOnsetGestureNoteSketch(assetId: string) {
     'midi.onset-gesture.use',
     { assetId, noteCount })
 }
+async function prepareLoudnessGestureNoteSketch(assetId: string) {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'midi.loudness-gesture.prepare', 'Loudness-gesture note sketch requested.', { assetId })
+  try {
+    const sketch = await projectsApi.loudnessGestureNoteSketch(project.value.id, project.value, assetId)
+    loudnessGestureNoteSketches[assetId] = sketch
+    status.value = `${sketch.events.length} playable notes prepared from loudness gestures.`
+    activityLog.write('success', 'midi.loudness-gesture.prepare', status.value, {
+      assetId, noteCount: sketch.events.length,
+    })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The loudness-gesture note sketch could not be prepared.'
+    activityLog.write('error', 'midi.loudness-gesture.prepare', status.value, { assetId })
+  } finally {
+    busy.value = false
+  }
+}
+function useLoudnessGestureNoteSketch(assetId: string) {
+  if (!project.value) return
+  const noteCount = loudnessGestureNoteSketches[assetId]?.events.length ?? 0
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'use-loudness-gesture-note-sketch', assetId }),
+    `${noteCount} playable notes added from this loudness-gesture sketch.`,
+    'midi.loudness-gesture.use',
+    { assetId, noteCount })
+}
 function vocalTakePlacement(assetId: string) {
   return project.value?.vocalTakePlacements?.find(item => item.assetId === assetId) ?? null
 }
@@ -2825,7 +2867,8 @@ function setVocalTakePlacement(assetId: string, event: Event) {
   ).then(async succeeded => {
     if (!succeeded) return
     if (pitchGestureNoteSketches[assetId]) await preparePitchGestureNoteSketch(assetId)
-    if (onsetGestureNoteSketches[assetId]) return prepareOnsetGestureNoteSketch(assetId)
+    if (onsetGestureNoteSketches[assetId]) await prepareOnsetGestureNoteSketch(assetId)
+    if (loudnessGestureNoteSketches[assetId]) return prepareLoudnessGestureNoteSketch(assetId)
   })
 }
 function clearVocalTakePlacement(assetId: string) {
@@ -2838,7 +2881,8 @@ function clearVocalTakePlacement(assetId: string) {
   ).then(async succeeded => {
     if (!succeeded) return
     if (pitchGestureNoteSketches[assetId]) await preparePitchGestureNoteSketch(assetId)
-    if (onsetGestureNoteSketches[assetId]) return prepareOnsetGestureNoteSketch(assetId)
+    if (onsetGestureNoteSketches[assetId]) await prepareOnsetGestureNoteSketch(assetId)
+    if (loudnessGestureNoteSketches[assetId]) return prepareLoudnessGestureNoteSketch(assetId)
   })
 }
 function addHarmonyChord(sectionId: string) {
@@ -3939,7 +3983,7 @@ onBeforeUnmount(() => {
                     <small>{{ performanceEvidenceCount(asset.id) }} claim{{ performanceEvidenceCount(asset.id) === 1 ? '' : 's' }} · artist review</small>
                   </summary>
                   <div class="performance-evidence-body">
-                    <p>These measurements remain analyzer evidence. Marking a claim inaccurate lets you store a separate correction; the original analyzer values stay unchanged. Accurate claims, or inaccurate claims with a stored correction, can be promoted into an artist gesture snapshot. Promotion still does not create a note, beat, or MIDI event. Desktop Music can inspect these takes and sketch notes from pitch and onset gestures.</p>
+                    <p>These measurements remain analyzer evidence. Marking a claim inaccurate lets you store a separate correction; the original analyzer values stay unchanged. Accurate claims, or inaccurate claims with a stored correction, can be promoted into an artist gesture snapshot. Promotion still does not create a note, beat, or MIDI event. Desktop Music can inspect these takes and sketch notes from pitch, onset, and loudness gestures.</p>
                     <section v-for="group in performanceEvidenceGroups(asset.id)" :key="group.key" class="performance-evidence-group">
                       <header>
                         <h5>{{ group.label }}</h5>
@@ -4007,7 +4051,7 @@ onBeforeUnmount(() => {
               </li>
             </ol>
           </section>
-          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. The evidence inspector exposes each claim and lets the artist mark it accurate or inaccurate, store a separate correction when inaccurate, and promote approved measurements into an artist gesture snapshot. Rerunning one analyzer replaces its claims and clears only verdicts, corrections, and gestures attached to those replaced claims. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry source, evidence, artist verdicts, current corrections, and current gestures. Gesture snapshots stay here as approved evidence. Turning pitch and onset gestures into playable notes happens on the desktop Music workspace, not on this phone.</small>
+          <small>Saved takes keep durable names while their original audio bytes remain immutable. Loudness, pitch, and onset analysis decode a take locally on this device and save non-authoritative evidence; they never change the recording or create notes. The evidence inspector exposes each claim and lets the artist mark it accurate or inaccurate, store a separate correction when inaccurate, and promote approved measurements into an artist gesture snapshot. Rerunning one analyzer replaces its claims and clears only verdicts, corrections, and gestures attached to those replaced claims. Backup, recovery, Trash, duplication, and portable <code>.maskil</code> export carry source, evidence, artist verdicts, current corrections, and current gestures. Gesture snapshots stay here as approved evidence. Turning pitch, onset, and loudness gestures into playable notes happens on the desktop Music workspace, not on this phone.</small>
         </section>
         <button type="button" class="secondary" data-readiness-action="review" :disabled="busy || !project.sections.length" @click="goToCreatorStage('approve')">Continue to approve →</button>
       </section>
@@ -4846,7 +4890,7 @@ onBeforeUnmount(() => {
           <span class="eyebrow">Take your sketch with you</span>
           <h2 id="midi-export-title">Export playable notes</h2>
           <p v-if="project.noteEvents.length">Your {{ project.noteEvents.length }} approved playable note{{ project.noteEvents.length === 1 ? '' : 's' }} can be opened in another music application. Maskil Forge will preserve {{ project.noteEvents.length === 1 ? 'its' : 'their' }} timing and dynamics without choosing an instrument.</p>
-          <p v-else>Your song does not contain playable notes yet. Create and approve a harmony sketch, a pitch-gesture sketch, or an onset-gesture sketch first.</p>
+          <p v-else>Your song does not contain playable notes yet. Create and approve a harmony sketch, a pitch-gesture sketch, an onset-gesture sketch, or a loudness-gesture sketch first.</p>
         </div>
         <button type="button" :disabled="busy || !project.noteEvents.length" @click="exportMidi">Export MIDI</button>
       </section>
@@ -4855,7 +4899,7 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">Original performance</span>
           <h2 id="vocal-take-studio-title">Saved rough takes</h2>
-          <p>Play, analyze, review, promote, and place takes here on the studio screen. Recording still requires a saved song revision. Placement is song time, not a clip on the section timeline. Pitch and onset gestures become notes only after you preview and accept the sketches below.</p>
+          <p>Play, analyze, review, promote, and place takes here on the studio screen. Recording still requires a saved song revision. Placement is song time, not a clip on the section timeline. Pitch, onset, and loudness gestures become notes only after you preview and accept the sketches below.</p>
         </div>
         <section class="microphone-preflight" aria-labelledby="desktop-microphone-preflight-title">
           <div>
@@ -4921,7 +4965,7 @@ onBeforeUnmount(() => {
                   <small>{{ performanceEvidenceCount(asset.id) }} claim{{ performanceEvidenceCount(asset.id) === 1 ? '' : 's' }} · artist review</small>
                 </summary>
                 <div class="performance-evidence-body">
-                    <p>These measurements remain analyzer evidence. Marking a claim inaccurate lets you store a separate correction; the original analyzer values stay unchanged. Accurate claims, or inaccurate claims with a stored correction, can be promoted into an artist gesture snapshot. Use the pitch-gesture or onset-gesture sketches below to turn promoted pitch or onsets into notes.</p>
+                    <p>These measurements remain analyzer evidence. Marking a claim inaccurate lets you store a separate correction; the original analyzer values stay unchanged. Accurate claims, or inaccurate claims with a stored correction, can be promoted into an artist gesture snapshot. Use the pitch, onset, or loudness sketches below to turn promoted gestures into notes.</p>
                   <section v-for="group in performanceEvidenceGroups(asset.id)" :key="`desktop-${group.key}`" class="performance-evidence-group">
                     <header>
                       <h5>{{ group.label }}</h5>
@@ -4963,7 +5007,7 @@ onBeforeUnmount(() => {
                           </div>
                         </form>
                         <div v-if="row.canPromote || row.hasGesture" class="performance-evidence-gesture">
-                          <p>{{ row.gestureLabel || 'Promote the approved measurements into an artist gesture. Notes are added only after you accept a pitch-gesture or onset-gesture sketch.' }}</p>
+                          <p>{{ row.gestureLabel || 'Promote the approved measurements into an artist gesture. Notes are added only after you accept a pitch, onset, or loudness sketch.' }}</p>
                           <div class="performance-evidence-gesture-actions">
                             <button v-if="row.canPromote" type="button" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="setPerformanceObservationGesture(asset.id, row.id, true)">{{ row.hasGesture ? 'Update gesture' : 'Promote gesture' }}</button>
                             <button v-if="row.hasGesture" type="button" class="quiet" :disabled="busy || isDirty || workspaceConnection !== 'ready'" @click="setPerformanceObservationGesture(asset.id, row.id, null)">Remove gesture</button>
@@ -4995,10 +5039,10 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">From a reviewed take</span>
           <h2 id="pitch-gesture-notes-title">Sketch notes from pitch gestures</h2>
-          <p>Preview notes from approved pitch gestures on one saved take. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo; an unplaced take still starts at tick 0. Loudness gestures stay unused. Onset gestures have their own sketch below. Nothing is added until you choose “Use this sketch.”</p>
+          <p>Preview notes from approved pitch gestures on one saved take. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo; an unplaced take still starts at tick 0. Onset and loudness gestures have their own sketches below. Nothing is added until you choose “Use this sketch.”</p>
         </div>
         <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch claim first.</p>
-        <p v-else-if="!pitchGestureTakes.length" class="note-event-empty">Promote at least one pitch claim to a gesture in the take inspector above. Loudness gestures cannot become notes yet.</p>
+        <p v-else-if="!pitchGestureTakes.length" class="note-event-empty">Promote at least one pitch claim to a gesture in the take inspector above.</p>
         <article v-for="asset in pitchGestureTakes" :key="asset.id" class="harmony-note-sketch" :aria-label="`Pitch-gesture note sketch for ${asset.name}`">
           <div>
             <strong>{{ asset.name }}</strong>
@@ -5031,7 +5075,7 @@ onBeforeUnmount(() => {
           <p>Preview short C4 hits from approved onset gestures on one saved take. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo; an unplaced take still starts at tick 0. Strength becomes velocity. Pitch and loudness gestures stay unused here. Nothing is added until you choose “Use this sketch.”</p>
         </div>
         <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote an onset claim first.</p>
-        <p v-else-if="!onsetGestureTakes.length" class="note-event-empty">Promote at least one onset claim to a gesture in the take inspector above. Loudness gestures cannot become notes yet.</p>
+        <p v-else-if="!onsetGestureTakes.length" class="note-event-empty">Promote at least one onset claim to a gesture in the take inspector above.</p>
         <article v-for="asset in onsetGestureTakes" :key="asset.id" class="harmony-note-sketch" :aria-label="`Onset-gesture note sketch for ${asset.name}`">
           <div>
             <strong>{{ asset.name }}</strong>
@@ -5053,6 +5097,39 @@ onBeforeUnmount(() => {
               </li>
             </ol>
             <button type="button" :disabled="busy" @click="useOnsetGestureNoteSketch(asset.id)">Use this sketch</button>
+          </div>
+        </article>
+      </section>
+
+      <section v-if="!phoneCaptureMode" id="loudness-gesture-notes" class="loudness-gesture-notes" aria-labelledby="loudness-gesture-notes-title">
+        <div>
+          <span class="eyebrow">From a reviewed take</span>
+          <h2 id="loudness-gesture-notes-title">Sketch notes from loudness gestures</h2>
+          <p>Preview short C4 hits from approved loudness gestures on one saved take. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo; an unplaced take still starts at tick 0. RMS between −60 and 0 dBFS becomes velocity; quieter frames stay at velocity 1. Peak stays unused. Expression curves remain later work. Nothing is added until you choose “Use this sketch.”</p>
+        </div>
+        <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a loudness claim first.</p>
+        <p v-else-if="!loudnessGestureTakes.length" class="note-event-empty">Promote at least one loudness claim to a gesture in the take inspector above.</p>
+        <article v-for="asset in loudnessGestureTakes" :key="asset.id" class="harmony-note-sketch" :aria-label="`Loudness-gesture note sketch for ${asset.name}`">
+          <div>
+            <strong>{{ asset.name }}</strong>
+            <small>{{ loudnessGestureCountForAsset(asset.id) }} loudness gesture{{ loudnessGestureCountForAsset(asset.id) === 1 ? '' : 's' }} · {{ vocalTakePlacementLabel(asset.id) }}</small>
+          </div>
+          <button type="button" class="secondary" :disabled="busy" @click="prepareLoudnessGestureNoteSketch(asset.id)">
+            {{ loudnessGestureNoteSketches[asset.id] ? 'Refresh note sketch' : 'Prepare note sketch' }}
+          </button>
+          <div v-if="loudnessGestureNoteSketches[asset.id]" class="harmony-note-sketch-result">
+            <p>
+              <strong>{{ loudnessGestureNoteSketches[asset.id].events.length }} notes ready to review</strong>
+              <span>Uses the first tempo only. Existing notes stay until you accept, and changing placement later does not move accepted notes.</span>
+            </p>
+            <ol>
+              <li v-for="(note, noteIndex) in loudnessGestureNoteSketches[asset.id].events" :key="`${note.gestureId}:${note.startTick}:${noteIndex}`">
+                <strong>{{ formatRegisteredPitch(note.pitch) }}</strong>
+                <span>tick {{ note.startTick }} · {{ note.durationTicks }} ticks</span>
+                <small>velocity {{ note.velocity }}</small>
+              </li>
+            </ol>
+            <button type="button" :disabled="busy" @click="useLoudnessGestureNoteSketch(asset.id)">Use this sketch</button>
           </div>
         </article>
       </section>

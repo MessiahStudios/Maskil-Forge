@@ -74,6 +74,8 @@ export interface PitchGestureNoteSketchEvent extends Omit<NoteEvent, 'id'> { ges
 export interface PitchGestureNoteSketch { sourceAssetId: string; startTick: number; events: PitchGestureNoteSketchEvent[] }
 export interface OnsetGestureNoteSketchEvent extends Omit<NoteEvent, 'id'> { gestureId: string; observationId: string }
 export interface OnsetGestureNoteSketch { sourceAssetId: string; startTick: number; events: OnsetGestureNoteSketchEvent[] }
+export interface LoudnessGestureNoteSketchEvent extends Omit<NoteEvent, 'id'> { gestureId: string; observationId: string }
+export interface LoudnessGestureNoteSketch { sourceAssetId: string; startTick: number; events: LoudnessGestureNoteSketchEvent[] }
 export interface LowEndSupportProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
 export interface LowEndSupportProposal { sectionId: string; partLabel: string; events: LowEndSupportProposalEvent[]; reusedNoteCount: number }
 export interface PulseProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
@@ -741,6 +743,10 @@ export const projectsApi = {
     }),
   onsetGestureNoteSketch: (id: string, project: SongProject, assetId: string) =>
     request<OnsetGestureNoteSketch>(`/api/projects/${id}/onset-gesture-note-sketch`, {
+      method: 'POST', body: JSON.stringify({ project, assetId }),
+    }),
+  loudnessGestureNoteSketch: (id: string, project: SongProject, assetId: string) =>
+    request<LoudnessGestureNoteSketch>(`/api/projects/${id}/loudness-gesture-note-sketch`, {
       method: 'POST', body: JSON.stringify({ project, assetId }),
     }),
   lowEndSupportProposal: (id: string, project: SongProject, sectionId: string) =>
