@@ -108,7 +108,9 @@ Slice 7.1 stores cello and guitar as versioned host-owned instrument profiles: r
 
 Slice 7.2 lists catalog instruments that can cover an assigned job, optionally filtered by expressive quality. Matches stay in catalog order and are not written to the Song Graph.
 
-Slice 7.3 grows that catalog to a five-instrument proof set chosen for different performance behavior: bowed cello, plucked acoustic guitar, struck piano, grooving electric bass, and unpitched drum kit. Articulation maps and cello versus guitar retargeters remain later work. Orchestration-vocabulary and modern-production instruments are later catalog waves, not this slice.
+Slice 7.3 grows that catalog to a five-instrument proof set chosen for different performance behavior: bowed cello, plucked acoustic guitar, struck piano, grooving electric bass, and unpitched drum kit.
+
+Slice 7.4 compares existing notes with those ranges without moving them. Articulation maps and cello versus guitar retargeters remain later work. Orchestration-vocabulary and modern-production instruments are later catalog waves, not this slice.
 
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 

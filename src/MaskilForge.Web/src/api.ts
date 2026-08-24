@@ -49,6 +49,26 @@ export interface InstrumentRecommendationSet {
   recommendations: InstrumentRoleRecommendation[]
 }
 
+export type RangeCollisionKind = 'Below' | 'Above'
+
+export interface InstrumentRangeCollision {
+  noteEventId: string
+  pitch: RegisteredPitch
+  kind: RangeCollisionKind
+}
+
+export interface InstrumentRangeReview {
+  instrumentId: string
+  instrumentName: string
+  applicable: boolean
+  inRangeCount: number
+  outOfRange: InstrumentRangeCollision[]
+}
+
+export interface InstrumentRangeReviewSet {
+  reviews: InstrumentRangeReview[]
+}
+
 export interface SectionArrangement {
   id: string
   sectionId: string
@@ -666,6 +686,11 @@ export const projectsApi = {
     request<InstrumentRecommendationSet>('/api/instrument-recommendations', {
       method: 'POST',
       body: JSON.stringify({ roles, quality }),
+    }),
+  reviewInstrumentRanges: (notes: Array<{ id: string; pitch: RegisteredPitch }>) =>
+    request<InstrumentRangeReviewSet>('/api/instrument-range-review', {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
     }),
   list: () => request<ProjectSummary[]>('/api/projects'),
   listRecovery: () => request<RecoverySummary[]>('/api/recovery'),

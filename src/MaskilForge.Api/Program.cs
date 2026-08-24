@@ -64,6 +64,8 @@ app.MapGet("/api/health", () => Results.Ok(new WorkspaceHealthResponse(
 app.MapGet("/api/instrument-profiles", () => Results.Ok(InstrumentProfileCatalogLoader.Current));
 app.MapPost("/api/instrument-recommendations", (InstrumentRecommendationRequest request) =>
     Results.Ok(InstrumentRoleRecommender.Recommend(request.Roles, request.Quality)));
+app.MapPost("/api/instrument-range-review", (InstrumentRangeReviewRequest request) =>
+    Results.Ok(InstrumentRangeReviewer.Review(request.Notes)));
 
 if (app.Environment.IsDevelopment())
 {
@@ -1379,6 +1381,7 @@ public sealed record StructurePreviewRequest(string Text);
 public sealed record InstrumentRecommendationRequest(
     IReadOnlyList<ArrangementRole> Roles,
     InstrumentExpressiveQuality? Quality = null);
+public sealed record InstrumentRangeReviewRequest(IReadOnlyList<InstrumentRangeReviewNote> Notes);
 public sealed record ProjectCommandRequest(
     string Type,
     SongProject? Project = null,

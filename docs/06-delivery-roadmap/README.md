@@ -890,9 +890,17 @@ Grow the host-owned catalog to version 2 with five instrument concepts chosen to
 
 Desktop Arrangement inspects the larger catalog through the existing profile and recommendation views. The catalog remains host knowledge, so schema stays at v29. Guitar keeps the `acoustic-guitar` slug because nothing has been assigned yet.
 
-The slice does not add violin, flute, clarinet, trumpet, electric guitar, synths, or other later-wave instruments. It does not assign an instrument, map articulations to MIDI, check existing notes against range, or retarget a gesture. Phone Arrangement remains hidden. Later slices can check range and retarget across this proof set; later catalog waves can add orchestration vocabulary and modern production instruments.
+The slice does not add violin, flute, clarinet, trumpet, electric guitar, synths, or other later-wave instruments. It does not assign an instrument, map articulations to MIDI, check existing notes against range, or retarget a gesture. Phone Arrangement remains hidden. Later slices can review range and retarget across this proof set; later catalog waves can add orchestration vocabulary and modern production instruments.
 
 **Deliverable:** Maskil Forge can describe five musically diverse instrument concepts, including an unpitched kit, without choosing a renderer or assigning one to the artist.
+
+### Milestone 7.4 — Instrument range review
+
+Compare existing playable notes with the version-2 catalog ranges. A pitched instrument reports every note whose MIDI number sits below its minimum or above its maximum, inclusive of the bounds. Drum kit is unpitched, so range does not apply and no collisions are invented. The review is derived host knowledge: it does not transpose notes, assign `instrumentProfileId`, map articulations, or retarget a gesture. Schema stays at v29.
+
+Desktop Arrangement shows that fit next to each recommended instrument for the section’s notes. Phone Arrangement remains hidden. Later slices can map articulations and retarget across this proof set.
+
+**Deliverable:** an artist can see which existing notes sit outside a catalog instrument’s range without the host moving them.
 
 ## Delivery foundation — Portable before platform-specific
 

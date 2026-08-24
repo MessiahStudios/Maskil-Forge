@@ -23,7 +23,9 @@ Slice 7.1 adds the first catalog: cello and guitar profiles that name range, arr
 
 Slice 7.2 matches catalog instruments to assigned arrangement roles, optionally filtered by expressive quality. Matches stay in catalog order. They are inspectable only: the slice does not assign an instrument, rank a winner, check range, or retarget a gesture.
 
-Slice 7.3 replaces the two-instrument catalog with version 2 of the host-owned proof set: cello, acoustic guitar, piano, electric bass, and drum kit. These are instrument concepts, not renderer patches. Drum kit is unpitched. Range checks, articulation maps, orchestration-vocabulary instruments, and performance retargeters remain later Milestone 7 slices.
+Slice 7.3 replaces the two-instrument catalog with version 2 of the host-owned proof set: cello, acoustic guitar, piano, electric bass, and drum kit. These are instrument concepts, not renderer patches. Drum kit is unpitched.
+
+Slice 7.4 reports which existing notes sit outside a catalog instrument’s inclusive range. Drum kit range does not apply. The review does not transpose, assign, or retarget. Articulation maps, orchestration-vocabulary instruments, and performance retargeters remain later Milestone 7 slices.
 
 ## Generator order
 

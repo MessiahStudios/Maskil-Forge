@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentExpressiveQuality, type InstrumentProfile, type InstrumentProfileCatalog, type InstrumentRecommendationSet, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentExpressiveQuality, type InstrumentProfile, type InstrumentProfileCatalog, type InstrumentRecommendationSet, type InstrumentRangeReviewSet, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -79,7 +79,9 @@ const workspaceHealth = ref<WorkspaceHealth | null>(null)
 const instrumentProfiles = ref<InstrumentProfileCatalog | null>(null)
 const instrumentQualityFilter = ref<InstrumentExpressiveQuality | ''>('')
 const instrumentRecommendations = ref<InstrumentRecommendationSet | null>(null)
+const instrumentRangeReviews = ref<InstrumentRangeReviewSet | null>(null)
 let instrumentRecommendationToken = 0
+let instrumentRangeReviewToken = 0
 const workspaceCheckBusy = ref(false)
 const installPrompt = ref<InstallPromptEvent | null>(null)
 const applicationInstalled = ref(isStandaloneApplication())
@@ -1888,6 +1890,7 @@ async function refreshWorkspaceHealth() {
     activityLog.configureRemote(false)
     workspaceHealth.value = null
     instrumentProfiles.value = null
+    instrumentRangeReviews.value = null
     workspaceConnection.value = 'unavailable'
     if (previousConnection !== 'unavailable') {
       activityLog.write('warning', 'delivery.workspace', 'Local project service is unavailable. Host-owned editing is paused; browser-owned lyric capture remains available.')
@@ -3089,6 +3092,40 @@ async function refreshInstrumentRecommendations() {
     activityLog.write('warning', 'instrument-recommendation.prepare', error instanceof Error ? error.message : 'Instrument recommendations could not be prepared.')
   }
 }
+async function refreshInstrumentRangeReviews() {
+  const token = ++instrumentRangeReviewToken
+  const notes = project.value?.noteEvents ?? []
+  if (workspaceConnection.value !== 'ready' || notes.length === 0) {
+    if (token === instrumentRangeReviewToken) instrumentRangeReviews.value = null
+    return
+  }
+  try {
+    const set = await projectsApi.reviewInstrumentRanges(notes.map(note => ({ id: note.id, pitch: note.pitch })))
+    if (token !== instrumentRangeReviewToken) return
+    instrumentRangeReviews.value = set
+    activityLog.write('info', 'instrument-range-review.prepare', 'Instrument range review prepared.', {
+      noteCount: notes.length,
+      outOfRangeCount: set.reviews.reduce((sum, item) => sum + item.outOfRange.length, 0),
+    })
+  } catch (error) {
+    if (token !== instrumentRangeReviewToken) return
+    instrumentRangeReviews.value = null
+    activityLog.write('warning', 'instrument-range-review.prepare', error instanceof Error ? error.message : 'Instrument range review could not be prepared.')
+  }
+}
+function rangeFitForInstrument(sectionId: string, instrument: InstrumentProfile) {
+  const notes = notesForSection(sectionId)
+  if (notes.length === 0) return 'Add notes to check range.'
+  const review = instrumentRangeReviews.value?.reviews.find(item => item.instrumentId === instrument.id)
+  if (!review) return ''
+  if (!review.applicable) return 'Unpitched. Range does not apply.'
+  const sectionNoteIds = new Set(notes.map(note => note.id))
+  const collisions = review.outOfRange.filter(item => sectionNoteIds.has(item.noteEventId))
+  if (collisions.length === 0) return 'All section notes fit this range.'
+  return collisions
+    .map(item => `${formatRegisteredPitch(item.pitch)} ${item.kind === 'Below' ? 'below' : 'above'}`)
+    .join(', ')
+}
 function notesForSection(sectionId: string) {
   if (!project.value) return []
   const placement = placementFor(sectionId)
@@ -3577,6 +3614,11 @@ watch(trashedProjects, nextProjects => {
 watch(
   () => [assignedArrangementRoleIds.value.join(','), instrumentQualityFilter.value, workspaceConnection.value] as const,
   () => { void refreshInstrumentRecommendations() },
+)
+
+watch(
+  () => [(project.value?.noteEvents ?? []).map(note => `${note.id}:${note.pitch.letter}:${note.pitch.accidental}:${note.pitch.octave}`).join('|'), workspaceConnection.value] as const,
+  () => { void refreshInstrumentRangeReviews() },
 )
 
 watch(
@@ -4732,7 +4774,7 @@ onBeforeUnmount(() => {
           <div>
             <span class="eyebrow">Host knowledge</span>
             <h3 id="instrument-knowledge-title">Instrument profiles</h3>
-            <p>These profiles are instrument concepts: range, musical jobs, articulations, and expressive qualities. They are not sample libraries or VST patches. They do not assign an instrument to a part or retarget a gesture. Matching below is inspectable only.</p>
+            <p>These profiles are instrument concepts: range, musical jobs, articulations, and expressive qualities. They are not sample libraries or VST patches. They do not assign an instrument to a part or retarget a gesture. Matching and range fit below are inspectable only.</p>
           </div>
           <label class="instrument-feeling-filter">Choose by feeling
             <select v-model="instrumentQualityFilter" :disabled="workspaceConnection !== 'ready'">
@@ -4826,8 +4868,13 @@ onBeforeUnmount(() => {
               </div>
               <article v-for="role in assignedRolesForSection(section.id)" :key="`${section.id}-${role.id}`">
                 <strong>{{ role.label }}</strong>
-                <p v-if="recommendedInstrumentsForRole(role.id).length">{{ recommendedInstrumentsForRole(role.id).map(instrument => instrument.name).join(', ') }}</p>
-                <p v-else>{{ instrumentQualityFilter ? 'No catalog instrument covers this job with that feeling.' : 'No catalog instrument covers this job yet.' }}</p>
+                <p v-if="!recommendedInstrumentsForRole(role.id).length">{{ instrumentQualityFilter ? 'No catalog instrument covers this job with that feeling.' : 'No catalog instrument covers this job yet.' }}</p>
+                <ul v-else>
+                  <li v-for="instrument in recommendedInstrumentsForRole(role.id)" :key="`${section.id}-${role.id}-${instrument.id}`">
+                    <span>{{ instrument.name }}</span>
+                    <small>{{ rangeFitForInstrument(section.id, instrument) }}</small>
+                  </li>
+                </ul>
               </article>
             </section>
             <section v-if="assignedRolesForSection(section.id).length" class="musical-parts" :aria-label="`Musical parts for ${section.title}`">
