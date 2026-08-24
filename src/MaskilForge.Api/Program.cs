@@ -685,6 +685,25 @@ app.MapPost("/api/projects/{id}/harmony-note-sketch", async (string id, HarmonyN
     }
 });
 
+app.MapPost("/api/projects/{id}/pitch-gesture-note-sketch", async (string id, PitchGestureNoteSketchRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var sketch = await workspace.UseAsync(
+            projectId,
+            request.Project,
+            editor => PitchGestureNoteSketcher.Project(editor.Project, request.AssetId),
+            cancellationToken);
+        return sketch is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(sketch);
+    }
+    catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/low-end-support-proposal", async (string id, LowEndSupportProposalRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -1007,6 +1026,7 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "remove-note-event": editor.Execute(new RemoveNoteEventCommand(
             request.NoteEventId ?? throw new ArgumentException("Note-event ID is required."))); break;
         case "use-harmony-note-sketch": editor.Execute(new UseHarmonyNoteSketchCommand(RequiredSectionId(request))); break;
+        case "use-pitch-gesture-note-sketch": editor.Execute(new UsePitchGestureNoteSketchCommand(RequiredAssetId(request))); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
@@ -1176,6 +1196,8 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
 
 static SectionId RequiredSectionId(ProjectCommandRequest request) =>
     request.SectionId ?? throw new ArgumentException("Section ID is required.");
+static ProjectAssetId RequiredAssetId(ProjectCommandRequest request) =>
+    request.AssetId ?? throw new ArgumentException("Asset ID is required.");
 static string Required(string? value, string name) =>
     string.IsNullOrWhiteSpace(value) ? throw new ArgumentException($"{name} is required.") : value;
 static IResult Validation(Exception exception) =>
@@ -1253,6 +1275,7 @@ public sealed record ProsodyScoreRequest(
     RhythmCandidateId? RhythmCandidateId = null);
 public sealed record VoiceLeadingReviewRequest(SongProject Project, SectionId SectionId);
 public sealed record HarmonyNoteSketchRequest(SongProject Project, SectionId SectionId);
+public sealed record PitchGestureNoteSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record LowEndSupportProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record PulseProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record HarmonySupportProposalRequest(SongProject Project, SectionId SectionId);
@@ -1284,6 +1307,7 @@ public sealed record ProjectCommandRequest(
     string Type,
     SongProject? Project = null,
     SectionId? SectionId = null,
+    ProjectAssetId? AssetId = null,
     SectionId? SourceSectionId = null,
     SectionKind? Kind = null,
     SectionDelivery? SectionDelivery = null,

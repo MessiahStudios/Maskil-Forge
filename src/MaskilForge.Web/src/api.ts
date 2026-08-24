@@ -70,6 +70,8 @@ export interface RegisteredPitch { letter: NoteLetter; accidental: Accidental; o
 export interface NoteEvent { id: string; pitch: RegisteredPitch; startTick: number; durationTicks: number; velocity: number }
 export interface HarmonyNoteSketchEvent extends Omit<NoteEvent, 'id'> { usesPreviewVoicing: boolean }
 export interface HarmonyNoteSketch { sectionId: string; events: HarmonyNoteSketchEvent[]; usesPreviewVoicings: boolean }
+export interface PitchGestureNoteSketchEvent extends Omit<NoteEvent, 'id'> { gestureId: string; observationId: string }
+export interface PitchGestureNoteSketch { sourceAssetId: string; events: PitchGestureNoteSketchEvent[] }
 export interface LowEndSupportProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
 export interface LowEndSupportProposal { sectionId: string; partLabel: string; events: LowEndSupportProposalEvent[]; reusedNoteCount: number }
 export interface PulseProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
@@ -491,6 +493,7 @@ export interface ProjectCommand {
   type: string
   project?: SongProject
   sectionId?: string
+  assetId?: string
   sourceSectionId?: string
   kind?: SectionKind
   sectionDelivery?: SectionDelivery
@@ -719,6 +722,10 @@ export const projectsApi = {
   harmonyNoteSketch: (id: string, project: SongProject, sectionId: string) =>
     request<HarmonyNoteSketch>(`/api/projects/${id}/harmony-note-sketch`, {
       method: 'POST', body: JSON.stringify({ project, sectionId }),
+    }),
+  pitchGestureNoteSketch: (id: string, project: SongProject, assetId: string) =>
+    request<PitchGestureNoteSketch>(`/api/projects/${id}/pitch-gesture-note-sketch`, {
+      method: 'POST', body: JSON.stringify({ project, assetId }),
     }),
   lowEndSupportProposal: (id: string, project: SongProject, sectionId: string) =>
     request<LowEndSupportProposal>(`/api/projects/${id}/low-end-support-proposal`, {

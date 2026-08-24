@@ -92,6 +92,8 @@ Slice 6.14 adds that corrected value as a second artist-authored record, not a r
 
 Slice 6.15 promotes a reviewed claim into an artist-approved gesture snapshot. Schema v27 stores at most one `PerformanceObservationGesture` per present observation. Promotion is allowed only while the claim is **Accurate**, or **Inaccurate** with a stored correction. The host copies those approved measurements; the client does not send measurement values. Clearing the review, removing the correction from an inaccurate claim, removing the source take, or rerunning the owning analyzer drops the gesture. Changing an eligible review or correction refreshes the snapshot in place. The gesture remains distinct from notes, beats, MIDI events, expression curves, and automatic musical decisions.
 
+Slice 6.16 projects those pitch gestures into a transient playable-note sketch. Frequency becomes the nearest MIDI note, millisecond spans become ticks from the first tempo, and the take is placed at song tick 0 until a later placement slice exists. Desktop Music previews the sketch; notes enter the Song Graph only after an explicit accept. Loudness and onset gestures, musical parts, expression curves, and automatic retargeting remain later work. Phone Review does not create notes.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting

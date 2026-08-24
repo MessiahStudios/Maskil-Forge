@@ -812,6 +812,14 @@ This slice still creates no note, beat, tempo, MIDI event, expression curve, or 
 
 **Deliverable:** an artist can promote reviewed analyzer evidence into a durable, reversible gesture snapshot without creating notes, MIDI, or automatic musical decisions.
 
+### Milestone 6.16 — Pitch-gesture note sketch
+
+Convert approved pitch gestures on one original-vocal take into a transient, inspectable playable-note sketch. Each gesture measurement named `frequencyHertz` maps to the nearest MIDI note with `69 + 12 * log2(f / 440)`, spelled with sharps, and clamped to 0–127. Time uses the first tempo event only: `ticks = milliseconds * BPM * 480 / 60000`, rounded away from zero, with duration at least one tick. The take starts at song tick 0 until a later slice places takes on the timeline. Velocity is 96. Loudness and onset gestures are ignored. Preparing the sketch does not modify the Song Graph and does not bump schema.
+
+Desktop Music can preview the sketch and explicitly accept it. Acceptance adds `NoteEvent`s through the existing add/restore path; undo removes only those accepted notes; existing notes stay. Dropping a gesture later does not delete already-accepted notes. The sketch assigns no musical part, maps no loudness to velocity, and creates no expression curves. A take with no pitch-frequency gestures cannot prepare a sketch. Activity logs retain project, take, and note-count identity, not frequencies. Phone Review stays capture, review, and promote; it does not create notes.
+
+**Deliverable:** an artist can preview and explicitly accept playable notes from approved pitch gestures on one take, with take-relative timing from tick 0, without automatic musical decisions.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
