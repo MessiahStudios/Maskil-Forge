@@ -38,6 +38,16 @@ export interface InstrumentProfileCatalog {
   instruments: InstrumentProfile[]
 }
 
+export interface InstrumentRoleRecommendation {
+  role: ArrangementRole
+  instruments: InstrumentProfile[]
+}
+
+export interface InstrumentRecommendationSet {
+  quality: InstrumentExpressiveQuality | null
+  recommendations: InstrumentRoleRecommendation[]
+}
+
 export interface SectionArrangement {
   id: string
   sectionId: string
@@ -651,6 +661,11 @@ async function requestBlob(url: string, init?: RequestInit): Promise<Blob> {
 export const projectsApi = {
   health: () => request<WorkspaceHealth>('/api/health'),
   instrumentProfiles: () => request<InstrumentProfileCatalog>('/api/instrument-profiles'),
+  recommendInstruments: (roles: ArrangementRole[], quality: InstrumentExpressiveQuality | null = null) =>
+    request<InstrumentRecommendationSet>('/api/instrument-recommendations', {
+      method: 'POST',
+      body: JSON.stringify({ roles, quality }),
+    }),
   list: () => request<ProjectSummary[]>('/api/projects'),
   listRecovery: () => request<RecoverySummary[]>('/api/recovery'),
   loadRecovery: (id: string) => request<RecoveryProjectResponse>(`/api/recovery/${id}`),

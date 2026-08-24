@@ -62,6 +62,8 @@ app.MapGet("/api/health", () => Results.Ok(new WorkspaceHealthResponse(
     app.Environment.IsDevelopment())));
 
 app.MapGet("/api/instrument-profiles", () => Results.Ok(InstrumentProfileCatalogLoader.Current));
+app.MapPost("/api/instrument-recommendations", (InstrumentRecommendationRequest request) =>
+    Results.Ok(InstrumentRoleRecommender.Recommend(request.Roles, request.Quality)));
 
 if (app.Environment.IsDevelopment())
 {
@@ -1374,6 +1376,9 @@ public sealed record LyricTimelineRequest(
     SongProject Project,
     RhythmCandidateId? RhythmCandidateId = null);
 public sealed record StructurePreviewRequest(string Text);
+public sealed record InstrumentRecommendationRequest(
+    IReadOnlyList<ArrangementRole> Roles,
+    InstrumentExpressiveQuality? Quality = null);
 public sealed record ProjectCommandRequest(
     string Type,
     SongProject? Project = null,

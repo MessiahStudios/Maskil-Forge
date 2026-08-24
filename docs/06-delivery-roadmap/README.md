@@ -870,6 +870,14 @@ The slice does not assign an instrument to a musical part, rank or recommend a c
 
 **Deliverable:** Maskil Forge can describe two instruments by range, role, articulation, and expressive quality without choosing one for the artist or changing the song.
 
+### Milestone 7.2 — Instrument role recommendations
+
+Derive inspectable instrument recommendations from the version-1 catalog. An assigned arrangement role matches every catalog instrument whose roles include that job. An optional expressive-quality filter further requires that feeling. Matches stay in catalog order; the slice does not score, rank, or auto-pick a winner.
+
+Desktop Arrangement can filter by feeling and inspect matches for each assigned section role. Recommendations are not Song Graph data, so schema stays at v29. The slice does not assign `instrumentProfileId` to a musical part, report range collisions on existing notes, map articulations to MIDI, or retarget a gesture. Phone Arrangement remains hidden. Later slices can check range, map articulations, and retarget cello versus guitar.
+
+**Deliverable:** an artist can see which catalog instruments can cover a job and a feeling without assigning one.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

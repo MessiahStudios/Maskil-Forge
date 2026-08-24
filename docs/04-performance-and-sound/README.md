@@ -106,6 +106,8 @@ Slice 6.21 stores an artist-authored dynamics curve as Song Graph data. Schema v
 
 Slice 7.1 stores cello and guitar as versioned host-owned instrument profiles: range, arrangement roles, articulations, and expressive qualities. Desktop Arrangement can inspect them. The catalog does not assign an instrument, recommend a choice, or retarget a gesture.
 
+Slice 7.2 lists catalog instruments that can cover an assigned job, optionally filtered by expressive quality. Matches stay in catalog order and are not written to the Song Graph. Range checks on existing notes, articulation maps, and cello versus guitar retargeters remain later work.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting

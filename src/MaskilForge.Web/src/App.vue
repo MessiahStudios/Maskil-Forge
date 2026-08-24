@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentExpressiveQuality, type InstrumentProfileCatalog, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentExpressiveQuality, type InstrumentProfile, type InstrumentProfileCatalog, type InstrumentRecommendationSet, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -77,6 +77,9 @@ const libraryBusy = ref(true)
 const workspaceConnection = ref<'checking' | 'ready' | 'unavailable'>('checking')
 const workspaceHealth = ref<WorkspaceHealth | null>(null)
 const instrumentProfiles = ref<InstrumentProfileCatalog | null>(null)
+const instrumentQualityFilter = ref<InstrumentExpressiveQuality | ''>('')
+const instrumentRecommendations = ref<InstrumentRecommendationSet | null>(null)
+let instrumentRecommendationToken = 0
 const workspaceCheckBusy = ref(false)
 const installPrompt = ref<InstallPromptEvent | null>(null)
 const applicationInstalled = ref(isStandaloneApplication())
@@ -219,6 +222,7 @@ const arrangementRoles: Array<{ id: ArrangementRole; label: string; help: string
   { id: 'Countermelody', label: 'Countermelody', help: 'A supporting melodic response.' },
   { id: 'HookReinforcement', label: 'Hook reinforcement', help: 'Extra support for the section’s memorable idea.' },
 ]
+const instrumentExpressiveQualities: InstrumentExpressiveQuality[] = ['Warm', 'Bright', 'Intimate', 'Sustained', 'Percussive', 'Agile']
 const placementDrafts = reactive<Record<string, BeatPosition>>({})
 const candidateLabelDrafts = reactive<Record<string, string>>({})
 const harmonyCandidateLabelDrafts = reactive<Record<string, string>>({})
@@ -3047,6 +3051,44 @@ function sectionHasRole(sectionId: string, role: ArrangementRole) {
 function assignedRolesForSection(sectionId: string) {
   return arrangementRoles.filter(role => sectionHasRole(sectionId, role.id))
 }
+const assignedArrangementRoleIds = computed(() => {
+  if (!project.value) return [] as ArrangementRole[]
+  const seen = new Set<ArrangementRole>()
+  const ordered: ArrangementRole[] = []
+  for (const section of project.value.sections) {
+    for (const role of assignedRolesForSection(section.id)) {
+      if (seen.has(role.id)) continue
+      seen.add(role.id)
+      ordered.push(role.id)
+    }
+  }
+  return ordered
+})
+function recommendedInstrumentsForRole(role: ArrangementRole): InstrumentProfile[] {
+  return instrumentRecommendations.value?.recommendations.find(item => item.role === role)?.instruments ?? []
+}
+async function refreshInstrumentRecommendations() {
+  const token = ++instrumentRecommendationToken
+  if (workspaceConnection.value !== 'ready' || assignedArrangementRoleIds.value.length === 0) {
+    if (token === instrumentRecommendationToken) instrumentRecommendations.value = null
+    return
+  }
+  try {
+    const quality = instrumentQualityFilter.value || null
+    const set = await projectsApi.recommendInstruments(assignedArrangementRoleIds.value, quality)
+    if (token !== instrumentRecommendationToken) return
+    instrumentRecommendations.value = set
+    activityLog.write('info', 'instrument-recommendation.prepare', 'Instrument recommendations prepared.', {
+      roles: assignedArrangementRoleIds.value.join(','),
+      quality,
+      matchCount: set.recommendations.reduce((sum, item) => sum + item.instruments.length, 0),
+    })
+  } catch (error) {
+    if (token !== instrumentRecommendationToken) return
+    instrumentRecommendations.value = null
+    activityLog.write('warning', 'instrument-recommendation.prepare', error instanceof Error ? error.message : 'Instrument recommendations could not be prepared.')
+  }
+}
 function notesForSection(sectionId: string) {
   if (!project.value) return []
   const placement = placementFor(sectionId)
@@ -3531,6 +3573,11 @@ watch(trashedProjects, nextProjects => {
   const availableIds = new Set(nextProjects.map(summary => summary.id))
   selectedTrashProjectIds.value = selectedTrashProjectIds.value.filter(id => availableIds.has(id))
 })
+
+watch(
+  () => [assignedArrangementRoleIds.value.join(','), instrumentQualityFilter.value, workspaceConnection.value] as const,
+  () => { void refreshInstrumentRecommendations() },
+)
 
 watch(
   () => [view.value, project.value?.id, project.value?.sections.length ?? 0] as const,
@@ -4685,8 +4732,14 @@ onBeforeUnmount(() => {
           <div>
             <span class="eyebrow">Host knowledge</span>
             <h3 id="instrument-knowledge-title">Instrument profiles</h3>
-            <p>These profiles describe range, musical jobs, articulations, and expressive qualities. They do not assign an instrument to a part, recommend a choice, or retarget a gesture.</p>
+            <p>These profiles describe range, musical jobs, articulations, and expressive qualities. They do not assign an instrument to a part or retarget a gesture. Matching below is inspectable only.</p>
           </div>
+          <label class="instrument-feeling-filter">Choose by feeling
+            <select v-model="instrumentQualityFilter" :disabled="workspaceConnection !== 'ready'">
+              <option value="">Any feeling</option>
+              <option v-for="quality in instrumentExpressiveQualities" :key="quality" :value="quality">{{ instrumentQualityLabel(quality) }}</option>
+            </select>
+          </label>
           <p v-if="!instrumentProfiles" class="note-event-empty">Instrument knowledge is unavailable until the local host is connected.</p>
           <article v-for="instrument in instrumentProfiles?.instruments ?? []" :key="instrument.id" class="instrument-profile" :aria-label="`${instrument.name} instrument profile`">
             <div>
@@ -4765,6 +4818,17 @@ onBeforeUnmount(() => {
                 <small>{{ role.help }}</small>
               </button>
             </fieldset>
+            <section v-if="assignedRolesForSection(section.id).length" class="instrument-role-matches" :aria-label="`Instrument matches for ${section.title}`">
+              <div>
+                <strong>Instruments that can do this job</strong>
+                <small>{{ instrumentQualityFilter ? `${instrumentQualityLabel(instrumentQualityFilter)} feeling, catalog order, no winner chosen.` : 'Catalog order, no winner chosen. Filter by feeling above.' }}</small>
+              </div>
+              <article v-for="role in assignedRolesForSection(section.id)" :key="`${section.id}-${role.id}`">
+                <strong>{{ role.label }}</strong>
+                <p v-if="recommendedInstrumentsForRole(role.id).length">{{ recommendedInstrumentsForRole(role.id).map(instrument => instrument.name).join(', ') }}</p>
+                <p v-else>{{ instrumentQualityFilter ? 'No catalog instrument covers this job with that feeling.' : 'No catalog instrument covers this job yet.' }}</p>
+              </article>
+            </section>
             <section v-if="assignedRolesForSection(section.id).length" class="musical-parts" :aria-label="`Musical parts for ${section.title}`">
               <div>
                 <strong>Build musical parts</strong>
