@@ -31,6 +31,7 @@ public sealed class SongProject
     private readonly List<PerformanceObservationReview> _performanceObservationReviews;
     private readonly List<PerformanceObservationCorrection> _performanceObservationCorrections;
     private readonly List<PerformanceObservationGesture> _performanceObservationGestures;
+    private readonly List<VocalTakePlacement> _vocalTakePlacements;
 
     [JsonConstructor]
     public SongProject(
@@ -56,7 +57,8 @@ public sealed class SongProject
         IReadOnlyList<PerformanceObservation>? performanceObservations = null,
         IReadOnlyList<PerformanceObservationReview>? performanceObservationReviews = null,
         IReadOnlyList<PerformanceObservationCorrection>? performanceObservationCorrections = null,
-        IReadOnlyList<PerformanceObservationGesture>? performanceObservationGestures = null)
+        IReadOnlyList<PerformanceObservationGesture>? performanceObservationGestures = null,
+        IReadOnlyList<VocalTakePlacement>? vocalTakePlacements = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -80,6 +82,7 @@ public sealed class SongProject
         _performanceObservationReviews = performanceObservationReviews?.ToList() ?? [];
         _performanceObservationCorrections = performanceObservationCorrections?.ToList() ?? [];
         _performanceObservationGestures = performanceObservationGestures?.ToList() ?? [];
+        _vocalTakePlacements = vocalTakePlacements?.ToList() ?? [];
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -92,6 +95,7 @@ public sealed class SongProject
         ValidatePerformanceObservationReviewReferences();
         ValidatePerformanceObservationCorrectionReferences();
         ValidatePerformanceObservationGestureReferences();
+        ValidateVocalTakePlacementReferences();
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
@@ -123,6 +127,7 @@ public sealed class SongProject
     public IReadOnlyList<PerformanceObservationReview> PerformanceObservationReviews => _performanceObservationReviews;
     public IReadOnlyList<PerformanceObservationCorrection> PerformanceObservationCorrections => _performanceObservationCorrections;
     public IReadOnlyList<PerformanceObservationGesture> PerformanceObservationGestures => _performanceObservationGestures;
+    public IReadOnlyList<VocalTakePlacement> VocalTakePlacements => _vocalTakePlacements;
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -150,6 +155,7 @@ public sealed class SongProject
             .ToHashSet();
         _assets.Remove(asset);
         _performanceObservations.RemoveAll(item => item.SourceAssetId == assetId);
+        _vocalTakePlacements.RemoveAll(item => item.AssetId == assetId);
         RemoveDependentObservationRecords(removedObservationIds);
         Touch();
         return asset;
@@ -322,6 +328,49 @@ public sealed class SongProject
         Touch();
     }
 
+    public VocalTakePlacement? FindVocalTakePlacement(ProjectAssetId assetId) =>
+        _vocalTakePlacements.SingleOrDefault(item => item.AssetId == assetId);
+
+    public long VocalTakeStartTick(ProjectAssetId assetId)
+    {
+        var placement = FindVocalTakePlacement(assetId);
+        return placement is null ? 0 : Timeline.ToAbsoluteTicks(placement.Start);
+    }
+
+    public VocalTakePlacement SetVocalTakePlacement(ProjectAssetId assetId, MusicalPosition start)
+    {
+        EnsureOriginalVocalAsset(assetId);
+        ValidateMusicalPosition(start, TimeSignature);
+        var now = DateTimeOffset.UtcNow;
+        var index = _vocalTakePlacements.FindIndex(item => item.AssetId == assetId);
+        var placement = index < 0
+            ? new VocalTakePlacement(VocalTakePlacementId.New(), assetId, start, now, now)
+            : _vocalTakePlacements[index].Relocate(start, now);
+        if (index < 0) _vocalTakePlacements.Add(placement);
+        else _vocalTakePlacements[index] = placement;
+        Touch();
+        return placement;
+    }
+
+    public VocalTakePlacement ClearVocalTakePlacement(ProjectAssetId assetId)
+    {
+        var existing = FindVocalTakePlacement(assetId)
+            ?? throw new KeyNotFoundException($"Vocal take '{assetId}' has no song placement.");
+        _vocalTakePlacements.Remove(existing);
+        Touch();
+        return existing;
+    }
+
+    public void RestoreVocalTakePlacement(VocalTakePlacement placement)
+    {
+        ArgumentNullException.ThrowIfNull(placement);
+        EnsureOriginalVocalAsset(placement.AssetId);
+        ValidateMusicalPosition(placement.Start, TimeSignature);
+        _vocalTakePlacements.RemoveAll(item => item.Id == placement.Id || item.AssetId == placement.AssetId);
+        _vocalTakePlacements.Add(placement);
+        Touch();
+    }
+
     public ProjectAsset RenameAsset(ProjectAssetId assetId, string name)
     {
         var index = _assets.FindIndex(item => item.Id == assetId);
@@ -388,6 +437,7 @@ public sealed class SongProject
         ValidateAllRhythmCandidates(proposed);
         ValidateAllHarmonyChords(proposed);
         ValidateAllHarmonyCandidates(proposed);
+        ValidateVocalTakePlacements(proposed);
         Timeline.TimeSignatureMap.SetInitialTimeSignature(numerator, denominator);
         Touch();
     }
@@ -939,6 +989,10 @@ public sealed class SongProject
             throw new ArgumentException("Performance observation gesture IDs must be unique.");
         if (_performanceObservationGestures.Select(item => item.ObservationId).Distinct().Count() != _performanceObservationGestures.Count)
             throw new ArgumentException("A performance observation can have only one artist gesture.");
+        if (_vocalTakePlacements.Select(item => item.Id).Distinct().Count() != _vocalTakePlacements.Count)
+            throw new ArgumentException("Vocal-take placement IDs must be unique.");
+        if (_vocalTakePlacements.Select(item => item.AssetId).Distinct().Count() != _vocalTakePlacements.Count)
+            throw new ArgumentException("An original vocal take can have only one song placement.");
         if (_arrangement.Select(item => item.Id).Distinct().Count() != _arrangement.Count)
             throw new ArgumentException("Section arrangement IDs must be unique.");
         if (_arrangement.Select(item => item.SectionId).Distinct().Count() != _arrangement.Count)
@@ -1008,6 +1062,33 @@ public sealed class SongProject
     {
         if (_assets.All(asset => asset.Id != observation.SourceAssetId || asset.Kind != ProjectAssetKind.OriginalVocalTake))
             throw new ArgumentException($"Performance observation '{observation.Id}' must reference an existing original vocal asset.");
+    }
+
+    private void EnsureOriginalVocalAsset(ProjectAssetId assetId)
+    {
+        if (_assets.All(asset => asset.Id != assetId || asset.Kind != ProjectAssetKind.OriginalVocalTake))
+            throw new KeyNotFoundException($"Original vocal asset '{assetId}' was not found.");
+    }
+
+    private void ValidateVocalTakePlacementReferences() => ValidateVocalTakePlacements(TimeSignature);
+
+    private void ValidateVocalTakePlacements(TimeSignatureEvent meter)
+    {
+        foreach (var placement in _vocalTakePlacements)
+        {
+            if (_assets.All(asset => asset.Id != placement.AssetId || asset.Kind != ProjectAssetKind.OriginalVocalTake))
+                throw new ArgumentException($"Vocal-take placement '{placement.Id}' must reference an existing original vocal asset.");
+            ValidateMusicalPosition(placement.Start, meter);
+        }
+    }
+
+    private void ValidateMusicalPosition(MusicalPosition position, TimeSignatureEvent meter)
+    {
+        if (position.Beat > meter.Numerator)
+            throw new ArgumentOutOfRangeException(nameof(position), $"Beat must be between 1 and {meter.Numerator} for the current meter.");
+        var ticksPerBeat = checked(Timeline.TicksPerQuarterNote * 4 / meter.Denominator);
+        if (position.Tick >= ticksPerBeat)
+            throw new ArgumentOutOfRangeException(nameof(position), $"Tick must be between 0 and {ticksPerBeat - 1} for the current meter.");
     }
 
     private void ValidatePerformanceObservationReviewReferences()

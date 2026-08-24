@@ -231,9 +231,10 @@ public sealed class PerformanceObservationGestureTests
         var inspected = PortableProjectImporter.Inspect(document.ToJsonString());
 
         Assert.Equal(26, inspected.SourceSchemaVersion);
-        Assert.Equal(27, inspected.Project.SchemaVersion.Value);
+        Assert.Equal(SchemaVersion.Current.Value, inspected.Project.SchemaVersion.Value);
         Assert.Empty(inspected.Project.PerformanceObservationGestures);
         Assert.Empty(inspected.Project.PerformanceObservationCorrections);
+        Assert.Empty(inspected.Project.VocalTakePlacements);
     }
 
     private static ProjectAsset CreateAsset()

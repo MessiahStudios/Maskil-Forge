@@ -857,6 +857,50 @@ public sealed class UsePitchGestureNoteSketchCommand(ProjectAssetId assetId) : I
     }
 }
 
+public sealed class SetVocalTakePlacementCommand(ProjectAssetId assetId, MusicalPosition start) : IProjectCommand
+{
+    private VocalTakePlacement? _previous;
+    private VocalTakePlacement? _applied;
+
+    public void Execute(SongProject project)
+    {
+        if (_applied is null)
+        {
+            _previous = project.FindVocalTakePlacement(assetId);
+            _applied = project.SetVocalTakePlacement(assetId, start);
+            return;
+        }
+
+        project.RestoreVocalTakePlacement(_applied);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_applied is null) throw new InvalidOperationException("Command has not been executed.");
+        if (_previous is null) project.ClearVocalTakePlacement(assetId);
+        else project.RestoreVocalTakePlacement(_previous);
+    }
+}
+
+public sealed class ClearVocalTakePlacementCommand(ProjectAssetId assetId) : IProjectCommand
+{
+    private VocalTakePlacement? _previous;
+
+    public void Execute(SongProject project)
+    {
+        _previous ??= project.FindVocalTakePlacement(assetId)
+            ?? throw new KeyNotFoundException($"Vocal take '{assetId}' has no song placement.");
+        if (project.FindVocalTakePlacement(assetId) is not null)
+            project.ClearVocalTakePlacement(assetId);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previous is null) throw new InvalidOperationException("Command has not been executed.");
+        project.RestoreVocalTakePlacement(_previous);
+    }
+}
+
 public sealed class SplitLyricPhraseCommand(
     SectionId sectionId,
     LyricLineId lineId,

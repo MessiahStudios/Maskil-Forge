@@ -147,7 +147,7 @@ public sealed class PerformanceObservationTests
         var inspected = PortableProjectImporter.Inspect(document.ToJsonString());
 
         Assert.Equal(23, inspected.SourceSchemaVersion);
-        Assert.Equal(27, inspected.Project.SchemaVersion.Value);
+        Assert.Equal(SchemaVersion.Current.Value, inspected.Project.SchemaVersion.Value);
         Assert.Empty(inspected.Project.PerformanceObservations);
     }
 

@@ -71,7 +71,7 @@ export interface NoteEvent { id: string; pitch: RegisteredPitch; startTick: numb
 export interface HarmonyNoteSketchEvent extends Omit<NoteEvent, 'id'> { usesPreviewVoicing: boolean }
 export interface HarmonyNoteSketch { sectionId: string; events: HarmonyNoteSketchEvent[]; usesPreviewVoicings: boolean }
 export interface PitchGestureNoteSketchEvent extends Omit<NoteEvent, 'id'> { gestureId: string; observationId: string }
-export interface PitchGestureNoteSketch { sourceAssetId: string; events: PitchGestureNoteSketchEvent[] }
+export interface PitchGestureNoteSketch { sourceAssetId: string; startTick: number; events: PitchGestureNoteSketchEvent[] }
 export interface LowEndSupportProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
 export interface LowEndSupportProposal { sectionId: string; partLabel: string; events: LowEndSupportProposalEvent[]; reusedNoteCount: number }
 export interface PulseProposalEvent extends Omit<NoteEvent, 'id'> { sourceNoteEventId: string; existingNoteEventId: string | null }
@@ -323,6 +323,14 @@ export interface ProjectAsset {
   name: string
 }
 
+export interface VocalTakePlacement {
+  id: string
+  assetId: string
+  start: { bar: number; beat: number; tick: number }
+  createdUtc: string
+  updatedUtc: string
+}
+
 export type PerformanceObservationProvenance = 'DeterministicAnalyzer' | 'ImportedAnalyzer' | 'AudioModel'
 
 export interface PerformanceMeasurement {
@@ -423,6 +431,7 @@ export interface SongProject {
   performanceObservationReviews: PerformanceObservationReview[]
   performanceObservationCorrections: PerformanceObservationCorrection[]
   performanceObservationGestures: PerformanceObservationGesture[]
+  vocalTakePlacements: VocalTakePlacement[]
   key: MusicalKey
 }
 
@@ -536,6 +545,7 @@ export interface ProjectCommand {
   startTick?: number
   durationTicks?: number
   velocity?: number
+  start?: { bar: number; beat: number; tick: number }
   text?: string
   syllables?: string[]
 }

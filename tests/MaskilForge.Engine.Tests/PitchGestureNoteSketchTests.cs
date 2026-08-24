@@ -24,6 +24,7 @@ public sealed class PitchGestureNoteSketchTests
         var note = Assert.Single(sketch.Events);
 
         Assert.Equal(asset.Id, sketch.SourceAssetId);
+        Assert.Equal(0, sketch.StartTick);
         Assert.Equal(gesture.Id, note.GestureId);
         Assert.Equal(observation.Id, note.ObservationId);
         Assert.Equal(69, note.Pitch.MidiNumber);
@@ -128,6 +129,52 @@ public sealed class PitchGestureNoteSketchTests
 
         project.ClearPerformanceObservationGesture(observation.Id);
         Assert.Equal(accepted.Id, Assert.Single(editor.Project.NoteEvents, item => item.Id != manual.Id).Id);
+    }
+
+    [Fact]
+    public void Project_OffsetsTakeRelativeTicksByTheArtistPlacement()
+    {
+        var project = SongProject.Create("Placed pitch sketch");
+        var asset = CreateAsset();
+        var observation = CreateObservation(asset.Id, "pitch.frame", "maskil.browser.pitch-acf", 200, 80,
+            [new PerformanceMeasurement("frequencyHertz", 440m, "hertz")]);
+        var now = DateTimeOffset.UtcNow;
+        project.RegisterAsset(asset);
+        project.RegisterPerformanceObservation(observation);
+        project.SetPerformanceObservationReview(observation.Id, PerformanceObservationReviewVerdict.Accurate, now);
+        project.SetPerformanceObservationGesture(observation.Id, now);
+        project.SetVocalTakePlacement(asset.Id, new MusicalPosition(9, 1, 0));
+
+        var sketch = PitchGestureNoteSketcher.Project(project, asset.Id);
+        var note = Assert.Single(sketch.Events);
+
+        Assert.Equal(15_360, sketch.StartTick);
+        Assert.Equal(15_552, note.StartTick);
+        Assert.Equal(77, note.DurationTicks);
+    }
+
+    [Fact]
+    public void ChangingPlacement_DoesNotMoveAlreadyAcceptedNotes()
+    {
+        var project = SongProject.Create("Stable accepted notes");
+        var asset = CreateAsset();
+        var observation = CreateObservation(asset.Id, "pitch.frame", "maskil.browser.pitch-acf", 200, 80,
+            [new PerformanceMeasurement("frequencyHertz", 440m, "hertz")]);
+        var now = DateTimeOffset.UtcNow;
+        project.RegisterAsset(asset);
+        project.RegisterPerformanceObservation(observation);
+        project.SetPerformanceObservationReview(observation.Id, PerformanceObservationReviewVerdict.Accurate, now);
+        project.SetPerformanceObservationGesture(observation.Id, now);
+        var editor = new ProjectEditor(project);
+        editor.Execute(new UsePitchGestureNoteSketchCommand(asset.Id));
+        var accepted = Assert.Single(editor.Project.NoteEvents);
+        Assert.Equal(192, accepted.StartTick);
+
+        editor.Execute(new SetVocalTakePlacementCommand(asset.Id, new MusicalPosition(9, 1, 0)));
+
+        Assert.Equal(accepted.Id, Assert.Single(editor.Project.NoteEvents).Id);
+        Assert.Equal(192, accepted.StartTick);
+        Assert.Equal(15_552, Assert.Single(PitchGestureNoteSketcher.Project(project, asset.Id).Events).StartTick);
     }
 
     private static ProjectAsset CreateAsset()

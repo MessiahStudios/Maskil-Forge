@@ -1027,6 +1027,10 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             request.NoteEventId ?? throw new ArgumentException("Note-event ID is required."))); break;
         case "use-harmony-note-sketch": editor.Execute(new UseHarmonyNoteSketchCommand(RequiredSectionId(request))); break;
         case "use-pitch-gesture-note-sketch": editor.Execute(new UsePitchGestureNoteSketchCommand(RequiredAssetId(request))); break;
+        case "set-vocal-take-placement": editor.Execute(new SetVocalTakePlacementCommand(
+            RequiredAssetId(request),
+            request.Start ?? throw new ArgumentException("Start position is required."))); break;
+        case "clear-vocal-take-placement": editor.Execute(new ClearVocalTakePlacementCommand(RequiredAssetId(request))); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
@@ -1351,6 +1355,7 @@ public sealed record ProjectCommandRequest(
     long? StartTick = null,
     long? DurationTicks = null,
     int? Velocity = null,
+    MusicalPosition? Start = null,
     string? Text = null,
     IReadOnlyList<string>? Syllables = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);

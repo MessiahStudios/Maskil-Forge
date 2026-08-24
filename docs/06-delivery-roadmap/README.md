@@ -828,6 +828,16 @@ Desktop Music lands on this take studio, then the existing pitch-gesture sketch.
 
 **Deliverable:** an artist can inspect and promote a saved rough take on the studio screen, then explicitly sketch notes from pitch gestures, without turning desktop into a miniature DAW or moving take placement into the Song Graph.
 
+### Milestone 6.18 — Vocal-take song placement
+
+Advance the Song Graph to schema v28 with a separate `vocalTakePlacements` collection. Each original-vocal take may have one artist-authored song start as bar, beat, and tick. Schema-v27 projects migrate to an empty collection; missing placement still means song tick 0. Writes require an existing original-vocal asset and a start that fits the current meter. Removing the take drops its placement. Changing meter refuses a start that would leave the new beat grid.
+
+Desktop Music can set, update, or clear that start. The pitch-gesture note sketch adds the placement's absolute tick to take-relative timing. Changing or clearing placement does not rewrite already-accepted notes. Placement is song time, not a section clip, waveform region, or transport sync. Phone Review stays capture, review, and promote. Activity logs retain project and take identity plus the placed bar, beat, and tick—not audio bytes or microphone labels.
+
+This slice still creates no onset or loudness notes, musical part, expression curve, or automatic musical decision.
+
+**Deliverable:** an artist can place a saved rough take in song time so sketched notes follow that start, without turning the take into a DAW clip or moving already-accepted notes.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

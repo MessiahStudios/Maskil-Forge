@@ -2757,6 +2757,44 @@ function usePitchGestureNoteSketch(assetId: string) {
     'midi.pitch-gesture.use',
     { assetId, noteCount })
 }
+function vocalTakePlacement(assetId: string) {
+  return project.value?.vocalTakePlacements?.find(item => item.assetId === assetId) ?? null
+}
+function vocalTakePlacementLabel(assetId: string) {
+  const placement = vocalTakePlacement(assetId)
+  if (!placement) return 'Unplaced · song tick 0'
+  return `Bar ${placement.start.bar} · beat ${placement.start.beat} · tick ${placement.start.tick}`
+}
+function setVocalTakePlacement(assetId: string, event: Event) {
+  if (!project.value) return
+  const form = event.target as HTMLFormElement
+  const bar = Number((form.elements.namedItem('bar') as HTMLInputElement).value)
+  const beat = Number((form.elements.namedItem('beat') as HTMLInputElement).value)
+  const tick = Number((form.elements.namedItem('tick') as HTMLInputElement).value)
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'set-vocal-take-placement',
+      assetId,
+      start: { bar, beat, tick },
+    }),
+    `Take placed at bar ${bar}.`,
+    'vocal-take.place',
+    { assetId, bar, beat, tick },
+  ).then(succeeded => {
+    if (succeeded && pitchGestureNoteSketches[assetId]) return preparePitchGestureNoteSketch(assetId)
+  })
+}
+function clearVocalTakePlacement(assetId: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'clear-vocal-take-placement', assetId }),
+    'Take placement cleared. Sketch timing returns to song tick 0.',
+    'vocal-take.place.clear',
+    { assetId },
+  ).then(succeeded => {
+    if (succeeded && pitchGestureNoteSketches[assetId]) return preparePitchGestureNoteSketch(assetId)
+  })
+}
 function addHarmonyChord(sectionId: string) {
   if (!project.value) return
   return run(
@@ -4771,7 +4809,7 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">Original performance</span>
           <h2 id="vocal-take-studio-title">Saved rough takes</h2>
-          <p>Play, analyze, review, and promote takes here on the studio screen. Recording still requires a saved song revision. Pitch gestures become notes only after you preview and accept the sketch below.</p>
+          <p>Play, analyze, review, promote, and place takes here on the studio screen. Recording still requires a saved song revision. Placement is song time, not a clip on the section timeline. Pitch gestures become notes only after you preview and accept the sketch below.</p>
         </div>
         <section class="microphone-preflight" aria-labelledby="desktop-microphone-preflight-title">
           <div>
@@ -4820,6 +4858,14 @@ onBeforeUnmount(() => {
             <li v-for="(asset, index) in project.assets" :key="`desktop-${asset.id}`">
               <div><strong>{{ asset.name }}</strong><small>{{ new Date(asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(asset.byteLength) }}</small></div>
               <audio controls preload="none" :src="projectsApi.originalVocalTakeUrl(project.id, asset.id)" @play="logRoughVocalPlayback('saved', asset.id)">Your browser cannot play this saved take.</audio>
+              <form class="vocal-take-placement" @submit.prevent="setVocalTakePlacement(asset.id, $event)">
+                <p>{{ vocalTakePlacementLabel(asset.id) }}. Changing this start does not move notes you already accepted.</p>
+                <label>Bar<input name="bar" type="number" min="1" :value="vocalTakePlacement(asset.id)?.start.bar ?? 1" required :disabled="busy" :aria-label="`${asset.name} start bar`"></label>
+                <label>Beat<input name="beat" type="number" min="1" :value="vocalTakePlacement(asset.id)?.start.beat ?? 1" required :disabled="busy" :aria-label="`${asset.name} start beat`"></label>
+                <label>Tick<input name="tick" type="number" min="0" :value="vocalTakePlacement(asset.id)?.start.tick ?? 0" required :disabled="busy" :aria-label="`${asset.name} start tick`"></label>
+                <button type="submit" :disabled="busy">{{ vocalTakePlacement(asset.id) ? 'Update placement' : 'Place take' }}</button>
+                <button v-if="vocalTakePlacement(asset.id)" type="button" class="quiet" :disabled="busy" @click="clearVocalTakePlacement(asset.id)">Clear placement</button>
+              </form>
               <p v-if="loudnessObservationSummary(asset.id)" class="performance-observation-summary">{{ loudnessObservationSummary(asset.id) }}</p>
               <p v-if="pitchObservationSummary(asset.id)" class="performance-observation-summary pitch">{{ pitchObservationSummary(asset.id) }}</p>
               <p v-if="onsetObservationSummary(asset.id)" class="performance-observation-summary onset">{{ onsetObservationSummary(asset.id) }}</p>
@@ -4903,14 +4949,14 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">From a reviewed take</span>
           <h2 id="pitch-gesture-notes-title">Sketch notes from pitch gestures</h2>
-          <p>Preview notes from approved pitch gestures on one saved take. Timing starts at song tick 0 using the first tempo; placing the take on the timeline comes later. Loudness and onset gestures stay unused. Nothing is added until you choose “Use this sketch.”</p>
+          <p>Preview notes from approved pitch gestures on one saved take. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo; an unplaced take still starts at tick 0. Loudness and onset gestures stay unused. Nothing is added until you choose “Use this sketch.”</p>
         </div>
         <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch claim first.</p>
         <p v-else-if="!pitchGestureTakes.length" class="note-event-empty">Promote at least one pitch claim to a gesture in the take inspector above. Loudness and onset gestures cannot become notes yet.</p>
         <article v-for="asset in pitchGestureTakes" :key="asset.id" class="harmony-note-sketch" :aria-label="`Pitch-gesture note sketch for ${asset.name}`">
           <div>
             <strong>{{ asset.name }}</strong>
-            <small>{{ pitchGestureCountForAsset(asset.id) }} pitch gesture{{ pitchGestureCountForAsset(asset.id) === 1 ? '' : 's' }} · take-relative ticks from 0</small>
+            <small>{{ pitchGestureCountForAsset(asset.id) }} pitch gesture{{ pitchGestureCountForAsset(asset.id) === 1 ? '' : 's' }} · {{ vocalTakePlacementLabel(asset.id) }}</small>
           </div>
           <button type="button" class="secondary" :disabled="busy" @click="preparePitchGestureNoteSketch(asset.id)">
             {{ pitchGestureNoteSketches[asset.id] ? 'Refresh note sketch' : 'Prepare note sketch' }}
@@ -4918,7 +4964,7 @@ onBeforeUnmount(() => {
           <div v-if="pitchGestureNoteSketches[asset.id]" class="harmony-note-sketch-result">
             <p>
               <strong>{{ pitchGestureNoteSketches[asset.id].events.length }} notes ready to review</strong>
-              <span>Uses the first tempo only. Existing notes stay until you accept, and dropping a gesture later does not remove accepted notes.</span>
+              <span>Uses the first tempo only. Existing notes stay until you accept, and changing placement later does not move accepted notes.</span>
             </p>
             <ol>
               <li v-for="(note, noteIndex) in pitchGestureNoteSketches[asset.id].events" :key="`${note.gestureId}:${note.startTick}:${noteIndex}`">

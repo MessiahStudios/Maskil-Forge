@@ -96,6 +96,8 @@ Slice 6.16 projects those pitch gestures into a transient playable-note sketch. 
 
 Slice 6.17 lets the desktop Music workspace inspect those same saved takes: playback, analyzer runs, artist verdicts, corrections, and gesture promotion. Recording on the studio screen still requires a saved revision and never uploads until the artist reviews a temporary take. The slice adds no schema fields and does not place a take on the timeline.
 
+Slice 6.18 stores an artist-authored song start for one original-vocal take. Schema v28 keeps placements in a separate collection so asset bytes stay immutable. Desktop Music sets or clears bar, beat, and tick against the current meter; absence still means song tick 0. The pitch-gesture sketch adds that start to take-relative ticks. Placement does not move already-accepted notes, sync playback to the timeline, or follow section reflow.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting

@@ -13,6 +13,7 @@ public sealed record PitchGestureNoteSketchEvent(
 /// <summary>A transient, reviewable projection. It is not stored until explicitly accepted.</summary>
 public sealed record PitchGestureNoteSketch(
     ProjectAssetId SourceAssetId,
+    long StartTick,
     IReadOnlyList<PitchGestureNoteSketchEvent> Events);
 
 public static class PitchGestureNoteSketcher
@@ -31,6 +32,7 @@ public static class PitchGestureNoteSketcher
             .ToDictionary(item => item.Id);
         var beatsPerMinute = project.Tempo.BeatsPerMinute;
         var ticksPerQuarterNote = project.Timeline.TicksPerQuarterNote;
+        var takeStartTick = project.VocalTakeStartTick(sourceAssetId);
         var events = new List<PitchGestureNoteSketchEvent>();
 
         foreach (var gesture in project.PerformanceObservationGestures)
@@ -46,7 +48,7 @@ public static class PitchGestureNoteSketcher
 
             events.Add(new PitchGestureNoteSketchEvent(
                 FromFrequency(frequency.Value),
-                MillisecondsToTicks(observation.StartMilliseconds, beatsPerMinute, ticksPerQuarterNote),
+                checked(takeStartTick + MillisecondsToTicks(observation.StartMilliseconds, beatsPerMinute, ticksPerQuarterNote)),
                 Math.Max(1, MillisecondsToTicks(observation.DurationMilliseconds, beatsPerMinute, ticksPerQuarterNote)),
                 PreviewVelocity,
                 gesture.Id,
@@ -58,6 +60,7 @@ public static class PitchGestureNoteSketcher
 
         return new PitchGestureNoteSketch(
             sourceAssetId,
+            takeStartTick,
             events
                 .OrderBy(item => item.StartTick)
                 .ThenBy(item => item.ObservationId.Value)
