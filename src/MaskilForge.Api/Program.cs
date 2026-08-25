@@ -72,6 +72,7 @@ app.MapGet("/api/instrument-midi-channels", () => Results.Ok(InstrumentMidiChann
 app.MapGet("/api/instrument-midi-programs", () => Results.Ok(InstrumentMidiProgramMapper.Map()));
 app.MapGet("/api/instrument-midi-controllers", () => Results.Ok(InstrumentMidiControllerMapper.Map()));
 app.MapGet("/api/instrument-midi-pitch-bends", () => Results.Ok(InstrumentMidiPitchBendMapper.Map()));
+app.MapGet("/api/instrument-midi-portamentos", () => Results.Ok(InstrumentMidiPortamentoMapper.Map()));
 
 if (app.Environment.IsDevelopment())
 {

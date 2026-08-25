@@ -1047,6 +1047,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a named cello, violin, or guitar part with an inspectable ±2-semitone pitch-bend range in another music application, without the host inventing a performed slide or treating portamento as pitch bend.
 
+### Milestone 7.21 — Synth-lead portamento MIDI
+
+Declare an inspectable Portamento controller that follows the catalog slide articulation. Synth-lead Portamento is CC 65. MIDI export emits Portamento Off on that channel when it exports notes, after the program change and before dynamics, so stored discrete pitches stay discrete. The host does not turn portamento on, invent a glide between notes, emit pitch bend for synth lead, or add later instruments. Cello, guitar, and other catalog slides stay on their existing pitch-bend map. The map is host knowledge.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a named synth-lead part with an inspectable Portamento controller that stays off, without the host inventing a glide between stored notes.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

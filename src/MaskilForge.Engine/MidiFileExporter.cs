@@ -13,9 +13,10 @@ namespace MaskilForge.Engine;
 /// synth-lead swell is Brightness (CC 74), and other catalog swells stay
 /// Expression (CC 11). Named cello, violin, acoustic-guitar, and electric-guitar
 /// parts declare an inspectable pitch-bend range of ±2 semitones. MIDI does not
-/// move the pitch wheel. Synth-lead portamento is not pitch bend. Drum-kit notes
-/// stay on channel 10 without a program change. Unassigned notes and untagged
-/// dynamics stay on channel 1 with Expression (CC 11).
+/// move the pitch wheel. Synth-lead portamento is CC 65 and stays off so stored
+/// notes stay discrete. Drum-kit notes stay on channel 10 without a program
+/// change. Unassigned notes and untagged dynamics stay on channel 1 with
+/// Expression (CC 11).
 /// </summary>
 public static class MidiFileExporter
 {
@@ -58,6 +59,7 @@ public static class MidiFileExporter
         var programs = InstrumentMidiProgramMapper.Map();
         var controllers = InstrumentMidiControllerMapper.Map();
         var pitchBends = InstrumentMidiPitchBendMapper.Map();
+        var portamentos = InstrumentMidiPortamentoMapper.Map();
         var events = new List<MidiEvent>();
         foreach (var tempo in project.Timeline.TempoMap.Events)
         {
@@ -117,6 +119,21 @@ public static class MidiFileExporter
                 [(byte)(0xB0 | channel), InstrumentMidiPitchBendMapper.DataEntryMsbController, semitones]));
         }
 
+        foreach (var portamento in portamentos.Assignments)
+        {
+            if (!portamento.Applicable || portamento.ControllerNumber is null) continue;
+            if (!usedInstrumentIds.Contains(portamento.InstrumentId)) continue;
+            var channelAssignment = channels.Assignments.First(item =>
+                string.Equals(item.InstrumentId, portamento.InstrumentId, StringComparison.Ordinal));
+            var channel = InstrumentMidiChannelMapper.ZeroBasedChannel(channelAssignment.MidiChannel);
+            events.Add(new MidiEvent(0, 6, portamento.ControllerNumber.Value, channel, Guid.Empty,
+            [
+                (byte)(0xB0 | channel),
+                checked((byte)portamento.ControllerNumber.Value),
+                InstrumentMidiPortamentoMapper.PortamentoOffValue
+            ]));
+        }
+
         foreach (var curve in project.ExpressionCurves)
         {
             if (curve.Kind != ExpressionCurveKind.Dynamics) continue;
@@ -126,7 +143,7 @@ public static class MidiFileExporter
                     throw new InvalidOperationException("An expression curve extends beyond the timing range supported by a Standard MIDI File.");
                 var channel = ChannelFor(curve, channels);
                 var controller = ControllerFor(curve, controllers);
-                events.Add(new MidiEvent(point.Tick, 6, controller, channel, curve.Id.Value, [(byte)(0xB0 | channel), controller, checked((byte)point.Value)]));
+                events.Add(new MidiEvent(point.Tick, 7, controller, channel, curve.Id.Value, [(byte)(0xB0 | channel), controller, checked((byte)point.Value)]));
             }
         }
 
@@ -136,8 +153,8 @@ public static class MidiFileExporter
                 throw new InvalidOperationException("A playable note extends beyond the timing range supported by a Standard MIDI File.");
             var pitch = checked((byte)note.Pitch.MidiNumber);
             var channel = ChannelFor(note, project, channels);
-            events.Add(new MidiEvent(note.StartTick, 8, pitch, channel, note.Id.Value, [(byte)(0x90 | channel), pitch, checked((byte)note.Velocity)]));
-            events.Add(new MidiEvent(note.EndTickExclusive, 7, pitch, channel, note.Id.Value, [(byte)(0x80 | channel), pitch, 0x00]));
+            events.Add(new MidiEvent(note.StartTick, 9, pitch, channel, note.Id.Value, [(byte)(0x90 | channel), pitch, checked((byte)note.Velocity)]));
+            events.Add(new MidiEvent(note.EndTickExclusive, 8, pitch, channel, note.Id.Value, [(byte)(0x80 | channel), pitch, 0x00]));
         }
 
         return events
@@ -223,6 +240,6 @@ public static class MidiFileExporter
     }
 
     // Priority: tempo 0, meter 1, program change 2, pitch-bend RPN MSB 3, RPN LSB 4,
-    // data entry 5, dynamics CC 6, note-off 7, note-on 8.
+    // data entry 5, portamento off 6, dynamics CC 7, note-off 8, note-on 9.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);
 }

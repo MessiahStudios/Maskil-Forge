@@ -147,6 +147,19 @@ export interface InstrumentMidiPitchBendMapSet {
   assignments: InstrumentMidiPitchBendAssignment[]
 }
 
+export interface InstrumentMidiPortamentoAssignment {
+  instrumentId: string
+  instrumentName: string
+  applicable: boolean
+  articulation: InstrumentArticulation | null
+  controllerName: string | null
+  controllerNumber: number | null
+}
+
+export interface InstrumentMidiPortamentoMapSet {
+  assignments: InstrumentMidiPortamentoAssignment[]
+}
+
 export interface InstrumentPerformanceEvent {
   gestureId: string
   observationId: string
@@ -815,6 +828,7 @@ export const projectsApi = {
   instrumentMidiPrograms: () => request<InstrumentMidiProgramMapSet>('/api/instrument-midi-programs'),
   instrumentMidiControllers: () => request<InstrumentMidiControllerMapSet>('/api/instrument-midi-controllers'),
   instrumentMidiPitchBends: () => request<InstrumentMidiPitchBendMapSet>('/api/instrument-midi-pitch-bends'),
+  instrumentMidiPortamentos: () => request<InstrumentMidiPortamentoMapSet>('/api/instrument-midi-portamentos'),
   list: () => request<ProjectSummary[]>('/api/projects'),
   listRecovery: () => request<RecoverySummary[]>('/api/recovery'),
   loadRecovery: (id: string) => request<RecoveryProjectResponse>(`/api/recovery/${id}`),

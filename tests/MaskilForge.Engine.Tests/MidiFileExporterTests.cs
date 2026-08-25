@@ -241,7 +241,57 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Events, item => item.Bytes is [0x9B, 60, 100]);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xBB, 11, 88 }));
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xBB, 101, 0 }));
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xBB, 65, 0 }));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xBB, 65, 127 }));
         Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xE0);
+    }
+
+    [Fact]
+    public void Export_EmitsSynthLeadPortamentoOffWithoutTurningItOn()
+    {
+        var project = SongProject.Create("Synth lead portamento MIDI");
+        var section = project.AddSection(SectionKind.Chorus);
+        project.SetSectionRole(section.Id, ArrangementRole.HookReinforcement);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+        project.AddMusicalPart(section.Id, ArrangementRole.HookReinforcement, "Chorus lead", [note.Id], "synth-lead");
+        project.AddExpressionCurve(
+            "Synth lead swell",
+            ExpressionCurveKind.Dynamics,
+            [new ExpressionCurvePoint(0, 88)],
+            "synth-lead");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var timed = parsed.Events
+            .Where(item => item.Bytes[0] is 0xCB or 0xBB or 0x9B or 0x8B)
+            .Select(item => (item.Tick, item.Bytes[0], item.Bytes.ElementAtOrDefault(1), item.Bytes.ElementAtOrDefault(2)))
+            .ToArray();
+
+        Assert.Equal(new[]
+        {
+            (0L, (byte)0xCB, (byte)81, (byte)0),
+            (0L, (byte)0xBB, (byte)65, (byte)0),
+            (0L, (byte)0xBB, (byte)74, (byte)88),
+            (0L, (byte)0x9B, (byte)60, (byte)100),
+            (480L, (byte)0x8B, (byte)60, (byte)0)
+        }, timed);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xBB, 65, 127 }));
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xE0);
+    }
+
+    [Fact]
+    public void Export_OmitsPortamentoForCello()
+    {
+        var project = SongProject.Create("Assigned cello MIDI");
+        var section = project.AddSection(SectionKind.Chorus);
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 480, 100);
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Chorus foundation", [note.Id], "cello");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xB1, 65, 0 }));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xB1, 65, 127 }));
     }
 
     [Fact]
@@ -269,6 +319,7 @@ public sealed class MidiFileExporterTests
             (480L, (byte)0x82, (byte)52, (byte)0)
         }, timed);
         Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xE0);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xB2, 65, 0 }));
     }
 
     [Fact]

@@ -59,6 +59,8 @@ Slice 7.19 emits tagged dynamics on each instrument’s inspectable MIDI control
 
 Slice 7.20 declares an inspectable ±2-semitone pitch-bend range for cello, violin, acoustic guitar, and electric guitar. MIDI does not move the pitch wheel. Synth-lead portamento is not pitch bend.
 
+Slice 7.21 declares synth-lead portamento as CC 65 and keeps it off so stored notes stay discrete.
+
 ## Generator order
 
 1. Section energy and density plan
