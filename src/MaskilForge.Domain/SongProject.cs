@@ -561,12 +561,12 @@ public sealed class SongProject
         Touch();
     }
 
-    public MusicalPart AddMusicalPart(SectionId sectionId, ArrangementRole role, string label, IReadOnlyList<NoteEventId> noteEventIds)
+    public MusicalPart AddMusicalPart(SectionId sectionId, ArrangementRole role, string label, IReadOnlyList<NoteEventId> noteEventIds, string? instrumentProfileId = null)
     {
         FindSection(sectionId);
         if (FindSectionRole(sectionId, role) is null)
             throw new InvalidOperationException($"Assign the {role} role to this section before creating its musical part.");
-        var created = new MusicalPart(MusicalPartId.New(), sectionId, role, label, noteEventIds, ArrangementProvenance.Manual);
+        var created = new MusicalPart(MusicalPartId.New(), sectionId, role, label, noteEventIds, ArrangementProvenance.Manual, instrumentProfileId);
         RestoreMusicalPart(created);
         return created;
     }
@@ -580,11 +580,11 @@ public sealed class SongProject
         return existing;
     }
 
-    public MusicalPart SetMusicalPart(MusicalPartId musicalPartId, string label, IReadOnlyList<NoteEventId> noteEventIds)
+    public MusicalPart SetMusicalPart(MusicalPartId musicalPartId, string label, IReadOnlyList<NoteEventId> noteEventIds, string? instrumentProfileId)
     {
         var existing = _musicalParts.SingleOrDefault(item => item.Id == musicalPartId)
             ?? throw new KeyNotFoundException($"Musical part '{musicalPartId}' was not found.");
-        var updated = existing.With(label, noteEventIds);
+        var updated = existing.With(label, noteEventIds, instrumentProfileId);
         ValidateMusicalPartReferences(updated);
         _musicalParts[_musicalParts.IndexOf(existing)] = updated;
         Touch();

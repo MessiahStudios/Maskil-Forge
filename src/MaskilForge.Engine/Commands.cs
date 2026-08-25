@@ -340,13 +340,18 @@ public sealed class AddMusicalPartCommand(
     SectionId sectionId,
     ArrangementRole role,
     string label,
-    IReadOnlyList<NoteEventId> noteEventIds) : IProjectCommand
+    IReadOnlyList<NoteEventId> noteEventIds,
+    string? instrumentProfileId = null) : IProjectCommand
 {
     private MusicalPart? _created;
 
     public void Execute(SongProject project)
     {
-        if (_created is null) _created = project.AddMusicalPart(sectionId, role, label, noteEventIds);
+        if (_created is null)
+        {
+            var assigned = MusicalPartInstrumentAssignment.RequireCatalogId(instrumentProfileId);
+            _created = project.AddMusicalPart(sectionId, role, label, noteEventIds, assigned);
+        }
         else project.RestoreMusicalPart(_created);
     }
 
@@ -376,7 +381,8 @@ public sealed class RemoveMusicalPartCommand(MusicalPartId musicalPartId) : IPro
 public sealed class SetMusicalPartCommand(
     MusicalPartId musicalPartId,
     string label,
-    IReadOnlyList<NoteEventId> noteEventIds) : IProjectCommand
+    IReadOnlyList<NoteEventId> noteEventIds,
+    string? instrumentProfileId = null) : IProjectCommand
 {
     private MusicalPart? _before;
     private MusicalPart? _after;
@@ -387,7 +393,8 @@ public sealed class SetMusicalPartCommand(
         {
             _before = project.MusicalParts.SingleOrDefault(item => item.Id == musicalPartId)
                 ?? throw new KeyNotFoundException($"Musical part '{musicalPartId}' was not found.");
-            _after = project.SetMusicalPart(musicalPartId, label, noteEventIds);
+            var assigned = MusicalPartInstrumentAssignment.RequireCatalogId(instrumentProfileId);
+            _after = project.SetMusicalPart(musicalPartId, label, noteEventIds, assigned);
         }
         else project.RestoreMusicalPart(_after);
     }

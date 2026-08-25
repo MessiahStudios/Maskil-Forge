@@ -44,6 +44,21 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_DoesNotEmitProgramChangesForAssignedCatalogInstruments()
+    {
+        var project = SongProject.Create("Assigned cello MIDI");
+        var section = project.AddSection(SectionKind.Chorus);
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 480, 100);
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Chorus foundation", [note.Id], "cello");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 48, 100]);
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+    }
+
+    [Fact]
     public void Export_EmitsDynamicsAsExpressionControlChangeBeforeNoteOn()
     {
         var project = SongProject.Create("Expression MIDI");

@@ -139,6 +139,7 @@ export interface MusicalPart {
   label: string
   noteEventIds: string[]
   provenance: ArrangementProvenance
+  instrumentProfileId: string | null
 }
 
 export interface MusicalKey {
@@ -651,6 +652,7 @@ export interface ProjectCommand {
   musicalPartId?: string
   partLabel?: string
   noteEventIds?: string[]
+  instrumentProfileId?: string | null
   notePitch?: RegisteredPitch
   startTick?: number
   durationTicks?: number

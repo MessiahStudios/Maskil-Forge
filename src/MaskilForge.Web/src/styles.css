@@ -562,18 +562,20 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .role-proposal-result li { display: grid; gap: .15rem; padding: .45rem; background: #0d110d; border: 1px solid #354033; }
 .role-proposal-result li span { color: #b4baaf; font: .7rem ui-monospace, Consolas, monospace; }
 .role-proposal-result > button { justify-self: start; }
-.musical-part-form { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(10rem, .75fr); gap: .55rem; align-items: end; }
+.musical-part-form { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(8rem, .7fr) minmax(10rem, .9fr); gap: .55rem; align-items: end; }
 .musical-part-form > label { display: grid; gap: .2rem; color: #bcb8aa; font-size: .72rem; }
 .musical-part-form > fieldset { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; padding: .55rem; border: 1px solid #3e4439; }
 .musical-part-form > fieldset legend { padding: 0 .25rem; color: #d4caa9; font-size: .75rem; }
 .musical-part-note { display: grid; grid-template-columns: auto 3rem 1fr; gap: .35rem; align-items: center; padding: .4rem; background: #10130f; border: 1px solid #383d34; }
 .musical-part-note small { color: #92988d; font: .68rem ui-monospace, Consolas, monospace; }
+.musical-part-form > .arrangement-prompt { grid-column: 1 / -1; margin: 0; }
 .musical-part-form > button { justify-self: start; }
 .musical-part-list { display: grid; gap: .4rem; margin: 0; padding: 0; list-style: none; }
 .musical-part-list li { display: grid; grid-template-columns: 1fr auto; gap: .5rem; align-items: center; padding: .5rem; background: #11140f; border: 1px solid #3e4438; }
 .musical-part-list li small { color: #a1a698; }
-.musical-part-edit-form { display: grid; grid-template-columns: minmax(10rem, 1fr) auto; gap: .45rem; align-items: end; }
+.musical-part-edit-form { display: grid; grid-template-columns: minmax(10rem, 1fr) minmax(10rem, .9fr) auto; gap: .45rem; align-items: end; }
 .musical-part-edit-form > label { display: grid; gap: .2rem; color: #bcb8aa; font-size: .72rem; }
+.musical-part-edit-form > small { grid-column: 1 / -1; }
 .musical-part-edit-form fieldset { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .35rem; padding: .55rem; border: 1px solid #3e4439; }
 .musical-part-edit-form legend { padding: 0 .25rem; color: #d4caa9; font-size: .75rem; }
 .musical-part-edit-form > button { justify-self: start; }

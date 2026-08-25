@@ -52,6 +52,7 @@ public sealed class PulseRealizationTests
         editor.Execute(new UsePulseProposalCommand(section.Id));
         var createdPart = Assert.Single(editor.Project.MusicalParts);
         Assert.Equal(ArrangementRole.Pulse, createdPart.Role);
+        Assert.Null(createdPart.InstrumentProfileId);
         var realizedIds = createdPart.NoteEventIds.ToList();
         Assert.Equal(4, editor.Project.NoteEvents.Count);
         Assert.All(realizedIds, id => Assert.DoesNotContain(id, originalIds));

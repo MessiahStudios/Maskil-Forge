@@ -29,7 +29,9 @@ Slice 7.4 reports which existing notes sit outside a catalog instrument’s incl
 
 Slice 7.5 maps swell and slide onto named catalog articulations without retargeting a recorded gesture or assigning an instrument. Drum kit remains not applicable.
 
-Slice 7.6 retargets those same gestures from one original-vocal take onto cello and acoustic guitar, side by side. The projection is inspectable only. Piano, bass, drum-kit adapters, instrument assignment, and later catalog waves remain later Milestone 7 slices.
+Slice 7.6 retargets those same gestures from one original-vocal take onto cello and acoustic guitar, side by side. The projection is inspectable only.
+
+Slice 7.7 lets the artist name a catalog instrument on a musical part. The assignment is optional Song Graph data, explicit, and reversible. It does not retarget a gesture, persist a performance sketch, auto-pick a recommendation, or emit MIDI. Piano, bass, and drum-kit adapters and later catalog waves remain later Milestone 7 slices.
 
 ## Generator order
 

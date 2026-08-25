@@ -918,6 +918,14 @@ Desktop Music previews cello and guitar side by side. Phone Music remains hidden
 
 **Deliverable:** an artist can see the same approved swell or slide as cello technique and guitar technique without the host assigning an instrument.
 
+### Milestone 7.7 — Musical-part instrument assignment
+
+Advance the Song Graph to schema v30 with an optional `instrumentProfileId` on each musical part. The value is a catalog slug (`cello`, `acoustic-guitar`, `piano`, `electric-bass`, `drum-kit`) or unassigned. The artist sets or clears it through the existing add/save part commands. Unknown slugs are rejected. Schema-v29 parts migrate as unassigned; the host does not invent cello or guitar.
+
+The assignment does not require the instrument to cover the part’s job, auto-pick from 7.2 recommendations, retarget a gesture, persist a 7.6 sketch, transpose notes, or emit MIDI program changes. Catalog stays at version 2. Desktop Arrangement names the instrument on a part. Phone Arrangement remains hidden. Later slices can persist a retargeted performance against an assigned instrument and add piano, bass, or kit adapters.
+
+**Deliverable:** an artist can name a catalog instrument on a musical part, or leave it unassigned, without the host choosing one or changing the notes.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

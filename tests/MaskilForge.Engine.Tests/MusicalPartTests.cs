@@ -23,6 +23,7 @@ public sealed class MusicalPartTests
         Assert.Equal("Chorus foundation", created.Label);
         Assert.Equal(ArrangementRole.Foundation, created.Role);
         Assert.Equal([c4.Id, g4.Id], created.NoteEventIds);
+        Assert.Null(created.InstrumentProfileId);
 
         editor.Undo();
         Assert.Empty(editor.Project.MusicalParts);
@@ -55,6 +56,70 @@ public sealed class MusicalPartTests
 
         editor.Redo();
         Assert.Equal("Revised foundation", Assert.Single(editor.Project.MusicalParts).Label);
+    }
+
+    [Fact]
+    public void Commands_AssignAndClearCatalogInstrumentWithStableUndoRedo()
+    {
+        var editor = new ProjectEditor(SongProject.Create("Assign cello"));
+        var section = editor.Project.AddSection(SectionKind.Chorus);
+        editor.Project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        var note = editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 480, 90);
+        editor.Execute(new AddMusicalPartCommand(section.Id, ArrangementRole.Foundation, "Chorus foundation", [note.Id], "cello"));
+        var assigned = Assert.Single(editor.Project.MusicalParts);
+        Assert.Equal("cello", assigned.InstrumentProfileId);
+
+        editor.Undo();
+        Assert.Empty(editor.Project.MusicalParts);
+        editor.Redo();
+        Assert.Equal("cello", Assert.Single(editor.Project.MusicalParts).InstrumentProfileId);
+
+        editor.Execute(new SetMusicalPartCommand(assigned.Id, assigned.Label, assigned.NoteEventIds, "acoustic-guitar"));
+        Assert.Equal("acoustic-guitar", Assert.Single(editor.Project.MusicalParts).InstrumentProfileId);
+        editor.Undo();
+        Assert.Equal("cello", Assert.Single(editor.Project.MusicalParts).InstrumentProfileId);
+        editor.Redo();
+        Assert.Equal("acoustic-guitar", Assert.Single(editor.Project.MusicalParts).InstrumentProfileId);
+
+        editor.Execute(new SetMusicalPartCommand(assigned.Id, assigned.Label, assigned.NoteEventIds, null));
+        Assert.Null(Assert.Single(editor.Project.MusicalParts).InstrumentProfileId);
+        editor.Undo();
+        Assert.Equal("acoustic-guitar", Assert.Single(editor.Project.MusicalParts).InstrumentProfileId);
+    }
+
+    [Fact]
+    public void Commands_RejectUnknownOrMalformedInstrumentIds()
+    {
+        var editor = new ProjectEditor(SongProject.Create("Unknown instrument"));
+        var section = editor.Project.AddSection(SectionKind.Verse);
+        editor.Project.SetSectionRole(section.Id, ArrangementRole.Harmony);
+        var note = editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.E, Accidental.Natural, 4), 0, 480, 80);
+
+        var unknown = Assert.Throws<ArgumentException>(() => editor.Execute(
+            new AddMusicalPartCommand(section.Id, ArrangementRole.Harmony, "Verse harmony", [note.Id], "violin")));
+        Assert.Contains("violin", unknown.Message);
+        Assert.Empty(editor.Project.MusicalParts);
+
+        var malformed = Assert.Throws<ArgumentException>(() => editor.Execute(
+            new AddMusicalPartCommand(section.Id, ArrangementRole.Harmony, "Verse harmony", [note.Id], "Cello")));
+        Assert.Contains("catalog slug", malformed.Message);
+        Assert.Empty(editor.Project.MusicalParts);
+    }
+
+    [Fact]
+    public void Commands_AllowAnInstrumentThatDoesNotCoverThePartJob()
+    {
+        var editor = new ProjectEditor(SongProject.Create("Artist authority"));
+        var section = editor.Project.AddSection(SectionKind.Chorus);
+        editor.Project.SetSectionRole(section.Id, ArrangementRole.Harmony);
+        var note = editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 88);
+
+        editor.Execute(new AddMusicalPartCommand(section.Id, ArrangementRole.Harmony, "Chorus harmony", [note.Id], "drum-kit"));
+
+        var part = Assert.Single(editor.Project.MusicalParts);
+        Assert.Equal("drum-kit", part.InstrumentProfileId);
+        Assert.Equal(ArrangementRole.Harmony, part.Role);
+        Assert.DoesNotContain(ArrangementRole.Harmony, InstrumentProfileCatalogLoader.Current.Find("drum-kit").Roles);
     }
 
     [Fact]
@@ -114,6 +179,55 @@ public sealed class MusicalPartTests
             Assert.NotNull(loaded);
             Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
             Assert.Empty(loaded.MusicalParts);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void Schema29_MigratesExistingPartsToUnassignedInstrumentsWithoutInventingThem()
+    {
+        var project = SongProject.Create("Schema 29 parts");
+        var section = project.AddSection(SectionKind.Verse);
+        project.SetSectionRole(section.Id, ArrangementRole.Pulse);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 96);
+        project.AddMusicalPart(section.Id, ArrangementRole.Pulse, "Verse pulse", [note.Id], "cello");
+        var document = JsonNode.Parse(PortableProjectExporter.SerializeDocument(project))!.AsObject();
+        document["schemaVersion"] = 29;
+        foreach (var part in document["musicalParts"]!.AsArray().OfType<JsonObject>())
+            part.Remove("instrumentProfileId");
+
+        var inspected = PortableProjectImporter.Inspect(document.ToJsonString());
+
+        Assert.Equal(29, inspected.SourceSchemaVersion);
+        Assert.Equal(SchemaVersion.Current.Value, inspected.Project.SchemaVersion.Value);
+        Assert.Null(Assert.Single(inspected.Project.MusicalParts).InstrumentProfileId);
+        Assert.Equal("Verse pulse", Assert.Single(inspected.Project.MusicalParts).Label);
+    }
+
+    [Fact]
+    public async Task SaveLoad_PreservesAssignedCatalogInstrument()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-forge-{Guid.NewGuid():N}");
+        try
+        {
+            Directory.CreateDirectory(directory);
+            var project = SongProject.Create("Assigned cello");
+            var section = project.AddSection(SectionKind.Chorus);
+            project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+            var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 960, 90);
+            var part = project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Chorus foundation", [note.Id], "cello");
+            await new JsonFileProjectRepository(directory).SaveAsync(project);
+
+            var loaded = await new JsonFileProjectRepository(directory).LoadAsync(project.Id);
+
+            Assert.NotNull(loaded);
+            Assert.Equal(SchemaVersion.Current, loaded.SchemaVersion);
+            var restored = Assert.Single(loaded.MusicalParts);
+            Assert.Equal(part.Id, restored.Id);
+            Assert.Equal("cello", restored.InstrumentProfileId);
         }
         finally
         {

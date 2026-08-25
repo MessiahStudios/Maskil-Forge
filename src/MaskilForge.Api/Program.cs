@@ -1081,11 +1081,13 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             RequiredSectionId(request),
             request.ArrangementRole ?? throw new ArgumentException("Arrangement role is required."),
             Required(request.PartLabel, "Musical-part name"),
-            request.NoteEventIds ?? throw new ArgumentException("Playable-note IDs are required."))); break;
+            request.NoteEventIds ?? throw new ArgumentException("Playable-note IDs are required."),
+            request.InstrumentProfileId)); break;
         case "set-musical-part": editor.Execute(new SetMusicalPartCommand(
             request.MusicalPartId ?? throw new ArgumentException("Musical-part ID is required."),
             request.PartLabel ?? throw new ArgumentException("A musical-part name is required."),
-            request.NoteEventIds ?? throw new ArgumentException("Playable-note IDs are required."))); break;
+            request.NoteEventIds ?? throw new ArgumentException("Playable-note IDs are required."),
+            request.InstrumentProfileId)); break;
         case "remove-musical-part": editor.Execute(new RemoveMusicalPartCommand(
             request.MusicalPartId ?? throw new ArgumentException("Musical-part ID is required."))); break;
         case "use-low-end-support-proposal": editor.Execute(new UseLowEndSupportProposalCommand(RequiredSectionId(request))); break;
@@ -1447,6 +1449,7 @@ public sealed record ProjectCommandRequest(
     MusicalPartId? MusicalPartId = null,
     string? PartLabel = null,
     IReadOnlyList<NoteEventId>? NoteEventIds = null,
+    string? InstrumentProfileId = null,
     RegisteredPitch? NotePitch = null,
     long? StartTick = null,
     long? DurationTicks = null,

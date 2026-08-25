@@ -48,7 +48,7 @@ public sealed class InstrumentProfile
         IReadOnlyList<InstrumentArticulation> articulations,
         IReadOnlyList<InstrumentExpressiveQuality> expressiveQualities)
     {
-        if (string.IsNullOrWhiteSpace(id) || !IdPattern.IsMatch(id))
+        if (!IsValidId(id))
             throw new ArgumentException("An instrument profile ID must be a lowercase slug of at most 40 characters.", nameof(id));
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("An instrument profile name is required.", nameof(name));
         var normalizedName = name.Trim();
@@ -91,6 +91,9 @@ public sealed class InstrumentProfile
         Articulations = articulations.ToList();
         ExpressiveQualities = expressiveQualities.ToList();
     }
+
+    public static bool IsValidId(string? id) =>
+        !string.IsNullOrWhiteSpace(id) && IdPattern.IsMatch(id);
 
     public string Id { get; }
     public string Name { get; }

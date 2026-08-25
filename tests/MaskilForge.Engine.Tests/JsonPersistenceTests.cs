@@ -346,6 +346,7 @@ public sealed class JsonPersistenceTests
             Assert.Equal("Verse pulse", savedPart.GetProperty("label").GetString());
             Assert.Equal(noteEvent.Id.ToString(), Assert.Single(savedPart.GetProperty("noteEventIds").EnumerateArray()).GetString());
             Assert.Equal("Manual", savedPart.GetProperty("provenance").GetString());
+            Assert.Equal(JsonValueKind.Null, savedPart.GetProperty("instrumentProfileId").ValueKind);
         }
         finally
         {

@@ -2495,6 +2495,14 @@ function formatRegisteredPitch(pitch: RegisteredPitch) {
   const accidental = pitch.accidental === 'Sharp' ? '#' : pitch.accidental === 'Flat' ? 'b' : ''
   return `${pitch.letter}${accidental}${pitch.octave}`
 }
+function instrumentProfileName(id: string | null | undefined) {
+  if (!id) return 'Not assigned'
+  return instrumentProfiles.value?.instruments.find(item => item.id === id)?.name ?? id
+}
+function selectedInstrumentProfileId(data: FormData) {
+  const value = String(data.get('instrumentProfileId') ?? '').trim()
+  return value === '' ? null : value
+}
 function instrumentArticulationLabel(articulation: InstrumentArticulation) {
   if (articulation === 'BowExpression') return 'Bow expression'
   if (articulation === 'HammerOn') return 'Hammer-on'
@@ -3408,11 +3416,12 @@ function addMusicalPart(sectionId: string, event: Event) {
   const arrangementRole = String(data.get('role')) as ArrangementRole
   const partLabel = String(data.get('label') ?? '').trim()
   const noteEventIds = data.getAll('noteEventIds').map(String)
+  const instrumentProfileId = selectedInstrumentProfileId(data)
   return requestFirstPartCommit(partLabel, () => void run(
-      () => projectsApi.command(project.value!.id, project.value!, { type: 'add-musical-part', sectionId, arrangementRole, partLabel, noteEventIds }),
-      `${partLabel} now connects ${noteEventIds.length} approved note${noteEventIds.length === 1 ? '' : 's'} to the ${arrangementRoles.find(item => item.id === arrangementRole)?.label ?? arrangementRole} role.`,
+      () => projectsApi.command(project.value!.id, project.value!, { type: 'add-musical-part', sectionId, arrangementRole, partLabel, noteEventIds, instrumentProfileId }),
+      `${partLabel} now connects ${noteEventIds.length} approved note${noteEventIds.length === 1 ? '' : 's'} to the ${arrangementRoles.find(item => item.id === arrangementRole)?.label ?? arrangementRole} role${instrumentProfileId ? ` on ${instrumentProfileName(instrumentProfileId)}` : ''}.`,
       'arrangement.part.add',
-      { sectionId, arrangementRole, noteCount: noteEventIds.length })
+      { sectionId, arrangementRole, noteCount: noteEventIds.length, instrumentProfileId })
     .then(succeeded => { if (succeeded) form.reset() }))
 }
 function removeMusicalPart(musicalPartId: string, label: string) {
@@ -3429,11 +3438,12 @@ function setMusicalPart(musicalPartId: string, event: Event) {
   const data = new FormData(form)
   const partLabel = String(data.get('label') ?? '').trim()
   const noteEventIds = data.getAll('noteEventIds').map(String)
+  const instrumentProfileId = selectedInstrumentProfileId(data)
   return run(
-    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-musical-part', musicalPartId, partLabel, noteEventIds }),
-    `${partLabel} updated. Hear the section or song again to review the change.`,
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-musical-part', musicalPartId, partLabel, noteEventIds, instrumentProfileId }),
+    `${partLabel} updated${instrumentProfileId ? ` on ${instrumentProfileName(instrumentProfileId)}` : ''}. Hear the section or song again to review the change.`,
     'arrangement.part.set',
-    { musicalPartId, noteCount: noteEventIds.length })
+    { musicalPartId, noteCount: noteEventIds.length, instrumentProfileId })
 }
 function setSectionRole(sectionId: string, role: ArrangementRole, present: boolean) {
   if (!project.value) return
@@ -4847,7 +4857,7 @@ onBeforeUnmount(() => {
           <div>
             <span class="eyebrow">Host knowledge</span>
             <h3 id="instrument-knowledge-title">Instrument profiles</h3>
-            <p>These profiles are instrument concepts: range, musical jobs, articulations, and expressive qualities. They are not sample libraries or VST patches. They do not assign an instrument to a part or retarget a gesture. Matching, range fit, and gesture maps are inspectable only.</p>
+            <p>These profiles are instrument concepts: range, musical jobs, articulations, and expressive qualities. They are not sample libraries or VST patches. Matching, range fit, and gesture maps stay inspectable. Naming an instrument on a musical part below is an explicit artist choice; it does not retarget a gesture or emit MIDI.</p>
           </div>
           <label class="instrument-feeling-filter">Choose by feeling
             <select v-model="instrumentQualityFilter" :disabled="workspaceConnection !== 'ready'">
@@ -5107,6 +5117,12 @@ onBeforeUnmount(() => {
               <form v-if="notesForSection(section.id).length" class="musical-part-form" @submit.prevent="addMusicalPart(section.id, $event)">
                 <label>Part name<input name="label" data-readiness-action="part" maxlength="100" placeholder="Chorus foundation" required :disabled="busy" /></label>
                 <label>Musical job<select name="role" required :disabled="busy"><option v-for="role in assignedRolesForSection(section.id)" :key="role.id" :value="role.id">{{ role.label }}</option></select></label>
+                <label>Catalog instrument
+                  <select name="instrumentProfileId" :disabled="busy || !instrumentProfiles">
+                    <option value="">Not assigned</option>
+                    <option v-for="instrument in instrumentProfiles?.instruments ?? []" :key="instrument.id" :value="instrument.id">{{ instrument.name }}</option>
+                  </select>
+                </label>
                 <fieldset>
                   <legend>Which approved notes belong to this part?</legend>
                   <label v-for="note in notesForSection(section.id)" :key="note.id" class="musical-part-note">
@@ -5115,6 +5131,7 @@ onBeforeUnmount(() => {
                     <small>tick {{ note.startTick }} · {{ note.durationTicks }} ticks</small>
                   </label>
                 </fieldset>
+                <p class="arrangement-prompt">Any catalog instrument can be named, including ones that do not cover this job. Recommendations above do not assign one. This does not retarget notes or change MIDI.</p>
                 <button type="submit" :disabled="busy">Create musical part</button>
               </form>
               <p v-else class="arrangement-prompt">Approve a harmony note sketch first. Then you can explain which musical job those notes perform.</p>
@@ -5122,7 +5139,13 @@ onBeforeUnmount(() => {
                 <li v-for="part in partsForSection(section.id)" :key="part.id">
                   <form class="musical-part-edit-form" @submit.prevent="setMusicalPart(part.id, $event)">
                     <label>Part name<input name="label" maxlength="100" :value="part.label" required :disabled="busy" /></label>
-                    <small>{{ arrangementRoles.find(item => item.id === part.role)?.label ?? part.role }} · choose at least one note</small>
+                    <label>Catalog instrument
+                      <select name="instrumentProfileId" :value="part.instrumentProfileId ?? ''" :disabled="busy || !instrumentProfiles">
+                        <option value="">Not assigned</option>
+                        <option v-for="instrument in instrumentProfiles?.instruments ?? []" :key="instrument.id" :value="instrument.id">{{ instrument.name }}</option>
+                      </select>
+                    </label>
+                    <small>{{ arrangementRoles.find(item => item.id === part.role)?.label ?? part.role }} · {{ instrumentProfileName(part.instrumentProfileId) }} · choose at least one note</small>
                     <fieldset>
                       <legend>Approved notes in this part</legend>
                       <label v-for="note in notesForSection(section.id)" :key="`${part.id}-${note.id}`" class="musical-part-note">
@@ -5149,7 +5172,7 @@ onBeforeUnmount(() => {
           </article>
         </div>
         <p v-else class="arrangement-empty">Add a Verse, Chorus, or another section above. Then you can describe how its energy should grow and what musical jobs it needs.</p>
-        <p class="arrangement-boundary">Musical parts connect your approved notes to an arrangement purpose. Instrument choices and automatic realization come later.</p>
+        <p class="arrangement-boundary">Musical parts connect your approved notes to an arrangement purpose. Naming a catalog instrument is optional and reversible. It does not retarget notes, persist a cello or guitar sketch, or emit MIDI program changes.</p>
       </section>
 
       <section v-if="!phoneCaptureMode" class="midi-export-panel" aria-labelledby="midi-export-title">

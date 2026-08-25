@@ -68,7 +68,8 @@ public sealed class SectionRoleAssignment
 
 /// <summary>
 /// An artist-authored grouping that explains which approved notes fulfill one
-/// arrangement role in one section. It does not choose an instrument or generate notes.
+/// arrangement role in one section. It may name a catalog instrument. It does not
+/// generate notes or retarget a performance.
 /// </summary>
 public sealed class MusicalPart
 {
@@ -79,7 +80,8 @@ public sealed class MusicalPart
         ArrangementRole role,
         string label,
         IReadOnlyList<NoteEventId> noteEventIds,
-        ArrangementProvenance provenance)
+        ArrangementProvenance provenance,
+        string? instrumentProfileId = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A musical-part ID is required.", nameof(id));
         if (sectionId.Value == Guid.Empty) throw new ArgumentException("A section ID is required.", nameof(sectionId));
@@ -91,12 +93,20 @@ public sealed class MusicalPart
         if (noteEventIds.Any(item => item.Value == Guid.Empty) || noteEventIds.Distinct().Count() != noteEventIds.Count)
             throw new ArgumentException("Musical-part note references must be valid and unique.", nameof(noteEventIds));
         if (!Enum.IsDefined(provenance)) throw new ArgumentOutOfRangeException(nameof(provenance), "Arrangement provenance is invalid.");
+        if (string.IsNullOrWhiteSpace(instrumentProfileId)) instrumentProfileId = null;
+        else
+        {
+            instrumentProfileId = instrumentProfileId.Trim();
+            if (!InstrumentProfile.IsValidId(instrumentProfileId))
+                throw new ArgumentException("An assigned instrument must be a catalog slug of at most 40 characters.", nameof(instrumentProfileId));
+        }
         Id = id;
         SectionId = sectionId;
         Role = role;
         Label = label.Trim();
         NoteEventIds = noteEventIds.ToList();
         Provenance = provenance;
+        InstrumentProfileId = instrumentProfileId;
     }
 
     public MusicalPartId Id { get; }
@@ -105,9 +115,10 @@ public sealed class MusicalPart
     public string Label { get; }
     public IReadOnlyList<NoteEventId> NoteEventIds { get; }
     public ArrangementProvenance Provenance { get; }
+    public string? InstrumentProfileId { get; }
 
-    public MusicalPart With(string label, IReadOnlyList<NoteEventId> noteEventIds) =>
-        new(Id, SectionId, Role, label, noteEventIds, Provenance);
+    public MusicalPart With(string label, IReadOnlyList<NoteEventId> noteEventIds, string? instrumentProfileId) =>
+        new(Id, SectionId, Role, label, noteEventIds, Provenance, instrumentProfileId);
 }
 
 /// <summary>An artist-authored arrangement intention for one existing song section.</summary>
