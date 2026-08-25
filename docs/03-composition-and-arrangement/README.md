@@ -47,6 +47,8 @@ Slice 7.13 grows the catalog to version 4 with synth pad, synth lead, and electr
 
 Slice 7.14 maps swell onto those instruments’ own articulations and lets a named part store the result. Synth pad swell is pad. Synth lead can also take a portamento slide. Electric guitar can also take a bend. Synth pad slides stay unused, and none of them take kit hits.
 
+Slice 7.15 maps drum-kit Hit onto General MIDI Acoustic Bass Drum (C2) so stored kit hits are a percussion pitch instead of a melodic C4. The host does not choose snare or hat, and does not move those hits onto a drum MIDI channel.
+
 ## Generator order
 
 1. Section energy and density plan

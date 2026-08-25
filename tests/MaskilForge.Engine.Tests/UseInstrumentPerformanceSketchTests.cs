@@ -151,7 +151,9 @@ public sealed class UseInstrumentPerformanceSketchTests
         Assert.Equal(2, accepted.NoteEventIds.Count);
         Assert.Contains(existingNoteId, accepted.NoteEventIds);
         var added = Assert.Single(editor.Project.NoteEvents, item => item.Id != existingNoteId);
-        Assert.Equal(60, added.Pitch.MidiNumber);
+        Assert.Equal(36, added.Pitch.MidiNumber);
+        Assert.Equal(NoteLetter.C, added.Pitch.Letter);
+        Assert.Equal(2, added.Pitch.Octave);
         Assert.Equal(92, added.StartTick);
         Assert.Equal(31, added.DurationTicks);
         Assert.Equal(102, added.Velocity);
@@ -175,7 +177,7 @@ public sealed class UseInstrumentPerformanceSketchTests
         Assert.Equal(69, added.Pitch.MidiNumber);
         Assert.Equal(96, added.Velocity);
         Assert.Contains(added.Id, Assert.Single(violin.Project.MusicalParts).NoteEventIds);
-        Assert.DoesNotContain(violin.Project.NoteEvents, item => item.Pitch.MidiNumber == 60 && item.StartTick == 92);
+        Assert.DoesNotContain(violin.Project.NoteEvents, item => item.Pitch.MidiNumber == 36 && item.StartTick == 92);
         var violinCurve = Assert.Single(violin.Project.ExpressionCurves);
         Assert.Equal("Violin swell", violinCurve.Name);
         Assert.Equal("violin", violinCurve.InstrumentProfileId);
@@ -240,7 +242,7 @@ public sealed class UseInstrumentPerformanceSketchTests
             Assert.Equal(69, added.Pitch.MidiNumber);
             Assert.Equal(96, added.Velocity);
             Assert.Contains(added.Id, Assert.Single(editor.Project.MusicalParts).NoteEventIds);
-            Assert.DoesNotContain(editor.Project.NoteEvents, item => item.Pitch.MidiNumber == 60 && item.StartTick == 92);
+            Assert.DoesNotContain(editor.Project.NoteEvents, item => item.Pitch.MidiNumber == 36 && item.StartTick == 92);
             var curve = Assert.Single(editor.Project.ExpressionCurves);
             Assert.Equal(curveName, curve.Name);
             Assert.Equal(instrumentId, curve.InstrumentProfileId);
@@ -261,7 +263,7 @@ public sealed class UseInstrumentPerformanceSketchTests
         Assert.Equal(2, Assert.Single(editor.Project.MusicalParts).NoteEventIds.Count);
         var added = Assert.Single(editor.Project.NoteEvents, item => item.Id != existingNoteId);
         Assert.Equal(69, added.Pitch.MidiNumber);
-        Assert.DoesNotContain(editor.Project.NoteEvents, item => item.Pitch.MidiNumber == 60 && item.StartTick == 92);
+        Assert.DoesNotContain(editor.Project.NoteEvents, item => item.Pitch.MidiNumber == 36 && item.StartTick == 92);
         Assert.Empty(editor.Project.ExpressionCurves);
     }
 

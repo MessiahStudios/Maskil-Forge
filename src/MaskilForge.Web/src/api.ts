@@ -87,6 +87,18 @@ export interface InstrumentArticulationMapSet {
   maps: InstrumentArticulationMap[]
 }
 
+export interface DrumKitGeneralMidiPiece {
+  id: string
+  name: string
+  pitch: RegisteredPitch
+}
+
+export interface DrumKitGeneralMidiMap {
+  instrumentId: string
+  instrumentName: string
+  hit: DrumKitGeneralMidiPiece
+}
+
 export interface InstrumentPerformanceEvent {
   gestureId: string
   observationId: string
@@ -750,6 +762,7 @@ export const projectsApi = {
       body: JSON.stringify({ notes }),
     }),
   instrumentArticulationMaps: () => request<InstrumentArticulationMapSet>('/api/instrument-articulation-maps'),
+  drumKitGmMap: () => request<DrumKitGeneralMidiMap>('/api/drum-kit-gm-map'),
   list: () => request<ProjectSummary[]>('/api/projects'),
   listRecovery: () => request<RecoverySummary[]>('/api/recovery'),
   loadRecovery: (id: string) => request<RecoveryProjectResponse>(`/api/recovery/${id}`),

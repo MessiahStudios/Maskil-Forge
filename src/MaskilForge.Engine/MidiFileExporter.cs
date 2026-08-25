@@ -7,7 +7,8 @@ namespace MaskilForge.Engine;
 /// <summary>
 /// Translates the project's approved playable notes and timeline metadata into a
 /// format-0 Standard MIDI File. Dynamics curves emit as CC 11 on channel 0 even when
-/// tagged with a catalog instrument. Export never emits program changes.
+/// tagged with a catalog instrument. Drum-kit hits stay on channel 0 even when they
+/// use a General MIDI percussion pitch. Export never emits program changes.
 /// </summary>
 public static class MidiFileExporter
 {

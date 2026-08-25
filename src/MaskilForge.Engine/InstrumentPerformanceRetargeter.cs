@@ -37,7 +37,8 @@ public sealed record InstrumentPerformanceRetargetSet(
 /// Adapts approved pitch, loudness, and onset gestures onto the current catalog
 /// using the host articulation map. Piano, bass, flute, clarinet, trumpet, and
 /// synth-pad slides stay unused. Drum-kit swell and slide stay unused. Pitched
-/// instruments do not take kit hits. Synth-pad swell is pad, not cello bow.
+/// instruments do not take kit hits. Kit hits use General MIDI Acoustic Bass
+/// Drum rather than a melodic C4. Synth-pad swell is pad, not cello bow.
 /// </summary>
 public static class InstrumentPerformanceRetargeter
 {
@@ -51,7 +52,7 @@ public static class InstrumentPerformanceRetargeter
     public const string LoudnessObservationKind = LoudnessGestureExpressionSketcher.LoudnessObservationKind;
     public const string StrengthMeasurementName = OnsetGestureNoteSketcher.StrengthMeasurementName;
     public const string OnsetObservationKind = OnsetGestureNoteSketcher.OnsetObservationKind;
-    private static readonly RegisteredPitch HitPitch = new(NoteLetter.C, Accidental.Natural, 4);
+    private static readonly RegisteredPitch HitPitch = DrumKitGeneralMidiMapper.AcousticBassDrumPitch;
     private const decimal MinimumRmsDecibels = -120m;
     private const decimal MaximumRmsDecibels = 0m;
     private const decimal ExpressionFloorDecibels = -60m;

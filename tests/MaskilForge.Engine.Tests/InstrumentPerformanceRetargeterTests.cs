@@ -233,7 +233,9 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.True(kit.Hit.Applicable);
         Assert.Equal(InstrumentArticulation.Hit, kit.Hit.Articulation);
         Assert.Equal(gesture.Id, hit.GestureId);
-        Assert.Equal(60, hit.Pitch!.MidiNumber);
+        Assert.Equal(36, hit.Pitch!.MidiNumber);
+        Assert.Equal(NoteLetter.C, hit.Pitch.Letter);
+        Assert.Equal(2, hit.Pitch.Octave);
         Assert.Equal(92, hit.StartTick);
         Assert.Equal(31, hit.DurationTicks);
         Assert.Equal(102, hit.Value);

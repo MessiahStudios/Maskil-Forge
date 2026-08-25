@@ -59,6 +59,22 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_LeavesDrumKitHitsOnChannelZeroWithoutAProgramChange()
+    {
+        var project = SongProject.Create("Assigned kit MIDI");
+        var section = project.AddSection(SectionKind.Verse);
+        project.SetSectionRole(section.Id, ArrangementRole.Pulse);
+        var note = project.AddNoteEvent(DrumKitGeneralMidiMapper.AcousticBassDrumPitch, 0, 120, 102);
+        project.AddMusicalPart(section.Id, ArrangementRole.Pulse, "Verse pulse", [note.Id], "drum-kit");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 36, 102]);
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0x0F) == 0x09);
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+    }
+
+    [Fact]
     public void Export_EmitsAssignedInstrumentDynamicsAsExpressionWithoutProgramChanges()
     {
         var project = SongProject.Create("Cello swell MIDI");

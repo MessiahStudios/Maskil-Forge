@@ -67,6 +67,7 @@ app.MapPost("/api/instrument-recommendations", (InstrumentRecommendationRequest 
 app.MapPost("/api/instrument-range-review", (InstrumentRangeReviewRequest request) =>
     Results.Ok(InstrumentRangeReviewer.Review(request.Notes)));
 app.MapGet("/api/instrument-articulation-maps", () => Results.Ok(InstrumentArticulationMapper.Map()));
+app.MapGet("/api/drum-kit-gm-map", () => Results.Ok(DrumKitGeneralMidiMapper.Map()));
 
 if (app.Environment.IsDevelopment())
 {

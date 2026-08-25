@@ -999,6 +999,14 @@ The slice does not add organ, ensemble strings, extra percussion, or other later
 
 **Deliverable:** an artist can hear how a swell or slide would be played on synth pad, synth lead, or electric guitar, and store what applies, without the host treating them like cello, acoustic guitar, or a drum kit.
 
+### Milestone 7.15 — Drum-kit General MIDI map
+
+Map drum-kit Hit onto one inspectable General MIDI percussion pitch: Acoustic Bass Drum at MIDI 36 (C2). Desktop Arrangement inspects the map. Desktop Music previews and can store those hits on a musical part that already names the kit, using C2 instead of a melodic C4 placeholder. Strength still becomes velocity. The voice-to-MIDI onset sketch stays C4 because that sketch is not a drum map.
+
+The host does not choose snare, hat, or another kit piece from the onset, does not add extra percussion instruments, does not emit MIDI program changes, and does not move hits onto channel 10. Schema stays at v31. Catalog stays at version 4. Phone Music remains hidden.
+
+**Deliverable:** an artist can store kit hits as a General MIDI bass drum without the host choosing a kit piece or a drum MIDI channel.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
