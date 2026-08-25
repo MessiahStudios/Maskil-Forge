@@ -1031,6 +1031,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open named cello, guitar, and other pitched catalog parts as the matching General MIDI sound in another music application, without the host inventing a drum program or choosing a renderer.
 
+### Milestone 7.19 — Articulation MIDI controllers
+
+Emit tagged Dynamics curves on an inspectable MIDI controller that follows the catalog swell articulation. Flute swell is Breath, so CC 2 Breath Controller. Synth lead swell is Filter, so CC 74 Brightness. Other catalog swells stay CC 11 Expression. Untagged curves stay CC 11 on channel 1. Drum kit still has no persistable swell and no dynamics controller. The map is host knowledge. The host does not invent a default technique for untagged notes, emit pitch bend, choose snare versus hat, or add later instruments.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a tagged flute or synth-lead swell as the matching MIDI controller in another music application, without the host inventing a kit swell or a default articulation on every note.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

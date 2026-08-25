@@ -192,6 +192,48 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_EmitsFluteDynamicsAsBreathController()
+    {
+        var project = SongProject.Create("Flute swell MIDI");
+        var section = project.AddSection(SectionKind.Chorus);
+        project.SetSectionRole(section.Id, ArrangementRole.Texture);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 5), 0, 480, 100);
+        project.AddMusicalPart(section.Id, ArrangementRole.Texture, "Chorus flute", [note.Id], "flute");
+        project.AddExpressionCurve(
+            "Flute swell",
+            ExpressionCurveKind.Dynamics,
+            [new ExpressionCurvePoint(0, 88)],
+            "flute");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xB6, 2, 88 }));
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x96, 72, 100]);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xB6, 11, 88 }));
+    }
+
+    [Fact]
+    public void Export_EmitsSynthLeadDynamicsAsBrightness()
+    {
+        var project = SongProject.Create("Synth lead swell MIDI");
+        var section = project.AddSection(SectionKind.Chorus);
+        project.SetSectionRole(section.Id, ArrangementRole.HookReinforcement);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+        project.AddMusicalPart(section.Id, ArrangementRole.HookReinforcement, "Chorus lead", [note.Id], "synth-lead");
+        project.AddExpressionCurve(
+            "Synth lead swell",
+            ExpressionCurveKind.Dynamics,
+            [new ExpressionCurvePoint(0, 88)],
+            "synth-lead");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xBB, 74, 88 }));
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x9B, 60, 100]);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xBB, 11, 88 }));
+    }
+
+    [Fact]
     public void Export_EmitsDynamicsAsExpressionControlChangeBeforeNoteOn()
     {
         var project = SongProject.Create("Expression MIDI");

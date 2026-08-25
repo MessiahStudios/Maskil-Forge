@@ -70,6 +70,7 @@ app.MapGet("/api/instrument-articulation-maps", () => Results.Ok(InstrumentArtic
 app.MapGet("/api/drum-kit-gm-map", () => Results.Ok(DrumKitGeneralMidiMapper.Map()));
 app.MapGet("/api/instrument-midi-channels", () => Results.Ok(InstrumentMidiChannelMapper.Map()));
 app.MapGet("/api/instrument-midi-programs", () => Results.Ok(InstrumentMidiProgramMapper.Map()));
+app.MapGet("/api/instrument-midi-controllers", () => Results.Ok(InstrumentMidiControllerMapper.Map()));
 
 if (app.Environment.IsDevelopment())
 {

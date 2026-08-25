@@ -122,6 +122,19 @@ export interface InstrumentMidiProgramMapSet {
   assignments: InstrumentMidiProgramAssignment[]
 }
 
+export interface InstrumentMidiControllerAssignment {
+  instrumentId: string
+  instrumentName: string
+  applicable: boolean
+  articulation: InstrumentArticulation | null
+  controllerName: string | null
+  controllerNumber: number | null
+}
+
+export interface InstrumentMidiControllerMapSet {
+  assignments: InstrumentMidiControllerAssignment[]
+}
+
 export interface InstrumentPerformanceEvent {
   gestureId: string
   observationId: string
@@ -788,6 +801,7 @@ export const projectsApi = {
   drumKitGmMap: () => request<DrumKitGeneralMidiMap>('/api/drum-kit-gm-map'),
   instrumentMidiChannels: () => request<InstrumentMidiChannelMapSet>('/api/instrument-midi-channels'),
   instrumentMidiPrograms: () => request<InstrumentMidiProgramMapSet>('/api/instrument-midi-programs'),
+  instrumentMidiControllers: () => request<InstrumentMidiControllerMapSet>('/api/instrument-midi-controllers'),
   list: () => request<ProjectSummary[]>('/api/projects'),
   listRecovery: () => request<RecoverySummary[]>('/api/recovery'),
   loadRecovery: (id: string) => request<RecoveryProjectResponse>(`/api/recovery/${id}`),

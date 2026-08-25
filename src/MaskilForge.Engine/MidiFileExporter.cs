@@ -8,9 +8,12 @@ namespace MaskilForge.Engine;
 /// Translates the project's approved playable notes and timeline metadata into a
 /// format-0 Standard MIDI File. Notes and tagged dynamics use inspectable MIDI
 /// channels from the catalog map. Named pitched parts also emit inspectable
-/// General MIDI program changes on those channels. Drum-kit notes stay on
-/// channel 10 without a program change. Unassigned notes and untagged dynamics
-/// stay on channel 1 without a program change.
+/// General MIDI program changes on those channels. Tagged dynamics use each
+/// instrument's inspectable controller: flute swell is Breath Controller (CC 2),
+/// synth-lead swell is Brightness (CC 74), and other catalog swells stay
+/// Expression (CC 11). Drum-kit notes stay on channel 10 without a program
+/// change. Unassigned notes and untagged dynamics stay on channel 1 with
+/// Expression (CC 11).
 /// </summary>
 public static class MidiFileExporter
 {
@@ -51,6 +54,7 @@ public static class MidiFileExporter
     {
         var channels = InstrumentMidiChannelMapper.Map();
         var programs = InstrumentMidiProgramMapper.Map();
+        var controllers = InstrumentMidiControllerMapper.Map();
         var events = new List<MidiEvent>();
         foreach (var tempo in project.Timeline.TempoMap.Events)
         {
@@ -102,7 +106,8 @@ public static class MidiFileExporter
                 if (point.Tick > MaximumVariableLengthValue)
                     throw new InvalidOperationException("An expression curve extends beyond the timing range supported by a Standard MIDI File.");
                 var channel = ChannelFor(curve, channels);
-                events.Add(new MidiEvent(point.Tick, 3, 11, channel, curve.Id.Value, [(byte)(0xB0 | channel), 11, checked((byte)point.Value)]));
+                var controller = ControllerFor(curve, controllers);
+                events.Add(new MidiEvent(point.Tick, 3, controller, channel, curve.Id.Value, [(byte)(0xB0 | channel), controller, checked((byte)point.Value)]));
             }
         }
 
@@ -146,6 +151,19 @@ public static class MidiFileExporter
             return DrumKitGeneralMidiMapper.DrumKitInstrumentId;
 
         return map.Assignments.FirstOrDefault(item => partIds.Contains(item.InstrumentId))?.InstrumentId;
+    }
+
+    private static byte ControllerFor(ExpressionCurve curve, InstrumentMidiControllerMapSet map)
+    {
+        if (string.IsNullOrEmpty(curve.InstrumentProfileId))
+            return InstrumentMidiControllerMapper.ExpressionControllerNumber;
+
+        var assignment = map.Assignments.FirstOrDefault(item =>
+            string.Equals(item.InstrumentId, curve.InstrumentProfileId, StringComparison.Ordinal));
+        if (assignment is null || !assignment.Applicable || assignment.ControllerNumber is null)
+            return InstrumentMidiControllerMapper.ExpressionControllerNumber;
+
+        return checked((byte)assignment.ControllerNumber.Value);
     }
 
     private static byte ChannelFor(ExpressionCurve curve, InstrumentMidiChannelMapSet map)

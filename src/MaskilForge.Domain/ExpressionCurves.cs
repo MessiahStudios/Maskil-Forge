@@ -24,8 +24,8 @@ public sealed record ExpressionCurvePoint
 
 /// <summary>
 /// An artist-authored dynamics curve in absolute song time. It may name a catalog
-/// instrument. MIDI export may translate Dynamics to continuous controller 11
-/// without choosing a MIDI program or channel per instrument.
+/// instrument. MIDI export may translate Dynamics to that instrument's inspectable
+/// controller, or to Expression (CC 11) when the curve is untagged.
 /// </summary>
 public sealed class ExpressionCurve
 {

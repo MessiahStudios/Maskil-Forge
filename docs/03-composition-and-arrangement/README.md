@@ -55,6 +55,8 @@ Slice 7.17 exports named catalog parts on inspectable MIDI channels. Drum kit st
 
 Slice 7.18 emits inspectable General MIDI program changes for named pitched parts. Drum kit and unassigned notes still have none.
 
+Slice 7.19 emits tagged dynamics on each instrument’s inspectable MIDI controller. Flute swell is CC 2. Synth lead swell is CC 74. Other catalog swells and untagged curves stay CC 11.
+
 ## Generator order
 
 1. Section energy and density plan
