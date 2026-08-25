@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentExpressiveQuality, type InstrumentProfile, type InstrumentProfileCatalog, type InstrumentRecommendationSet, type InstrumentRangeReviewSet, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentArticulationMapSet, type InstrumentExpressiveQuality, type InstrumentProfile, type InstrumentProfileCatalog, type InstrumentRecommendationSet, type InstrumentRangeReviewSet, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -80,6 +80,7 @@ const instrumentProfiles = ref<InstrumentProfileCatalog | null>(null)
 const instrumentQualityFilter = ref<InstrumentExpressiveQuality | ''>('')
 const instrumentRecommendations = ref<InstrumentRecommendationSet | null>(null)
 const instrumentRangeReviews = ref<InstrumentRangeReviewSet | null>(null)
+const instrumentArticulationMaps = ref<InstrumentArticulationMapSet | null>(null)
 let instrumentRecommendationToken = 0
 let instrumentRangeReviewToken = 0
 const workspaceCheckBusy = ref(false)
@@ -1884,6 +1885,18 @@ async function refreshWorkspaceHealth() {
       instrumentProfiles.value = null
       activityLog.write('warning', 'instrument-knowledge.load', error instanceof Error ? error.message : 'Instrument profiles could not be loaded.')
     }
+    try {
+      instrumentArticulationMaps.value = await projectsApi.instrumentArticulationMaps()
+      const mappings = instrumentArticulationMaps.value.maps.flatMap(item => item.mappings)
+      activityLog.write('info', 'instrument-articulation-map.load', 'Instrument articulation maps loaded.', {
+        instrumentCount: instrumentArticulationMaps.value.maps.length,
+        mappedCount: mappings.filter(item => item.applicable).length,
+        notApplicableCount: mappings.filter(item => !item.applicable).length,
+      })
+    } catch (error) {
+      instrumentArticulationMaps.value = null
+      activityLog.write('warning', 'instrument-articulation-map.load', error instanceof Error ? error.message : 'Instrument articulation maps could not be loaded.')
+    }
     await refreshBrowserRecovery()
     await syncBrowserRecovery()
   } catch {
@@ -1891,6 +1904,7 @@ async function refreshWorkspaceHealth() {
     workspaceHealth.value = null
     instrumentProfiles.value = null
     instrumentRangeReviews.value = null
+    instrumentArticulationMaps.value = null
     workspaceConnection.value = 'unavailable'
     if (previousConnection !== 'unavailable') {
       activityLog.write('warning', 'delivery.workspace', 'Local project service is unavailable. Host-owned editing is paused; browser-owned lyric capture remains available.')
@@ -2480,6 +2494,19 @@ function instrumentArticulationLabel(articulation: InstrumentArticulation) {
   if (articulation === 'BowExpression') return 'Bow expression'
   if (articulation === 'HammerOn') return 'Hammer-on'
   return articulation
+}
+function instrumentGestureLabel(gesture: string) {
+  return gesture
+}
+function articulationMapForInstrument(instrumentId: string) {
+  return instrumentArticulationMaps.value?.maps.find(item => item.instrumentId === instrumentId) ?? null
+}
+function gestureMapCopy(instrumentId: string) {
+  const map = articulationMapForInstrument(instrumentId)
+  if (!map) return []
+  return map.mappings.map(mapping => mapping.applicable && mapping.articulation
+    ? `${instrumentGestureLabel(mapping.gesture)} → ${instrumentArticulationLabel(mapping.articulation)}`
+    : `${instrumentGestureLabel(mapping.gesture)} does not apply.`)
 }
 function instrumentQualityLabel(quality: InstrumentExpressiveQuality) {
   return quality
@@ -4774,7 +4801,7 @@ onBeforeUnmount(() => {
           <div>
             <span class="eyebrow">Host knowledge</span>
             <h3 id="instrument-knowledge-title">Instrument profiles</h3>
-            <p>These profiles are instrument concepts: range, musical jobs, articulations, and expressive qualities. They are not sample libraries or VST patches. They do not assign an instrument to a part or retarget a gesture. Matching and range fit below are inspectable only.</p>
+            <p>These profiles are instrument concepts: range, musical jobs, articulations, and expressive qualities. They are not sample libraries or VST patches. They do not assign an instrument to a part or retarget a gesture. Matching, range fit, and gesture maps are inspectable only.</p>
           </div>
           <label class="instrument-feeling-filter">Choose by feeling
             <select v-model="instrumentQualityFilter" :disabled="workspaceConnection !== 'ready'">
@@ -4792,6 +4819,9 @@ onBeforeUnmount(() => {
             <p v-else-if="!instrument.pitched">Unpitched. Kit pieces are not a melodic range.</p>
             <p>Jobs {{ instrument.roles.map(instrumentRoleLabel).join(', ') }}</p>
             <p>Articulations {{ instrument.articulations.map(instrumentArticulationLabel).join(', ') }}</p>
+            <ul v-if="articulationMapForInstrument(instrument.id)" class="instrument-gesture-map" :aria-label="`Gesture map for ${instrument.name}`">
+              <li v-for="line in gestureMapCopy(instrument.id)" :key="`${instrument.id}-${line}`">{{ line }}</li>
+            </ul>
           </article>
         </section>
         <section class="demo-readiness" aria-labelledby="demo-readiness-title">

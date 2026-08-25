@@ -25,7 +25,9 @@ Slice 7.2 matches catalog instruments to assigned arrangement roles, optionally 
 
 Slice 7.3 replaces the two-instrument catalog with version 2 of the host-owned proof set: cello, acoustic guitar, piano, electric bass, and drum kit. These are instrument concepts, not renderer patches. Drum kit is unpitched.
 
-Slice 7.4 reports which existing notes sit outside a catalog instrument’s inclusive range. Drum kit range does not apply. The review does not transpose, assign, or retarget. Articulation maps, orchestration-vocabulary instruments, and performance retargeters remain later Milestone 7 slices.
+Slice 7.4 reports which existing notes sit outside a catalog instrument’s inclusive range. Drum kit range does not apply. The review does not transpose, assign, or retarget.
+
+Slice 7.5 maps swell and slide onto named catalog articulations without retargeting a recorded gesture or assigning an instrument. Drum kit remains not applicable. Performance retargeters and later catalog waves remain later Milestone 7 slices.
 
 ## Generator order
 

@@ -69,6 +69,24 @@ export interface InstrumentRangeReviewSet {
   reviews: InstrumentRangeReview[]
 }
 
+export type NeutralPerformanceGesture = 'Swell' | 'Slide'
+
+export interface InstrumentArticulationMapping {
+  gesture: NeutralPerformanceGesture
+  applicable: boolean
+  articulation: InstrumentArticulation | null
+}
+
+export interface InstrumentArticulationMap {
+  instrumentId: string
+  instrumentName: string
+  mappings: InstrumentArticulationMapping[]
+}
+
+export interface InstrumentArticulationMapSet {
+  maps: InstrumentArticulationMap[]
+}
+
 export interface SectionArrangement {
   id: string
   sectionId: string
@@ -692,6 +710,7 @@ export const projectsApi = {
       method: 'POST',
       body: JSON.stringify({ notes }),
     }),
+  instrumentArticulationMaps: () => request<InstrumentArticulationMapSet>('/api/instrument-articulation-maps'),
   list: () => request<ProjectSummary[]>('/api/projects'),
   listRecovery: () => request<RecoverySummary[]>('/api/recovery'),
   loadRecovery: (id: string) => request<RecoveryProjectResponse>(`/api/recovery/${id}`),

@@ -898,9 +898,17 @@ The slice does not add violin, flute, clarinet, trumpet, electric guitar, synths
 
 Compare existing playable notes with the version-2 catalog ranges. A pitched instrument reports every note whose MIDI number sits below its minimum or above its maximum, inclusive of the bounds. Drum kit is unpitched, so range does not apply and no collisions are invented. The review is derived host knowledge: it does not transpose notes, assign `instrumentProfileId`, map articulations, or retarget a gesture. Schema stays at v29.
 
-Desktop Arrangement shows that fit next to each recommended instrument for the section’s notes. Phone Arrangement remains hidden. Later slices can map articulations and retarget across this proof set.
+Desktop Arrangement shows that fit next to each recommended instrument for the section’s notes. Phone Arrangement remains hidden. Later slices can retarget across this proof set.
 
 **Deliverable:** an artist can see which existing notes sit outside a catalog instrument’s range without the host moving them.
+
+### Milestone 7.5 — Instrument articulation maps
+
+Map two neutral performance ideas onto the version-2 catalog articulations. A swell becomes cello bow expression, guitar picking, piano strike, or bass finger; a slide becomes cello slide or guitar bend. Piano slide, bass slide, and both drum-kit gestures are not applicable: the host does not invent cello-like technique for an unpitched kit or an instrument that has no matching articulation. The map is derived host knowledge. It does not retarget a recorded gesture, emit MIDI, assign `instrumentProfileId`, or change the Song Graph. Schema stays at v29. Catalog stays at version 2.
+
+Desktop Arrangement inspects the map on each instrument profile. Phone Arrangement remains hidden. Later slices can retarget the same gesture across at least two of these instruments.
+
+**Deliverable:** an artist can see how a swell or slide would be played on each catalog instrument without the host retargeting anything.
 
 ## Delivery foundation — Portable before platform-specific
 

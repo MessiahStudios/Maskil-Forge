@@ -511,6 +511,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .instrument-profile > div { display: grid; gap: .15rem; }
 .instrument-profile strong { color: #ead9b2; }
 .instrument-profile small, .instrument-profile p { color: #9fa596; }
+.instrument-gesture-map { display: grid; gap: .15rem; margin: .15rem 0 0; padding: 0; list-style: none; color: #9fa596; }
 .instrument-feeling-filter { display: grid; gap: .2rem; color: #9fa596; max-width: 18rem; }
 .instrument-feeling-filter select { width: 100%; }
 .instrument-role-matches { grid-column: 1 / -1; display: grid; gap: .55rem; padding: .75rem; background: #121510; border: 1px solid #3d4338; border-radius: .35rem; }

@@ -110,7 +110,9 @@ Slice 7.2 lists catalog instruments that can cover an assigned job, optionally f
 
 Slice 7.3 grows that catalog to a five-instrument proof set chosen for different performance behavior: bowed cello, plucked acoustic guitar, struck piano, grooving electric bass, and unpitched drum kit.
 
-Slice 7.4 compares existing notes with those ranges without moving them. Articulation maps and cello versus guitar retargeters remain later work. Orchestration-vocabulary and modern-production instruments are later catalog waves, not this slice.
+Slice 7.4 compares existing notes with those ranges without moving them.
+
+Slice 7.5 maps swell and slide onto catalog articulations so later retargeters cannot assume cello-like technique. Cello uses bow expression and slide; guitar uses picking and bend; piano strike covers swell; bass finger covers swell; drum kit does not apply. The map does not retarget a recorded gesture. Cello versus guitar retargeters remain later work. Orchestration-vocabulary and modern-production instruments are later catalog waves, not this slice.
 
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
