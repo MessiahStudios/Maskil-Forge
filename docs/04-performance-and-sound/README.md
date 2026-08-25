@@ -24,6 +24,7 @@ Maskil Forge may:
 - Create guide melodies and related rehearsal aids so the artist can hear and follow a part.
 - Preserve takes, punch-ins, and comps as inspectable performance history.
 - Suggest or apply reviewable vocal production settings, including VST or other audio processing that assists the recorded vocal.
+- Let the artist choose a desired vocal result, then propose processing roles rather than a plugin rack.
 - Use voice analysis to drive editable musical or instrument-performance data, such as melody, rhythm, expression curves, or retargeted instrumental parts.
 
 Maskil Forge must not:
@@ -145,9 +146,43 @@ The lead-vocal path is a singer's workflow, not a vocal-generation workflow:
 
 Feedback should inform the singer. Processing may polish the recorded vocal. Neither step authors a replacement lead.
 
+## Vocal production intent
+
+Vocal production is an intent-first companion to the recorded take, not a plugin scavenger hunt. A typical independent-producer chain—cleanup, corrective tone, character compression, saturation, transparent level control, sibilance control, and separate space—proves which jobs exist. It is not a list of products, GUIs, or algorithms to clone.
+
+The artist-facing path is:
+
+```text
+Artist intent → vocal-production profile → processing-role chain
+             → concrete DSP or VST realization → preview → artist approval
+```
+
+The product principle is: the artist chooses the desired vocal result; Maskil Forge determines or proposes the processing roles needed to achieve it. Example result vocabulary includes Clean, Warm, Intimate, Forward, Soft Rock, Cinematic, and Aggressive. Those names are later mapping language, not baked presets.
+
+Internally the host reasons in processing **roles**, not plugin dependencies:
+
+- Cleanup / Gate
+- Corrective Tone / Dynamic EQ
+- Character Compression
+- Saturation / Color
+- Transparent Dynamics Control
+- Sibilance Control / De-Esser
+- Space / Reverb and Delay
+- Output / Gain or limiting, only if later justified
+
+Character compression and transparent level control remain distinct. Flattening both into a generic compressor would hide a real production choice. Space on the vocal path is a production role; mix buses, sends, and song-level “closer vocal” recipes remain Milestone 11.
+
+A role may later be realized as Maskil built-in DSP or as an artist-selected compatible VST3. The project should describe processing intent independently enough that the renderer stays replaceable. No commercial plugin is the canonical representation of the chain.
+
+The beginner studio uses progressive disclosure: language such as “Warm, controlled, and intimate” first, with threshold, ratio, Q, and similar controls behind Advanced. Phone capture remains a companion; this production surface belongs on the studio screen.
+
+The existing artist-authority contract still applies: analyze, propose, preview, then accept. The host must not silently process, correct, normalize, tune, compress, EQ, or otherwise alter the authoritative take. Processing is non-destructive and reviewable. Built-in processors and VSTs may assist the recorded human lead vocal; they may not generate or replace the singer.
+
+Named Milestone 9 slices for this path begin with inspectable intent and roles before any DSP. Guide vocals, lyric highlighting, punch-in, comping, and pitch or timing feedback remain other Milestone 9 work and are not replaced by the processing-role track.
+
 ## Mixing
 
-Begin with channel volume, pan, buses, sends, and automation. Add semantic production commands only after their deterministic operations are defined—for example, “closer vocal” becomes a reviewable set of reverb, direct-level, stereo, and EQ changes. Applying those settings must not substitute a generated vocal for the artist's take.
+Begin with channel volume, pan, buses, sends, and automation. Add semantic production commands only after their deterministic operations are defined—for example, “closer vocal” becomes a reviewable set of reverb, direct-level, stereo, and EQ changes. Applying those settings must not substitute a generated vocal for the artist's take. Vocal-path Space in Milestone 9 is a production role on the take; mix routing remains this later song-level layer.
 
 ## Planned completion gate
 

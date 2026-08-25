@@ -15,6 +15,8 @@ The planned AI director is an interpreter and planner above Maskil Engine. It sh
 
 The AI Director consumes structured Song Graph state and analyzer-produced observations; it does not treat raw audio interpretation as the canonical understanding of a song. Performance observations may include pitch contour, onset, duration, loudness, timing, prosody, expression curves, and later timbre or mix descriptors. Each observation retains confidence, analyzer identity and version, source-asset identity, and provenance so the Director can expose uncertainty instead of presenting a measurement as an artist decision.
 
+When vocal production exists, the Director should reason in those same observations and in processing roles: for example, that wide level variation may call for gentle transparent control. It must not treat a commercial plugin name, preset, or hidden parameter dump as the plan. A production proposal still compiles into inspectable, previewable, reversible commands.
+
 An audio-capable local or cloud model may provide supplemental observations when useful. Those results follow the same confidence, provenance, validation, and review boundaries as deterministic analysis and must not become the sole authoritative representation of a performance. Core workflows must remain possible with local deterministic analyzers and without an audio-capable model.
 
 ## Required interaction contract

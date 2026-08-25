@@ -17,7 +17,7 @@ It should then recommend instruments capable of fulfilling those roles within ge
 
 Genre profiles describe probabilities and tendencies: tempo, meter, density, dynamics, form, harmony, drums, and vocal phrasing. Instrument profiles describe range, timbre, attack, sustain, articulations, roles, limitations, and renderer mappings.
 
-Profiles belong in versioned data files, not hardcoded conditionals. Catalog entries name instrument concepts. Renderer mappings — SoundFont, Kontakt, VST, or an external DAW — belong to Milestone 8 and must not become the instrument identity.
+Profiles belong in versioned data files, not hardcoded conditionals. Catalog entries name instrument concepts. Renderer mappings — SoundFont, Kontakt, VST, or an external DAW — belong to Milestone 8 and must not become the instrument identity. Vocal-production processing roles belong to Milestone 9 and must not become instrument-profile identity either.
 
 Slice 7.1 adds the first catalog: cello and guitar profiles that name range, arrangement roles, articulations, and expressive qualities. Desktop Arrangement can inspect that knowledge.
 

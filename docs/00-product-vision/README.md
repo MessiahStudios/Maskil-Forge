@@ -81,9 +81,10 @@ Maskil Forge may:
 - Create guide melodies and related rehearsal aids so the artist can hear and follow a part.
 - Preserve takes, punch-ins, and comps as inspectable performance history.
 - Suggest or apply reviewable vocal production settings, including VST or other audio processing that assists the recorded vocal.
+- Let the artist choose a desired vocal result, then propose the processing roles needed to achieve it, without requiring plugin literacy.
 - Use voice analysis to drive editable musical or instrument-performance data in the Song Graph, such as melody, rhythm, expression, or retargeted instrumental parts.
 
-Those operations produce or revise inspectable project data. They remain subject to artist approval, locks, undo, and the same command model as every other layer. A generated or processed sound may preview, guide, or support the singer; it does not become the canonical lead vocal.
+Those operations produce or revise inspectable project data. They remain subject to artist approval, locks, undo, and the same command model as every other layer. A generated or processed sound may preview, guide, or support the singer; it does not become the canonical lead vocal. Processing remains non-destructive: the original take stays authoritative until the artist previews and accepts a production change.
 
 Detail lives in [Performance and sound](../04-performance-and-sound/README.md).
 
@@ -96,6 +97,7 @@ Detail lives in [Performance and sound](../04-performance-and-sound/README.md).
 - Instrument recommendations depend on role, expressive behavior, range, articulation, and timbre.
 - MIDI is the initial interchange and performance-control layer, not the sound itself.
 - Audio rendering remains replaceable. VSTs and other processors may assist the artist's vocal or realize instrumental parts, but they must not own the composition or replace the singer.
+- Vocal production is intent-first. The artist names a desired result; the host compiles processing roles. No particular DSP or VST is the canonical vocal chain.
 - AI interprets and directs deterministic tools rather than owning the composition or the lead vocal.
 
 ## Product boundaries

@@ -934,7 +934,7 @@ Expand instrument knowledge in three catalog waves of instrument concepts, then 
 
 ## Milestone 8 — Rendering integrations
 
-Add SoundFont or equivalent rendering, external DAW export, plugin scanning, VST3 hosting, presets, automation, and offline rendering in that order. VST and other audio processors may assist instrumental playback and the artist's recorded vocal; they must not own the Song Graph or replace the lead singer.
+Add SoundFont or equivalent rendering, external DAW export, plugin scanning, VST3 hosting, presets, automation, and offline rendering in that order. VST and other audio processors may assist instrumental playback and the artist's recorded vocal; they must not own the Song Graph or replace the lead singer. Plugin hosting must not make any particular VST the identity of a vocal-production role; Milestone 9 may later map a processing role onto built-in DSP or a compatible plugin.
 
 **Deliverable:** the same Song Graph can drive multiple sound sources.
 
@@ -942,17 +942,65 @@ Add SoundFont or equivalent rendering, external DAW export, plugin scanning, VST
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.
 
+Vocal production is intent-first. The artist chooses a desired vocal result; Maskil Forge determines or proposes the processing roles needed to achieve it. A typical DAW vocal chain is evidence of which jobs exist—cleanup, corrective tone, character compression, saturation, transparent level control, sibilance control, and separate space—not a plugin list to clone. Character compression and transparent dynamics stay distinct. A role may later be realized as built-in DSP or as an artist-selected compatible VST3 once Milestone 8 hosting exists. No processor is the canonical chain. Analyze, propose, preview, and accept still apply: the host must not silently process the authoritative take.
+
+Guide vocals, punch-in, comps, and pitch or timing feedback remain other Milestone 9 work. The named slices below are the processing-role track only.
+
 **Deliverable:** the artist can complete the human lead-vocal workflow inside the product without the product becoming the singer.
+
+### Milestone 9.1 — Vocal production intent model
+
+Store an inspectable description of the desired vocal result before any audio is processed. Artist-facing language such as Clean, Warm, Intimate, Forward, Soft Rock, Cinematic, or Aggressive names a result, not a hidden FX preset. The slice is data and contracts only. It does not run DSP, host a VST, invent a chain, or alter the take. Schema work, if needed, records intent separately from immutable source bytes.
+
+This is the smallest safe first slice: it gives later profiles, DSP, VST mapping, and the AI Director a vocabulary that is not shaped like a commercial plugin, and it preserves artist authority before sound changes exist.
+
+**Deliverable:** an artist can name a desired vocal result without the host processing anything.
+
+### Milestone 9.2 — Processing-role chain
+
+Define an ordered chain of processing roles independent of any DSP or plugin: Cleanup / Gate, Corrective Tone / Dynamic EQ, Character Compression, Saturation / Color, Transparent Dynamics Control, Sibilance Control / De-Esser, Space / Reverb and Delay, and Output / Gain or limiting only if later justified. The chain is host knowledge and inspectable project data. It does not flatten character compression into generic compression, bind a role to a product, process audio, or replace mix buses and sends from Milestone 11.
+
+**Deliverable:** the same vocal intent can be described as production jobs rather than as a plugin rack.
+
+### Milestone 9.3 — Built-in processing foundation
+
+Introduce the first Maskil built-in processors that fulfill named roles. Processing is non-destructive, preview-first, comparable with the original take, and applied only after explicit acceptance. Original asset bytes stay immutable. The slice does not implement every role, does not require VST hosting, and does not silently normalize, tune, or render a replacement vocal.
+
+**Deliverable:** an artist can hear a reviewable built-in process on their own take and reject it without losing the source.
+
+### Milestone 9.4 — Vocal profile proposals
+
+Compile chosen result language into a reviewable processing-role proposal: which jobs are suggested, why, and what will change if accepted. The beginner studio leads with result language and progressive disclosure rather than threshold, ratio, or Q. Profiles remain proposals, not baked one-click renders. The slice does not skip preview, does not hide the underlying roles, and does not treat the profile name as the Song Graph identity of the chain.
+
+**Deliverable:** an artist can ask for a result such as Warm and Intimate, inspect the proposed jobs, preview, and accept or reject.
+
+### Milestone 9.5 — Advanced production controls
+
+Expose detailed production controls for experienced users on the same role chain the beginner UI already uses. Advanced terminology remains optional disclosure. It does not become a second incompatible chain, and it does not unlock silent processing.
+
+**Deliverable:** an experienced producer can inspect and revise role settings without abandoning the intent-first model.
+
+### Milestone 9.6 — External processor substitution
+
+Map a processing role onto either Maskil built-in DSP or an artist-selected compatible VST3 once Milestone 8 plugin scanning and hosting exist. The project continues to describe processing intent independently of the realization. This slice does not make any commercial plugin canonical, does not require a specific third-party product to open a song, and does not let a VST own the take or the Song Graph.
+
+**Deliverable:** the same production role can be realized by built-in processing or a compatible plugin without rewriting the song’s intent.
+
+### Milestone 9.7 — Analyzer-informed production guidance
+
+Use structured `PerformanceObservation` evidence—and later timbre, sibilance, or masking descriptors if those analyzers exist—to propose production-role changes with an explanation. A valid proposal sounds like “wide level variation; gentle transparent control may improve intelligibility,” not a command to load a named commercial plugin. The artist still previews and accepts. This slice does not auto-apply processing, does not bypass reviews, and gives Milestone 10 the same role vocabulary rather than a parallel AI-only FX path.
+
+**Deliverable:** production suggestions cite observations and roles the artist can inspect, preview, and refuse.
 
 ## Milestone 10 — AI director
 
-Expose tested engine functions as typed tools, add intent interpretation, structured musical and performance observations as reasoning inputs, plan preview, command validation, explanations, and conversational revision. Any direct audio-capable model interpretation is supplemental, carries confidence and provenance, and cannot replace structured observations or artist review.
+Expose tested engine functions as typed tools, add intent interpretation, structured musical and performance observations as reasoning inputs, plan preview, command validation, explanations, and conversational revision. Any direct audio-capable model interpretation is supplemental, carries confidence and provenance, and cannot replace structured observations or artist review. Vocal-production direction uses Milestone 9 intent, roles, and observations; it does not invent a plugin-shaped plan that the rest of the product cannot preview or undo.
 
 **Deliverable:** natural language safely directs the same operations available in the UI, and analyzer-informed proposals expose their evidence and uncertainty before acceptance.
 
 ## Milestone 11 — Mix, export, and release workflow
 
-Build mixer routing, automation, production recipes, stem/WAV export, DAW handoff, project reports, and provenance.
+Build mixer routing, automation, production recipes, stem/WAV export, DAW handoff, project reports, and provenance. Song-level mix recipes remain distinct from the Milestone 9 vocal-path role chain.
 
 **Deliverable:** a user can finish or hand off a song without losing editability or origin history.
 
@@ -979,6 +1027,8 @@ Milestones 8–11: rendering, AI direction, vocal production, mixing, and export
 - Full VST hosting before MIDI generation is musically useful
 - A broad AI chat layer before typed commands exist
 - Advanced mixing before arrangement and export are stable
+- Commercial plugin clones or branded FX chains as the identity of vocal production
+- Silent vocal processing before inspectable intent, preview, and artist acceptance
 - Dozens of genres before one vertical slice works end to end
 - Neural final-audio generation as a substitute for the Song Graph
 - Generated or synthesized lead vocals as a substitute for the artist's performance
