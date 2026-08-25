@@ -69,7 +69,7 @@ export interface InstrumentRangeReviewSet {
   reviews: InstrumentRangeReview[]
 }
 
-export type NeutralPerformanceGesture = 'Swell' | 'Slide'
+export type NeutralPerformanceGesture = 'Swell' | 'Slide' | 'Hit'
 
 export interface InstrumentArticulationMapping {
   gesture: NeutralPerformanceGesture
@@ -109,6 +109,7 @@ export interface InstrumentPerformanceSketch {
   instrumentName: string
   swell: InstrumentGesturePerformance
   slide: InstrumentGesturePerformance
+  hit: InstrumentGesturePerformance
 }
 
 export interface InstrumentPerformanceRetargetSet {

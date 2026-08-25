@@ -123,13 +123,15 @@ Slice 7.8 persists a reviewed cello or guitar sketch against a part that already
 
 Slice 7.9 projects the same approved swell or slide onto piano, electric bass, and drum kit using the catalog articulation map. Piano strike and bass finger cover swell; piano and bass slides, and both kit gestures, stay not applicable rather than inventing cello-like technique. Named piano or bass parts can store those swells. Onset-to-hit mapping and later catalog waves remain later work.
 
+Slice 7.10 maps approved onset gestures onto drum-kit Hit. Cello, guitar, piano, and bass stay unused for that gesture. Named kit parts can store the hits as playable notes. The host does not invent kit pieces, General MIDI drum notes, or a drum MIDI channel. Later catalog waves remain later work.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting
 
 Voice-to-instrument is treated as performance capture and retargeting. A neutral gesture should be adapted to the target instrument concept: cello may translate a swell into bow expression and a slide into legato; acoustic guitar may translate the same input into picking dynamics, bends, and hammer-ons; piano into strike and decay; flute, later, into breath-shaped sustain. Adapters should enforce range and articulation limitations, and must not assume every target is cello-like. Drum kit is an unpitched target.
 
-Slice 7.6 previews cello and guitar from the same approved gestures using the catalog articulation map. Slice 7.8 can persist that preview onto a part that already names cello or guitar. Slice 7.9 adds piano, bass, and kit adapters from that same map: swell applies as piano strike or bass finger; slides and both kit gestures stay unused. Accepted instrumental notes do not replace the artist's lead vocal.
+Slice 7.6 previews cello and guitar from the same approved gestures using the catalog articulation map. Slice 7.8 can persist that preview onto a part that already names cello or guitar. Slice 7.9 adds piano, bass, and kit adapters from that same map: swell applies as piano strike or bass finger; slides and both kit gestures stay unused. Slice 7.10 maps onset gestures onto drum-kit Hit on a part that already names the kit. Accepted instrumental notes do not replace the artist's lead vocal.
 
 Slice 7.7 can name a catalog instrument on an existing musical part. That name is not a renderer or a MIDI program.
 

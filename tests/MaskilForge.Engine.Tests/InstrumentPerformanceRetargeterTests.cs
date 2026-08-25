@@ -95,7 +95,15 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.False(kit.Slide.Applicable);
         Assert.Null(kit.Slide.Articulation);
         Assert.Empty(kit.Slide.Events);
+        Assert.True(kit.Hit.Applicable);
+        Assert.Equal(InstrumentArticulation.Hit, kit.Hit.Articulation);
+        Assert.Empty(kit.Hit.Events);
+        Assert.False(piano.Hit.Applicable);
+        Assert.Empty(piano.Hit.Events);
+        Assert.False(bass.Hit.Applicable);
+        Assert.Empty(bass.Hit.Events);
         Assert.Equal(69, Assert.Single(Target(set, "cello").Slide.Events).Pitch!.MidiNumber);
+        Assert.Empty(Target(set, "cello").Hit.Events);
     }
 
     [Fact]
@@ -163,9 +171,9 @@ public sealed class InstrumentPerformanceRetargeterTests
     }
 
     [Fact]
-    public void Project_IgnoresOnsetGesturesAndRequiresPitchOrLoudness()
+    public void Project_MapsOnsetOntoKitHitWithoutInventingHitsOnPitchedInstruments()
     {
-        var project = SongProject.Create("Onset only");
+        var project = SongProject.Create("Kit hit retarget");
         var asset = CreateAsset();
         var onset = CreateObservation(asset.Id, "onset.event", "maskil.browser.onset-energy", 96, 32,
             [
@@ -176,12 +184,43 @@ public sealed class InstrumentPerformanceRetargeterTests
         project.RegisterAsset(asset);
         project.RegisterPerformanceObservation(onset);
         project.SetPerformanceObservationReview(onset.Id, PerformanceObservationReviewVerdict.Accurate, now);
-        project.SetPerformanceObservationGesture(onset.Id, now);
+        var gesture = project.SetPerformanceObservationGesture(onset.Id, now);
+
+        var set = InstrumentPerformanceRetargeter.Project(project, asset.Id);
+        var kit = Target(set, "drum-kit");
+        var hit = Assert.Single(kit.Hit.Events);
+
+        Assert.True(kit.Hit.Applicable);
+        Assert.Equal(InstrumentArticulation.Hit, kit.Hit.Articulation);
+        Assert.Equal(gesture.Id, hit.GestureId);
+        Assert.Equal(60, hit.Pitch!.MidiNumber);
+        Assert.Equal(92, hit.StartTick);
+        Assert.Equal(31, hit.DurationTicks);
+        Assert.Equal(102, hit.Value);
+        Assert.Null(hit.RangeKind);
+        Assert.False(kit.Swell.Applicable);
+        Assert.Empty(kit.Swell.Events);
+        Assert.False(kit.Slide.Applicable);
+        Assert.Empty(kit.Slide.Events);
+
+        Assert.All(set.Targets.Where(item => item.InstrumentId != "drum-kit"), target =>
+        {
+            Assert.False(target.Hit.Applicable);
+            Assert.Empty(target.Hit.Events);
+        });
+    }
+
+    [Fact]
+    public void Project_RequiresPitchLoudnessOrOnset()
+    {
+        var project = SongProject.Create("No gestures");
+        var asset = CreateAsset();
+        project.RegisterAsset(asset);
 
         var error = Assert.Throws<InvalidOperationException>(() =>
             InstrumentPerformanceRetargeter.Project(project, asset.Id));
 
-        Assert.Contains("Promote at least one pitch or loudness claim", error.Message);
+        Assert.Contains("Promote at least one pitch, loudness, or onset claim", error.Message);
     }
 
     [Fact]
@@ -269,6 +308,8 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.Empty(violin.Swell.Events);
         Assert.False(violin.Slide.Applicable);
         Assert.Empty(violin.Slide.Events);
+        Assert.False(violin.Hit.Applicable);
+        Assert.Empty(violin.Hit.Events);
     }
 
     private static InstrumentPerformanceSketch Target(InstrumentPerformanceRetargetSet set, string instrumentId) =>

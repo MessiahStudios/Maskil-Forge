@@ -9,7 +9,8 @@ namespace MaskilForge.Engine;
 public enum NeutralPerformanceGesture
 {
     Swell,
-    Slide
+    Slide,
+    Hit
 }
 
 public sealed record InstrumentArticulationMapping(
@@ -41,6 +42,7 @@ public static class InstrumentArticulationMapper
         [("acoustic-guitar", NeutralPerformanceGesture.Slide)] = InstrumentArticulation.Bend,
         [("piano", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Strike,
         [("electric-bass", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Finger,
+        [("drum-kit", NeutralPerformanceGesture.Hit)] = InstrumentArticulation.Hit,
     };
 
     public static InstrumentArticulationMapSet Map(InstrumentProfileCatalog? catalog = null)

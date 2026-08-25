@@ -23,10 +23,13 @@ public sealed class InstrumentArticulationMapperTests
         Assert.Equal(InstrumentArticulation.Strike, Mapped(piano, NeutralPerformanceGesture.Swell));
         Assert.False(Lookup(piano, NeutralPerformanceGesture.Slide).Applicable);
         Assert.Null(Lookup(piano, NeutralPerformanceGesture.Slide).Articulation);
+        Assert.False(Lookup(cello, NeutralPerformanceGesture.Hit).Applicable);
+        Assert.False(Lookup(guitar, NeutralPerformanceGesture.Hit).Applicable);
+        Assert.False(Lookup(piano, NeutralPerformanceGesture.Hit).Applicable);
     }
 
     [Fact]
-    public void Map_LeavesDrumKitAndBassSlideNotApplicable()
+    public void Map_MapsDrumKitHitWithoutApplyingSwellOrSlide()
     {
         var set = InstrumentArticulationMapper.Map();
         var bass = Assert.Single(set.Maps, item => item.InstrumentId == "electric-bass");
@@ -34,12 +37,13 @@ public sealed class InstrumentArticulationMapperTests
 
         Assert.Equal(InstrumentArticulation.Finger, Mapped(bass, NeutralPerformanceGesture.Swell));
         Assert.False(Lookup(bass, NeutralPerformanceGesture.Slide).Applicable);
+        Assert.False(Lookup(bass, NeutralPerformanceGesture.Hit).Applicable);
 
-        Assert.All(drums.Mappings, mapping =>
-        {
-            Assert.False(mapping.Applicable);
-            Assert.Null(mapping.Articulation);
-        });
+        Assert.False(Lookup(drums, NeutralPerformanceGesture.Swell).Applicable);
+        Assert.Null(Lookup(drums, NeutralPerformanceGesture.Swell).Articulation);
+        Assert.False(Lookup(drums, NeutralPerformanceGesture.Slide).Applicable);
+        Assert.Null(Lookup(drums, NeutralPerformanceGesture.Slide).Articulation);
+        Assert.Equal(InstrumentArticulation.Hit, Mapped(drums, NeutralPerformanceGesture.Hit));
     }
 
     [Fact]
@@ -54,7 +58,7 @@ public sealed class InstrumentArticulationMapperTests
         Assert.All(set.Maps, map =>
         {
             Assert.Equal(
-                [NeutralPerformanceGesture.Swell, NeutralPerformanceGesture.Slide],
+                [NeutralPerformanceGesture.Swell, NeutralPerformanceGesture.Slide, NeutralPerformanceGesture.Hit],
                 map.Mappings.Select(item => item.Gesture));
             var profile = catalog.Find(map.InstrumentId);
             Assert.All(map.Mappings.Where(item => item.Applicable), mapping =>

@@ -1154,7 +1154,9 @@ const loudnessGestureTakes = computed(() =>
 
 const instrumentRetargetTakes = computed(() =>
   (project.value?.assets ?? []).filter(asset =>
-    pitchGestureCountForAsset(asset.id) > 0 || loudnessGestureCountForAsset(asset.id) > 0))
+    pitchGestureCountForAsset(asset.id) > 0
+    || loudnessGestureCountForAsset(asset.id) > 0
+    || onsetGestureCountForAsset(asset.id) > 0))
 
 
 function showMorePerformanceEvidence(assetId: string, groupKey: string, totalCount: number) {
@@ -2987,20 +2989,27 @@ function selectedInstrumentSketchPartId(assetId: string, instrumentId: string) {
   return parts.some(part => part.id === chosen) ? chosen : ''
 }
 function instrumentSketchHasPersistableEvents(target: InstrumentPerformanceRetargetSet['targets'][number]) {
-  return target.swell.events.length > 0 || target.slide.events.some(item => !item.rangeKind)
+  return target.swell.events.length > 0
+    || target.slide.events.some(item => !item.rangeKind)
+    || target.hit.events.length > 0
 }
 function instrumentSketchAcceptCopy(target: InstrumentPerformanceRetargetSet['targets'][number]) {
-  if (!target.swell.applicable && !target.slide.applicable) {
-    return `${target.instrumentName} does not apply swell or slide. Nothing is stored.`
+  if (!target.swell.applicable && !target.slide.applicable && !target.hit.applicable) {
+    return `${target.instrumentName} does not apply swell, slide, or hit. Nothing is stored.`
   }
   if (!instrumentSketchHasPersistableEvents(target)) {
-    return `${target.instrumentName} has no in-range slides or swells to store.`
+    return `${target.instrumentName} has no in-range slides, swells, or hits to store.`
   }
   const parts: string[] = []
-  if (target.slide.applicable) parts.push('Adds in-range slides to the named part')
+  if (target.slide.applicable) parts.push('adds in-range slides to the named part')
   if (target.swell.applicable) parts.push('stores swells as a dynamics curve')
-  const lead = parts.join(' and ').replace(/^stores/, 'Stores')
-  return `${lead}. Out-of-range slides are skipped, not moved. MIDI does not choose an instrument.`
+  if (target.hit.applicable) parts.push('adds hits to the named part')
+  const lead = parts.join(' and ')
+  const sentence = `${lead.charAt(0).toUpperCase()}${lead.slice(1)}.`
+  if (target.slide.applicable) {
+    return `${sentence} Out-of-range slides are skipped, not moved. MIDI does not choose an instrument.`
+  }
+  return `${sentence} MIDI does not choose an instrument.`
 }
 function useInstrumentPerformanceSketch(assetId: string, instrumentId: string) {
   if (!project.value) return
@@ -3010,6 +3019,7 @@ function useInstrumentPerformanceSketch(assetId: string, instrumentId: string) {
   const target = sketch?.targets.find(item => item.instrumentId === instrumentId)
   const inRangeCount = target?.slide.events.filter(item => !item.rangeKind).length ?? 0
   const swellCount = target?.swell.events.length ?? 0
+  const hitCount = target?.hit.events.length ?? 0
   const partLabel = project.value.musicalParts.find(part => part.id === musicalPartId)?.label ?? 'the named part'
   return run(
     () => projectsApi.command(project.value!.id, project.value!, {
@@ -3020,7 +3030,7 @@ function useInstrumentPerformanceSketch(assetId: string, instrumentId: string) {
     }),
     `${target?.instrumentName ?? 'Instrument'} sketch stored on ${partLabel}.`,
     'midi.instrument-retarget.use',
-    { assetId, instrumentId, musicalPartId, inRangeCount, swellCount })
+    { assetId, instrumentId, musicalPartId, inRangeCount, swellCount, hitCount })
 }
 function removeExpressionCurve(expressionCurveId: string, name: string) {
   if (!project.value) return
@@ -5513,14 +5523,14 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">From a reviewed take</span>
           <h2 id="instrument-performance-retarget-title">Retarget this take across the catalog</h2>
-          <p>Preview the same approved swell or slide on cello, acoustic guitar, piano, electric bass, and drum kit, then store what applies onto a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides only where the catalog map allows. Piano and bass do not take slides; drum kit does not take swell or slide. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. MIDI does not choose an instrument.</p>
+          <p>Preview the same approved swell, slide, or onset on cello, acoustic guitar, piano, electric bass, and drum kit, then store what applies onto a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides only where the catalog map allows; onset gestures become kit hits. Piano and bass do not take slides; drum kit does not take swell or slide; pitched instruments do not take kit hits. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. MIDI does not choose an instrument.</p>
         </div>
-        <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch or loudness claim first.</p>
-        <p v-else-if="!instrumentRetargetTakes.length" class="note-event-empty">Promote at least one pitch or loudness claim to a gesture in the take inspector above.</p>
+        <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch, loudness, or onset claim first.</p>
+        <p v-else-if="!instrumentRetargetTakes.length" class="note-event-empty">Promote at least one pitch, loudness, or onset claim to a gesture in the take inspector above.</p>
         <article v-for="asset in instrumentRetargetTakes" :key="asset.id" class="harmony-note-sketch" :aria-label="`Catalog instrument retarget for ${asset.name}`">
           <div>
             <strong>{{ asset.name }}</strong>
-            <small>{{ pitchGestureCountForAsset(asset.id) }} pitch · {{ loudnessGestureCountForAsset(asset.id) }} loudness · {{ vocalTakePlacementLabel(asset.id) }}</small>
+            <small>{{ pitchGestureCountForAsset(asset.id) }} pitch · {{ loudnessGestureCountForAsset(asset.id) }} loudness · {{ onsetGestureCountForAsset(asset.id) }} onset · {{ vocalTakePlacementLabel(asset.id) }}</small>
           </div>
           <button type="button" class="secondary" :disabled="busy" @click="prepareInstrumentPerformanceSketch(asset.id)">
             {{ instrumentPerformanceSketches[asset.id] ? 'Refresh catalog retarget' : 'Prepare catalog retarget' }}
@@ -5528,7 +5538,7 @@ onBeforeUnmount(() => {
           <div v-if="instrumentPerformanceSketches[asset.id]" class="harmony-note-sketch-result">
             <p>
               <strong>Review, then store onto a named catalog part.</strong>
-              <span>Uses the first tempo only. Each instrument keeps its own catalog technique. Piano and bass slides, and both drum-kit gestures, stay unused. MIDI still emits dynamics as CC 11 without a program change.</span>
+              <span>Uses the first tempo only. Each instrument keeps its own catalog technique. Piano and bass slides stay unused. Drum-kit swell and slide stay unused. Pitched instruments do not take kit hits. MIDI still emits dynamics as CC 11 without a program change.</span>
             </p>
             <div class="instrument-retarget-targets">
               <article v-for="target in instrumentPerformanceSketches[asset.id].targets" :key="target.instrumentId" class="instrument-retarget-target" :aria-label="`${target.instrumentName} retarget`">
@@ -5557,6 +5567,18 @@ onBeforeUnmount(() => {
                       <small>{{ slideRangeCopy(event.rangeKind) }}</small>
                     </li>
                     </ol>
+                </section>
+                <section>
+                  <p>
+                    <strong>{{ gesturePerformanceCopy(target.hit) }}</strong>
+                    <span>{{ target.hit.events.length }} hit event{{ target.hit.events.length === 1 ? '' : 's' }}</span>
+                  </p>
+                  <ol v-if="target.hit.events.length">
+                    <li v-for="(event, eventIndex) in target.hit.events" :key="`${event.gestureId}:hit:${eventIndex}`">
+                      <strong>tick {{ event.startTick }}</strong>
+                      <span>{{ event.durationTicks }} ticks · velocity {{ event.value }}</span>
+                    </li>
+                  </ol>
                 </section>
                 <div class="instrument-retarget-accept">
                   <p v-if="!matchingInstrumentParts(target.instrumentId).length">

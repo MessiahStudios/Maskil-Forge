@@ -942,6 +942,14 @@ Desktop Music previews all five proof-set instruments from one take. A named pia
 
 **Deliverable:** an artist can see how the same approved swell or slide behaves on piano, bass, and drum kit without the host inventing cello-like technique.
 
+### Milestone 7.10 — Onset to drum-kit Hit
+
+Map a third neutral performance idea — hit — onto drum-kit Hit, and consume approved onset gestures as those hits. Cello, guitar, piano, and bass stay not applicable: the host does not invent kit technique on pitched instruments. Kit swell and slide stay unused. Hits use the same C4 placeholder and strength-to-velocity mapping as the existing onset-note sketch; they are not a General MIDI drum map or a chosen kick, snare, or cymbal. Schema stays at v31. Catalog stays at version 2.
+
+Desktop Music previews kit hits beside the existing swell and slide adapters. A named drum-kit part can store those hits. Hits that begin outside the part’s section throw rather than dropping them. The host does not auto-assign, auto-create a part, choose a kit piece, emit MIDI program changes, or move hits onto channel 10. Phone Music remains hidden. Later catalog waves remain later work.
+
+**Deliverable:** an artist can store reviewed onset gestures as drum-kit hits on a part they already named, without the host inventing kit technique from pitch or loudness.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

@@ -25,7 +25,8 @@ public sealed record InstrumentPerformanceSketch(
     string InstrumentId,
     string InstrumentName,
     InstrumentGesturePerformance Swell,
-    InstrumentGesturePerformance Slide);
+    InstrumentGesturePerformance Slide,
+    InstrumentGesturePerformance Hit);
 
 public sealed record InstrumentPerformanceRetargetSet(
     ProjectAssetId SourceAssetId,
@@ -33,9 +34,9 @@ public sealed record InstrumentPerformanceRetargetSet(
     IReadOnlyList<InstrumentPerformanceSketch> Targets);
 
 /// <summary>
-/// Adapts approved pitch and loudness gestures onto the version-2 catalog using
-/// the host articulation map. Piano and bass slides, and both drum-kit gestures,
-/// stay not applicable rather than inventing cello-like technique.
+/// Adapts approved pitch, loudness, and onset gestures onto the version-2 catalog
+/// using the host articulation map. Piano and bass slides stay unused. Drum-kit
+/// swell and slide stay unused. Pitched instruments do not take kit hits.
 /// </summary>
 public static class InstrumentPerformanceRetargeter
 {
@@ -47,10 +48,14 @@ public static class InstrumentPerformanceRetargeter
     public const string FrequencyMeasurementName = PitchGestureNoteSketcher.FrequencyMeasurementName;
     public const string RmsMeasurementName = LoudnessGestureExpressionSketcher.RmsMeasurementName;
     public const string LoudnessObservationKind = LoudnessGestureExpressionSketcher.LoudnessObservationKind;
+    public const string StrengthMeasurementName = OnsetGestureNoteSketcher.StrengthMeasurementName;
+    public const string OnsetObservationKind = OnsetGestureNoteSketcher.OnsetObservationKind;
+    private static readonly RegisteredPitch HitPitch = new(NoteLetter.C, Accidental.Natural, 4);
     private const decimal MinimumRmsDecibels = -120m;
     private const decimal MaximumRmsDecibels = 0m;
     private const decimal ExpressionFloorDecibels = -60m;
     private const int FallbackExpression = 96;
+    private const int FallbackHitVelocity = 96;
 
     public static InstrumentPerformanceRetargetSet Project(
         SongProject project,
@@ -68,6 +73,9 @@ public static class InstrumentPerformanceRetargeter
         var loudnessObservations = observations.Values
             .Where(item => string.Equals(item.Kind, LoudnessObservationKind, StringComparison.Ordinal))
             .ToDictionary(item => item.Id);
+        var onsetObservations = observations.Values
+            .Where(item => string.Equals(item.Kind, OnsetObservationKind, StringComparison.Ordinal))
+            .ToDictionary(item => item.Id);
         var beatsPerMinute = project.Tempo.BeatsPerMinute;
         var ticksPerQuarterNote = project.Timeline.TicksPerQuarterNote;
         var takeStartTick = project.VocalTakeStartTick(sourceAssetId);
@@ -76,6 +84,7 @@ public static class InstrumentPerformanceRetargeter
             .ToDictionary(item => item.InstrumentId, StringComparer.Ordinal);
         var swellEvents = new List<InstrumentPerformanceEvent>();
         var slideEvents = new List<InstrumentPerformanceEvent>();
+        var hitEvents = new List<InstrumentPerformanceEvent>();
 
         foreach (var gesture in project.PerformanceObservationGestures)
         {
@@ -101,6 +110,26 @@ public static class InstrumentPerformanceRetargeter
                 continue;
             }
 
+            if (onsetObservations.ContainsKey(observation.Id))
+            {
+                var strength = gesture.Measurements.FirstOrDefault(item =>
+                    string.Equals(item.Name, StrengthMeasurementName, StringComparison.OrdinalIgnoreCase));
+                if (strength is not null && strength.Value is < 0 or > 1)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(sourceAssetId),
+                        "Onset-gesture strength must be between 0 and 1.");
+
+                hitEvents.Add(new InstrumentPerformanceEvent(
+                    gesture.Id,
+                    observation.Id,
+                    checked(takeStartTick + MillisecondsToTicks(observation.StartMilliseconds, beatsPerMinute, ticksPerQuarterNote)),
+                    Math.Max(1, MillisecondsToTicks(observation.DurationMilliseconds, beatsPerMinute, ticksPerQuarterNote)),
+                    HitPitch,
+                    strength is null ? FallbackHitVelocity : ToVelocity(strength.Value),
+                    null));
+                continue;
+            }
+
             if (!loudnessObservations.ContainsKey(observation.Id)) continue;
             var rms = gesture.Measurements.FirstOrDefault(item =>
                 string.Equals(item.Name, RmsMeasurementName, StringComparison.OrdinalIgnoreCase));
@@ -119,15 +148,19 @@ public static class InstrumentPerformanceRetargeter
                 null));
         }
 
-        if (swellEvents.Count == 0 && slideEvents.Count == 0)
+        if (swellEvents.Count == 0 && slideEvents.Count == 0 && hitEvents.Count == 0)
             throw new InvalidOperationException(
-                "Promote at least one pitch or loudness claim to a gesture before preparing an instrument retarget.");
+                "Promote at least one pitch, loudness, or onset claim to a gesture before preparing an instrument retarget.");
 
         var orderedSwell = swellEvents
             .OrderBy(item => item.StartTick)
             .ThenBy(item => item.ObservationId.Value)
             .ToList();
         var orderedSlide = slideEvents
+            .OrderBy(item => item.StartTick)
+            .ThenBy(item => item.ObservationId.Value)
+            .ToList();
+        var orderedHit = hitEvents
             .OrderBy(item => item.StartTick)
             .ThenBy(item => item.ObservationId.Value)
             .ToList();
@@ -139,6 +172,7 @@ public static class InstrumentPerformanceRetargeter
 
             var swellMap = Lookup(map, NeutralPerformanceGesture.Swell);
             var slideMap = Lookup(map, NeutralPerformanceGesture.Slide);
+            var hitMap = Lookup(map, NeutralPerformanceGesture.Hit);
             return new InstrumentPerformanceSketch(
                 profile.Id,
                 profile.Name,
@@ -153,7 +187,12 @@ public static class InstrumentPerformanceRetargeter
                     slideMap.Articulation,
                     slideMap.Applicable
                         ? orderedSlide.Select(item => WithRange(item, profile)).ToList()
-                        : []));
+                        : []),
+                new InstrumentGesturePerformance(
+                    NeutralPerformanceGesture.Hit,
+                    hitMap.Applicable,
+                    hitMap.Articulation,
+                    hitMap.Applicable ? orderedHit : []));
         }).ToList();
 
         return new InstrumentPerformanceRetargetSet(sourceAssetId, takeStartTick, targets);
@@ -173,6 +212,12 @@ public static class InstrumentPerformanceRetargeter
         var scaled = (rmsDecibels - ExpressionFloorDecibels) / (MaximumRmsDecibels - ExpressionFloorDecibels);
         var value = (int)decimal.Round(scaled * 127m, MidpointRounding.AwayFromZero);
         return Math.Clamp(value, 0, 127);
+    }
+
+    private static int ToVelocity(decimal strength)
+    {
+        var velocity = (int)decimal.Round(strength * 127m, MidpointRounding.AwayFromZero);
+        return Math.Clamp(velocity, 1, 127);
     }
 
     private static long MillisecondsToTicks(long milliseconds, decimal beatsPerMinute, int ticksPerQuarterNote)

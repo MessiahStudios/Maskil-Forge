@@ -983,20 +983,33 @@ public sealed class UseInstrumentPerformanceSketchCommand(
             .Single(item => string.Equals(item.InstrumentId, assigned, StringComparison.Ordinal));
         var inRangeSlides = target.Slide.Events.Where(item => item.RangeKind is null).ToList();
         var swells = target.Swell.Applicable ? target.Swell.Events : [];
-        if (inRangeSlides.Count == 0 && swells.Count == 0)
-            throw new InvalidOperationException($"This {target.InstrumentName} sketch has no in-range slides or swells to store.");
+        var hits = target.Hit.Applicable ? target.Hit.Events : [];
+        if (inRangeSlides.Count == 0 && swells.Count == 0 && hits.Count == 0)
+            throw new InvalidOperationException($"This {target.InstrumentName} sketch has no in-range slides, swells, or hits to store.");
 
         if (inRangeSlides.Count > 0)
-            EnsureSlidesBeginInPartSection(project, part, inRangeSlides, target.InstrumentName);
+            EnsureEventsBeginInPartSection(project, part, inRangeSlides, target.InstrumentName, "slides");
+        if (hits.Count > 0)
+            EnsureEventsBeginInPartSection(project, part, hits, target.InstrumentName, "hits");
 
         var createdNotes = new List<NoteEvent>();
-        if (inRangeSlides.Count > 0)
+        if (inRangeSlides.Count > 0 || hits.Count > 0)
         {
             _beforePart = part;
             foreach (var slide in inRangeSlides)
             {
                 var pitch = slide.Pitch ?? throw new InvalidOperationException("A slide event must include a pitch.");
                 createdNotes.Add(project.AddNoteEvent(pitch, slide.StartTick, slide.DurationTicks, SlideVelocity));
+            }
+
+            foreach (var hit in hits)
+            {
+                var pitch = hit.Pitch ?? throw new InvalidOperationException("A hit event must include a pitch.");
+                createdNotes.Add(project.AddNoteEvent(
+                    pitch,
+                    hit.StartTick,
+                    hit.DurationTicks,
+                    hit.Value ?? throw new InvalidOperationException("A hit event must include a velocity.")));
             }
 
             var noteIds = part.NoteEventIds.Concat(createdNotes.Select(item => item.Id)).ToList();
@@ -1022,20 +1035,21 @@ public sealed class UseInstrumentPerformanceSketchCommand(
         if (_createdCurve is not null) project.RemoveExpressionCurve(_createdCurve.Id);
     }
 
-    private static void EnsureSlidesBeginInPartSection(
+    private static void EnsureEventsBeginInPartSection(
         SongProject project,
         MusicalPart part,
-        IReadOnlyList<InstrumentPerformanceEvent> slides,
-        string instrumentName)
+        IReadOnlyList<InstrumentPerformanceEvent> events,
+        string instrumentName,
+        string eventKind)
     {
         var placement = project.Timeline.FindSection(part.SectionId);
         var sectionStart = project.Timeline.ToAbsoluteTicks(placement.Start);
         var meter = project.TimeSignature;
         var ticksPerBeat = checked(project.Timeline.TicksPerQuarterNote * 4 / meter.Denominator);
         var sectionEnd = checked(sectionStart + (long)placement.DurationBars * meter.Numerator * ticksPerBeat);
-        if (slides.Any(item => item.StartTick < sectionStart || item.StartTick >= sectionEnd))
+        if (events.Any(item => item.StartTick < sectionStart || item.StartTick >= sectionEnd))
             throw new ArgumentException(
-                $"Place this take so in-range {instrumentName} slides begin inside the named part's section, or choose another part.");
+                $"Place this take so {instrumentName} {eventKind} begin inside the named part's section, or choose another part.");
     }
 }
 

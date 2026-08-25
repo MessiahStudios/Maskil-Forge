@@ -129,10 +129,67 @@ public sealed class UseInstrumentPerformanceSketchTests
             var error = Assert.Throws<InvalidOperationException>(() =>
                 editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, instrumentId, part.Id)));
 
-            Assert.Contains("no in-range slides or swells", error.Message);
+            Assert.Contains("no in-range slides, swells, or hits", error.Message);
             Assert.Single(editor.Project.NoteEvents);
             Assert.Empty(editor.Project.ExpressionCurves);
         }
+    }
+
+    [Fact]
+    public void Command_StoresKitHitsOnANamedKitPartWithoutInventingSwellOrSlide()
+    {
+        var editor = SeedAssignedPart("Kit persist", "drum-kit", out var asset, out var part);
+        PromoteOnset(editor.Project, asset.Id, 96, 0.8m);
+        PromotePitch(editor.Project, asset.Id, 200, 440m);
+        var existingNoteId = Assert.Single(part.NoteEventIds);
+
+        editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, "drum-kit", part.Id));
+
+        var accepted = Assert.Single(editor.Project.MusicalParts);
+        Assert.Equal(part.Id, accepted.Id);
+        Assert.Equal("drum-kit", accepted.InstrumentProfileId);
+        Assert.Equal(2, accepted.NoteEventIds.Count);
+        Assert.Contains(existingNoteId, accepted.NoteEventIds);
+        var added = Assert.Single(editor.Project.NoteEvents, item => item.Id != existingNoteId);
+        Assert.Equal(60, added.Pitch.MidiNumber);
+        Assert.Equal(92, added.StartTick);
+        Assert.Equal(31, added.DurationTicks);
+        Assert.Equal(102, added.Velocity);
+        Assert.Contains(added.Id, accepted.NoteEventIds);
+        Assert.Empty(editor.Project.ExpressionCurves);
+        Assert.DoesNotContain(editor.Project.NoteEvents, item => item.Pitch.MidiNumber == 69);
+    }
+
+    [Fact]
+    public void Command_IgnoresOnsetsWhenStoringACelloSketch()
+    {
+        var editor = SeedAssignedPart("Cello ignores hits", "cello", out var asset, out var part);
+        PromoteOnset(editor.Project, asset.Id, 96, 0.8m);
+        PromotePitch(editor.Project, asset.Id, 200, 440m);
+        var existingNoteId = Assert.Single(part.NoteEventIds);
+
+        editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, "cello", part.Id));
+
+        Assert.Equal(2, Assert.Single(editor.Project.MusicalParts).NoteEventIds.Count);
+        var added = Assert.Single(editor.Project.NoteEvents, item => item.Id != existingNoteId);
+        Assert.Equal(69, added.Pitch.MidiNumber);
+        Assert.DoesNotContain(editor.Project.NoteEvents, item => item.Pitch.MidiNumber == 60 && item.StartTick == 92);
+        Assert.Empty(editor.Project.ExpressionCurves);
+    }
+
+    [Fact]
+    public void Command_ThrowsWhenKitHitsSitOutsideThePartSection()
+    {
+        var editor = SeedAssignedPart("Kit outside section", "drum-kit", out var asset, out var part);
+        PromoteOnset(editor.Project, asset.Id, 96, 0.8m);
+        editor.Project.SetVocalTakePlacement(asset.Id, new MusicalPosition(9, 1, 0));
+
+        var error = Assert.Throws<ArgumentException>(() =>
+            editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, "drum-kit", part.Id)));
+
+        Assert.Contains("hits begin inside the named part's section", error.Message);
+        Assert.Single(editor.Project.NoteEvents);
+        Assert.Empty(editor.Project.ExpressionCurves);
     }
 
     [Fact]
@@ -178,7 +235,7 @@ public sealed class UseInstrumentPerformanceSketchTests
         var error = Assert.Throws<InvalidOperationException>(() =>
             editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, "cello", part.Id)));
 
-        Assert.Contains("no in-range slides or swells", error.Message);
+        Assert.Contains("no in-range slides, swells, or hits", error.Message);
         Assert.Single(editor.Project.NoteEvents);
         Assert.Empty(editor.Project.ExpressionCurves);
         Assert.Equal(Assert.Single(part.NoteEventIds), Assert.Single(editor.Project.MusicalParts).NoteEventIds.Single());
@@ -258,6 +315,24 @@ public sealed class UseInstrumentPerformanceSketchTests
             startMilliseconds,
             80,
             [new PerformanceMeasurement("frequencyHertz", frequencyHertz, "hertz")]);
+        var now = DateTimeOffset.UtcNow;
+        project.RegisterPerformanceObservation(observation);
+        project.SetPerformanceObservationReview(observation.Id, PerformanceObservationReviewVerdict.Accurate, now);
+        project.SetPerformanceObservationGesture(observation.Id, now);
+    }
+
+    private static void PromoteOnset(SongProject project, ProjectAssetId assetId, long startMilliseconds, decimal strength)
+    {
+        var observation = CreateObservation(
+            assetId,
+            "onset.event",
+            "maskil.browser.onset-energy",
+            startMilliseconds,
+            32,
+            [
+                new PerformanceMeasurement("strength", strength, "normalized"),
+                new PerformanceMeasurement("confidence", 0.9m, "normalized")
+            ]);
         var now = DateTimeOffset.UtcNow;
         project.RegisterPerformanceObservation(observation);
         project.SetPerformanceObservationReview(observation.Id, PerformanceObservationReviewVerdict.Accurate, now);
