@@ -39,6 +39,8 @@ Slice 7.9 adds piano, electric-bass, and drum-kit adapters from the same approve
 
 Slice 7.10 maps approved onset gestures onto drum-kit Hit. Pitched instruments do not take those hits. Named kit parts can store them. General MIDI drum mapping and later catalog waves remain later Milestone 7 slices.
 
+Slice 7.11 grows the catalog to version 3 with violin, flute, clarinet, and trumpet. Artists can inspect them and name one on a musical part. Gesture maps stay unused for these instruments. Electric guitar and synths remain later work.
+
 ## Generator order
 
 1. Section energy and density plan

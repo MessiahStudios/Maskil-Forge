@@ -7,8 +7,8 @@ namespace MaskilForge.Engine;
 
 public static class InstrumentProfileCatalogLoader
 {
-    public const int CurrentVersion = 2;
-    public const string ResourceName = "MaskilForge.Engine.Knowledge.instrument-profiles.v2.json";
+    public const int CurrentVersion = 3;
+    public const string ResourceName = "MaskilForge.Engine.Knowledge.instrument-profiles.v3.json";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {

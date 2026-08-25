@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "instruments": [
     {
       "id": "cello",
@@ -50,6 +50,46 @@
       "roles": ["Pulse", "Accent"],
       "articulations": ["Hit", "Choke"],
       "expressiveQualities": ["Percussive"]
+    },
+    {
+      "id": "violin",
+      "name": "Violin",
+      "pitched": true,
+      "minimumPitch": { "letter": "G", "accidental": "Natural", "octave": 3 },
+      "maximumPitch": { "letter": "A", "accidental": "Natural", "octave": 7 },
+      "roles": ["Countermelody", "HookReinforcement", "Texture"],
+      "articulations": ["Legato", "BowExpression", "Slide"],
+      "expressiveQualities": ["Bright", "Agile", "Sustained"]
+    },
+    {
+      "id": "flute",
+      "name": "Flute",
+      "pitched": true,
+      "minimumPitch": { "letter": "C", "accidental": "Natural", "octave": 4 },
+      "maximumPitch": { "letter": "C", "accidental": "Natural", "octave": 7 },
+      "roles": ["Texture", "HookReinforcement", "Countermelody"],
+      "articulations": ["Legato", "Breath"],
+      "expressiveQualities": ["Bright", "Agile"]
+    },
+    {
+      "id": "clarinet",
+      "name": "Clarinet",
+      "pitched": true,
+      "minimumPitch": { "letter": "D", "accidental": "Natural", "octave": 3 },
+      "maximumPitch": { "letter": "B", "accidental": "Flat", "octave": 6 },
+      "roles": ["Countermelody", "Texture", "Harmony"],
+      "articulations": ["Legato", "Tonguing"],
+      "expressiveQualities": ["Warm", "Intimate", "Sustained"]
+    },
+    {
+      "id": "trumpet",
+      "name": "Trumpet",
+      "pitched": true,
+      "minimumPitch": { "letter": "F", "accidental": "Sharp", "octave": 3 },
+      "maximumPitch": { "letter": "C", "accidental": "Natural", "octave": 6 },
+      "roles": ["Accent", "HookReinforcement"],
+      "articulations": ["Tonguing", "Legato"],
+      "expressiveQualities": ["Bright", "Agile"]
     }
   ]
 }

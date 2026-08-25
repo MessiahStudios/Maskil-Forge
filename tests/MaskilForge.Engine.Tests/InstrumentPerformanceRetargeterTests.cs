@@ -30,7 +30,7 @@ public sealed class InstrumentPerformanceRetargeterTests
         var guitarSwell = Assert.Single(guitar.Swell.Events);
 
         Assert.Equal(asset.Id, set.SourceAssetId);
-        Assert.Equal(["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit"], set.Targets.Select(item => item.InstrumentId));
+        Assert.Equal(["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit", "violin", "flute", "clarinet", "trumpet"], set.Targets.Select(item => item.InstrumentId));
 
         Assert.Equal("Cello", cello.InstrumentName);
         Assert.True(cello.Swell.Applicable);
@@ -49,6 +49,10 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.Equal(celloSwell.Value, guitarSwell.Value);
         Assert.Empty(cello.Slide.Events);
         Assert.Empty(guitar.Slide.Events);
+        Assert.False(Target(set, "violin").Swell.Applicable);
+        Assert.False(Target(set, "flute").Slide.Applicable);
+        Assert.False(Target(set, "clarinet").Hit.Applicable);
+        Assert.Empty(Target(set, "trumpet").Hit.Events);
     }
 
     [Fact]

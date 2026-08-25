@@ -12,7 +12,9 @@ public sealed class InstrumentRoleRecommenderTests
 
         Assert.Null(set.Quality);
         Assert.Equal([ArrangementRole.Countermelody, ArrangementRole.Pulse], set.Recommendations.Select(item => item.Role));
-        Assert.Equal(["cello"], Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Countermelody).Instruments.Select(item => item.Id));
+        Assert.Equal(
+            ["cello", "violin", "flute", "clarinet"],
+            Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Countermelody).Instruments.Select(item => item.Id));
         Assert.Equal(
             ["acoustic-guitar", "piano", "electric-bass", "drum-kit"],
             Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Pulse).Instruments.Select(item => item.Id));
@@ -26,7 +28,9 @@ public sealed class InstrumentRoleRecommenderTests
             InstrumentExpressiveQuality.Warm);
 
         Assert.Equal(InstrumentExpressiveQuality.Warm, set.Quality);
-        Assert.Equal(["cello"], Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Countermelody).Instruments.Select(item => item.Id));
+        Assert.Equal(
+            ["cello", "clarinet"],
+            Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Countermelody).Instruments.Select(item => item.Id));
         Assert.Equal(["electric-bass"], Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Pulse).Instruments.Select(item => item.Id));
     }
 

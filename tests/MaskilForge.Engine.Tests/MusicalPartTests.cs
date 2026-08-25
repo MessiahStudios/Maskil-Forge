@@ -96,14 +96,31 @@ public sealed class MusicalPartTests
         var note = editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.E, Accidental.Natural, 4), 0, 480, 80);
 
         var unknown = Assert.Throws<ArgumentException>(() => editor.Execute(
-            new AddMusicalPartCommand(section.Id, ArrangementRole.Harmony, "Verse harmony", [note.Id], "violin")));
-        Assert.Contains("violin", unknown.Message);
+            new AddMusicalPartCommand(section.Id, ArrangementRole.Harmony, "Verse harmony", [note.Id], "synth-pad")));
+        Assert.Contains("synth-pad", unknown.Message);
         Assert.Empty(editor.Project.MusicalParts);
 
         var malformed = Assert.Throws<ArgumentException>(() => editor.Execute(
             new AddMusicalPartCommand(section.Id, ArrangementRole.Harmony, "Verse harmony", [note.Id], "Cello")));
         Assert.Contains("catalog slug", malformed.Message);
         Assert.Empty(editor.Project.MusicalParts);
+    }
+
+    [Fact]
+    public void Commands_AssignWaveTwoViolinWithoutRetargeting()
+    {
+        var editor = new ProjectEditor(SongProject.Create("Wave two violin"));
+        var section = editor.Project.AddSection(SectionKind.Verse);
+        editor.Project.SetSectionRole(section.Id, ArrangementRole.Countermelody);
+        var note = editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.E, Accidental.Natural, 4), 0, 480, 80);
+
+        editor.Execute(new AddMusicalPartCommand(
+            section.Id, ArrangementRole.Countermelody, "Verse violin", [note.Id], "violin"));
+
+        var part = Assert.Single(editor.Project.MusicalParts);
+        Assert.Equal("violin", part.InstrumentProfileId);
+        Assert.Equal("Verse violin", part.Label);
+        Assert.Empty(editor.Project.ExpressionCurves);
     }
 
     [Fact]

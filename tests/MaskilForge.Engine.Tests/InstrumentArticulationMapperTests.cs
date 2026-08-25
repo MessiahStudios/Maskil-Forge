@@ -47,13 +47,30 @@ public sealed class InstrumentArticulationMapperTests
     }
 
     [Fact]
+    public void Map_LeavesWaveTwoOrchestrationUnmapped()
+    {
+        var set = InstrumentArticulationMapper.Map();
+
+        Assert.All(
+            set.Maps.Where(item => item.InstrumentId is "violin" or "flute" or "clarinet" or "trumpet"),
+            map =>
+            {
+                Assert.All(map.Mappings, mapping =>
+                {
+                    Assert.False(mapping.Applicable);
+                    Assert.Null(mapping.Articulation);
+                });
+            });
+    }
+
+    [Fact]
     public void Map_KeepsCatalogOrderAndUsesOnlyNamedArticulations()
     {
         var catalog = InstrumentProfileCatalogLoader.Current;
         var set = InstrumentArticulationMapper.Map();
 
         Assert.Equal(
-            ["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit"],
+            ["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit", "violin", "flute", "clarinet", "trumpet"],
             set.Maps.Select(item => item.InstrumentId));
         Assert.All(set.Maps, map =>
         {

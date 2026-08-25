@@ -950,6 +950,21 @@ Desktop Music previews kit hits beside the existing swell and slide adapters. A 
 
 **Deliverable:** an artist can store reviewed onset gestures as drum-kit hits on a part they already named, without the host inventing kit technique from pitch or loudness.
 
+### Milestone 7.11 — Orchestration vocabulary catalog
+
+Grow the host-owned catalog to version 3 with four orchestration concepts chosen after the Wave 1 proof set:
+
+- Violin — bright, agile, sustained; countermelody, hook reinforcement, texture
+- Flute — bright, agile; texture, hook reinforcement, countermelody; breath-shaped sustain
+- Clarinet — warm, intimate, sustained; countermelody, texture, harmony
+- Trumpet — bright, agile; accents and hook reinforcement; tonguing
+
+Desktop Arrangement inspects the larger catalog through the existing profile, recommendation, range, and assignment views. An artist can name one of these instruments on a musical part, or leave the part unassigned. Unknown slugs, including later-wave synths and electric guitar, stay rejected. Swell, slide, and hit stay unmapped: the host does not invent cello or kit technique for these instruments. Schema stays at v31.
+
+The slice does not add electric guitar, synth pad, synth lead, or other Wave 3 instruments. It does not retarget a recorded gesture onto violin or flute, emit MIDI program changes, or auto-pick from recommendations. Phone Arrangement remains hidden. Later slices can map and retarget these instruments.
+
+**Deliverable:** an artist can name violin, flute, clarinet, or trumpet without the host choosing one or treating them like cello.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

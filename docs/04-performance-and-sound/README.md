@@ -125,6 +125,8 @@ Slice 7.9 projects the same approved swell or slide onto piano, electric bass, a
 
 Slice 7.10 maps approved onset gestures onto drum-kit Hit. Cello, guitar, piano, and bass stay unused for that gesture. Named kit parts can store the hits as playable notes. The host does not invent kit pieces, General MIDI drum notes, or a drum MIDI channel. Later catalog waves remain later work.
 
+Slice 7.11 grows the catalog to version 3 with violin, flute, clarinet, and trumpet. They are orchestration concepts with their own ranges, jobs, and articulations. Gesture maps stay unused so the host does not invent cello or kit technique for them. Electric guitar and synths remain later work.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting

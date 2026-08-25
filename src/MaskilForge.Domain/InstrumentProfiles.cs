@@ -16,7 +16,9 @@ public enum InstrumentArticulation
     Finger,
     Slap,
     Hit,
-    Choke
+    Choke,
+    Breath,
+    Tonguing
 }
 
 public enum InstrumentExpressiveQuality

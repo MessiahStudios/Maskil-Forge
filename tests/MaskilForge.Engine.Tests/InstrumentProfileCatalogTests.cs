@@ -6,13 +6,13 @@ namespace MaskilForge.Engine.Tests;
 public sealed class InstrumentProfileCatalogTests
 {
     [Fact]
-    public void CurrentCatalog_NamesTheWaveOneProofSet()
+    public void CurrentCatalog_NamesTheWaveOneProofSetAndWaveTwoOrchestration()
     {
         var catalog = InstrumentProfileCatalogLoader.Current;
 
-        Assert.Equal(2, catalog.Version);
+        Assert.Equal(3, catalog.Version);
         Assert.Equal(
-            ["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit"],
+            ["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit", "violin", "flute", "clarinet", "trumpet"],
             catalog.Instruments.Select(item => item.Id));
 
         var cello = catalog.Find("cello");
@@ -57,6 +57,38 @@ public sealed class InstrumentProfileCatalogTests
         Assert.Equal([ArrangementRole.Pulse, ArrangementRole.Accent], drums.Roles);
         Assert.Equal([InstrumentArticulation.Hit, InstrumentArticulation.Choke], drums.Articulations);
         Assert.Equal([InstrumentExpressiveQuality.Percussive], drums.ExpressiveQualities);
+
+        var violin = catalog.Find("violin");
+        Assert.Equal(55, violin.MinimumPitch!.MidiNumber);
+        Assert.Equal(105, violin.MaximumPitch!.MidiNumber);
+        Assert.Equal(
+            [ArrangementRole.Countermelody, ArrangementRole.HookReinforcement, ArrangementRole.Texture],
+            violin.Roles);
+        Assert.Equal(
+            [InstrumentExpressiveQuality.Bright, InstrumentExpressiveQuality.Agile, InstrumentExpressiveQuality.Sustained],
+            violin.ExpressiveQualities);
+
+        var flute = catalog.Find("flute");
+        Assert.Equal(60, flute.MinimumPitch!.MidiNumber);
+        Assert.Equal(96, flute.MaximumPitch!.MidiNumber);
+        Assert.Contains(InstrumentArticulation.Breath, flute.Articulations);
+        Assert.DoesNotContain(InstrumentArticulation.BowExpression, flute.Articulations);
+
+        var clarinet = catalog.Find("clarinet");
+        Assert.Equal(50, clarinet.MinimumPitch!.MidiNumber);
+        Assert.Equal(94, clarinet.MaximumPitch!.MidiNumber);
+        Assert.Contains(ArrangementRole.Harmony, clarinet.Roles);
+        Assert.Equal(
+            [InstrumentExpressiveQuality.Warm, InstrumentExpressiveQuality.Intimate, InstrumentExpressiveQuality.Sustained],
+            clarinet.ExpressiveQualities);
+
+        var trumpet = catalog.Find("trumpet");
+        Assert.Equal(54, trumpet.MinimumPitch!.MidiNumber);
+        Assert.Equal(84, trumpet.MaximumPitch!.MidiNumber);
+        Assert.Equal([ArrangementRole.Accent, ArrangementRole.HookReinforcement], trumpet.Roles);
+        Assert.Equal([InstrumentArticulation.Tonguing, InstrumentArticulation.Legato], trumpet.Articulations);
+        Assert.DoesNotContain("synth-pad", catalog.Instruments.Select(item => item.Id));
+        Assert.DoesNotContain("electric-guitar", catalog.Instruments.Select(item => item.Id));
     }
 
     [Fact]
@@ -64,7 +96,7 @@ public sealed class InstrumentProfileCatalogTests
     {
         var json = """
             {
-              "version": 2,
+              "version": 3,
               "instruments": [
                 {
                   "id": "cello",
@@ -89,7 +121,7 @@ public sealed class InstrumentProfileCatalogTests
     {
         var json = """
             {
-              "version": 2,
+              "version": 3,
               "instruments": [
                 {
                   "id": "drum-kit",
@@ -114,7 +146,7 @@ public sealed class InstrumentProfileCatalogTests
     {
         var json = """
             {
-              "version": 2,
+              "version": 3,
               "instruments": [
                 {
                   "id": "cello",
