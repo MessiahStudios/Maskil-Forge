@@ -1115,6 +1115,10 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "use-onset-gesture-note-sketch": editor.Execute(new UseOnsetGestureNoteSketchCommand(RequiredAssetId(request))); break;
         case "use-loudness-gesture-note-sketch": editor.Execute(new UseLoudnessGestureNoteSketchCommand(RequiredAssetId(request))); break;
         case "use-loudness-gesture-expression-sketch": editor.Execute(new UseLoudnessGestureExpressionSketchCommand(RequiredAssetId(request))); break;
+        case "use-instrument-performance-sketch": editor.Execute(new UseInstrumentPerformanceSketchCommand(
+            RequiredAssetId(request),
+            request.InstrumentProfileId ?? throw new ArgumentException("An instrument profile is required."),
+            request.MusicalPartId ?? throw new ArgumentException("Musical-part ID is required."))); break;
         case "remove-expression-curve": editor.Execute(new RemoveExpressionCurveCommand(
             request.ExpressionCurveId ?? throw new ArgumentException("Expression-curve ID is required."))); break;
         case "set-vocal-take-placement": editor.Execute(new SetVocalTakePlacementCommand(

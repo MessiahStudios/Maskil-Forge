@@ -170,6 +170,7 @@ public sealed class LoudnessGestureExpressionSketchTests
         Assert.Equal(ExpressionCurveKind.Dynamics, accepted.Kind);
         Assert.Equal(0, Assert.Single(accepted.Points).Tick);
         Assert.Equal(88, Assert.Single(accepted.Points).Value);
+        Assert.Null(accepted.InstrumentProfileId);
 
         editor.Undo();
         Assert.Empty(editor.Project.ExpressionCurves);
@@ -263,6 +264,7 @@ public sealed class LoudnessGestureExpressionSketchTests
         Assert.Equal(curve.Kind, restored.Kind);
         Assert.Equal(192, Assert.Single(restored.Points).Tick);
         Assert.Equal(88, Assert.Single(restored.Points).Value);
+        Assert.Null(restored.InstrumentProfileId);
         Assert.Equal(SchemaVersion.Current.Value, inspected.Project.SchemaVersion.Value);
     }
 

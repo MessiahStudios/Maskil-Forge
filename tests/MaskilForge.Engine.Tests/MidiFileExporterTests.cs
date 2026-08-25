@@ -59,6 +59,27 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_EmitsAssignedInstrumentDynamicsAsExpressionWithoutProgramChanges()
+    {
+        var project = SongProject.Create("Cello swell MIDI");
+        var section = project.AddSection(SectionKind.Chorus);
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 480, 100);
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Chorus foundation", [note.Id], "cello");
+        project.AddExpressionCurve(
+            "Cello swell",
+            ExpressionCurveKind.Dynamics,
+            [new ExpressionCurvePoint(0, 88)],
+            "cello");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xB0, 11, 88 }));
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 48, 100]);
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+    }
+
+    [Fact]
     public void Export_EmitsDynamicsAsExpressionControlChangeBeforeNoteOn()
     {
         var project = SongProject.Create("Expression MIDI");

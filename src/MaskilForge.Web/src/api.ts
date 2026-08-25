@@ -174,7 +174,13 @@ export interface OnsetGestureNoteSketch { sourceAssetId: string; startTick: numb
 export interface LoudnessGestureNoteSketchEvent extends Omit<NoteEvent, 'id'> { gestureId: string; observationId: string }
 export interface LoudnessGestureNoteSketch { sourceAssetId: string; startTick: number; events: LoudnessGestureNoteSketchEvent[] }
 export interface ExpressionCurvePoint { tick: number; value: number }
-export interface ExpressionCurve { id: string; name: string; kind: 'Dynamics'; points: ExpressionCurvePoint[] }
+export interface ExpressionCurve {
+  id: string
+  name: string
+  kind: 'Dynamics'
+  points: ExpressionCurvePoint[]
+  instrumentProfileId: string | null
+}
 export interface LoudnessGestureExpressionSketch {
   sourceAssetId: string
   name: string

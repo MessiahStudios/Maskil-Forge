@@ -46,7 +46,8 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
         new V26ToV27ProjectMigration(),
         new V27ToV28ProjectMigration(),
         new V28ToV29ProjectMigration(),
-        new V29ToV30ProjectMigration()
+        new V29ToV30ProjectMigration(),
+        new V30ToV31ProjectMigration()
     ]);
 
     public JsonObject Normalize(JsonObject project)
@@ -703,6 +704,24 @@ internal sealed class V29ToV30ProjectMigration : IProjectMigration
         {
             foreach (var part in musicalParts.OfType<JsonObject>())
                 part["instrumentProfileId"] = null;
+        }
+
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}
+
+internal sealed class V30ToV31ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 30;
+    public int ToVersion => 31;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        if (project["expressionCurves"] is JsonArray expressionCurves)
+        {
+            foreach (var curve in expressionCurves.OfType<JsonObject>())
+                curve["instrumentProfileId"] = null;
         }
 
         project["schemaVersion"] = ToVersion;

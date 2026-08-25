@@ -941,6 +941,106 @@ public sealed class UseLoudnessGestureExpressionSketchCommand(ProjectAssetId ass
     }
 }
 
+public sealed class UseInstrumentPerformanceSketchCommand(
+    ProjectAssetId assetId,
+    string instrumentProfileId,
+    MusicalPartId musicalPartId) : IProjectCommand
+{
+    private const int SlideVelocity = 96;
+
+    private IReadOnlyList<NoteEvent>? _createdNotes;
+    private MusicalPart? _beforePart;
+    private MusicalPart? _afterPart;
+    private ExpressionCurve? _createdCurve;
+
+    public void Execute(SongProject project)
+    {
+        if (_createdNotes is not null)
+        {
+            foreach (var noteEvent in _createdNotes) project.RestoreNoteEvent(noteEvent);
+            if (_afterPart is not null) project.RestoreMusicalPart(_afterPart);
+            if (_createdCurve is not null) project.RestoreExpressionCurve(_createdCurve);
+            return;
+        }
+
+        var assigned = MusicalPartInstrumentAssignment.RequireCatalogId(instrumentProfileId)
+            ?? throw new ArgumentException("Name cello or acoustic guitar on a musical part before accepting this retarget.");
+        if (assigned is not (InstrumentPerformanceRetargeter.CelloInstrumentId or InstrumentPerformanceRetargeter.AcousticGuitarInstrumentId))
+            throw new ArgumentException("Piano, electric bass, and drum kit are not this slice's retargeters.");
+
+        var part = project.MusicalParts.SingleOrDefault(item => item.Id == musicalPartId)
+            ?? throw new KeyNotFoundException($"Musical part '{musicalPartId}' was not found.");
+        var catalog = InstrumentProfileCatalogLoader.Current;
+        var targetProfile = catalog.Find(assigned);
+        var partInstrumentId = part.InstrumentProfileId;
+        if (string.IsNullOrWhiteSpace(partInstrumentId))
+            throw new ArgumentException($"Name {targetProfile.Name} on this musical part before accepting this retarget.");
+        if (!string.Equals(partInstrumentId, assigned, StringComparison.Ordinal))
+        {
+            var partName = catalog.Find(partInstrumentId).Name;
+            throw new ArgumentException($"This part is named {partName}. Accept that retarget, or name {targetProfile.Name} on the part.");
+        }
+
+        var target = InstrumentPerformanceRetargeter.Project(project, assetId).Targets
+            .Single(item => string.Equals(item.InstrumentId, assigned, StringComparison.Ordinal));
+        var inRangeSlides = target.Slide.Events.Where(item => item.RangeKind is null).ToList();
+        var swells = target.Swell.Applicable ? target.Swell.Events : [];
+        if (inRangeSlides.Count == 0 && swells.Count == 0)
+            throw new InvalidOperationException($"This {target.InstrumentName} sketch has no in-range slides or swells to store.");
+
+        if (inRangeSlides.Count > 0)
+            EnsureSlidesBeginInPartSection(project, part, inRangeSlides, target.InstrumentName);
+
+        var createdNotes = new List<NoteEvent>();
+        if (inRangeSlides.Count > 0)
+        {
+            _beforePart = part;
+            foreach (var slide in inRangeSlides)
+            {
+                var pitch = slide.Pitch ?? throw new InvalidOperationException("A slide event must include a pitch.");
+                createdNotes.Add(project.AddNoteEvent(pitch, slide.StartTick, slide.DurationTicks, SlideVelocity));
+            }
+
+            var noteIds = part.NoteEventIds.Concat(createdNotes.Select(item => item.Id)).ToList();
+            _afterPart = project.SetMusicalPart(part.Id, part.Label, noteIds, part.InstrumentProfileId);
+        }
+
+        if (swells.Count > 0)
+        {
+            var points = swells.Select(item => new ExpressionCurvePoint(
+                item.StartTick,
+                item.Value ?? throw new InvalidOperationException("A swell event must include an expression value."))).ToList();
+            _createdCurve = project.AddExpressionCurve($"{target.InstrumentName} swell", ExpressionCurveKind.Dynamics, points, assigned);
+        }
+
+        _createdNotes = createdNotes;
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_createdNotes is null) throw new InvalidOperationException("Command has not been executed.");
+        if (_beforePart is not null) project.RestoreMusicalPart(_beforePart);
+        foreach (var noteEvent in _createdNotes) project.RemoveNoteEvent(noteEvent.Id);
+        if (_createdCurve is not null) project.RemoveExpressionCurve(_createdCurve.Id);
+    }
+
+    private static void EnsureSlidesBeginInPartSection(
+        SongProject project,
+        MusicalPart part,
+        IReadOnlyList<InstrumentPerformanceEvent> slides,
+        string instrumentName)
+    {
+        var placement = project.Timeline.FindSection(part.SectionId);
+        var sectionStart = project.Timeline.ToAbsoluteTicks(placement.Start);
+        var meter = project.TimeSignature;
+        var ticksPerBeat = checked(project.Timeline.TicksPerQuarterNote * 4 / meter.Denominator);
+        var sectionEnd = checked(sectionStart + (long)placement.DurationBars * meter.Numerator * ticksPerBeat);
+        if (slides.Any(item => item.StartTick < sectionStart || item.StartTick >= sectionEnd))
+            throw new ArgumentException(
+                $"Place this take so in-range {instrumentName} slides begin inside the named part's section, or choose another part.");
+    }
+}
+
 public sealed class RemoveExpressionCurveCommand(ExpressionCurveId expressionCurveId) : IProjectCommand
 {
     private ExpressionCurve? _removed;

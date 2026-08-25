@@ -23,9 +23,9 @@ public sealed record ExpressionCurvePoint
 }
 
 /// <summary>
-/// An artist-authored dynamics curve in absolute song time. It is musical data only:
-/// no instrument, track, or generated-part ownership is implied. MIDI export may
-/// translate Dynamics to continuous controller 11.
+/// An artist-authored dynamics curve in absolute song time. It may name a catalog
+/// instrument. MIDI export may translate Dynamics to continuous controller 11
+/// without choosing a MIDI program or channel per instrument.
 /// </summary>
 public sealed class ExpressionCurve
 {
@@ -36,7 +36,8 @@ public sealed class ExpressionCurve
         ExpressionCurveId id,
         string name,
         ExpressionCurveKind kind,
-        IReadOnlyList<ExpressionCurvePoint> points)
+        IReadOnlyList<ExpressionCurvePoint> points,
+        string? instrumentProfileId = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("An expression-curve ID is required.", nameof(id));
         if (!Enum.IsDefined(kind)) throw new ArgumentOutOfRangeException(nameof(kind), "Expression-curve kind is invalid.");
@@ -48,15 +49,24 @@ public sealed class ExpressionCurve
             throw new ArgumentOutOfRangeException(nameof(points), $"An expression curve cannot exceed {MaximumPointCount} points.");
         if (points.Select(item => item.Tick).Distinct().Count() != points.Count)
             throw new ArgumentException("Expression-curve point ticks must be unique.", nameof(points));
+        if (string.IsNullOrWhiteSpace(instrumentProfileId)) instrumentProfileId = null;
+        else
+        {
+            instrumentProfileId = instrumentProfileId.Trim();
+            if (!InstrumentProfile.IsValidId(instrumentProfileId))
+                throw new ArgumentException("An assigned instrument must be a catalog slug of at most 40 characters.", nameof(instrumentProfileId));
+        }
 
         Id = id;
         Points = points.OrderBy(item => item.Tick).ToList();
+        InstrumentProfileId = instrumentProfileId;
     }
 
     public ExpressionCurveId Id { get; }
     public string Name { get; }
     public ExpressionCurveKind Kind { get; }
     public IReadOnlyList<ExpressionCurvePoint> Points { get; }
+    public string? InstrumentProfileId { get; }
 
     private static string NormalizeName(string name)
     {

@@ -673,9 +673,13 @@ public sealed class SongProject
         Touch();
     }
 
-    public ExpressionCurve AddExpressionCurve(string name, ExpressionCurveKind kind, IReadOnlyList<ExpressionCurvePoint> points)
+    public ExpressionCurve AddExpressionCurve(
+        string name,
+        ExpressionCurveKind kind,
+        IReadOnlyList<ExpressionCurvePoint> points,
+        string? instrumentProfileId = null)
     {
-        var created = new ExpressionCurve(ExpressionCurveId.New(), name, kind, points);
+        var created = new ExpressionCurve(ExpressionCurveId.New(), name, kind, points, instrumentProfileId);
         RestoreExpressionCurve(created);
         return created;
     }

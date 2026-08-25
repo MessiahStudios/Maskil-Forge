@@ -240,6 +240,7 @@ const onsetGestureNoteSketches = reactive<Record<string, OnsetGestureNoteSketch>
 const loudnessGestureNoteSketches = reactive<Record<string, LoudnessGestureNoteSketch>>({})
 const loudnessGestureExpressionSketches = reactive<Record<string, LoudnessGestureExpressionSketch>>({})
 const instrumentPerformanceSketches = reactive<Record<string, InstrumentPerformanceRetargetSet>>({})
+const instrumentSketchPartIds = reactive<Record<string, string>>({})
 const lowEndSupportProposals = reactive<Record<string, LowEndSupportProposal>>({})
 const pulseProposals = reactive<Record<string, PulseProposal>>({})
 const harmonySupportProposals = reactive<Record<string, HarmonySupportProposal>>({})
@@ -2978,6 +2979,41 @@ async function prepareInstrumentPerformanceSketch(assetId: string) {
     busy.value = false
   }
 }
+function matchingInstrumentParts(instrumentId: string) {
+  return (project.value?.musicalParts ?? []).filter(part => part.instrumentProfileId === instrumentId)
+}
+function instrumentSketchPartKey(assetId: string, instrumentId: string) {
+  return `${assetId}:${instrumentId}`
+}
+function selectedInstrumentSketchPartId(assetId: string, instrumentId: string) {
+  const parts = matchingInstrumentParts(instrumentId)
+  if (parts.length === 1) return parts[0].id
+  const chosen = instrumentSketchPartIds[instrumentSketchPartKey(assetId, instrumentId)]
+  return parts.some(part => part.id === chosen) ? chosen : ''
+}
+function instrumentSketchHasPersistableEvents(target: InstrumentPerformanceRetargetSet['targets'][number]) {
+  return target.swell.events.length > 0 || target.slide.events.some(item => !item.rangeKind)
+}
+function useInstrumentPerformanceSketch(assetId: string, instrumentId: string) {
+  if (!project.value) return
+  const musicalPartId = selectedInstrumentSketchPartId(assetId, instrumentId)
+  if (!musicalPartId) return
+  const sketch = instrumentPerformanceSketches[assetId]
+  const target = sketch?.targets.find(item => item.instrumentId === instrumentId)
+  const inRangeCount = target?.slide.events.filter(item => !item.rangeKind).length ?? 0
+  const swellCount = target?.swell.events.length ?? 0
+  const partLabel = project.value.musicalParts.find(part => part.id === musicalPartId)?.label ?? 'the named part'
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'use-instrument-performance-sketch',
+      assetId,
+      instrumentProfileId: instrumentId,
+      musicalPartId,
+    }),
+    `${target?.instrumentName ?? 'Instrument'} sketch stored on ${partLabel}.`,
+    'midi.instrument-retarget.use',
+    { assetId, instrumentId, musicalPartId, inRangeCount, swellCount })
+}
 function removeExpressionCurve(expressionCurveId: string, name: string) {
   if (!project.value) return
   const pointCount = project.value.expressionCurves?.find(item => item.id === expressionCurveId)?.points.length ?? 0
@@ -5458,7 +5494,7 @@ onBeforeUnmount(() => {
           <li v-for="curve in project.expressionCurves" :key="curve.id">
             <div>
               <strong>{{ curve.name }}</strong>
-              <span>{{ curve.points.length }} point{{ curve.points.length === 1 ? '' : 's' }} · MIDI CC 11</span>
+              <span>{{ curve.points.length }} point{{ curve.points.length === 1 ? '' : 's' }} · MIDI CC 11{{ curve.instrumentProfileId ? ` · ${instrumentProfileName(curve.instrumentProfileId)}` : '' }}</span>
             </div>
             <button type="button" class="danger" :disabled="busy" @click="removeExpressionCurve(curve.id, curve.name)">Remove</button>
           </li>
@@ -5469,7 +5505,7 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">From a reviewed take</span>
           <h2 id="instrument-performance-retarget-title">Retarget this take to cello and guitar</h2>
-          <p>Preview the same approved swell or slide as cello technique and guitar technique. Loudness gestures become swells; pitch gestures become slides. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are reported, not transposed. Piano, bass, and drum kit stay unused here. Nothing is assigned or stored.</p>
+          <p>Preview the same approved swell or slide as cello technique and guitar technique, then store it on a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. Piano, bass, and drum kit stay unused here. MIDI does not choose an instrument.</p>
         </div>
         <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch or loudness claim first.</p>
         <p v-else-if="!instrumentRetargetTakes.length" class="note-event-empty">Promote at least one pitch or loudness claim to a gesture in the take inspector above.</p>
@@ -5483,8 +5519,8 @@ onBeforeUnmount(() => {
           </button>
           <div v-if="instrumentPerformanceSketches[asset.id]" class="harmony-note-sketch-result">
             <p>
-              <strong>Inspectable only. The Song Graph is unchanged.</strong>
-              <span>Uses the first tempo only. Cello and guitar keep their own articulations for the same gestures.</span>
+              <strong>Review, then store onto a named cello or guitar part.</strong>
+              <span>Uses the first tempo only. Cello and guitar keep their own articulations for the same gestures. Out-of-range slides stay skipped. MIDI still emits dynamics as CC 11 without a program change.</span>
             </p>
             <div class="instrument-retarget-targets">
               <article v-for="target in instrumentPerformanceSketches[asset.id].targets" :key="target.instrumentId" class="instrument-retarget-target" :aria-label="`${target.instrumentName} retarget`">
@@ -5512,8 +5548,37 @@ onBeforeUnmount(() => {
                       <span>tick {{ event.startTick }} · {{ event.durationTicks }} ticks</span>
                       <small>{{ slideRangeCopy(event.rangeKind) }}</small>
                     </li>
-                  </ol>
+                    </ol>
                 </section>
+                <div class="instrument-retarget-accept">
+                  <p v-if="!matchingInstrumentParts(target.instrumentId).length">
+                    Name {{ target.instrumentName }} on a musical part in Arrangement first.
+                  </p>
+                  <template v-else>
+                    <label v-if="matchingInstrumentParts(target.instrumentId).length > 1">
+                      Musical part
+                      <select
+                        :value="selectedInstrumentSketchPartId(asset.id, target.instrumentId)"
+                        :disabled="busy"
+                        @change="instrumentSketchPartIds[instrumentSketchPartKey(asset.id, target.instrumentId)] = ($event.target as HTMLSelectElement).value"
+                      >
+                        <option value="">Choose a part</option>
+                        <option v-for="part in matchingInstrumentParts(target.instrumentId)" :key="part.id" :value="part.id">
+                          {{ part.label }}
+                        </option>
+                      </select>
+                    </label>
+                    <p v-else>Stores onto {{ matchingInstrumentParts(target.instrumentId)[0].label }}.</p>
+                    <button
+                      type="button"
+                      :disabled="busy || !selectedInstrumentSketchPartId(asset.id, target.instrumentId) || !instrumentSketchHasPersistableEvents(target)"
+                      @click="useInstrumentPerformanceSketch(asset.id, target.instrumentId)"
+                    >
+                      Use this {{ target.instrumentName }} sketch
+                    </button>
+                    <small>Adds in-range slides to the named part and stores swells as a dynamics curve. Out-of-range slides are skipped, not moved. MIDI does not choose an instrument.</small>
+                  </template>
+                </div>
               </article>
             </div>
           </div>

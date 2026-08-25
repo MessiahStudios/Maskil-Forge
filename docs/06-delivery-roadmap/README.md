@@ -922,9 +922,17 @@ Desktop Music previews cello and guitar side by side. Phone Music remains hidden
 
 Advance the Song Graph to schema v30 with an optional `instrumentProfileId` on each musical part. The value is a catalog slug (`cello`, `acoustic-guitar`, `piano`, `electric-bass`, `drum-kit`) or unassigned. The artist sets or clears it through the existing add/save part commands. Unknown slugs are rejected. Schema-v29 parts migrate as unassigned; the host does not invent cello or guitar.
 
-The assignment does not require the instrument to cover the part’s job, auto-pick from 7.2 recommendations, retarget a gesture, persist a 7.6 sketch, transpose notes, or emit MIDI program changes. Catalog stays at version 2. Desktop Arrangement names the instrument on a part. Phone Arrangement remains hidden. Later slices can persist a retargeted performance against an assigned instrument and add piano, bass, or kit adapters.
+The assignment does not require the instrument to cover the part’s job, auto-pick from 7.2 recommendations, retarget a gesture, persist a 7.6 sketch, transpose notes, or emit MIDI program changes. Catalog stays at version 2. Desktop Arrangement names the instrument on a part. Phone Arrangement remains hidden.
 
 **Deliverable:** an artist can name a catalog instrument on a musical part, or leave it unassigned, without the host choosing one or changing the notes.
+
+### Milestone 7.8 — Persist cello and guitar retargets
+
+Persist a reviewed 7.6 cello or guitar sketch onto a musical part that already names that instrument. In-range slides become playable notes on the part (velocity 96, sketch timing and duration). Swells become a Dynamics expression curve named from the instrument and tagged with the same catalog `instrumentProfileId`. Out-of-range slides are skipped, not transposed. If take placement puts in-range slides outside the part’s section, the command throws rather than dropping those pitches. If nothing persistable remains, the command throws.
+
+Schema v31 adds optional `instrumentProfileId` on expression curves so a cello swell stays distinct from an untagged vocal dynamics curve. Schema-v30 curves migrate as unassigned. The host does not auto-assign an instrument, auto-create a part, retarget piano, bass, or drum kit, or emit MIDI program changes. MIDI export still translates every Dynamics curve to CC 11 on channel 0; per-instrument MIDI channels remain later work. Catalog stays at version 2. Desktop Music can accept a cello or guitar sketch; Phone Music remains hidden.
+
+**Deliverable:** an artist can store a reviewed cello or guitar retarget on a part they already named, without the host inventing an instrument or rewriting out-of-range pitches.
 
 ## Delivery foundation — Portable before platform-specific
 

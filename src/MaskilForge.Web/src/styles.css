@@ -501,6 +501,8 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .instrument-retarget-target > strong { color: #fff1d3; }
 .instrument-retarget-target section { display: grid; gap: .35rem; }
 .instrument-retarget-target ol { grid-template-columns: 1fr; }
+.instrument-retarget-accept { display: grid; gap: .35rem; }
+.instrument-retarget-accept small { color: #c4cbb8; }
 .harmony-candidates { display: grid; gap: .45rem; padding-top: .25rem; border-top: 1px solid #3f453b; }
 .harmony-candidate-card { display: grid; grid-template-columns: minmax(10rem, .75fr) minmax(14rem, 1.5fr) auto; padding: .65rem; background: #1b1f1a; border: 1px solid #41473d; border-radius: .35rem; color: #d8ccb1; }
 .harmony-candidate-summary { display: grid; gap: .2rem; }
