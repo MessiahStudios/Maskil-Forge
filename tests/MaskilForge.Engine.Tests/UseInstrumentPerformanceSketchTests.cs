@@ -205,6 +205,27 @@ public sealed class UseInstrumentPerformanceSketchTests
     }
 
     [Fact]
+    public void Command_ThrowsWhenWaveThreeHasNothingPersistable()
+    {
+        foreach (var instrumentId in new[] { "synth-pad", "synth-lead", "electric-guitar" })
+        {
+            var editor = SeedAssignedPart($"Persist {instrumentId}", instrumentId, out var asset, out var part);
+            PromotePitch(editor.Project, asset.Id, 200, 440m);
+            PromoteLoudness(editor.Project, asset.Id, 0, -18.2m);
+            PromoteOnset(editor.Project, asset.Id, 96, 0.8m);
+            var existingNoteId = Assert.Single(part.NoteEventIds);
+
+            var error = Assert.Throws<InvalidOperationException>(() =>
+                editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, instrumentId, part.Id)));
+
+            Assert.Contains("no in-range slides, swells, or hits", error.Message);
+            Assert.Equal([existingNoteId], Assert.Single(editor.Project.MusicalParts).NoteEventIds);
+            Assert.Equal(existingNoteId, Assert.Single(editor.Project.NoteEvents).Id);
+            Assert.Empty(editor.Project.ExpressionCurves);
+        }
+    }
+
+    [Fact]
     public void Command_IgnoresOnsetsWhenStoringACelloSketch()
     {
         var editor = SeedAssignedPart("Cello ignores hits", "cello", out var asset, out var part);

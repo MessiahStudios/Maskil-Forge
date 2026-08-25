@@ -44,7 +44,7 @@ public sealed class InstrumentRangeReviewerTests
         var set = InstrumentRangeReviewer.Review([]);
 
         Assert.Equal(
-            ["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit", "violin", "flute", "clarinet", "trumpet"],
+            ["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit", "violin", "flute", "clarinet", "trumpet", "synth-pad", "synth-lead", "electric-guitar"],
             set.Reviews.Select(item => item.InstrumentId));
         Assert.All(set.Reviews.Where(item => item.Applicable), item =>
         {

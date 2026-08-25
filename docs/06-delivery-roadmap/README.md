@@ -975,6 +975,20 @@ The slice does not add electric guitar, synth pad, synth lead, or other Wave 3 i
 
 **Deliverable:** an artist can hear how a swell or slide would be played on violin, flute, clarinet, or trumpet, and store what applies, without the host treating them like cello or a drum kit.
 
+### Milestone 7.13 — Modern production catalog
+
+Grow the host-owned catalog to version 4 with three modern production concepts chosen after the Wave 2 orchestration set:
+
+- Synth Pad — warm, intimate, sustained; texture and harmony; pad and filter
+- Synth Lead — bright, agile; hook reinforcement and countermelody; filter and portamento
+- Electric Guitar — bright, percussive; hook, harmony, texture, and accents; distortion, palm mute, and bend
+
+Desktop Arrangement inspects the larger catalog through the existing profile, recommendation, range, and assignment views. An artist can name one of these instruments on a musical part, or leave the part unassigned. Unknown slugs, including later-wave instruments such as oboe, stay rejected. Swell, slide, and hit stay unmapped: the host does not invent cello, acoustic-guitar, or kit technique for these instruments. Schema stays at v31.
+
+The slice does not add organ, ensemble strings, extra percussion, or other later instruments. It does not retarget a recorded gesture onto synth pad or electric guitar, emit MIDI program changes, or auto-pick from recommendations. Phone Arrangement remains hidden. Later slices can map and retarget these instruments.
+
+**Deliverable:** an artist can name synth pad, synth lead, or electric guitar without the host choosing one or treating them like cello, acoustic guitar, or a drum kit.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

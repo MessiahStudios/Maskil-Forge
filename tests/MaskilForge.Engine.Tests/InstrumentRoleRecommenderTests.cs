@@ -13,7 +13,7 @@ public sealed class InstrumentRoleRecommenderTests
         Assert.Null(set.Quality);
         Assert.Equal([ArrangementRole.Countermelody, ArrangementRole.Pulse], set.Recommendations.Select(item => item.Role));
         Assert.Equal(
-            ["cello", "violin", "flute", "clarinet"],
+            ["cello", "violin", "flute", "clarinet", "synth-lead"],
             Assert.Single(set.Recommendations, item => item.Role == ArrangementRole.Countermelody).Instruments.Select(item => item.Id));
         Assert.Equal(
             ["acoustic-guitar", "piano", "electric-bass", "drum-kit"],

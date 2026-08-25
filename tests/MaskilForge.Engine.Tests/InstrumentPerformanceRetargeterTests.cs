@@ -30,7 +30,7 @@ public sealed class InstrumentPerformanceRetargeterTests
         var guitarSwell = Assert.Single(guitar.Swell.Events);
 
         Assert.Equal(asset.Id, set.SourceAssetId);
-        Assert.Equal(["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit", "violin", "flute", "clarinet", "trumpet"], set.Targets.Select(item => item.InstrumentId));
+        Assert.Equal(["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit", "violin", "flute", "clarinet", "trumpet", "synth-pad", "synth-lead", "electric-guitar"], set.Targets.Select(item => item.InstrumentId));
 
         Assert.Equal("Cello", cello.InstrumentName);
         Assert.True(cello.Swell.Applicable);
@@ -57,6 +57,11 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.False(Target(set, "flute").Slide.Applicable);
         Assert.False(Target(set, "clarinet").Hit.Applicable);
         Assert.Empty(Target(set, "trumpet").Hit.Events);
+        Assert.False(Target(set, "synth-pad").Swell.Applicable);
+        Assert.False(Target(set, "synth-lead").Slide.Applicable);
+        Assert.False(Target(set, "electric-guitar").Hit.Applicable);
+        Assert.Empty(Target(set, "synth-pad").Swell.Events);
+        Assert.Empty(Target(set, "electric-guitar").Hit.Events);
     }
 
     [Fact]
@@ -310,8 +315,8 @@ public sealed class InstrumentPerformanceRetargeterTests
         project.SetPerformanceObservationGesture(observation.Id, now);
         var catalog = new InstrumentProfileCatalog(2, [
             new InstrumentProfile(
-                "synth-pad",
-                "Synth Pad",
+                "oboe",
+                "Oboe",
                 true,
                 new RegisteredPitch(NoteLetter.G, Accidental.Natural, 3),
                 new RegisteredPitch(NoteLetter.A, Accidental.Natural, 7),
@@ -321,15 +326,15 @@ public sealed class InstrumentPerformanceRetargeterTests
         ]);
 
         var set = InstrumentPerformanceRetargeter.Project(project, asset.Id, catalog);
-        var pad = Assert.Single(set.Targets);
+        var oboe = Assert.Single(set.Targets);
 
-        Assert.Equal("synth-pad", pad.InstrumentId);
-        Assert.False(pad.Swell.Applicable);
-        Assert.Empty(pad.Swell.Events);
-        Assert.False(pad.Slide.Applicable);
-        Assert.Empty(pad.Slide.Events);
-        Assert.False(pad.Hit.Applicable);
-        Assert.Empty(pad.Hit.Events);
+        Assert.Equal("oboe", oboe.InstrumentId);
+        Assert.False(oboe.Swell.Applicable);
+        Assert.Empty(oboe.Swell.Events);
+        Assert.False(oboe.Slide.Applicable);
+        Assert.Empty(oboe.Slide.Events);
+        Assert.False(oboe.Hit.Applicable);
+        Assert.Empty(oboe.Hit.Events);
     }
 
     private static InstrumentPerformanceSketch Target(InstrumentPerformanceRetargetSet set, string instrumentId) =>

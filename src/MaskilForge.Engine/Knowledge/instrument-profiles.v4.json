@@ -1,0 +1,125 @@
+{
+  "version": 4,
+  "instruments": [
+    {
+      "id": "cello",
+      "name": "Cello",
+      "pitched": true,
+      "minimumPitch": { "letter": "C", "accidental": "Natural", "octave": 2 },
+      "maximumPitch": { "letter": "A", "accidental": "Natural", "octave": 5 },
+      "roles": ["Foundation", "Harmony", "LowEndSupport", "Texture", "Countermelody"],
+      "articulations": ["Legato", "BowExpression", "Slide"],
+      "expressiveQualities": ["Warm", "Intimate", "Sustained"]
+    },
+    {
+      "id": "acoustic-guitar",
+      "name": "Acoustic Guitar",
+      "pitched": true,
+      "minimumPitch": { "letter": "E", "accidental": "Natural", "octave": 2 },
+      "maximumPitch": { "letter": "B", "accidental": "Natural", "octave": 5 },
+      "roles": ["Pulse", "Harmony", "Texture"],
+      "articulations": ["Picking", "Bend", "HammerOn"],
+      "expressiveQualities": ["Intimate", "Percussive", "Agile"]
+    },
+    {
+      "id": "piano",
+      "name": "Piano",
+      "pitched": true,
+      "minimumPitch": { "letter": "A", "accidental": "Natural", "octave": 0 },
+      "maximumPitch": { "letter": "C", "accidental": "Natural", "octave": 8 },
+      "roles": ["Foundation", "Pulse", "Harmony", "HookReinforcement"],
+      "articulations": ["Strike", "Pedal"],
+      "expressiveQualities": ["Bright", "Percussive", "Sustained"]
+    },
+    {
+      "id": "electric-bass",
+      "name": "Electric Bass",
+      "pitched": true,
+      "minimumPitch": { "letter": "E", "accidental": "Natural", "octave": 1 },
+      "maximumPitch": { "letter": "G", "accidental": "Natural", "octave": 4 },
+      "roles": ["Foundation", "Pulse", "LowEndSupport"],
+      "articulations": ["Finger", "Picking", "Slap"],
+      "expressiveQualities": ["Warm", "Sustained"]
+    },
+    {
+      "id": "drum-kit",
+      "name": "Drum Kit",
+      "pitched": false,
+      "minimumPitch": null,
+      "maximumPitch": null,
+      "roles": ["Pulse", "Accent"],
+      "articulations": ["Hit", "Choke"],
+      "expressiveQualities": ["Percussive"]
+    },
+    {
+      "id": "violin",
+      "name": "Violin",
+      "pitched": true,
+      "minimumPitch": { "letter": "G", "accidental": "Natural", "octave": 3 },
+      "maximumPitch": { "letter": "A", "accidental": "Natural", "octave": 7 },
+      "roles": ["Countermelody", "HookReinforcement", "Texture"],
+      "articulations": ["Legato", "BowExpression", "Slide"],
+      "expressiveQualities": ["Bright", "Agile", "Sustained"]
+    },
+    {
+      "id": "flute",
+      "name": "Flute",
+      "pitched": true,
+      "minimumPitch": { "letter": "C", "accidental": "Natural", "octave": 4 },
+      "maximumPitch": { "letter": "C", "accidental": "Natural", "octave": 7 },
+      "roles": ["Texture", "HookReinforcement", "Countermelody"],
+      "articulations": ["Legato", "Breath"],
+      "expressiveQualities": ["Bright", "Agile"]
+    },
+    {
+      "id": "clarinet",
+      "name": "Clarinet",
+      "pitched": true,
+      "minimumPitch": { "letter": "D", "accidental": "Natural", "octave": 3 },
+      "maximumPitch": { "letter": "B", "accidental": "Flat", "octave": 6 },
+      "roles": ["Countermelody", "Texture", "Harmony"],
+      "articulations": ["Legato", "Tonguing"],
+      "expressiveQualities": ["Warm", "Intimate", "Sustained"]
+    },
+    {
+      "id": "trumpet",
+      "name": "Trumpet",
+      "pitched": true,
+      "minimumPitch": { "letter": "F", "accidental": "Sharp", "octave": 3 },
+      "maximumPitch": { "letter": "C", "accidental": "Natural", "octave": 6 },
+      "roles": ["Accent", "HookReinforcement"],
+      "articulations": ["Tonguing", "Legato"],
+      "expressiveQualities": ["Bright", "Agile"]
+    },
+    {
+      "id": "synth-pad",
+      "name": "Synth Pad",
+      "pitched": true,
+      "minimumPitch": { "letter": "C", "accidental": "Natural", "octave": 2 },
+      "maximumPitch": { "letter": "C", "accidental": "Natural", "octave": 6 },
+      "roles": ["Texture", "Harmony"],
+      "articulations": ["Pad", "Filter"],
+      "expressiveQualities": ["Warm", "Intimate", "Sustained"]
+    },
+    {
+      "id": "synth-lead",
+      "name": "Synth Lead",
+      "pitched": true,
+      "minimumPitch": { "letter": "C", "accidental": "Natural", "octave": 3 },
+      "maximumPitch": { "letter": "C", "accidental": "Natural", "octave": 7 },
+      "roles": ["HookReinforcement", "Countermelody"],
+      "articulations": ["Filter", "Portamento"],
+      "expressiveQualities": ["Bright", "Agile"]
+    },
+    {
+      "id": "electric-guitar",
+      "name": "Electric Guitar",
+      "pitched": true,
+      "minimumPitch": { "letter": "E", "accidental": "Natural", "octave": 2 },
+      "maximumPitch": { "letter": "E", "accidental": "Natural", "octave": 6 },
+      "roles": ["HookReinforcement", "Harmony", "Texture", "Accent"],
+      "articulations": ["Distortion", "PalmMute", "Bend"],
+      "expressiveQualities": ["Bright", "Percussive"]
+    }
+  ]
+}

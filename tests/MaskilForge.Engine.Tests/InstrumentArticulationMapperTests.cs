@@ -73,13 +73,31 @@ public sealed class InstrumentArticulationMapperTests
     }
 
     [Fact]
+    public void Map_LeavesWaveThreeUnmappedWithoutInventingCelloOrKitTechnique()
+    {
+        var set = InstrumentArticulationMapper.Map();
+        var pad = Assert.Single(set.Maps, item => item.InstrumentId == "synth-pad");
+        var lead = Assert.Single(set.Maps, item => item.InstrumentId == "synth-lead");
+        var electric = Assert.Single(set.Maps, item => item.InstrumentId == "electric-guitar");
+
+        Assert.All(new[] { pad, lead, electric }, map =>
+        {
+            Assert.All(map.Mappings, mapping =>
+            {
+                Assert.False(mapping.Applicable);
+                Assert.Null(mapping.Articulation);
+            });
+        });
+    }
+
+    [Fact]
     public void Map_KeepsCatalogOrderAndUsesOnlyNamedArticulations()
     {
         var catalog = InstrumentProfileCatalogLoader.Current;
         var set = InstrumentArticulationMapper.Map();
 
         Assert.Equal(
-            ["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit", "violin", "flute", "clarinet", "trumpet"],
+            ["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit", "violin", "flute", "clarinet", "trumpet", "synth-pad", "synth-lead", "electric-guitar"],
             set.Maps.Select(item => item.InstrumentId));
         Assert.All(set.Maps, map =>
         {
@@ -116,8 +134,8 @@ public sealed class InstrumentArticulationMapperTests
     {
         var catalog = new InstrumentProfileCatalog(2, [
             new InstrumentProfile(
-                "synth-pad",
-                "Synth Pad",
+                "oboe",
+                "Oboe",
                 true,
                 new RegisteredPitch(NoteLetter.G, Accidental.Natural, 3),
                 new RegisteredPitch(NoteLetter.A, Accidental.Natural, 7),
@@ -127,10 +145,10 @@ public sealed class InstrumentArticulationMapperTests
         ]);
 
         var set = InstrumentArticulationMapper.Map(catalog);
-        var pad = Assert.Single(set.Maps);
+        var oboe = Assert.Single(set.Maps);
 
-        Assert.Equal("synth-pad", pad.InstrumentId);
-        Assert.All(pad.Mappings, mapping =>
+        Assert.Equal("oboe", oboe.InstrumentId);
+        Assert.All(oboe.Mappings, mapping =>
         {
             Assert.False(mapping.Applicable);
             Assert.Null(mapping.Articulation);

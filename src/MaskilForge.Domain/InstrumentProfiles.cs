@@ -18,7 +18,12 @@ public enum InstrumentArticulation
     Hit,
     Choke,
     Breath,
-    Tonguing
+    Tonguing,
+    Pad,
+    Filter,
+    Portamento,
+    Distortion,
+    PalmMute
 }
 
 public enum InstrumentExpressiveQuality

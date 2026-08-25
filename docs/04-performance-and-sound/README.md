@@ -129,13 +129,15 @@ Slice 7.11 grows the catalog to version 3 with violin, flute, clarinet, and trum
 
 Slice 7.12 maps swell and slide onto those Wave 2 instruments using each profile’s own articulations. Violin swell is bow expression and violin slide stays a slide. Flute swell is breath-shaped sustain. Clarinet and trumpet swells are legato. Wind slides and Wave 2 hits stay not applicable. Named parts can store those retargets. Electric guitar and synths remain later work.
 
+Slice 7.13 grows the catalog to version 4 with synth pad, synth lead, and electric guitar. They are modern production concepts with their own ranges, jobs, and articulations. Gesture maps stay unused so the host does not invent cello, guitar, or kit technique for them.
+
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
 ## Instrument-specific retargeting
 
 Voice-to-instrument is treated as performance capture and retargeting. A neutral gesture should be adapted to the target instrument concept: cello may translate a swell into bow expression and a slide into legato; acoustic guitar may translate the same input into picking dynamics, bends, and hammer-ons; piano into strike and decay; flute into breath-shaped sustain. Adapters should enforce range and articulation limitations, and must not assume every target is cello-like. Drum kit is an unpitched target.
 
-Slice 7.6 previews cello and guitar from the same approved gestures using the catalog articulation map. Slice 7.8 can persist that preview onto a part that already names cello or guitar. Slice 7.9 adds piano, bass, and kit adapters from that same map: swell applies as piano strike or bass finger; slides and both kit gestures stay unused. Slice 7.10 maps onset gestures onto drum-kit Hit on a part that already names the kit. Slice 7.12 maps Wave 2 orchestration the same way: violin uses bow expression and slide, flute uses breath, clarinet and trumpet use legato, and none of them take kit hits. Accepted instrumental notes do not replace the artist's lead vocal.
+Slice 7.6 previews cello and guitar from the same approved gestures using the catalog articulation map. Slice 7.8 can persist that preview onto a part that already names cello or guitar. Slice 7.9 adds piano, bass, and kit adapters from that same map: swell applies as piano strike or bass finger; slides and both kit gestures stay unused. Slice 7.10 maps onset gestures onto drum-kit Hit on a part that already names the kit. Slice 7.12 maps Wave 2 orchestration the same way: violin uses bow expression and slide, flute uses breath, clarinet and trumpet use legato, and none of them take kit hits. Slice 7.13 can name synth pad, synth lead, or electric guitar; those maps stay unused. Accepted instrumental notes do not replace the artist's lead vocal.
 
 Slice 7.7 can name a catalog instrument on an existing musical part. That name is not a renderer or a MIDI program.
 

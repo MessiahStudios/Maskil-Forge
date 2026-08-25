@@ -96,8 +96,8 @@ public sealed class MusicalPartTests
         var note = editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.E, Accidental.Natural, 4), 0, 480, 80);
 
         var unknown = Assert.Throws<ArgumentException>(() => editor.Execute(
-            new AddMusicalPartCommand(section.Id, ArrangementRole.Harmony, "Verse harmony", [note.Id], "synth-pad")));
-        Assert.Contains("synth-pad", unknown.Message);
+            new AddMusicalPartCommand(section.Id, ArrangementRole.Harmony, "Verse harmony", [note.Id], "oboe")));
+        Assert.Contains("oboe", unknown.Message);
         Assert.Empty(editor.Project.MusicalParts);
 
         var malformed = Assert.Throws<ArgumentException>(() => editor.Execute(
@@ -121,6 +121,24 @@ public sealed class MusicalPartTests
         Assert.Equal("violin", part.InstrumentProfileId);
         Assert.Equal("Verse violin", part.Label);
         Assert.Empty(editor.Project.ExpressionCurves);
+    }
+
+    [Fact]
+    public void Commands_AssignWaveThreeElectricGuitarWithoutRetargeting()
+    {
+        var editor = new ProjectEditor(SongProject.Create("Wave three electric guitar"));
+        var section = editor.Project.AddSection(SectionKind.Chorus);
+        editor.Project.SetSectionRole(section.Id, ArrangementRole.HookReinforcement);
+        var note = editor.Project.AddNoteEvent(new RegisteredPitch(NoteLetter.E, Accidental.Natural, 4), 0, 480, 80);
+
+        editor.Execute(new AddMusicalPartCommand(
+            section.Id, ArrangementRole.HookReinforcement, "Chorus electric guitar", [note.Id], "electric-guitar"));
+
+        var part = Assert.Single(editor.Project.MusicalParts);
+        Assert.Equal("electric-guitar", part.InstrumentProfileId);
+        Assert.Equal("Chorus electric guitar", part.Label);
+        Assert.Empty(editor.Project.ExpressionCurves);
+        Assert.Equal(note.Id, Assert.Single(editor.Project.NoteEvents).Id);
     }
 
     [Fact]

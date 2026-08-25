@@ -43,6 +43,8 @@ Slice 7.11 grows the catalog to version 3 with violin, flute, clarinet, and trum
 
 Slice 7.12 maps swell onto those instruments’ own articulations and lets a named part store the result. Violin can also take a slide. Flute, clarinet, and trumpet slides stay unused, and none of them take kit hits.
 
+Slice 7.13 grows the catalog to version 4 with synth pad, synth lead, and electric guitar. Artists can inspect them and name one on a musical part. Gesture maps stay unused for these instruments.
+
 ## Generator order
 
 1. Section energy and density plan
