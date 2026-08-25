@@ -1015,6 +1015,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open named kit hits as drums in another music application, without the host inventing a program change or channels for every instrument.
 
+### Milestone 7.17 — Pitched-instrument MIDI channels
+
+Export notes on a musical part that already names a catalog instrument onto an inspectable MIDI channel. Channels follow catalog order, starting at 2 and skipping 10 except for drum kit: cello 2, acoustic guitar 3, piano 4, electric bass 5, violin 6, flute 7, clarinet 8, trumpet 9, synth pad 11, synth lead 12, electric guitar 13. Drum kit stays on 10. Unassigned notes stay on 1. Tagged dynamics emit CC 11 on the same channel as the named instrument; untagged dynamics stay on 1. If a note belongs to both kit and a pitched part, kit wins. If it belongs to more than one pitched part, catalog order wins. The host does not emit program changes, choose snare versus hat, or add later instruments.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open named cello, guitar, and other catalog parts on separate MIDI channels in another music application, without the host inventing a program change.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

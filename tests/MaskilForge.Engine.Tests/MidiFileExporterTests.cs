@@ -54,7 +54,7 @@ public sealed class MidiFileExporterTests
 
         var parsed = Parse(MidiFileExporter.Export(project));
 
-        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 48, 100]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
         Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
     }
 
@@ -75,14 +75,75 @@ public sealed class MidiFileExporterTests
 
         Assert.Contains(parsed.Events, item => item.Bytes is [0x99, 36, 102]);
         Assert.Contains(parsed.Events, item => item.Bytes is [0x89, 36, 0]);
-        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 48, 100]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
         Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 36, 80]);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes is [0x90, 36, 102]);
         Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
     }
 
     [Fact]
-    public void Export_LeavesUnassignedDrumPitchOnChannelZero()
+    public void Export_PlacesNamedPitchedInstrumentsOnInspectableChannelsWithoutAProgramChange()
+    {
+        var project = SongProject.Create("Assigned catalog MIDI");
+        var section = project.AddSection(SectionKind.Verse);
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        project.SetSectionRole(section.Id, ArrangementRole.Texture);
+        project.SetSectionRole(section.Id, ArrangementRole.HookReinforcement);
+        var cello = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 480, 100);
+        var guitar = project.AddNoteEvent(new RegisteredPitch(NoteLetter.E, Accidental.Natural, 3), 0, 480, 90);
+        var electric = project.AddNoteEvent(new RegisteredPitch(NoteLetter.G, Accidental.Natural, 3), 0, 480, 80);
+        var unassigned = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 240, 120, 70);
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Verse cello", [cello.Id], "cello");
+        project.AddMusicalPart(section.Id, ArrangementRole.Texture, "Verse guitar", [guitar.Id], "acoustic-guitar");
+        project.AddMusicalPart(section.Id, ArrangementRole.HookReinforcement, "Verse electric", [electric.Id], "electric-guitar");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x92, 52, 90]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x9C, 55, 80]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 60, 70]);
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+    }
+
+    [Fact]
+    public void Export_PrefersDrumKitChannelWhenANoteAlsoBelongsToAPitchedPart()
+    {
+        var project = SongProject.Create("Shared kit note MIDI");
+        var section = project.AddSection(SectionKind.Verse);
+        project.SetSectionRole(section.Id, ArrangementRole.Pulse);
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        var shared = project.AddNoteEvent(DrumKitGeneralMidiMapper.AcousticBassDrumPitch, 0, 120, 102);
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Verse cello", [shared.Id], "cello");
+        project.AddMusicalPart(section.Id, ArrangementRole.Pulse, "Verse pulse", [shared.Id], "drum-kit");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x99, 36, 102]);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes is [0x91, 36, 102]);
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+    }
+
+    [Fact]
+    public void Export_UsesCatalogOrderWhenANoteBelongsToMultiplePitchedParts()
+    {
+        var project = SongProject.Create("Shared pitched MIDI");
+        var section = project.AddSection(SectionKind.Verse);
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        project.SetSectionRole(section.Id, ArrangementRole.Texture);
+        var shared = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 480, 100);
+        project.AddMusicalPart(section.Id, ArrangementRole.Texture, "Verse guitar", [shared.Id], "acoustic-guitar");
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Verse cello", [shared.Id], "cello");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes is [0x92, 48, 100]);
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+    }
+
+    [Fact]
+    public void Export_LeavesUnassignedDrumPitchOnChannelOne()
     {
         var project = SongProject.Create("Unassigned C2 MIDI");
         project.AddNoteEvent(DrumKitGeneralMidiMapper.AcousticBassDrumPitch, 0, 120, 96);
@@ -110,8 +171,8 @@ public sealed class MidiFileExporterTests
 
         var parsed = Parse(MidiFileExporter.Export(project));
 
-        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xB0, 11, 88 }));
-        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 48, 100]);
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xB1, 11, 88 }));
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
         Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
     }
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type DrumKitGeneralMidiMap, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentArticulationMapSet, type InstrumentExpressiveQuality, type InstrumentGesturePerformance, type InstrumentProfile, type InstrumentProfileCatalog, type InstrumentRecommendationSet, type InstrumentPerformanceRetargetSet, type InstrumentRangeReviewSet, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RangeCollisionKind, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type DrumKitGeneralMidiMap, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentArticulationMapSet, type InstrumentExpressiveQuality, type InstrumentGesturePerformance, type InstrumentMidiChannelMapSet, type InstrumentProfile, type InstrumentProfileCatalog, type InstrumentRecommendationSet, type InstrumentPerformanceRetargetSet, type InstrumentRangeReviewSet, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RangeCollisionKind, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -82,6 +82,7 @@ const instrumentRecommendations = ref<InstrumentRecommendationSet | null>(null)
 const instrumentRangeReviews = ref<InstrumentRangeReviewSet | null>(null)
 const instrumentArticulationMaps = ref<InstrumentArticulationMapSet | null>(null)
 const drumKitGmMap = ref<DrumKitGeneralMidiMap | null>(null)
+const instrumentMidiChannels = ref<InstrumentMidiChannelMapSet | null>(null)
 let instrumentRecommendationToken = 0
 let instrumentRangeReviewToken = 0
 const workspaceCheckBusy = ref(false)
@@ -1916,6 +1917,16 @@ async function refreshWorkspaceHealth() {
       drumKitGmMap.value = null
       activityLog.write('warning', 'drum-kit-gm-map.load', error instanceof Error ? error.message : 'Drum-kit General MIDI map could not be loaded.')
     }
+    try {
+      instrumentMidiChannels.value = await projectsApi.instrumentMidiChannels()
+      activityLog.write('info', 'instrument-midi-channels.load', 'Instrument MIDI channels loaded.', {
+        unassignedMidiChannel: instrumentMidiChannels.value.unassignedMidiChannel,
+        assignmentCount: instrumentMidiChannels.value.assignments.length,
+      })
+    } catch (error) {
+      instrumentMidiChannels.value = null
+      activityLog.write('warning', 'instrument-midi-channels.load', error instanceof Error ? error.message : 'Instrument MIDI channels could not be loaded.')
+    }
     await refreshBrowserRecovery()
     await syncBrowserRecovery()
   } catch {
@@ -1925,6 +1936,7 @@ async function refreshWorkspaceHealth() {
     instrumentRangeReviews.value = null
     instrumentArticulationMaps.value = null
     drumKitGmMap.value = null
+    instrumentMidiChannels.value = null
     workspaceConnection.value = 'unavailable'
     if (previousConnection !== 'unavailable') {
       activityLog.write('warning', 'delivery.workspace', 'Local project service is unavailable. Host-owned editing is paused; browser-owned lyric capture remains available.')
@@ -2540,6 +2552,10 @@ function slideRangeCopy(kind: RangeCollisionKind | null) {
 }
 function articulationMapForInstrument(instrumentId: string) {
   return instrumentArticulationMaps.value?.maps.find(item => item.instrumentId === instrumentId) ?? null
+}
+function midiChannelLabel(instrumentId: string) {
+  const assignment = instrumentMidiChannels.value?.assignments.find(item => item.instrumentId === instrumentId)
+  return assignment ? `MIDI channel ${assignment.midiChannel}` : ''
 }
 function gestureMapCopy(instrumentId: string) {
   const map = articulationMapForInstrument(instrumentId)
@@ -4928,7 +4944,7 @@ onBeforeUnmount(() => {
           <div>
             <span class="eyebrow">Host knowledge</span>
             <h3 id="instrument-knowledge-title">Instrument profiles</h3>
-            <p>These profiles are instrument concepts: range, musical jobs, articulations, and expressive qualities. They are not sample libraries or VST patches. Matching, range fit, and gesture maps stay inspectable. Naming an instrument on a musical part below is an explicit artist choice; it does not retarget a gesture or emit MIDI.</p>
+            <p>These profiles are instrument concepts: range, musical jobs, articulations, and expressive qualities. They are not sample libraries or VST patches. Matching, range fit, gesture maps, and MIDI channels stay inspectable. Naming an instrument on a musical part below is an explicit artist choice; it does not retarget a gesture or emit a program change.</p>
           </div>
           <label class="instrument-feeling-filter">Choose by feeling
             <select v-model="instrumentQualityFilter" :disabled="workspaceConnection !== 'ready'">
@@ -4946,6 +4962,7 @@ onBeforeUnmount(() => {
             <p v-else-if="!instrument.pitched">Unpitched. Kit pieces are not a melodic range.</p>
             <p>Jobs {{ instrument.roles.map(instrumentRoleLabel).join(', ') }}</p>
             <p>Articulations {{ instrument.articulations.map(instrumentArticulationLabel).join(', ') }}</p>
+            <p v-if="midiChannelLabel(instrument.id)">{{ midiChannelLabel(instrument.id) }}</p>
             <ul v-if="articulationMapForInstrument(instrument.id)" class="instrument-gesture-map" :aria-label="`Gesture map for ${instrument.name}`">
               <li v-for="line in gestureMapCopy(instrument.id)" :key="`${instrument.id}-${line}`">{{ line }}</li>
             </ul>
@@ -5250,7 +5267,7 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">Take your sketch with you</span>
           <h2 id="midi-export-title">Export playable notes</h2>
-          <p v-if="project.noteEvents.length">Your {{ project.noteEvents.length }} approved playable note{{ project.noteEvents.length === 1 ? '' : 's' }} can be opened in another music application. Timing and dynamics are preserved. Notes on a musical part that names drum kit export on MIDI channel 10 as Acoustic Bass Drum. Other notes stay on channel 0. MIDI does not emit a program change or choose channels for cello, guitar, or other pitched instruments.</p>
+          <p v-if="project.noteEvents.length">Your {{ project.noteEvents.length }} approved playable note{{ project.noteEvents.length === 1 ? '' : 's' }} can be opened in another music application. Timing and dynamics are preserved. Named catalog parts export on inspectable MIDI channels. Drum kit stays on channel 10 as Acoustic Bass Drum. Unassigned notes stay on channel 1. MIDI does not emit a program change.</p>
           <p v-else>Your song does not contain playable notes yet. Create and approve a harmony sketch, a pitch-gesture sketch, an onset-gesture sketch, or a loudness-gesture sketch first.</p>
         </div>
         <button type="button" :disabled="busy || !project.noteEvents.length" @click="exportMidi">Export MIDI</button>
@@ -5540,7 +5557,7 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">From a reviewed take</span>
           <h2 id="instrument-performance-retarget-title">Retarget this take across the catalog</h2>
-          <p>Preview the same approved swell, slide, or onset on every catalog instrument, then store what applies onto a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides only where the catalog map allows; onset gestures become kit hits. Piano, bass, flute, clarinet, trumpet, and synth pad do not take slides; drum kit does not take swell or slide; pitched instruments do not take kit hits. Violin swell is bow expression; flute swell is breath; clarinet and trumpet swells are legato. Synth pad swell is pad; synth lead swell is filter and synth lead slide is portamento; electric guitar swell is distortion and electric guitar slide is bend. Kit hits use General MIDI Acoustic Bass Drum (C2) instead of a melodic C4; the host does not choose snare or hat. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. MIDI does not choose an instrument. Named kit parts export on channel 10; other notes stay on channel 0.</p>
+          <p>Preview the same approved swell, slide, or onset on every catalog instrument, then store what applies onto a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides only where the catalog map allows; onset gestures become kit hits. Piano, bass, flute, clarinet, trumpet, and synth pad do not take slides; drum kit does not take swell or slide; pitched instruments do not take kit hits. Violin swell is bow expression; flute swell is breath; clarinet and trumpet swells are legato. Synth pad swell is pad; synth lead swell is filter and synth lead slide is portamento; electric guitar swell is distortion and electric guitar slide is bend. Kit hits use General MIDI Acoustic Bass Drum (C2) instead of a melodic C4; the host does not choose snare or hat. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. MIDI does not choose an instrument or emit a program change. Named catalog parts export on inspectable MIDI channels; drum kit stays on channel 10; unassigned notes stay on channel 1.</p>
         </div>
         <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch, loudness, or onset claim first.</p>
         <p v-else-if="!instrumentRetargetTakes.length" class="note-event-empty">Promote at least one pitch, loudness, or onset claim to a gesture in the take inspector above.</p>
@@ -5555,7 +5572,7 @@ onBeforeUnmount(() => {
           <div v-if="instrumentPerformanceSketches[asset.id]" class="harmony-note-sketch-result">
             <p>
               <strong>Review, then store onto a named catalog part.</strong>
-              <span>Uses the first tempo only. Each instrument keeps its own catalog technique. Piano, bass, flute, clarinet, and trumpet slides stay unused. Drum-kit swell and slide stay unused. Pitched instruments do not take kit hits. Kit hits use Acoustic Bass Drum at C2. MIDI still emits dynamics as CC 11 without a program change. Named kit parts export on channel 10; other notes stay on channel 0.</span>
+              <span>Uses the first tempo only. Each instrument keeps its own catalog technique. Piano, bass, flute, clarinet, and trumpet slides stay unused. Drum-kit swell and slide stay unused. Pitched instruments do not take kit hits. Kit hits use Acoustic Bass Drum at C2. MIDI emits dynamics as CC 11 on the instrument’s channel without a program change. Named catalog parts use inspectable MIDI channels; drum kit stays on channel 10; unassigned notes stay on channel 1.</span>
             </p>
             <div class="instrument-retarget-targets">
               <article v-for="target in instrumentPerformanceSketches[asset.id].targets" :key="target.instrumentId" class="instrument-retarget-target" :aria-label="`${target.instrumentName} retarget`">

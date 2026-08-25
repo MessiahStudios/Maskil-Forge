@@ -6,15 +6,14 @@ namespace MaskilForge.Engine;
 
 /// <summary>
 /// Translates the project's approved playable notes and timeline metadata into a
-/// format-0 Standard MIDI File. Dynamics curves emit as CC 11 on channel 0 even when
-/// tagged with a catalog instrument. Notes on a musical part that names drum-kit
-/// export on channel 10. Other notes stay on channel 0. Export never emits
-/// program changes or channels for pitched catalog instruments.
+/// format-0 Standard MIDI File. Notes and tagged dynamics use inspectable MIDI
+/// channels from the catalog map. Drum-kit notes stay on channel 10. Unassigned
+/// notes and untagged dynamics stay on channel 1. Export never emits program
+/// changes.
 /// </summary>
 public static class MidiFileExporter
 {
     private const long MaximumVariableLengthValue = 0x0FFFFFFF;
-    private const byte DrumKitChannel = 9;
 
     public static byte[] Export(SongProject project)
     {
@@ -49,6 +48,7 @@ public static class MidiFileExporter
 
     private static IReadOnlyList<MidiEvent> BuildEvents(SongProject project)
     {
+        var map = InstrumentMidiChannelMapper.Map();
         var events = new List<MidiEvent>();
         foreach (var tempo in project.Timeline.TempoMap.Events)
         {
@@ -84,7 +84,8 @@ public static class MidiFileExporter
             {
                 if (point.Tick > MaximumVariableLengthValue)
                     throw new InvalidOperationException("An expression curve extends beyond the timing range supported by a Standard MIDI File.");
-                events.Add(new MidiEvent(point.Tick, 2, 11, 0, curve.Id.Value, [0xB0, 11, checked((byte)point.Value)]));
+                var channel = ChannelFor(curve, map);
+                events.Add(new MidiEvent(point.Tick, 2, 11, channel, curve.Id.Value, [(byte)(0xB0 | channel), 11, checked((byte)point.Value)]));
             }
         }
 
@@ -93,7 +94,7 @@ public static class MidiFileExporter
             if (note.EndTickExclusive > MaximumVariableLengthValue)
                 throw new InvalidOperationException("A playable note extends beyond the timing range supported by a Standard MIDI File.");
             var pitch = checked((byte)note.Pitch.MidiNumber);
-            var channel = ChannelFor(note, project);
+            var channel = ChannelFor(note, project, map);
             events.Add(new MidiEvent(note.StartTick, 4, pitch, channel, note.Id.Value, [(byte)(0x90 | channel), pitch, checked((byte)note.Velocity)]));
             events.Add(new MidiEvent(note.EndTickExclusive, 3, pitch, channel, note.Id.Value, [(byte)(0x80 | channel), pitch, 0x00]));
         }
@@ -107,12 +108,31 @@ public static class MidiFileExporter
             .ToList();
     }
 
-    private static byte ChannelFor(NoteEvent note, SongProject project)
+    private static byte ChannelFor(NoteEvent note, SongProject project, InstrumentMidiChannelMapSet map)
     {
-        var onKit = project.MusicalParts.Any(part =>
-            string.Equals(part.InstrumentProfileId, DrumKitGeneralMidiMapper.DrumKitInstrumentId, StringComparison.Ordinal)
-            && part.NoteEventIds.Contains(note.Id));
-        return onKit ? DrumKitChannel : (byte)0;
+        var partIds = project.MusicalParts
+            .Where(part => part.InstrumentProfileId is not null && part.NoteEventIds.Contains(note.Id))
+            .Select(part => part.InstrumentProfileId!)
+            .ToHashSet(StringComparer.Ordinal);
+        if (partIds.Contains(DrumKitGeneralMidiMapper.DrumKitInstrumentId))
+            return InstrumentMidiChannelMapper.ZeroBasedChannel(InstrumentMidiChannelMapper.DrumKitMidiChannel);
+
+        var assignment = map.Assignments.FirstOrDefault(item => partIds.Contains(item.InstrumentId));
+        return assignment is null
+            ? InstrumentMidiChannelMapper.ZeroBasedChannel(map.UnassignedMidiChannel)
+            : InstrumentMidiChannelMapper.ZeroBasedChannel(assignment.MidiChannel);
+    }
+
+    private static byte ChannelFor(ExpressionCurve curve, InstrumentMidiChannelMapSet map)
+    {
+        if (string.IsNullOrEmpty(curve.InstrumentProfileId))
+            return InstrumentMidiChannelMapper.ZeroBasedChannel(map.UnassignedMidiChannel);
+
+        var assignment = map.Assignments.FirstOrDefault(item =>
+            string.Equals(item.InstrumentId, curve.InstrumentProfileId, StringComparison.Ordinal));
+        return assignment is null
+            ? InstrumentMidiChannelMapper.ZeroBasedChannel(map.UnassignedMidiChannel)
+            : InstrumentMidiChannelMapper.ZeroBasedChannel(assignment.MidiChannel);
     }
 
     private static void WriteVariableLength(Stream stream, long value)

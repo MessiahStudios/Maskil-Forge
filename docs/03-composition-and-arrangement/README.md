@@ -51,6 +51,8 @@ Slice 7.15 maps drum-kit Hit onto General MIDI Acoustic Bass Drum (C2) so stored
 
 Slice 7.16 exports named drum-kit notes on MIDI channel 10. Unassigned notes and pitched-instrument parts stay on channel 0. MIDI does not emit a program change.
 
+Slice 7.17 exports named catalog parts on inspectable MIDI channels. Drum kit stays on 10. Unassigned notes stay on 1. MIDI does not emit a program change.
+
 ## Generator order
 
 1. Section energy and density plan

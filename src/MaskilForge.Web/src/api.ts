@@ -99,6 +99,17 @@ export interface DrumKitGeneralMidiMap {
   hit: DrumKitGeneralMidiPiece
 }
 
+export interface InstrumentMidiChannelAssignment {
+  instrumentId: string
+  instrumentName: string
+  midiChannel: number
+}
+
+export interface InstrumentMidiChannelMapSet {
+  unassignedMidiChannel: number
+  assignments: InstrumentMidiChannelAssignment[]
+}
+
 export interface InstrumentPerformanceEvent {
   gestureId: string
   observationId: string
@@ -763,6 +774,7 @@ export const projectsApi = {
     }),
   instrumentArticulationMaps: () => request<InstrumentArticulationMapSet>('/api/instrument-articulation-maps'),
   drumKitGmMap: () => request<DrumKitGeneralMidiMap>('/api/drum-kit-gm-map'),
+  instrumentMidiChannels: () => request<InstrumentMidiChannelMapSet>('/api/instrument-midi-channels'),
   list: () => request<ProjectSummary[]>('/api/projects'),
   listRecovery: () => request<RecoverySummary[]>('/api/recovery'),
   loadRecovery: (id: string) => request<RecoveryProjectResponse>(`/api/recovery/${id}`),
