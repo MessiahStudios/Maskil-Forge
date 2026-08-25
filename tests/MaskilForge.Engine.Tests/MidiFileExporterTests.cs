@@ -56,7 +56,11 @@ public sealed class MidiFileExporterTests
 
         Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xC1, 42 }));
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xB1, 101, 0 }));
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xB1, 100, 0 }));
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xB1, 6, 2 }));
         Assert.DoesNotContain(parsed.Events, item => item.Bytes[0] == 0xC0);
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xE0);
     }
 
     [Fact]
@@ -185,6 +189,9 @@ public sealed class MidiFileExporterTests
         Assert.Equal(new[]
         {
             (0L, (byte)0xC1, (byte)42, (byte)0),
+            (0L, (byte)0xB1, (byte)101, (byte)0),
+            (0L, (byte)0xB1, (byte)100, (byte)0),
+            (0L, (byte)0xB1, (byte)6, (byte)2),
             (0L, (byte)0xB1, (byte)11, (byte)88),
             (0L, (byte)0x91, (byte)48, (byte)100),
             (480L, (byte)0x81, (byte)48, (byte)0)
@@ -210,6 +217,8 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xB6, 2, 88 }));
         Assert.Contains(parsed.Events, item => item.Bytes is [0x96, 72, 100]);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xB6, 11, 88 }));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xB6, 101, 0 }));
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xE0);
     }
 
     [Fact]
@@ -231,6 +240,51 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xBB, 74, 88 }));
         Assert.Contains(parsed.Events, item => item.Bytes is [0x9B, 60, 100]);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xBB, 11, 88 }));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xBB, 101, 0 }));
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xE0);
+    }
+
+    [Fact]
+    public void Export_EmitsGuitarPitchBendRangeWithoutMovingTheWheel()
+    {
+        var project = SongProject.Create("Guitar bend MIDI");
+        var section = project.AddSection(SectionKind.Chorus);
+        project.SetSectionRole(section.Id, ArrangementRole.Texture);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.E, Accidental.Natural, 3), 0, 480, 96);
+        project.AddMusicalPart(section.Id, ArrangementRole.Texture, "Chorus guitar", [note.Id], "acoustic-guitar");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var timed = parsed.Events
+            .Where(item => item.Bytes[0] is 0xC2 or 0xB2 or 0x92 or 0x82)
+            .Select(item => (item.Tick, item.Bytes[0], item.Bytes.ElementAtOrDefault(1), item.Bytes.ElementAtOrDefault(2)))
+            .ToArray();
+
+        Assert.Equal(new[]
+        {
+            (0L, (byte)0xC2, (byte)25, (byte)0),
+            (0L, (byte)0xB2, (byte)101, (byte)0),
+            (0L, (byte)0xB2, (byte)100, (byte)0),
+            (0L, (byte)0xB2, (byte)6, (byte)2),
+            (0L, (byte)0x92, (byte)52, (byte)96),
+            (480L, (byte)0x82, (byte)52, (byte)0)
+        }, timed);
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xE0);
+    }
+
+    [Fact]
+    public void Export_OmitsPitchBendRangeForDrumKit()
+    {
+        var project = SongProject.Create("Assigned kit MIDI range");
+        var section = project.AddSection(SectionKind.Verse);
+        project.SetSectionRole(section.Id, ArrangementRole.Pulse);
+        var kitNote = project.AddNoteEvent(DrumKitGeneralMidiMapper.AcousticBassDrumPitch, 0, 120, 102);
+        project.AddMusicalPart(section.Id, ArrangementRole.Pulse, "Verse pulse", [kitNote.Id], "drum-kit");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x99, 36, 102]);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(new byte[] { 0xB9, 101, 0 }));
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xE0);
     }
 
     [Fact]

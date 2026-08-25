@@ -57,6 +57,8 @@ Slice 7.18 emits inspectable General MIDI program changes for named pitched part
 
 Slice 7.19 emits tagged dynamics on each instrument’s inspectable MIDI controller. Flute swell is CC 2. Synth lead swell is CC 74. Other catalog swells and untagged curves stay CC 11.
 
+Slice 7.20 declares an inspectable ±2-semitone pitch-bend range for cello, violin, acoustic guitar, and electric guitar. MIDI does not move the pitch wheel. Synth-lead portamento is not pitch bend.
+
 ## Generator order
 
 1. Section energy and density plan

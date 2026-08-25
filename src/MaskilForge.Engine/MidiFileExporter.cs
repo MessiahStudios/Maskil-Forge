@@ -11,9 +11,11 @@ namespace MaskilForge.Engine;
 /// General MIDI program changes on those channels. Tagged dynamics use each
 /// instrument's inspectable controller: flute swell is Breath Controller (CC 2),
 /// synth-lead swell is Brightness (CC 74), and other catalog swells stay
-/// Expression (CC 11). Drum-kit notes stay on channel 10 without a program
-/// change. Unassigned notes and untagged dynamics stay on channel 1 with
-/// Expression (CC 11).
+/// Expression (CC 11). Named cello, violin, acoustic-guitar, and electric-guitar
+/// parts declare an inspectable pitch-bend range of ±2 semitones. MIDI does not
+/// move the pitch wheel. Synth-lead portamento is not pitch bend. Drum-kit notes
+/// stay on channel 10 without a program change. Unassigned notes and untagged
+/// dynamics stay on channel 1 with Expression (CC 11).
 /// </summary>
 public static class MidiFileExporter
 {
@@ -55,6 +57,7 @@ public static class MidiFileExporter
         var channels = InstrumentMidiChannelMapper.Map();
         var programs = InstrumentMidiProgramMapper.Map();
         var controllers = InstrumentMidiControllerMapper.Map();
+        var pitchBends = InstrumentMidiPitchBendMapper.Map();
         var events = new List<MidiEvent>();
         foreach (var tempo in project.Timeline.TempoMap.Events)
         {
@@ -98,6 +101,22 @@ public static class MidiFileExporter
             events.Add(new MidiEvent(0, 2, 0, channel, Guid.Empty, [(byte)(0xC0 | channel), programByte]));
         }
 
+        foreach (var bend in pitchBends.Assignments)
+        {
+            if (!bend.Applicable || bend.RangeSemitones is null) continue;
+            if (!usedInstrumentIds.Contains(bend.InstrumentId)) continue;
+            var channelAssignment = channels.Assignments.First(item =>
+                string.Equals(item.InstrumentId, bend.InstrumentId, StringComparison.Ordinal));
+            var channel = InstrumentMidiChannelMapper.ZeroBasedChannel(channelAssignment.MidiChannel);
+            var semitones = checked((byte)bend.RangeSemitones.Value);
+            events.Add(new MidiEvent(0, 3, InstrumentMidiPitchBendMapper.RpnMsbController, channel, Guid.Empty,
+                [(byte)(0xB0 | channel), InstrumentMidiPitchBendMapper.RpnMsbController, 0]));
+            events.Add(new MidiEvent(0, 4, InstrumentMidiPitchBendMapper.RpnLsbController, channel, Guid.Empty,
+                [(byte)(0xB0 | channel), InstrumentMidiPitchBendMapper.RpnLsbController, 0]));
+            events.Add(new MidiEvent(0, 5, InstrumentMidiPitchBendMapper.DataEntryMsbController, channel, Guid.Empty,
+                [(byte)(0xB0 | channel), InstrumentMidiPitchBendMapper.DataEntryMsbController, semitones]));
+        }
+
         foreach (var curve in project.ExpressionCurves)
         {
             if (curve.Kind != ExpressionCurveKind.Dynamics) continue;
@@ -107,7 +126,7 @@ public static class MidiFileExporter
                     throw new InvalidOperationException("An expression curve extends beyond the timing range supported by a Standard MIDI File.");
                 var channel = ChannelFor(curve, channels);
                 var controller = ControllerFor(curve, controllers);
-                events.Add(new MidiEvent(point.Tick, 3, controller, channel, curve.Id.Value, [(byte)(0xB0 | channel), controller, checked((byte)point.Value)]));
+                events.Add(new MidiEvent(point.Tick, 6, controller, channel, curve.Id.Value, [(byte)(0xB0 | channel), controller, checked((byte)point.Value)]));
             }
         }
 
@@ -117,8 +136,8 @@ public static class MidiFileExporter
                 throw new InvalidOperationException("A playable note extends beyond the timing range supported by a Standard MIDI File.");
             var pitch = checked((byte)note.Pitch.MidiNumber);
             var channel = ChannelFor(note, project, channels);
-            events.Add(new MidiEvent(note.StartTick, 5, pitch, channel, note.Id.Value, [(byte)(0x90 | channel), pitch, checked((byte)note.Velocity)]));
-            events.Add(new MidiEvent(note.EndTickExclusive, 4, pitch, channel, note.Id.Value, [(byte)(0x80 | channel), pitch, 0x00]));
+            events.Add(new MidiEvent(note.StartTick, 8, pitch, channel, note.Id.Value, [(byte)(0x90 | channel), pitch, checked((byte)note.Velocity)]));
+            events.Add(new MidiEvent(note.EndTickExclusive, 7, pitch, channel, note.Id.Value, [(byte)(0x80 | channel), pitch, 0x00]));
         }
 
         return events
@@ -203,6 +222,7 @@ public static class MidiFileExporter
         stream.Write(buffer);
     }
 
-    // Priority: tempo 0, meter 1, program change 2, CC 3, note-off 4, note-on 5.
+    // Priority: tempo 0, meter 1, program change 2, pitch-bend RPN MSB 3, RPN LSB 4,
+    // data entry 5, dynamics CC 6, note-off 7, note-on 8.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);
 }

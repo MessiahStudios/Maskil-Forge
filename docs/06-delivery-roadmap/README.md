@@ -1039,6 +1039,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a tagged flute or synth-lead swell as the matching MIDI controller in another music application, without the host inventing a kit swell or a default articulation on every note.
 
+### Milestone 7.20 — Slide MIDI pitch-bend range
+
+Declare an inspectable pitch-bend range that follows the catalog slide articulation. Cello and violin Slide, and acoustic-guitar and electric-guitar Bend, use ±2 semitones. MIDI export emits that range as Registered Parameter Number 0 on those channels when they export notes, after the program change and before dynamics. The host does not move the pitch wheel, invent a slide between discrete stored notes, or add a pitch expression-curve kind. Synth-lead Portamento is not pitch bend. Piano, bass, flute, clarinet, trumpet, synth pad, and drum kit still have no range. The map is host knowledge.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a named cello, violin, or guitar part with an inspectable ±2-semitone pitch-bend range in another music application, without the host inventing a performed slide or treating portamento as pitch bend.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
