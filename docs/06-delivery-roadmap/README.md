@@ -1063,6 +1063,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open named cello, guitar, and drum-kit parts as separate named tracks in another music application, without the host inventing tracks for unused instruments.
 
+### Milestone 7.23 — Song-key MIDI key signature
+
+Emit the stored song key as a Standard MIDI key signature on the conductor track at tick 0. Conventional major and minor spellings from the circle of fifths map to sharps or flats and to MIDI major or minor. The default C major song therefore exports C major. Spellings outside that circle, such as B-sharp major, are omitted: the host does not invent an enharmonic substitute. The slice does not add key changes, modes beyond major and natural minor, or a catalog endpoint.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a song in another music application with its stored C major or A minor key intact, without the host inventing a signature for an unusual spelling.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

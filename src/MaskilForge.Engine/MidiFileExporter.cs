@@ -19,7 +19,9 @@ namespace MaskilForge.Engine;
 /// move the pitch wheel. Synth-lead portamento is CC 65 and stays off so stored
 /// notes stay discrete. Drum-kit notes stay on channel 10 without a program
 /// change. Unassigned notes and untagged dynamics stay on channel 1 with
-/// Expression (CC 11). Unused catalog instruments do not get a track.
+/// Expression (CC 11). Unused catalog instruments do not get a track. The
+/// conductor track also emits the stored song key as a MIDI key signature when
+/// that key has a conventional major or minor spelling.
 /// </summary>
 public static class MidiFileExporter
 {
@@ -103,6 +105,12 @@ public static class MidiFileExporter
                 24,
                 8
             ]));
+        }
+
+        var keySignature = MidiKeySignatureMapper.Map(project.Key);
+        if (keySignature is not null)
+        {
+            events.Add(new MidiEvent(0, 1, 1, 0, Guid.Empty, MidiKeySignatureMapper.MetaMessage(keySignature)));
         }
 
         var usedInstrumentIds = project.NoteEvents
@@ -290,7 +298,7 @@ public static class MidiFileExporter
         stream.Write(buffer);
     }
 
-    // Priority: tempo 0, meter 1, program change 2, pitch-bend RPN MSB 3, RPN LSB 4,
+    // Priority: tempo 0, meter and key signature 1, program change 2, pitch-bend RPN MSB 3, RPN LSB 4,
     // data entry 5, portamento off 6, dynamics CC 7, note-off 8, note-on 9.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);
 }

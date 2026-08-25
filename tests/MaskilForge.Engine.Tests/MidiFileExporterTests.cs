@@ -28,6 +28,7 @@ public sealed class MidiFileExporterTests
         Assert.Equal(480, parsed.Division);
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x51, 0x03, 0x09, 0x27, 0xC0 }));
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x58, 0x04, 0x06, 0x03, 0x18, 0x08 }));
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x59, 0x02, 0x00, 0x00 }));
 
         var notes = parsed.Events.Where(item => item.Bytes[0] is 0x80 or 0x90).ToList();
         Assert.Equal(new[]
@@ -394,6 +395,34 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Tracks[3], item => item.Bytes is [0x99, 36, 102]);
         Assert.Contains(parsed.Tracks[1], item => item.Bytes is [0x90, 36, 80]);
         Assert.DoesNotContain(parsed.Tracks[2], item => item.Bytes is [0x99, 36, 102]);
+    }
+
+    [Fact]
+    public void Export_EmitsStoredMinorAndFlatKeySignatures()
+    {
+        var minor = SongProject.Create("A minor MIDI");
+        minor.SetKey(new MusicalKey(NoteLetter.A, Accidental.Natural, ScaleMode.NaturalMinor));
+        minor.AddNoteEvent(new RegisteredPitch(NoteLetter.A, Accidental.Natural, 3), 0, 480, 96);
+        var minorParsed = Parse(MidiFileExporter.Export(minor));
+        Assert.Contains(minorParsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x59, 0x02, 0x00, 0x01 }));
+
+        var flat = SongProject.Create("F major MIDI");
+        flat.SetKey(new MusicalKey(NoteLetter.F, Accidental.Natural, ScaleMode.Major));
+        flat.AddNoteEvent(new RegisteredPitch(NoteLetter.F, Accidental.Natural, 4), 0, 480, 96);
+        var flatParsed = Parse(MidiFileExporter.Export(flat));
+        Assert.Contains(flatParsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x59, 0x02, 0xFF, 0x00 }));
+    }
+
+    [Fact]
+    public void Export_OmitsKeySignatureOutsideTheCircleOfFifths()
+    {
+        var project = SongProject.Create("Exotic key MIDI");
+        project.SetKey(new MusicalKey(NoteLetter.B, Accidental.Sharp, ScaleMode.Major));
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x59);
     }
 
     [Fact]

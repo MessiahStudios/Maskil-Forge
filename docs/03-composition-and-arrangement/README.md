@@ -63,6 +63,8 @@ Slice 7.21 declares synth-lead portamento as CC 65 and keeps it off so stored no
 
 Slice 7.22 exports a format-1 MIDI file with a named conductor track and one named track per used catalog channel.
 
+Slice 7.23 emits the stored song key as a MIDI key signature on the conductor track.
+
 ## Generator order
 
 1. Section energy and density plan
