@@ -27,7 +27,9 @@ Slice 7.3 replaces the two-instrument catalog with version 2 of the host-owned p
 
 Slice 7.4 reports which existing notes sit outside a catalog instrument’s inclusive range. Drum kit range does not apply. The review does not transpose, assign, or retarget.
 
-Slice 7.5 maps swell and slide onto named catalog articulations without retargeting a recorded gesture or assigning an instrument. Drum kit remains not applicable. Performance retargeters and later catalog waves remain later Milestone 7 slices.
+Slice 7.5 maps swell and slide onto named catalog articulations without retargeting a recorded gesture or assigning an instrument. Drum kit remains not applicable.
+
+Slice 7.6 retargets those same gestures from one original-vocal take onto cello and acoustic guitar, side by side. The projection is inspectable only. Piano, bass, drum-kit adapters, instrument assignment, and later catalog waves remain later Milestone 7 slices.
 
 ## Generator order
 

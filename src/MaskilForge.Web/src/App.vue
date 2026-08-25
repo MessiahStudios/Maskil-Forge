@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentArticulationMapSet, type InstrumentExpressiveQuality, type InstrumentProfile, type InstrumentProfileCatalog, type InstrumentRecommendationSet, type InstrumentRangeReviewSet, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
+import { projectsApi, type AccentProposal, type Accidental, type ArrangementRole, type BeatPosition, type ChordQuality, type ChordSymbol, type CountermelodyProposal, type HarmonyNoteSketch, type HarmonySupportProposal, type HookReinforcementProposal, type InstrumentArticulation, type InstrumentArticulationMapSet, type InstrumentExpressiveQuality, type InstrumentGesturePerformance, type InstrumentProfile, type InstrumentProfileCatalog, type InstrumentRecommendationSet, type InstrumentPerformanceRetargetSet, type InstrumentRangeReviewSet, type LoudnessGestureExpressionSketch, type LoudnessGestureNoteSketch, type LowEndSupportProposal, type LyricLine, type LyricPhrase, type LyricSheetStructurePreview, type LyricTimelineMarker, type LyricTimelineView, type LyricWord, type MusicalKey, type NoteLetter, type OnsetGestureNoteSketch, type PerformanceObservationReviewVerdict, type PitchGestureNoteSketch, type PortableProjectImportPreview, type ProjectAsset, type ProjectResponse, type ProjectSummary, type ProposedSongSection, type ProsodicWeight, type ProsodyScore, type PulseProposal, type RangeCollisionKind, type RecoverySummary, type RhythmCandidate, type ScaleMode, type SectionDelivery, type SectionDensity, type SectionEnergy, type SectionKind, type SongGenre, type SongProject, type StressLevel, type StructuralFunction, type TextureProposal, type TrashedProjectSummary, type VoiceLeadingReview, type WorkspaceHealth } from './api'
 import { activityLog } from './logging'
 import { creatorDestination, creatorProgress, creatorStages, type CreatorStage as DesktopCreatorStage } from './creatorJourney.js'
 import { demoReadiness, firstWritableEmptyLyricLine, matchingLyricSheetPreview } from './demoReadiness.js'
@@ -239,6 +239,7 @@ const pitchGestureNoteSketches = reactive<Record<string, PitchGestureNoteSketch>
 const onsetGestureNoteSketches = reactive<Record<string, OnsetGestureNoteSketch>>({})
 const loudnessGestureNoteSketches = reactive<Record<string, LoudnessGestureNoteSketch>>({})
 const loudnessGestureExpressionSketches = reactive<Record<string, LoudnessGestureExpressionSketch>>({})
+const instrumentPerformanceSketches = reactive<Record<string, InstrumentPerformanceRetargetSet>>({})
 const lowEndSupportProposals = reactive<Record<string, LowEndSupportProposal>>({})
 const pulseProposals = reactive<Record<string, PulseProposal>>({})
 const harmonySupportProposals = reactive<Record<string, HarmonySupportProposal>>({})
@@ -1149,6 +1150,10 @@ function loudnessGestureCountForAsset(assetId: string) {
 
 const loudnessGestureTakes = computed(() =>
   (project.value?.assets ?? []).filter(asset => loudnessGestureCountForAsset(asset.id) > 0))
+
+const instrumentRetargetTakes = computed(() =>
+  (project.value?.assets ?? []).filter(asset =>
+    pitchGestureCountForAsset(asset.id) > 0 || loudnessGestureCountForAsset(asset.id) > 0))
 
 
 function showMorePerformanceEvidence(assetId: string, groupKey: string, totalCount: number) {
@@ -2498,6 +2503,17 @@ function instrumentArticulationLabel(articulation: InstrumentArticulation) {
 function instrumentGestureLabel(gesture: string) {
   return gesture
 }
+function gesturePerformanceCopy(performance: InstrumentGesturePerformance) {
+  if (!performance.applicable || !performance.articulation) {
+    return `${instrumentGestureLabel(performance.gesture)} does not apply.`
+  }
+  return `${instrumentGestureLabel(performance.gesture)} → ${instrumentArticulationLabel(performance.articulation)}`
+}
+function slideRangeCopy(kind: RangeCollisionKind | null) {
+  if (kind === 'Below') return 'below this instrument’s range'
+  if (kind === 'Above') return 'above this instrument’s range'
+  return 'in range'
+}
 function articulationMapForInstrument(instrumentId: string) {
   return instrumentArticulationMaps.value?.maps.find(item => item.instrumentId === instrumentId) ?? null
 }
@@ -2926,6 +2942,34 @@ function useLoudnessGestureExpressionSketch(assetId: string) {
     'midi.loudness-expression.use',
     { assetId, pointCount })
 }
+async function prepareInstrumentPerformanceSketch(assetId: string) {
+  if (!project.value) return
+  busy.value = true
+  activityLog.write('info', 'midi.instrument-retarget.prepare', 'Cello and guitar retarget requested.', { assetId })
+  try {
+    const sketch = await projectsApi.instrumentPerformanceSketch(project.value.id, project.value, assetId)
+    instrumentPerformanceSketches[assetId] = sketch
+    const cello = sketch.targets.find(item => item.instrumentId === 'cello')
+    const guitar = sketch.targets.find(item => item.instrumentId === 'acoustic-guitar')
+    const outOfRangeCount = sketch.targets.reduce(
+      (sum, target) => sum + target.slide.events.filter(item => item.rangeKind).length,
+      0)
+    status.value = `Cello and guitar retarget prepared from this take.`
+    activityLog.write('success', 'midi.instrument-retarget.prepare', status.value, {
+      assetId,
+      celloSwellCount: cello?.swell.events.length ?? 0,
+      celloSlideCount: cello?.slide.events.length ?? 0,
+      guitarSwellCount: guitar?.swell.events.length ?? 0,
+      guitarSlideCount: guitar?.slide.events.length ?? 0,
+      outOfRangeCount,
+    })
+  } catch (error) {
+    status.value = error instanceof Error ? error.message : 'The cello and guitar retarget could not be prepared.'
+    activityLog.write('error', 'midi.instrument-retarget.prepare', status.value, { assetId })
+  } finally {
+    busy.value = false
+  }
+}
 function removeExpressionCurve(expressionCurveId: string, name: string) {
   if (!project.value) return
   const pointCount = project.value.expressionCurves?.find(item => item.id === expressionCurveId)?.points.length ?? 0
@@ -2963,7 +3007,8 @@ function setVocalTakePlacement(assetId: string, event: Event) {
     if (pitchGestureNoteSketches[assetId]) await preparePitchGestureNoteSketch(assetId)
     if (onsetGestureNoteSketches[assetId]) await prepareOnsetGestureNoteSketch(assetId)
     if (loudnessGestureNoteSketches[assetId]) await prepareLoudnessGestureNoteSketch(assetId)
-    if (loudnessGestureExpressionSketches[assetId]) return prepareLoudnessGestureExpressionSketch(assetId)
+    if (loudnessGestureExpressionSketches[assetId]) await prepareLoudnessGestureExpressionSketch(assetId)
+    if (instrumentPerformanceSketches[assetId]) return prepareInstrumentPerformanceSketch(assetId)
   })
 }
 function clearVocalTakePlacement(assetId: string) {
@@ -2978,7 +3023,8 @@ function clearVocalTakePlacement(assetId: string) {
     if (pitchGestureNoteSketches[assetId]) await preparePitchGestureNoteSketch(assetId)
     if (onsetGestureNoteSketches[assetId]) await prepareOnsetGestureNoteSketch(assetId)
     if (loudnessGestureNoteSketches[assetId]) await prepareLoudnessGestureNoteSketch(assetId)
-    if (loudnessGestureExpressionSketches[assetId]) return prepareLoudnessGestureExpressionSketch(assetId)
+    if (loudnessGestureExpressionSketches[assetId]) await prepareLoudnessGestureExpressionSketch(assetId)
+    if (instrumentPerformanceSketches[assetId]) return prepareInstrumentPerformanceSketch(assetId)
   })
 }
 function addHarmonyChord(sectionId: string) {
@@ -5394,6 +5440,61 @@ onBeforeUnmount(() => {
             <button type="button" class="danger" :disabled="busy" @click="removeExpressionCurve(curve.id, curve.name)">Remove</button>
           </li>
         </ol>
+      </section>
+
+      <section v-if="!phoneCaptureMode" id="instrument-performance-retarget" class="instrument-performance-retarget" aria-labelledby="instrument-performance-retarget-title">
+        <div>
+          <span class="eyebrow">From a reviewed take</span>
+          <h2 id="instrument-performance-retarget-title">Retarget this take to cello and guitar</h2>
+          <p>Preview the same approved swell or slide as cello technique and guitar technique. Loudness gestures become swells; pitch gestures become slides. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are reported, not transposed. Piano, bass, and drum kit stay unused here. Nothing is assigned or stored.</p>
+        </div>
+        <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch or loudness claim first.</p>
+        <p v-else-if="!instrumentRetargetTakes.length" class="note-event-empty">Promote at least one pitch or loudness claim to a gesture in the take inspector above.</p>
+        <article v-for="asset in instrumentRetargetTakes" :key="asset.id" class="harmony-note-sketch" :aria-label="`Cello and guitar retarget for ${asset.name}`">
+          <div>
+            <strong>{{ asset.name }}</strong>
+            <small>{{ pitchGestureCountForAsset(asset.id) }} pitch · {{ loudnessGestureCountForAsset(asset.id) }} loudness · {{ vocalTakePlacementLabel(asset.id) }}</small>
+          </div>
+          <button type="button" class="secondary" :disabled="busy" @click="prepareInstrumentPerformanceSketch(asset.id)">
+            {{ instrumentPerformanceSketches[asset.id] ? 'Refresh cello and guitar retarget' : 'Prepare cello and guitar retarget' }}
+          </button>
+          <div v-if="instrumentPerformanceSketches[asset.id]" class="harmony-note-sketch-result">
+            <p>
+              <strong>Inspectable only. The Song Graph is unchanged.</strong>
+              <span>Uses the first tempo only. Cello and guitar keep their own articulations for the same gestures.</span>
+            </p>
+            <div class="instrument-retarget-targets">
+              <article v-for="target in instrumentPerformanceSketches[asset.id].targets" :key="target.instrumentId" class="instrument-retarget-target" :aria-label="`${target.instrumentName} retarget`">
+                <strong>{{ target.instrumentName }}</strong>
+                <section>
+                  <p>
+                    <strong>{{ gesturePerformanceCopy(target.swell) }}</strong>
+                    <span>{{ target.swell.events.length }} swell event{{ target.swell.events.length === 1 ? '' : 's' }}</span>
+                  </p>
+                  <ol v-if="target.swell.events.length">
+                    <li v-for="(event, eventIndex) in target.swell.events" :key="`${event.gestureId}:swell:${eventIndex}`">
+                      <strong>tick {{ event.startTick }}</strong>
+                      <span>{{ event.durationTicks }} ticks · expression {{ event.value }}</span>
+                    </li>
+                  </ol>
+                </section>
+                <section>
+                  <p>
+                    <strong>{{ gesturePerformanceCopy(target.slide) }}</strong>
+                    <span>{{ target.slide.events.length }} slide event{{ target.slide.events.length === 1 ? '' : 's' }}</span>
+                  </p>
+                  <ol v-if="target.slide.events.length">
+                    <li v-for="(event, eventIndex) in target.slide.events" :key="`${event.gestureId}:slide:${eventIndex}`">
+                      <strong>{{ event.pitch ? formatRegisteredPitch(event.pitch) : 'Unpitched' }}</strong>
+                      <span>tick {{ event.startTick }} · {{ event.durationTicks }} ticks</span>
+                      <small>{{ slideRangeCopy(event.rangeKind) }}</small>
+                    </li>
+                  </ol>
+                </section>
+              </article>
+            </div>
+          </div>
+        </article>
       </section>
 
       <details v-if="!phoneCaptureMode" class="disclosure-panel note-event-foundation">

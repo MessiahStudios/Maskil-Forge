@@ -496,6 +496,11 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .harmony-note-sketch-result li { display: grid; gap: .15rem; padding: .45rem; background: #111410; border: 1px solid #3d4339; }
 .harmony-note-sketch-result li span { color: #c0b9a9; font: .72rem ui-monospace, Consolas, monospace; }
 .harmony-note-sketch-result > button { justify-self: start; }
+.instrument-retarget-targets { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.instrument-retarget-target { display: grid; gap: .45rem; padding: .55rem; background: #111410; border: 1px solid #3d4339; }
+.instrument-retarget-target > strong { color: #fff1d3; }
+.instrument-retarget-target section { display: grid; gap: .35rem; }
+.instrument-retarget-target ol { grid-template-columns: 1fr; }
 .harmony-candidates { display: grid; gap: .45rem; padding-top: .25rem; border-top: 1px solid #3f453b; }
 .harmony-candidate-card { display: grid; grid-template-columns: minmax(10rem, .75fr) minmax(14rem, 1.5fr) auto; padding: .65rem; background: #1b1f1a; border: 1px solid #41473d; border-radius: .35rem; color: #d8ccb1; }
 .harmony-candidate-summary { display: grid; gap: .2rem; }
@@ -829,6 +834,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
   .harmony-note-sketch { grid-template-columns: 1fr; }
   .harmony-note-sketch-result { grid-column: 1; }
   .harmony-note-sketch-result ol { grid-template-columns: 1fr; }
+  .instrument-retarget-targets { grid-template-columns: 1fr; }
   .disclosure-panel > summary { grid-template-columns: 1fr auto; }
   .section-toolbar button { flex: 1 1 45%; }
   .phone-section-toolbar { width: 100%; background: #171a16; border: 1px solid #4a5343; border-radius: .55rem; }

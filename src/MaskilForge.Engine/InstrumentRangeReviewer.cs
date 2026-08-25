@@ -45,6 +45,18 @@ public static class InstrumentRangeReviewer
         return new InstrumentRangeReviewSet(reviews);
     }
 
+    public static RangeCollisionKind? Classify(InstrumentProfile instrument, RegisteredPitch pitch)
+    {
+        ArgumentNullException.ThrowIfNull(instrument);
+        ArgumentNullException.ThrowIfNull(pitch);
+        if (!instrument.Pitched) return null;
+
+        var midi = pitch.MidiNumber;
+        if (midi < instrument.MinimumPitch!.MidiNumber) return RangeCollisionKind.Below;
+        if (midi > instrument.MaximumPitch!.MidiNumber) return RangeCollisionKind.Above;
+        return null;
+    }
+
     private static InstrumentRangeReview ReviewInstrument(
         InstrumentProfile instrument,
         IReadOnlyList<InstrumentRangeReviewNote> notes)
@@ -52,15 +64,11 @@ public static class InstrumentRangeReviewer
         if (!instrument.Pitched)
             return new InstrumentRangeReview(instrument.Id, instrument.Name, false, 0, []);
 
-        var minimum = instrument.MinimumPitch!.MidiNumber;
-        var maximum = instrument.MaximumPitch!.MidiNumber;
         var collisions = notes
             .Select(note =>
             {
-                var midi = note.Pitch.MidiNumber;
-                if (midi < minimum) return new InstrumentRangeCollision(note.Id, note.Pitch, RangeCollisionKind.Below);
-                if (midi > maximum) return new InstrumentRangeCollision(note.Id, note.Pitch, RangeCollisionKind.Above);
-                return null;
+                var kind = Classify(instrument, note.Pitch);
+                return kind is null ? null : new InstrumentRangeCollision(note.Id, note.Pitch, kind.Value);
             })
             .OfType<InstrumentRangeCollision>()
             .ToList();

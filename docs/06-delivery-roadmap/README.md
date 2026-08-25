@@ -910,6 +910,14 @@ Desktop Arrangement inspects the map on each instrument profile. Phone Arrangeme
 
 **Deliverable:** an artist can see how a swell or slide would be played on each catalog instrument without the host retargeting anything.
 
+### Milestone 7.6 — Cello and guitar performance retargeters
+
+Consume approved pitch and loudness gestures on one original-vocal take and project cello and acoustic-guitar performances from that same input. Loudness becomes swell; pitch becomes slide. Articulations come from the 7.5 map: cello bow expression and slide, guitar picking and bend. Slide pitches that sit outside a catalog range are reported, not transposed or rewritten. Piano, electric bass, and drum kit are not this slice’s adapters. The sketch is inspectable only: it does not assign `instrumentProfileId`, emit MIDI, persist a part, or change the Song Graph. Schema stays at v29. Catalog stays at version 2.
+
+Desktop Music previews cello and guitar side by side. Phone Music remains hidden. Later slices can persist a retargeted performance, assign an instrument to a part, and add piano, bass, or kit adapters.
+
+**Deliverable:** an artist can see the same approved swell or slide as cello technique and guitar technique without the host assigning an instrument.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

@@ -113,7 +113,9 @@ Slice 7.3 grows that catalog to a five-instrument proof set chosen for different
 
 Slice 7.4 compares existing notes with those ranges without moving them.
 
-Slice 7.5 maps swell and slide onto catalog articulations so later retargeters cannot assume cello-like technique. Cello uses bow expression and slide; guitar uses picking and bend; piano strike covers swell; bass finger covers swell; drum kit does not apply. The map does not retarget a recorded gesture. Cello versus guitar retargeters remain later work. Orchestration-vocabulary and modern-production instruments are later catalog waves, not this slice.
+Slice 7.5 maps swell and slide onto catalog articulations so later retargeters cannot assume cello-like technique. Cello uses bow expression and slide; guitar uses picking and bend; piano strike covers swell; bass finger covers swell; drum kit does not apply. The map does not retarget a recorded gesture.
+
+Slice 7.6 consumes approved loudness gestures as swells and approved pitch gestures as slides on one original-vocal take, then projects cello and guitar performances from that same input. Range collisions are reported without transposition. Piano, bass, and drum kit stay unused here. The sketch is inspectable only: it does not assign an instrument or write Song Graph data. Persist, assignment, and later catalog waves remain later work.
 
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
@@ -121,7 +123,7 @@ The AI Director may reason over these structured observations. Direct interpreta
 
 Voice-to-instrument is treated as performance capture and retargeting. A neutral gesture should be adapted to the target instrument concept: cello may translate a swell into bow expression and a slide into legato; acoustic guitar may translate the same input into picking dynamics, bends, and hammer-ons; piano into strike and decay; flute, later, into breath-shaped sustain. Adapters should enforce range and articulation limitations, and must not assume every target is cello-like. Drum kit is an unpitched target.
 
-Retargeted instrumental parts remain editable project data. They do not replace the artist's lead vocal.
+Slice 7.6 previews cello and guitar from the same approved gestures using the catalog articulation map. That preview is inspectable only. Accepted instrumental parts remain later work. They do not replace the artist's lead vocal.
 
 ## Rendering strategy
 

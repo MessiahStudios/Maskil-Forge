@@ -87,6 +87,36 @@ export interface InstrumentArticulationMapSet {
   maps: InstrumentArticulationMap[]
 }
 
+export interface InstrumentPerformanceEvent {
+  gestureId: string
+  observationId: string
+  startTick: number
+  durationTicks: number
+  pitch: RegisteredPitch | null
+  value: number | null
+  rangeKind: RangeCollisionKind | null
+}
+
+export interface InstrumentGesturePerformance {
+  gesture: NeutralPerformanceGesture
+  applicable: boolean
+  articulation: InstrumentArticulation | null
+  events: InstrumentPerformanceEvent[]
+}
+
+export interface InstrumentPerformanceSketch {
+  instrumentId: string
+  instrumentName: string
+  swell: InstrumentGesturePerformance
+  slide: InstrumentGesturePerformance
+}
+
+export interface InstrumentPerformanceRetargetSet {
+  sourceAssetId: string
+  startTick: number
+  targets: InstrumentPerformanceSketch[]
+}
+
 export interface SectionArrangement {
   id: string
   sectionId: string
@@ -840,6 +870,10 @@ export const projectsApi = {
     }),
   loudnessGestureExpressionSketch: (id: string, project: SongProject, assetId: string) =>
     request<LoudnessGestureExpressionSketch>(`/api/projects/${id}/loudness-gesture-expression-sketch`, {
+      method: 'POST', body: JSON.stringify({ project, assetId }),
+    }),
+  instrumentPerformanceSketch: (id: string, project: SongProject, assetId: string) =>
+    request<InstrumentPerformanceRetargetSet>(`/api/projects/${id}/instrument-performance-sketch`, {
       method: 'POST', body: JSON.stringify({ project, assetId }),
     }),
   lowEndSupportProposal: (id: string, project: SongProject, sectionId: string) =>
