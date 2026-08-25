@@ -1023,6 +1023,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open named cello, guitar, and other catalog parts on separate MIDI channels in another music application, without the host inventing a program change.
 
+### Milestone 7.18 — Pitched-instrument MIDI programs
+
+Emit one inspectable General MIDI program change for each named pitched catalog part that actually exports notes on its channel. Programs are host knowledge, not Song Graph data and not a chosen renderer: cello 43, acoustic guitar (steel) 26, piano 1, electric bass (finger) 34, violin 41, flute 74, clarinet 72, trumpet 57, synth pad (warm) 90, synth lead (sawtooth) 82, electric guitar (distortion) 31. Drum kit still has no program: channel 10 remains the percussion identity. Unassigned notes still have none. Program changes come before expression and notes at tick 0. The host does not choose snare versus hat, add later instruments, or bind a program to a VST.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open named cello, guitar, and other pitched catalog parts as the matching General MIDI sound in another music application, without the host inventing a drum program or choosing a renderer.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

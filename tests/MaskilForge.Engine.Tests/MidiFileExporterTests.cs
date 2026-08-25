@@ -44,7 +44,7 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
-    public void Export_DoesNotEmitProgramChangesForAssignedCatalogInstruments()
+    public void Export_EmitsInspectableProgramChangeForAssignedCello()
     {
         var project = SongProject.Create("Assigned cello MIDI");
         var section = project.AddSection(SectionKind.Chorus);
@@ -55,7 +55,8 @@ public sealed class MidiFileExporterTests
         var parsed = Parse(MidiFileExporter.Export(project));
 
         Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
-        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xC1, 42 }));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes[0] == 0xC0);
     }
 
     [Fact]
@@ -77,12 +78,13 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Events, item => item.Bytes is [0x89, 36, 0]);
         Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
         Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 36, 80]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0xC1, 42]);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes is [0x90, 36, 102]);
-        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes[0] is 0xC0 or 0xC9);
     }
 
     [Fact]
-    public void Export_PlacesNamedPitchedInstrumentsOnInspectableChannelsWithoutAProgramChange()
+    public void Export_PlacesNamedPitchedInstrumentsOnInspectableChannelsWithProgramChanges()
     {
         var project = SongProject.Create("Assigned catalog MIDI");
         var section = project.AddSection(SectionKind.Verse);
@@ -103,7 +105,10 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Events, item => item.Bytes is [0x92, 52, 90]);
         Assert.Contains(parsed.Events, item => item.Bytes is [0x9C, 55, 80]);
         Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 60, 70]);
-        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0xC1, 42]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0xC2, 25]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0xCC, 30]);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes[0] == 0xC0);
     }
 
     [Fact]
@@ -139,7 +144,8 @@ public sealed class MidiFileExporterTests
 
         Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes is [0x92, 48, 100]);
-        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0xC1, 42]);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes[0] == 0xC2);
     }
 
     [Fact]
@@ -156,7 +162,7 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
-    public void Export_EmitsAssignedInstrumentDynamicsAsExpressionWithoutProgramChanges()
+    public void Export_EmitsAssignedInstrumentDynamicsAfterTheProgramChange()
     {
         var project = SongProject.Create("Cello swell MIDI");
         var section = project.AddSection(SectionKind.Chorus);
@@ -171,9 +177,18 @@ public sealed class MidiFileExporterTests
 
         var parsed = Parse(MidiFileExporter.Export(project));
 
-        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xB1, 11, 88 }));
-        Assert.Contains(parsed.Events, item => item.Bytes is [0x91, 48, 100]);
-        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+        var timed = parsed.Events
+            .Where(item => item.Bytes[0] is 0xC1 or 0xB1 or 0x91 or 0x81)
+            .Select(item => (item.Tick, item.Bytes[0], item.Bytes.ElementAtOrDefault(1), item.Bytes.ElementAtOrDefault(2)))
+            .ToArray();
+
+        Assert.Equal(new[]
+        {
+            (0L, (byte)0xC1, (byte)42, (byte)0),
+            (0L, (byte)0xB1, (byte)11, (byte)88),
+            (0L, (byte)0x91, (byte)48, (byte)100),
+            (480L, (byte)0x81, (byte)48, (byte)0)
+        }, timed);
     }
 
     [Fact]
@@ -236,7 +251,11 @@ public sealed class MidiFileExporterTests
                 events.Add(new ParsedEvent(tick, new[] { status, type, (byte)length }.Concat(data).ToArray()));
                 continue;
             }
-            var message = new[] { status, bytes[offset++], bytes[offset++] };
+            var high = status & 0xF0;
+            var dataCount = high is 0xC0 or 0xD0 ? 1 : 2;
+            var message = new byte[1 + dataCount];
+            message[0] = status;
+            for (var index = 0; index < dataCount; index++) message[1 + index] = bytes[offset++];
             events.Add(new ParsedEvent(tick, message));
         }
         return new ParsedMidi(format, tracks, division, events);

@@ -53,6 +53,8 @@ Slice 7.16 exports named drum-kit notes on MIDI channel 10. Unassigned notes and
 
 Slice 7.17 exports named catalog parts on inspectable MIDI channels. Drum kit stays on 10. Unassigned notes stay on 1. MIDI does not emit a program change.
 
+Slice 7.18 emits inspectable General MIDI program changes for named pitched parts. Drum kit and unassigned notes still have none.
+
 ## Generator order
 
 1. Section energy and density plan

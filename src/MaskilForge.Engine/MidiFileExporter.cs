@@ -7,9 +7,10 @@ namespace MaskilForge.Engine;
 /// <summary>
 /// Translates the project's approved playable notes and timeline metadata into a
 /// format-0 Standard MIDI File. Notes and tagged dynamics use inspectable MIDI
-/// channels from the catalog map. Drum-kit notes stay on channel 10. Unassigned
-/// notes and untagged dynamics stay on channel 1. Export never emits program
-/// changes.
+/// channels from the catalog map. Named pitched parts also emit inspectable
+/// General MIDI program changes on those channels. Drum-kit notes stay on
+/// channel 10 without a program change. Unassigned notes and untagged dynamics
+/// stay on channel 1 without a program change.
 /// </summary>
 public static class MidiFileExporter
 {
@@ -48,7 +49,8 @@ public static class MidiFileExporter
 
     private static IReadOnlyList<MidiEvent> BuildEvents(SongProject project)
     {
-        var map = InstrumentMidiChannelMapper.Map();
+        var channels = InstrumentMidiChannelMapper.Map();
+        var programs = InstrumentMidiProgramMapper.Map();
         var events = new List<MidiEvent>();
         foreach (var tempo in project.Timeline.TempoMap.Events)
         {
@@ -77,6 +79,21 @@ public static class MidiFileExporter
             ]));
         }
 
+        var usedInstrumentIds = project.NoteEvents
+            .Select(note => InstrumentIdFor(note, project, channels))
+            .OfType<string>()
+            .ToHashSet(StringComparer.Ordinal);
+        foreach (var program in programs.Assignments)
+        {
+            if (!program.Applicable || program.MidiProgram is null) continue;
+            if (!usedInstrumentIds.Contains(program.InstrumentId)) continue;
+            var channelAssignment = channels.Assignments.First(item =>
+                string.Equals(item.InstrumentId, program.InstrumentId, StringComparison.Ordinal));
+            var channel = InstrumentMidiChannelMapper.ZeroBasedChannel(channelAssignment.MidiChannel);
+            var programByte = InstrumentMidiProgramMapper.ZeroBasedProgram(program.MidiProgram.Value);
+            events.Add(new MidiEvent(0, 2, 0, channel, Guid.Empty, [(byte)(0xC0 | channel), programByte]));
+        }
+
         foreach (var curve in project.ExpressionCurves)
         {
             if (curve.Kind != ExpressionCurveKind.Dynamics) continue;
@@ -84,8 +101,8 @@ public static class MidiFileExporter
             {
                 if (point.Tick > MaximumVariableLengthValue)
                     throw new InvalidOperationException("An expression curve extends beyond the timing range supported by a Standard MIDI File.");
-                var channel = ChannelFor(curve, map);
-                events.Add(new MidiEvent(point.Tick, 2, 11, channel, curve.Id.Value, [(byte)(0xB0 | channel), 11, checked((byte)point.Value)]));
+                var channel = ChannelFor(curve, channels);
+                events.Add(new MidiEvent(point.Tick, 3, 11, channel, curve.Id.Value, [(byte)(0xB0 | channel), 11, checked((byte)point.Value)]));
             }
         }
 
@@ -94,9 +111,9 @@ public static class MidiFileExporter
             if (note.EndTickExclusive > MaximumVariableLengthValue)
                 throw new InvalidOperationException("A playable note extends beyond the timing range supported by a Standard MIDI File.");
             var pitch = checked((byte)note.Pitch.MidiNumber);
-            var channel = ChannelFor(note, project, map);
-            events.Add(new MidiEvent(note.StartTick, 4, pitch, channel, note.Id.Value, [(byte)(0x90 | channel), pitch, checked((byte)note.Velocity)]));
-            events.Add(new MidiEvent(note.EndTickExclusive, 3, pitch, channel, note.Id.Value, [(byte)(0x80 | channel), pitch, 0x00]));
+            var channel = ChannelFor(note, project, channels);
+            events.Add(new MidiEvent(note.StartTick, 5, pitch, channel, note.Id.Value, [(byte)(0x90 | channel), pitch, checked((byte)note.Velocity)]));
+            events.Add(new MidiEvent(note.EndTickExclusive, 4, pitch, channel, note.Id.Value, [(byte)(0x80 | channel), pitch, 0x00]));
         }
 
         return events
@@ -110,17 +127,25 @@ public static class MidiFileExporter
 
     private static byte ChannelFor(NoteEvent note, SongProject project, InstrumentMidiChannelMapSet map)
     {
+        var instrumentId = InstrumentIdFor(note, project, map);
+        if (instrumentId is null)
+            return InstrumentMidiChannelMapper.ZeroBasedChannel(map.UnassignedMidiChannel);
+
+        var assignment = map.Assignments.First(item =>
+            string.Equals(item.InstrumentId, instrumentId, StringComparison.Ordinal));
+        return InstrumentMidiChannelMapper.ZeroBasedChannel(assignment.MidiChannel);
+    }
+
+    private static string? InstrumentIdFor(NoteEvent note, SongProject project, InstrumentMidiChannelMapSet map)
+    {
         var partIds = project.MusicalParts
             .Where(part => part.InstrumentProfileId is not null && part.NoteEventIds.Contains(note.Id))
             .Select(part => part.InstrumentProfileId!)
             .ToHashSet(StringComparer.Ordinal);
         if (partIds.Contains(DrumKitGeneralMidiMapper.DrumKitInstrumentId))
-            return InstrumentMidiChannelMapper.ZeroBasedChannel(InstrumentMidiChannelMapper.DrumKitMidiChannel);
+            return DrumKitGeneralMidiMapper.DrumKitInstrumentId;
 
-        var assignment = map.Assignments.FirstOrDefault(item => partIds.Contains(item.InstrumentId));
-        return assignment is null
-            ? InstrumentMidiChannelMapper.ZeroBasedChannel(map.UnassignedMidiChannel)
-            : InstrumentMidiChannelMapper.ZeroBasedChannel(assignment.MidiChannel);
+        return map.Assignments.FirstOrDefault(item => partIds.Contains(item.InstrumentId))?.InstrumentId;
     }
 
     private static byte ChannelFor(ExpressionCurve curve, InstrumentMidiChannelMapSet map)
@@ -160,6 +185,6 @@ public static class MidiFileExporter
         stream.Write(buffer);
     }
 
-    // Priority: tempo 0, meter 1, CC 2, note-off 3, note-on 4.
+    // Priority: tempo 0, meter 1, program change 2, CC 3, note-off 4, note-on 5.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);
 }
