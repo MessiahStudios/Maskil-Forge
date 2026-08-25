@@ -1055,6 +1055,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a named synth-lead part with an inspectable Portamento controller that stays off, without the host inventing a glide between stored notes.
 
+### Milestone 7.22 — Format-1 MIDI tracks
+
+Export a format-1 Standard MIDI File with a conductor track for tempo and meter and one named track per used inspectable channel. Unassigned notes occupy a track named Unassigned. Named catalog parts occupy tracks named from the catalog, in catalog order. Unused instruments do not get a track. Drum kit stays on channel 10 on its own track without a program change. The host does not invent kit pieces, extra instruments, or a renderer. Event bytes on each channel stay the same as 7.21.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open named cello, guitar, and drum-kit parts as separate named tracks in another music application, without the host inventing tracks for unused instruments.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

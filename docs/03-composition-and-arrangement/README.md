@@ -61,6 +61,8 @@ Slice 7.20 declares an inspectable ±2-semitone pitch-bend range for cello, viol
 
 Slice 7.21 declares synth-lead portamento as CC 65 and keeps it off so stored notes stay discrete.
 
+Slice 7.22 exports a format-1 MIDI file with a named conductor track and one named track per used catalog channel.
+
 ## Generator order
 
 1. Section energy and density plan

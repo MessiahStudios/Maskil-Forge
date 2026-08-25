@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Text;
 using MaskilForge.Domain;
 using MaskilForge.Engine;
 
@@ -22,8 +23,8 @@ public sealed class MidiFileExporterTests
         var parsed = Parse(first);
 
         Assert.Equal(first, second);
-        Assert.Equal(0, parsed.Format);
-        Assert.Equal(1, parsed.TrackCount);
+        Assert.Equal(1, parsed.Format);
+        Assert.Equal(2, parsed.TrackCount);
         Assert.Equal(480, parsed.Division);
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x51, 0x03, 0x09, 0x27, 0xC0 }));
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x58, 0x04, 0x06, 0x03, 0x18, 0x08 }));
@@ -364,6 +365,38 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_WritesNamedFormatOneTracksInCatalogOrder()
+    {
+        var project = SongProject.Create("Assigned kit MIDI");
+        var section = project.AddSection(SectionKind.Verse);
+        project.SetSectionRole(section.Id, ArrangementRole.Pulse);
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        var kitNote = project.AddNoteEvent(DrumKitGeneralMidiMapper.AcousticBassDrumPitch, 0, 120, 102);
+        var celloNote = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 480, 100);
+        var unassigned = project.AddNoteEvent(DrumKitGeneralMidiMapper.AcousticBassDrumPitch, 240, 120, 80);
+        project.AddMusicalPart(section.Id, ArrangementRole.Pulse, "Verse pulse", [kitNote.Id], "drum-kit");
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Verse cello", [celloNote.Id], "cello");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Equal(1, parsed.Format);
+        Assert.Equal(4, parsed.TrackCount);
+        Assert.Equal(
+            [
+                "Assigned kit MIDI",
+                MidiFileExporter.UnassignedTrackName,
+                "Cello",
+                "Drum Kit"
+            ],
+            parsed.Tracks.Select(TrackName));
+        Assert.DoesNotContain("Piano", parsed.Tracks.Select(TrackName));
+        Assert.Contains(parsed.Tracks[2], item => item.Bytes is [0x91, 48, 100]);
+        Assert.Contains(parsed.Tracks[3], item => item.Bytes is [0x99, 36, 102]);
+        Assert.Contains(parsed.Tracks[1], item => item.Bytes is [0x90, 36, 80]);
+        Assert.DoesNotContain(parsed.Tracks[2], item => item.Bytes is [0x99, 36, 102]);
+    }
+
+    [Fact]
     public void Export_RequiresApprovedPlayableNotes()
     {
         var exception = Assert.Throws<InvalidOperationException>(() => MidiFileExporter.Export(SongProject.Create("Empty")));
@@ -375,37 +408,48 @@ public sealed class MidiFileExporterTests
         Assert.Equal("MThd"u8.ToArray(), bytes[..4]);
         Assert.Equal(6, BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(4, 4)));
         var format = BinaryPrimitives.ReadInt16BigEndian(bytes.AsSpan(8, 2));
-        var tracks = BinaryPrimitives.ReadInt16BigEndian(bytes.AsSpan(10, 2));
+        var trackCount = BinaryPrimitives.ReadInt16BigEndian(bytes.AsSpan(10, 2));
         var division = BinaryPrimitives.ReadInt16BigEndian(bytes.AsSpan(12, 2));
-        Assert.Equal("MTrk"u8.ToArray(), bytes[14..18]);
-        var trackLength = BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(18, 4));
-        Assert.Equal(bytes.Length, 22 + trackLength);
 
+        var tracks = new List<IReadOnlyList<ParsedEvent>>();
         var events = new List<ParsedEvent>();
-        var offset = 22;
-        var end = offset + trackLength;
-        long tick = 0;
-        while (offset < end)
+        var offset = 14;
+        while (offset < bytes.Length)
         {
-            tick += ReadVariableLength(bytes, ref offset);
-            var status = bytes[offset++];
-            if (status == 0xFF)
+            Assert.Equal("MTrk"u8.ToArray(), bytes.AsSpan(offset, 4).ToArray());
+            offset += 4;
+            var trackLength = BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(offset, 4));
+            offset += 4;
+            var end = offset + trackLength;
+            var trackEvents = new List<ParsedEvent>();
+            long tick = 0;
+            while (offset < end)
             {
-                var type = bytes[offset++];
-                var length = checked((int)ReadVariableLength(bytes, ref offset));
-                var data = bytes.AsSpan(offset, length).ToArray();
-                offset += length;
-                events.Add(new ParsedEvent(tick, new[] { status, type, (byte)length }.Concat(data).ToArray()));
-                continue;
+                tick += ReadVariableLength(bytes, ref offset);
+                var status = bytes[offset++];
+                if (status == 0xFF)
+                {
+                    var type = bytes[offset++];
+                    var length = checked((int)ReadVariableLength(bytes, ref offset));
+                    var data = bytes.AsSpan(offset, length).ToArray();
+                    offset += length;
+                    trackEvents.Add(new ParsedEvent(tick, new[] { status, type, (byte)length }.Concat(data).ToArray()));
+                    continue;
+                }
+                var high = status & 0xF0;
+                var dataCount = high is 0xC0 or 0xD0 ? 1 : 2;
+                var message = new byte[1 + dataCount];
+                message[0] = status;
+                for (var index = 0; index < dataCount; index++) message[1 + index] = bytes[offset++];
+                trackEvents.Add(new ParsedEvent(tick, message));
             }
-            var high = status & 0xF0;
-            var dataCount = high is 0xC0 or 0xD0 ? 1 : 2;
-            var message = new byte[1 + dataCount];
-            message[0] = status;
-            for (var index = 0; index < dataCount; index++) message[1 + index] = bytes[offset++];
-            events.Add(new ParsedEvent(tick, message));
+            Assert.Equal(end, offset);
+            tracks.Add(trackEvents);
+            events.AddRange(trackEvents);
         }
-        return new ParsedMidi(format, tracks, division, events);
+
+        Assert.Equal(trackCount, tracks.Count);
+        return new ParsedMidi(format, trackCount, division, events, tracks);
     }
 
     private static long ReadVariableLength(byte[] bytes, ref int offset)
@@ -420,6 +464,17 @@ public sealed class MidiFileExporterTests
         return value;
     }
 
-    private sealed record ParsedMidi(short Format, short TrackCount, short Division, IReadOnlyList<ParsedEvent> Events);
+    private static string TrackName(IReadOnlyList<ParsedEvent> events)
+    {
+        var named = events.First(item => item.Bytes.Length >= 3 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x03);
+        return Encoding.ASCII.GetString(named.Bytes, 3, named.Bytes.Length - 3);
+    }
+
+    private sealed record ParsedMidi(
+        short Format,
+        short TrackCount,
+        short Division,
+        IReadOnlyList<ParsedEvent> Events,
+        IReadOnlyList<IReadOnlyList<ParsedEvent>> Tracks);
     private sealed record ParsedEvent(long Tick, byte[] Bytes);
 }

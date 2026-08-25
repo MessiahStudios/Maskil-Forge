@@ -1,12 +1,15 @@
 using System.Buffers.Binary;
 using System.Numerics;
+using System.Text;
 using MaskilForge.Domain;
 
 namespace MaskilForge.Engine;
 
 /// <summary>
 /// Translates the project's approved playable notes and timeline metadata into a
-/// format-0 Standard MIDI File. Notes and tagged dynamics use inspectable MIDI
+/// format-1 Standard MIDI File. A conductor track holds tempo and meter. Each
+/// used inspectable channel gets its own named track: Unassigned, then catalog
+/// instruments in catalog order. Notes and tagged dynamics use inspectable MIDI
 /// channels from the catalog map. Named pitched parts also emit inspectable
 /// General MIDI program changes on those channels. Tagged dynamics use each
 /// instrument's inspectable controller: flute swell is Breath Controller (CC 2),
@@ -16,11 +19,14 @@ namespace MaskilForge.Engine;
 /// move the pitch wheel. Synth-lead portamento is CC 65 and stays off so stored
 /// notes stay discrete. Drum-kit notes stay on channel 10 without a program
 /// change. Unassigned notes and untagged dynamics stay on channel 1 with
-/// Expression (CC 11).
+/// Expression (CC 11). Unused catalog instruments do not get a track.
 /// </summary>
 public static class MidiFileExporter
 {
+    public const string ConductorTrackName = "Conductor";
+    public const string UnassignedTrackName = "Unassigned";
     private const long MaximumVariableLengthValue = 0x0FFFFFFF;
+    private const int MaximumTrackNameLength = 80;
 
     public static byte[] Export(SongProject project)
     {
@@ -28,34 +34,45 @@ public static class MidiFileExporter
         if (project.NoteEvents.Count == 0)
             throw new InvalidOperationException("Your song does not contain playable notes yet. Create a harmony sketch first.");
 
-        var events = BuildEvents(project);
-        using var track = new MemoryStream();
-        long previousTick = 0;
-        foreach (var item in events)
+        var channels = InstrumentMidiChannelMapper.Map();
+        var events = BuildEvents(project, channels);
+        var conductor = events.Where(item => item.Priority <= 1).ToList();
+        var performed = events.Where(item => item.Priority >= 2).ToList();
+        var usedChannels = performed.Select(item => item.Channel).ToHashSet();
+
+        var tracks = new List<(string Name, IReadOnlyList<MidiEvent> Events)>
         {
-            WriteVariableLength(track, item.Tick - previousTick);
-            track.Write(item.Data);
-            previousTick = item.Tick;
+            (SanitizeTrackName(project.Title, ConductorTrackName), conductor)
+        };
+        var unassigned = InstrumentMidiChannelMapper.ZeroBasedChannel(channels.UnassignedMidiChannel);
+        if (usedChannels.Contains(unassigned))
+            tracks.Add((UnassignedTrackName, performed.Where(item => item.Channel == unassigned).ToList()));
+
+        foreach (var assignment in channels.Assignments)
+        {
+            var channel = InstrumentMidiChannelMapper.ZeroBasedChannel(assignment.MidiChannel);
+            if (!usedChannels.Contains(channel)) continue;
+            tracks.Add((assignment.InstrumentName, performed.Where(item => item.Channel == channel).ToList()));
         }
-        WriteVariableLength(track, 0);
-        track.Write([0xFF, 0x2F, 0x00]);
 
         using var file = new MemoryStream();
         file.Write("MThd"u8);
         WriteInt32(file, 6);
-        WriteInt16(file, 0);
         WriteInt16(file, 1);
+        WriteInt16(file, checked((short)tracks.Count));
         WriteInt16(file, checked((short)project.Timeline.TicksPerQuarterNote));
-        file.Write("MTrk"u8);
-        WriteInt32(file, checked((int)track.Length));
-        track.Position = 0;
-        track.CopyTo(file);
+        foreach (var track in tracks)
+        {
+            var bytes = WriteTrack(track.Name, track.Events);
+            file.Write("MTrk"u8);
+            WriteInt32(file, bytes.Length);
+            file.Write(bytes);
+        }
         return file.ToArray();
     }
 
-    private static IReadOnlyList<MidiEvent> BuildEvents(SongProject project)
+    private static IReadOnlyList<MidiEvent> BuildEvents(SongProject project, InstrumentMidiChannelMapSet channels)
     {
-        var channels = InstrumentMidiChannelMapper.Map();
         var programs = InstrumentMidiProgramMapper.Map();
         var controllers = InstrumentMidiControllerMapper.Map();
         var pitchBends = InstrumentMidiPitchBendMapper.Map();
@@ -212,6 +229,40 @@ public static class MidiFileExporter
         return assignment is null
             ? InstrumentMidiChannelMapper.ZeroBasedChannel(map.UnassignedMidiChannel)
             : InstrumentMidiChannelMapper.ZeroBasedChannel(assignment.MidiChannel);
+    }
+
+    private static byte[] WriteTrack(string name, IReadOnlyList<MidiEvent> events)
+    {
+        using var track = new MemoryStream();
+        WriteVariableLength(track, 0);
+        WriteMetaText(track, 0x03, name);
+        long previousTick = 0;
+        foreach (var item in events)
+        {
+            WriteVariableLength(track, item.Tick - previousTick);
+            track.Write(item.Data);
+            previousTick = item.Tick;
+        }
+        WriteVariableLength(track, 0);
+        track.Write([0xFF, 0x2F, 0x00]);
+        return track.ToArray();
+    }
+
+    private static void WriteMetaText(Stream stream, byte type, string text)
+    {
+        var payload = Encoding.ASCII.GetBytes(text);
+        stream.WriteByte(0xFF);
+        stream.WriteByte(type);
+        WriteVariableLength(stream, payload.Length);
+        stream.Write(payload);
+    }
+
+    private static string SanitizeTrackName(string? value, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return fallback;
+        var text = new string(value.Trim().Where(character => character is >= ' ' and <= '~').ToArray()).Trim();
+        if (text.Length == 0) return fallback;
+        return text.Length <= MaximumTrackNameLength ? text : text[..MaximumTrackNameLength].TrimEnd();
     }
 
     private static void WriteVariableLength(Stream stream, long value)
