@@ -5250,7 +5250,7 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">Take your sketch with you</span>
           <h2 id="midi-export-title">Export playable notes</h2>
-          <p v-if="project.noteEvents.length">Your {{ project.noteEvents.length }} approved playable note{{ project.noteEvents.length === 1 ? '' : 's' }} can be opened in another music application. Maskil Forge will preserve {{ project.noteEvents.length === 1 ? 'its' : 'their' }} timing and dynamics without choosing an instrument.</p>
+          <p v-if="project.noteEvents.length">Your {{ project.noteEvents.length }} approved playable note{{ project.noteEvents.length === 1 ? '' : 's' }} can be opened in another music application. Timing and dynamics are preserved. Notes on a musical part that names drum kit export on MIDI channel 10 as Acoustic Bass Drum. Other notes stay on channel 0. MIDI does not emit a program change or choose channels for cello, guitar, or other pitched instruments.</p>
           <p v-else>Your song does not contain playable notes yet. Create and approve a harmony sketch, a pitch-gesture sketch, an onset-gesture sketch, or a loudness-gesture sketch first.</p>
         </div>
         <button type="button" :disabled="busy || !project.noteEvents.length" @click="exportMidi">Export MIDI</button>
@@ -5540,7 +5540,7 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">From a reviewed take</span>
           <h2 id="instrument-performance-retarget-title">Retarget this take across the catalog</h2>
-          <p>Preview the same approved swell, slide, or onset on every catalog instrument, then store what applies onto a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides only where the catalog map allows; onset gestures become kit hits. Piano, bass, flute, clarinet, trumpet, and synth pad do not take slides; drum kit does not take swell or slide; pitched instruments do not take kit hits. Violin swell is bow expression; flute swell is breath; clarinet and trumpet swells are legato. Synth pad swell is pad; synth lead swell is filter and synth lead slide is portamento; electric guitar swell is distortion and electric guitar slide is bend. Kit hits use General MIDI Acoustic Bass Drum (C2) instead of a melodic C4; the host does not choose snare or hat. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. MIDI does not choose an instrument or move kit hits onto channel 10.</p>
+          <p>Preview the same approved swell, slide, or onset on every catalog instrument, then store what applies onto a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides only where the catalog map allows; onset gestures become kit hits. Piano, bass, flute, clarinet, trumpet, and synth pad do not take slides; drum kit does not take swell or slide; pitched instruments do not take kit hits. Violin swell is bow expression; flute swell is breath; clarinet and trumpet swells are legato. Synth pad swell is pad; synth lead swell is filter and synth lead slide is portamento; electric guitar swell is distortion and electric guitar slide is bend. Kit hits use General MIDI Acoustic Bass Drum (C2) instead of a melodic C4; the host does not choose snare or hat. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. MIDI does not choose an instrument. Named kit parts export on channel 10; other notes stay on channel 0.</p>
         </div>
         <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch, loudness, or onset claim first.</p>
         <p v-else-if="!instrumentRetargetTakes.length" class="note-event-empty">Promote at least one pitch, loudness, or onset claim to a gesture in the take inspector above.</p>
@@ -5555,7 +5555,7 @@ onBeforeUnmount(() => {
           <div v-if="instrumentPerformanceSketches[asset.id]" class="harmony-note-sketch-result">
             <p>
               <strong>Review, then store onto a named catalog part.</strong>
-              <span>Uses the first tempo only. Each instrument keeps its own catalog technique. Piano, bass, flute, clarinet, and trumpet slides stay unused. Drum-kit swell and slide stay unused. Pitched instruments do not take kit hits. Kit hits use Acoustic Bass Drum at C2. MIDI still emits dynamics as CC 11 without a program change, and kit notes stay on channel 0.</span>
+              <span>Uses the first tempo only. Each instrument keeps its own catalog technique. Piano, bass, flute, clarinet, and trumpet slides stay unused. Drum-kit swell and slide stay unused. Pitched instruments do not take kit hits. Kit hits use Acoustic Bass Drum at C2. MIDI still emits dynamics as CC 11 without a program change. Named kit parts export on channel 10; other notes stay on channel 0.</span>
             </p>
             <div class="instrument-retarget-targets">
               <article v-for="target in instrumentPerformanceSketches[asset.id].targets" :key="target.instrumentId" class="instrument-retarget-target" :aria-label="`${target.instrumentName} retarget`">

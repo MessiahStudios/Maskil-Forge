@@ -1007,6 +1007,14 @@ The host does not choose snare, hat, or another kit piece from the onset, does n
 
 **Deliverable:** an artist can store kit hits as a General MIDI bass drum without the host choosing a kit piece or a drum MIDI channel.
 
+### Milestone 7.16 — Drum-kit MIDI channel
+
+Export notes that already belong to a musical part named drum-kit onto MIDI channel 10. The pitch remains General MIDI Acoustic Bass Drum (C2). Unassigned notes and notes on pitched catalog parts stay on channel 0. Dynamics remain CC 11 on channel 0. The host does not emit program changes, assign channels to cello, guitar, piano, bass, or other pitched instruments, or choose snare versus hat.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open named kit hits as drums in another music application, without the host inventing a program change or channels for every instrument.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

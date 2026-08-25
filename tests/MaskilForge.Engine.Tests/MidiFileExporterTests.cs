@@ -59,17 +59,37 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
-    public void Export_LeavesDrumKitHitsOnChannelZeroWithoutAProgramChange()
+    public void Export_PlacesNamedDrumKitHitsOnChannelTenWithoutAProgramChange()
     {
         var project = SongProject.Create("Assigned kit MIDI");
         var section = project.AddSection(SectionKind.Verse);
         project.SetSectionRole(section.Id, ArrangementRole.Pulse);
-        var note = project.AddNoteEvent(DrumKitGeneralMidiMapper.AcousticBassDrumPitch, 0, 120, 102);
-        project.AddMusicalPart(section.Id, ArrangementRole.Pulse, "Verse pulse", [note.Id], "drum-kit");
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        var kitNote = project.AddNoteEvent(DrumKitGeneralMidiMapper.AcousticBassDrumPitch, 0, 120, 102);
+        var celloNote = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 480, 100);
+        var unassigned = project.AddNoteEvent(DrumKitGeneralMidiMapper.AcousticBassDrumPitch, 240, 120, 80);
+        project.AddMusicalPart(section.Id, ArrangementRole.Pulse, "Verse pulse", [kitNote.Id], "drum-kit");
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Verse cello", [celloNote.Id], "cello");
 
         var parsed = Parse(MidiFileExporter.Export(project));
 
-        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 36, 102]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x99, 36, 102]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x89, 36, 0]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 48, 100]);
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 36, 80]);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes is [0x90, 36, 102]);
+        Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+    }
+
+    [Fact]
+    public void Export_LeavesUnassignedDrumPitchOnChannelZero()
+    {
+        var project = SongProject.Create("Unassigned C2 MIDI");
+        project.AddNoteEvent(DrumKitGeneralMidiMapper.AcousticBassDrumPitch, 0, 120, 96);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Bytes is [0x90, 36, 96]);
         Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0x0F) == 0x09);
         Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
     }

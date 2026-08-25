@@ -49,6 +49,8 @@ Slice 7.14 maps swell onto those instruments’ own articulations and lets a nam
 
 Slice 7.15 maps drum-kit Hit onto General MIDI Acoustic Bass Drum (C2) so stored kit hits are a percussion pitch instead of a melodic C4. The host does not choose snare or hat, and does not move those hits onto a drum MIDI channel.
 
+Slice 7.16 exports named drum-kit notes on MIDI channel 10. Unassigned notes and pitched-instrument parts stay on channel 0. MIDI does not emit a program change.
+
 ## Generator order
 
 1. Section energy and density plan

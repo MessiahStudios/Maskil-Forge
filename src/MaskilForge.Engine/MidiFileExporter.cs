@@ -7,12 +7,14 @@ namespace MaskilForge.Engine;
 /// <summary>
 /// Translates the project's approved playable notes and timeline metadata into a
 /// format-0 Standard MIDI File. Dynamics curves emit as CC 11 on channel 0 even when
-/// tagged with a catalog instrument. Drum-kit hits stay on channel 0 even when they
-/// use a General MIDI percussion pitch. Export never emits program changes.
+/// tagged with a catalog instrument. Notes on a musical part that names drum-kit
+/// export on channel 10. Other notes stay on channel 0. Export never emits
+/// program changes or channels for pitched catalog instruments.
 /// </summary>
 public static class MidiFileExporter
 {
     private const long MaximumVariableLengthValue = 0x0FFFFFFF;
+    private const byte DrumKitChannel = 9;
 
     public static byte[] Export(SongProject project)
     {
@@ -52,7 +54,7 @@ public static class MidiFileExporter
         {
             var tick = checked((long)tempo.Beat * project.Timeline.TicksPerQuarterNote);
             var microseconds = decimal.ToInt32(decimal.Round(60_000_000m / tempo.BeatsPerMinute, 0, MidpointRounding.AwayFromZero));
-            events.Add(new MidiEvent(tick, 0, 0, Guid.Empty,
+            events.Add(new MidiEvent(tick, 0, 0, 0, Guid.Empty,
             [
                 0xFF, 0x51, 0x03,
                 (byte)(microseconds >> 16),
@@ -65,7 +67,7 @@ public static class MidiFileExporter
         {
             var tick = checked((long)meter.Beat * project.Timeline.TicksPerQuarterNote);
             var denominatorPower = checked((byte)BitOperations.Log2((uint)meter.Denominator));
-            events.Add(new MidiEvent(tick, 1, 0, Guid.Empty,
+            events.Add(new MidiEvent(tick, 1, 0, 0, Guid.Empty,
             [
                 0xFF, 0x58, 0x04,
                 checked((byte)meter.Numerator),
@@ -82,7 +84,7 @@ public static class MidiFileExporter
             {
                 if (point.Tick > MaximumVariableLengthValue)
                     throw new InvalidOperationException("An expression curve extends beyond the timing range supported by a Standard MIDI File.");
-                events.Add(new MidiEvent(point.Tick, 2, 11, curve.Id.Value, [0xB0, 11, checked((byte)point.Value)]));
+                events.Add(new MidiEvent(point.Tick, 2, 11, 0, curve.Id.Value, [0xB0, 11, checked((byte)point.Value)]));
             }
         }
 
@@ -91,16 +93,26 @@ public static class MidiFileExporter
             if (note.EndTickExclusive > MaximumVariableLengthValue)
                 throw new InvalidOperationException("A playable note extends beyond the timing range supported by a Standard MIDI File.");
             var pitch = checked((byte)note.Pitch.MidiNumber);
-            events.Add(new MidiEvent(note.StartTick, 4, pitch, note.Id.Value, [0x90, pitch, checked((byte)note.Velocity)]));
-            events.Add(new MidiEvent(note.EndTickExclusive, 3, pitch, note.Id.Value, [0x80, pitch, 0x00]));
+            var channel = ChannelFor(note, project);
+            events.Add(new MidiEvent(note.StartTick, 4, pitch, channel, note.Id.Value, [(byte)(0x90 | channel), pitch, checked((byte)note.Velocity)]));
+            events.Add(new MidiEvent(note.EndTickExclusive, 3, pitch, channel, note.Id.Value, [(byte)(0x80 | channel), pitch, 0x00]));
         }
 
         return events
             .OrderBy(item => item.Tick)
             .ThenBy(item => item.Priority)
             .ThenBy(item => item.Pitch)
+            .ThenBy(item => item.Channel)
             .ThenBy(item => item.NoteId)
             .ToList();
+    }
+
+    private static byte ChannelFor(NoteEvent note, SongProject project)
+    {
+        var onKit = project.MusicalParts.Any(part =>
+            string.Equals(part.InstrumentProfileId, DrumKitGeneralMidiMapper.DrumKitInstrumentId, StringComparison.Ordinal)
+            && part.NoteEventIds.Contains(note.Id));
+        return onKit ? DrumKitChannel : (byte)0;
     }
 
     private static void WriteVariableLength(Stream stream, long value)
@@ -129,5 +141,5 @@ public static class MidiFileExporter
     }
 
     // Priority: tempo 0, meter 1, CC 2, note-off 3, note-on 4.
-    private sealed record MidiEvent(long Tick, int Priority, int Pitch, Guid NoteId, byte[] Data);
+    private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);
 }
