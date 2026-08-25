@@ -2954,26 +2954,21 @@ function useLoudnessGestureExpressionSketch(assetId: string) {
 async function prepareInstrumentPerformanceSketch(assetId: string) {
   if (!project.value) return
   busy.value = true
-  activityLog.write('info', 'midi.instrument-retarget.prepare', 'Cello and guitar retarget requested.', { assetId })
+  activityLog.write('info', 'midi.instrument-retarget.prepare', 'Catalog instrument retarget requested.', { assetId })
   try {
     const sketch = await projectsApi.instrumentPerformanceSketch(project.value.id, project.value, assetId)
     instrumentPerformanceSketches[assetId] = sketch
-    const cello = sketch.targets.find(item => item.instrumentId === 'cello')
-    const guitar = sketch.targets.find(item => item.instrumentId === 'acoustic-guitar')
     const outOfRangeCount = sketch.targets.reduce(
       (sum, target) => sum + target.slide.events.filter(item => item.rangeKind).length,
       0)
-    status.value = `Cello and guitar retarget prepared from this take.`
+    status.value = `Catalog instrument retarget prepared from this take.`
     activityLog.write('success', 'midi.instrument-retarget.prepare', status.value, {
       assetId,
-      celloSwellCount: cello?.swell.events.length ?? 0,
-      celloSlideCount: cello?.slide.events.length ?? 0,
-      guitarSwellCount: guitar?.swell.events.length ?? 0,
-      guitarSlideCount: guitar?.slide.events.length ?? 0,
+      targetCount: sketch.targets.length,
       outOfRangeCount,
     })
   } catch (error) {
-    status.value = error instanceof Error ? error.message : 'The cello and guitar retarget could not be prepared.'
+    status.value = error instanceof Error ? error.message : 'The instrument retarget could not be prepared.'
     activityLog.write('error', 'midi.instrument-retarget.prepare', status.value, { assetId })
   } finally {
     busy.value = false
@@ -2993,6 +2988,19 @@ function selectedInstrumentSketchPartId(assetId: string, instrumentId: string) {
 }
 function instrumentSketchHasPersistableEvents(target: InstrumentPerformanceRetargetSet['targets'][number]) {
   return target.swell.events.length > 0 || target.slide.events.some(item => !item.rangeKind)
+}
+function instrumentSketchAcceptCopy(target: InstrumentPerformanceRetargetSet['targets'][number]) {
+  if (!target.swell.applicable && !target.slide.applicable) {
+    return `${target.instrumentName} does not apply swell or slide. Nothing is stored.`
+  }
+  if (!instrumentSketchHasPersistableEvents(target)) {
+    return `${target.instrumentName} has no in-range slides or swells to store.`
+  }
+  const parts: string[] = []
+  if (target.slide.applicable) parts.push('Adds in-range slides to the named part')
+  if (target.swell.applicable) parts.push('stores swells as a dynamics curve')
+  const lead = parts.join(' and ').replace(/^stores/, 'Stores')
+  return `${lead}. Out-of-range slides are skipped, not moved. MIDI does not choose an instrument.`
 }
 function useInstrumentPerformanceSketch(assetId: string, instrumentId: string) {
   if (!project.value) return
@@ -5504,23 +5512,23 @@ onBeforeUnmount(() => {
       <section v-if="!phoneCaptureMode" id="instrument-performance-retarget" class="instrument-performance-retarget" aria-labelledby="instrument-performance-retarget-title">
         <div>
           <span class="eyebrow">From a reviewed take</span>
-          <h2 id="instrument-performance-retarget-title">Retarget this take to cello and guitar</h2>
-          <p>Preview the same approved swell or slide as cello technique and guitar technique, then store it on a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. Piano, bass, and drum kit stay unused here. MIDI does not choose an instrument.</p>
+          <h2 id="instrument-performance-retarget-title">Retarget this take across the catalog</h2>
+          <p>Preview the same approved swell or slide on cello, acoustic guitar, piano, electric bass, and drum kit, then store what applies onto a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides only where the catalog map allows. Piano and bass do not take slides; drum kit does not take swell or slide. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. MIDI does not choose an instrument.</p>
         </div>
         <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch or loudness claim first.</p>
         <p v-else-if="!instrumentRetargetTakes.length" class="note-event-empty">Promote at least one pitch or loudness claim to a gesture in the take inspector above.</p>
-        <article v-for="asset in instrumentRetargetTakes" :key="asset.id" class="harmony-note-sketch" :aria-label="`Cello and guitar retarget for ${asset.name}`">
+        <article v-for="asset in instrumentRetargetTakes" :key="asset.id" class="harmony-note-sketch" :aria-label="`Catalog instrument retarget for ${asset.name}`">
           <div>
             <strong>{{ asset.name }}</strong>
             <small>{{ pitchGestureCountForAsset(asset.id) }} pitch · {{ loudnessGestureCountForAsset(asset.id) }} loudness · {{ vocalTakePlacementLabel(asset.id) }}</small>
           </div>
           <button type="button" class="secondary" :disabled="busy" @click="prepareInstrumentPerformanceSketch(asset.id)">
-            {{ instrumentPerformanceSketches[asset.id] ? 'Refresh cello and guitar retarget' : 'Prepare cello and guitar retarget' }}
+            {{ instrumentPerformanceSketches[asset.id] ? 'Refresh catalog retarget' : 'Prepare catalog retarget' }}
           </button>
           <div v-if="instrumentPerformanceSketches[asset.id]" class="harmony-note-sketch-result">
             <p>
-              <strong>Review, then store onto a named cello or guitar part.</strong>
-              <span>Uses the first tempo only. Cello and guitar keep their own articulations for the same gestures. Out-of-range slides stay skipped. MIDI still emits dynamics as CC 11 without a program change.</span>
+              <strong>Review, then store onto a named catalog part.</strong>
+              <span>Uses the first tempo only. Each instrument keeps its own catalog technique. Piano and bass slides, and both drum-kit gestures, stay unused. MIDI still emits dynamics as CC 11 without a program change.</span>
             </p>
             <div class="instrument-retarget-targets">
               <article v-for="target in instrumentPerformanceSketches[asset.id].targets" :key="target.instrumentId" class="instrument-retarget-target" :aria-label="`${target.instrumentName} retarget`">
@@ -5570,13 +5578,14 @@ onBeforeUnmount(() => {
                     </label>
                     <p v-else>Stores onto {{ matchingInstrumentParts(target.instrumentId)[0].label }}.</p>
                     <button
+                      v-if="instrumentSketchHasPersistableEvents(target)"
                       type="button"
-                      :disabled="busy || !selectedInstrumentSketchPartId(asset.id, target.instrumentId) || !instrumentSketchHasPersistableEvents(target)"
+                      :disabled="busy || !selectedInstrumentSketchPartId(asset.id, target.instrumentId)"
                       @click="useInstrumentPerformanceSketch(asset.id, target.instrumentId)"
                     >
                       Use this {{ target.instrumentName }} sketch
                     </button>
-                    <small>Adds in-range slides to the named part and stores swells as a dynamics curve. Out-of-range slides are skipped, not moved. MIDI does not choose an instrument.</small>
+                    <small>{{ instrumentSketchAcceptCopy(target) }}</small>
                   </template>
                 </div>
               </article>

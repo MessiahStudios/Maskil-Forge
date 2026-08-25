@@ -30,8 +30,7 @@ public sealed class InstrumentPerformanceRetargeterTests
         var guitarSwell = Assert.Single(guitar.Swell.Events);
 
         Assert.Equal(asset.Id, set.SourceAssetId);
-        Assert.Equal(["cello", "acoustic-guitar"], set.Targets.Select(item => item.InstrumentId));
-        Assert.DoesNotContain(set.Targets, item => item.InstrumentId is "piano" or "electric-bass" or "drum-kit");
+        Assert.Equal(["cello", "acoustic-guitar", "piano", "electric-bass", "drum-kit"], set.Targets.Select(item => item.InstrumentId));
 
         Assert.Equal("Cello", cello.InstrumentName);
         Assert.True(cello.Swell.Applicable);
@@ -50,6 +49,53 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.Equal(celloSwell.Value, guitarSwell.Value);
         Assert.Empty(cello.Slide.Events);
         Assert.Empty(guitar.Slide.Events);
+    }
+
+    [Fact]
+    public void Project_MapsPianoStrikeAndBassFingerWithoutInventingSlidesOrKitHits()
+    {
+        var project = SongProject.Create("Proof-set retarget");
+        var asset = CreateAsset();
+        var loudness = CreateObservation(asset.Id, "loudness.frame", "maskil.browser.loudness", 200, 80,
+            [
+                new PerformanceMeasurement("rmsDbfs", -18.2m, "dBFS"),
+                new PerformanceMeasurement("peakDbfs", -4.1m, "dBFS")
+            ]);
+        var pitch = CreateObservation(asset.Id, "pitch.frame", "maskil.browser.pitch-acf", 200, 80,
+            [new PerformanceMeasurement("frequencyHertz", 440m, "hertz")]);
+        var now = DateTimeOffset.UtcNow;
+        project.RegisterAsset(asset);
+        project.RegisterPerformanceObservation(loudness);
+        project.RegisterPerformanceObservation(pitch);
+        project.SetPerformanceObservationReview(loudness.Id, PerformanceObservationReviewVerdict.Accurate, now);
+        project.SetPerformanceObservationReview(pitch.Id, PerformanceObservationReviewVerdict.Accurate, now);
+        project.SetPerformanceObservationGesture(loudness.Id, now);
+        project.SetPerformanceObservationGesture(pitch.Id, now);
+
+        var set = InstrumentPerformanceRetargeter.Project(project, asset.Id);
+        var piano = Target(set, "piano");
+        var bass = Target(set, "electric-bass");
+        var kit = Target(set, "drum-kit");
+
+        Assert.True(piano.Swell.Applicable);
+        Assert.Equal(InstrumentArticulation.Strike, piano.Swell.Articulation);
+        Assert.Equal(88, Assert.Single(piano.Swell.Events).Value);
+        Assert.False(piano.Slide.Applicable);
+        Assert.Empty(piano.Slide.Events);
+
+        Assert.True(bass.Swell.Applicable);
+        Assert.Equal(InstrumentArticulation.Finger, bass.Swell.Articulation);
+        Assert.Equal(88, Assert.Single(bass.Swell.Events).Value);
+        Assert.False(bass.Slide.Applicable);
+        Assert.Empty(bass.Slide.Events);
+
+        Assert.False(kit.Swell.Applicable);
+        Assert.Null(kit.Swell.Articulation);
+        Assert.Empty(kit.Swell.Events);
+        Assert.False(kit.Slide.Applicable);
+        Assert.Null(kit.Slide.Articulation);
+        Assert.Empty(kit.Slide.Events);
+        Assert.Equal(69, Assert.Single(Target(set, "cello").Slide.Events).Pitch!.MidiNumber);
     }
 
     [Fact]
@@ -192,9 +238,9 @@ public sealed class InstrumentPerformanceRetargeterTests
     }
 
     [Fact]
-    public void Project_RequiresCelloAndGuitarCatalogProfiles()
+    public void Project_LeavesUnmappedCatalogInstrumentsNotApplicable()
     {
-        var project = SongProject.Create("Missing cello");
+        var project = SongProject.Create("Unknown instrument");
         var asset = CreateAsset();
         var observation = CreateObservation(asset.Id, "pitch.frame", "maskil.browser.pitch-acf", 0, 80,
             [new PerformanceMeasurement("frequencyHertz", 440m, "hertz")]);
@@ -215,8 +261,14 @@ public sealed class InstrumentPerformanceRetargeterTests
                 [InstrumentExpressiveQuality.Intimate]),
         ]);
 
-        Assert.Throws<KeyNotFoundException>(() =>
-            InstrumentPerformanceRetargeter.Project(project, asset.Id, catalog));
+        var set = InstrumentPerformanceRetargeter.Project(project, asset.Id, catalog);
+        var violin = Assert.Single(set.Targets);
+
+        Assert.Equal("violin", violin.InstrumentId);
+        Assert.False(violin.Swell.Applicable);
+        Assert.Empty(violin.Swell.Events);
+        Assert.False(violin.Slide.Applicable);
+        Assert.Empty(violin.Slide.Events);
     }
 
     private static InstrumentPerformanceSketch Target(InstrumentPerformanceRetargetSet set, string instrumentId) =>

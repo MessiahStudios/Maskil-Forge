@@ -934,6 +934,14 @@ Schema v31 adds optional `instrumentProfileId` on expression curves so a cello s
 
 **Deliverable:** an artist can store a reviewed cello or guitar retarget on a part they already named, without the host inventing an instrument or rewriting out-of-range pitches.
 
+### Milestone 7.9 — Piano, bass, and drum-kit adapters
+
+Project the same approved swell and slide onto piano, electric bass, and drum kit using the 7.5 map. Piano strike and bass finger cover swell with the same loudness-to-expression values as cello. Piano slide, bass slide, and both drum-kit gestures stay not applicable: the host does not invent cello slides or kit hits from vocal pitch. Schema stays at v31. Catalog stays at version 2.
+
+Desktop Music previews all five proof-set instruments from one take. A named piano or bass part can store the swell as a tagged dynamics curve. A kit part has nothing persistable from swell or slide. The host does not auto-assign, auto-create a part, map onset to kit hits, or emit MIDI program changes. Phone Music remains hidden. Later catalog waves remain later work.
+
+**Deliverable:** an artist can see how the same approved swell or slide behaves on piano, bass, and drum kit without the host inventing cello-like technique.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

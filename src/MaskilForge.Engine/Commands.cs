@@ -964,9 +964,7 @@ public sealed class UseInstrumentPerformanceSketchCommand(
         }
 
         var assigned = MusicalPartInstrumentAssignment.RequireCatalogId(instrumentProfileId)
-            ?? throw new ArgumentException("Name cello or acoustic guitar on a musical part before accepting this retarget.");
-        if (assigned is not (InstrumentPerformanceRetargeter.CelloInstrumentId or InstrumentPerformanceRetargeter.AcousticGuitarInstrumentId))
-            throw new ArgumentException("Piano, electric bass, and drum kit are not this slice's retargeters.");
+            ?? throw new ArgumentException("Name a catalog instrument on a musical part before accepting this retarget.");
 
         var part = project.MusicalParts.SingleOrDefault(item => item.Id == musicalPartId)
             ?? throw new KeyNotFoundException($"Musical part '{musicalPartId}' was not found.");

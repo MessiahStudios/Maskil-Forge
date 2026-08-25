@@ -98,17 +98,38 @@ public sealed class UseInstrumentPerformanceSketchTests
     }
 
     [Fact]
-    public void Command_RejectsPianoBassAndDrumKit()
+    public void Command_StoresPianoAndBassSwellsWithoutInventingSlideNotes()
     {
-        foreach (var instrumentId in new[] { "piano", "electric-bass", "drum-kit" })
+        foreach (var (instrumentId, curveName) in new[] { ("piano", "Piano swell"), ("electric-bass", "Electric Bass swell") })
         {
-            var editor = SeedAssignedPart($"Reject {instrumentId}", instrumentId, out var asset, out var part);
+            var editor = SeedAssignedPart($"Persist {instrumentId}", instrumentId, out var asset, out var part);
+            PromotePitch(editor.Project, asset.Id, 200, 440m);
+            PromoteLoudness(editor.Project, asset.Id, 0, -18.2m);
+            var existingNoteId = Assert.Single(part.NoteEventIds);
+
+            editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, instrumentId, part.Id));
+
+            Assert.Equal([existingNoteId], Assert.Single(editor.Project.MusicalParts).NoteEventIds);
+            Assert.Equal(existingNoteId, Assert.Single(editor.Project.NoteEvents).Id);
+            var curve = Assert.Single(editor.Project.ExpressionCurves);
+            Assert.Equal(curveName, curve.Name);
+            Assert.Equal(instrumentId, curve.InstrumentProfileId);
+            Assert.Equal(88, Assert.Single(curve.Points).Value);
+        }
+    }
+
+    [Fact]
+    public void Command_ThrowsWhenPianoOrKitHasNothingPersistable()
+    {
+        foreach (var instrumentId in new[] { "piano", "drum-kit" })
+        {
+            var editor = SeedAssignedPart($"Empty {instrumentId}", instrumentId, out var asset, out var part);
             PromotePitch(editor.Project, asset.Id, 200, 440m);
 
-            var error = Assert.Throws<ArgumentException>(() =>
+            var error = Assert.Throws<InvalidOperationException>(() =>
                 editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, instrumentId, part.Id)));
 
-            Assert.Contains("not this slice's retargeters", error.Message);
+            Assert.Contains("no in-range slides or swells", error.Message);
             Assert.Single(editor.Project.NoteEvents);
             Assert.Empty(editor.Project.ExpressionCurves);
         }

@@ -33,7 +33,9 @@ Slice 7.6 retargets those same gestures from one original-vocal take onto cello 
 
 Slice 7.7 lets the artist name a catalog instrument on a musical part. The assignment is optional Song Graph data, explicit, and reversible. It does not retarget a gesture, persist a performance sketch, auto-pick a recommendation, or emit MIDI.
 
-Slice 7.8 persists a reviewed cello or guitar retarget onto a musical part that already names that instrument. In-range slides become notes on the part; swells become a dynamics curve tagged with the same catalog instrument. Out-of-range slides are skipped, not transposed. Piano, bass, and drum-kit adapters and later catalog waves remain later Milestone 7 slices.
+Slice 7.8 persists a reviewed cello or guitar retarget onto a musical part that already names that instrument. In-range slides become notes on the part; swells become a dynamics curve tagged with the same catalog instrument. Out-of-range slides are skipped, not transposed.
+
+Slice 7.9 adds piano, electric-bass, and drum-kit adapters from the same approved gestures. Piano strike and bass finger cover swell; piano and bass slides, and both kit gestures, stay not applicable. Swells can be stored on a part that already names piano or bass. Kit has nothing persistable here. Later catalog waves remain later Milestone 7 slices.
 
 ## Generator order
 

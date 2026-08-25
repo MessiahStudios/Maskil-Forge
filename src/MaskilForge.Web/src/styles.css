@@ -496,7 +496,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .harmony-note-sketch-result li { display: grid; gap: .15rem; padding: .45rem; background: #111410; border: 1px solid #3d4339; }
 .harmony-note-sketch-result li span { color: #c0b9a9; font: .72rem ui-monospace, Consolas, monospace; }
 .harmony-note-sketch-result > button { justify-self: start; }
-.instrument-retarget-targets { display: grid; grid-template-columns: 1fr 1fr; gap: .55rem; }
+.instrument-retarget-targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .55rem; }
 .instrument-retarget-target { display: grid; gap: .45rem; padding: .55rem; background: #111410; border: 1px solid #3d4339; }
 .instrument-retarget-target > strong { color: #fff1d3; }
 .instrument-retarget-target section { display: grid; gap: .35rem; }

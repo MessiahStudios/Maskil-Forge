@@ -119,7 +119,9 @@ Slice 7.6 consumes approved loudness gestures as swells and approved pitch gestu
 
 Slice 7.7 stores an optional catalog `instrumentProfileId` on a musical part so the artist can name cello, guitar, piano, bass, or drum kit. Schema v30 migrates existing parts as unassigned. The assignment does not retarget a gesture, persist the 7.6 sketch, or emit MIDI.
 
-Slice 7.8 persists a reviewed cello or guitar sketch against a part that already names that instrument. Schema v31 tags accepted swells with optional `instrumentProfileId` on the dynamics curve; schema-v30 curves migrate as unassigned. In-range slides join the named part. Out-of-range slides are skipped. MIDI still emits dynamics as CC 11 without a program change. Piano, bass, kit adapters, and later catalog waves remain later work.
+Slice 7.8 persists a reviewed cello or guitar sketch against a part that already names that instrument. Schema v31 tags accepted swells with optional `instrumentProfileId` on the dynamics curve; schema-v30 curves migrate as unassigned. In-range slides join the named part. Out-of-range slides are skipped. MIDI still emits dynamics as CC 11 without a program change.
+
+Slice 7.9 projects the same approved swell or slide onto piano, electric bass, and drum kit using the catalog articulation map. Piano strike and bass finger cover swell; piano and bass slides, and both kit gestures, stay not applicable rather than inventing cello-like technique. Named piano or bass parts can store those swells. Onset-to-hit mapping and later catalog waves remain later work.
 
 The AI Director may reason over these structured observations. Direct interpretation by an audio-capable model may supplement deterministic analysis, but it is optional, must carry its own confidence and provenance, and must never be the sole authoritative representation of a performance.
 
@@ -127,7 +129,7 @@ The AI Director may reason over these structured observations. Direct interpreta
 
 Voice-to-instrument is treated as performance capture and retargeting. A neutral gesture should be adapted to the target instrument concept: cello may translate a swell into bow expression and a slide into legato; acoustic guitar may translate the same input into picking dynamics, bends, and hammer-ons; piano into strike and decay; flute, later, into breath-shaped sustain. Adapters should enforce range and articulation limitations, and must not assume every target is cello-like. Drum kit is an unpitched target.
 
-Slice 7.6 previews cello and guitar from the same approved gestures using the catalog articulation map. Slice 7.8 can persist that preview onto a part that already names cello or guitar. Piano, bass, and kit adapters remain later work. Accepted instrumental notes do not replace the artist's lead vocal.
+Slice 7.6 previews cello and guitar from the same approved gestures using the catalog articulation map. Slice 7.8 can persist that preview onto a part that already names cello or guitar. Slice 7.9 adds piano, bass, and kit adapters from that same map: swell applies as piano strike or bass finger; slides and both kit gestures stay unused. Accepted instrumental notes do not replace the artist's lead vocal.
 
 Slice 7.7 can name a catalog instrument on an existing musical part. That name is not a renderer or a MIDI program.
 

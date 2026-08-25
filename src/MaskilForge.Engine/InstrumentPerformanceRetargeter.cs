@@ -33,18 +33,20 @@ public sealed record InstrumentPerformanceRetargetSet(
     IReadOnlyList<InstrumentPerformanceSketch> Targets);
 
 /// <summary>
-/// Adapts approved pitch and loudness gestures onto cello and acoustic guitar
-/// using the host articulation map. Piano, bass, and drum-kit adapters remain later.
+/// Adapts approved pitch and loudness gestures onto the version-2 catalog using
+/// the host articulation map. Piano and bass slides, and both drum-kit gestures,
+/// stay not applicable rather than inventing cello-like technique.
 /// </summary>
 public static class InstrumentPerformanceRetargeter
 {
     public const string CelloInstrumentId = "cello";
     public const string AcousticGuitarInstrumentId = "acoustic-guitar";
+    public const string PianoInstrumentId = "piano";
+    public const string ElectricBassInstrumentId = "electric-bass";
+    public const string DrumKitInstrumentId = "drum-kit";
     public const string FrequencyMeasurementName = PitchGestureNoteSketcher.FrequencyMeasurementName;
     public const string RmsMeasurementName = LoudnessGestureExpressionSketcher.RmsMeasurementName;
     public const string LoudnessObservationKind = LoudnessGestureExpressionSketcher.LoudnessObservationKind;
-
-    private static readonly string[] TargetInstrumentIds = [CelloInstrumentId, AcousticGuitarInstrumentId];
     private const decimal MinimumRmsDecibels = -120m;
     private const decimal MaximumRmsDecibels = 0m;
     private const decimal ExpressionFloorDecibels = -60m;
@@ -130,11 +132,10 @@ public static class InstrumentPerformanceRetargeter
             .ThenBy(item => item.ObservationId.Value)
             .ToList();
 
-        var targets = TargetInstrumentIds.Select(instrumentId =>
+        var targets = catalog.Instruments.Select(profile =>
         {
-            var profile = catalog.Find(instrumentId);
-            if (!maps.TryGetValue(instrumentId, out var map))
-                throw new InvalidOperationException($"Articulation map for '{instrumentId}' was not found.");
+            if (!maps.TryGetValue(profile.Id, out var map))
+                throw new InvalidOperationException($"Articulation map for '{profile.Id}' was not found.");
 
             var swellMap = Lookup(map, NeutralPerformanceGesture.Swell);
             var slideMap = Lookup(map, NeutralPerformanceGesture.Slide);
