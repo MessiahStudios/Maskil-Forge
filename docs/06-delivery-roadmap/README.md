@@ -989,6 +989,16 @@ The slice does not add organ, ensemble strings, extra percussion, or other later
 
 **Deliverable:** an artist can name synth pad, synth lead, or electric guitar without the host choosing one or treating them like cello, acoustic guitar, or a drum kit.
 
+### Milestone 7.14 — Wave 3 articulation maps
+
+Map swell, slide, and hit onto the version-4 production instruments using each profile’s own articulations. Synth-pad swell is pad; synth-pad slide stays not applicable so filter is not treated as a slide. Synth-lead swell is filter; synth-lead slide is portamento. Electric-guitar swell is distortion; electric-guitar slide is bend. All three stay unused for hit: the host does not invent kit technique, cello slides, acoustic picking, or palm mute from an onset.
+
+Desktop Arrangement inspects the map. Desktop Music previews the same approved take across the catalog and can store what applies onto a musical part that already names that instrument. Schema stays at v31. Catalog stays at version 4.
+
+The slice does not add organ, ensemble strings, extra percussion, or other later instruments. It does not emit MIDI program changes, choose a kit piece, auto-pick from recommendations, or map palm mute onto hit. Phone Arrangement and Phone Music remain hidden.
+
+**Deliverable:** an artist can hear how a swell or slide would be played on synth pad, synth lead, or electric guitar, and store what applies, without the host treating them like cello, acoustic guitar, or a drum kit.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

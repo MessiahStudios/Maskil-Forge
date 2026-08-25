@@ -45,6 +45,8 @@ Slice 7.12 maps swell onto those instruments’ own articulations and lets a nam
 
 Slice 7.13 grows the catalog to version 4 with synth pad, synth lead, and electric guitar. Artists can inspect them and name one on a musical part. Gesture maps stay unused for these instruments.
 
+Slice 7.14 maps swell onto those instruments’ own articulations and lets a named part store the result. Synth pad swell is pad. Synth lead can also take a portamento slide. Electric guitar can also take a bend. Synth pad slides stay unused, and none of them take kit hits.
+
 ## Generator order
 
 1. Section energy and density plan

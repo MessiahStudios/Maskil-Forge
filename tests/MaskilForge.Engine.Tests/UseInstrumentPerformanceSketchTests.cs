@@ -205,9 +205,28 @@ public sealed class UseInstrumentPerformanceSketchTests
     }
 
     [Fact]
-    public void Command_ThrowsWhenWaveThreeHasNothingPersistable()
+    public void Command_StoresWaveThreeSwellsAndSlidesWithoutInventingPadSlidesOrKitHits()
     {
-        foreach (var instrumentId in new[] { "synth-pad", "synth-lead", "electric-guitar" })
+        var pad = SeedAssignedPart("Pad persist", "synth-pad", out var padAsset, out var padPart);
+        PromotePitch(pad.Project, padAsset.Id, 200, 440m);
+        PromoteLoudness(pad.Project, padAsset.Id, 0, -18.2m);
+        PromoteOnset(pad.Project, padAsset.Id, 96, 0.8m);
+        var padNoteId = Assert.Single(padPart.NoteEventIds);
+
+        pad.Execute(new UseInstrumentPerformanceSketchCommand(padAsset.Id, "synth-pad", padPart.Id));
+
+        Assert.Equal([padNoteId], Assert.Single(pad.Project.MusicalParts).NoteEventIds);
+        Assert.Equal(padNoteId, Assert.Single(pad.Project.NoteEvents).Id);
+        var padCurve = Assert.Single(pad.Project.ExpressionCurves);
+        Assert.Equal("Synth Pad swell", padCurve.Name);
+        Assert.Equal("synth-pad", padCurve.InstrumentProfileId);
+        Assert.Equal(88, Assert.Single(padCurve.Points).Value);
+
+        foreach (var (instrumentId, curveName) in new[]
+        {
+            ("synth-lead", "Synth Lead swell"),
+            ("electric-guitar", "Electric Guitar swell"),
+        })
         {
             var editor = SeedAssignedPart($"Persist {instrumentId}", instrumentId, out var asset, out var part);
             PromotePitch(editor.Project, asset.Id, 200, 440m);
@@ -215,13 +234,17 @@ public sealed class UseInstrumentPerformanceSketchTests
             PromoteOnset(editor.Project, asset.Id, 96, 0.8m);
             var existingNoteId = Assert.Single(part.NoteEventIds);
 
-            var error = Assert.Throws<InvalidOperationException>(() =>
-                editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, instrumentId, part.Id)));
+            editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, instrumentId, part.Id));
 
-            Assert.Contains("no in-range slides, swells, or hits", error.Message);
-            Assert.Equal([existingNoteId], Assert.Single(editor.Project.MusicalParts).NoteEventIds);
-            Assert.Equal(existingNoteId, Assert.Single(editor.Project.NoteEvents).Id);
-            Assert.Empty(editor.Project.ExpressionCurves);
+            var added = Assert.Single(editor.Project.NoteEvents, item => item.Id != existingNoteId);
+            Assert.Equal(69, added.Pitch.MidiNumber);
+            Assert.Equal(96, added.Velocity);
+            Assert.Contains(added.Id, Assert.Single(editor.Project.MusicalParts).NoteEventIds);
+            Assert.DoesNotContain(editor.Project.NoteEvents, item => item.Pitch.MidiNumber == 60 && item.StartTick == 92);
+            var curve = Assert.Single(editor.Project.ExpressionCurves);
+            Assert.Equal(curveName, curve.Name);
+            Assert.Equal(instrumentId, curve.InstrumentProfileId);
+            Assert.Equal(88, Assert.Single(curve.Points).Value);
         }
     }
 

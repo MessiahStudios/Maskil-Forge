@@ -73,21 +73,27 @@ public sealed class InstrumentArticulationMapperTests
     }
 
     [Fact]
-    public void Map_LeavesWaveThreeUnmappedWithoutInventingCelloOrKitTechnique()
+    public void Map_MapsWaveThreeWithoutInventingKitHitsOrPadSlides()
     {
         var set = InstrumentArticulationMapper.Map();
         var pad = Assert.Single(set.Maps, item => item.InstrumentId == "synth-pad");
         var lead = Assert.Single(set.Maps, item => item.InstrumentId == "synth-lead");
         var electric = Assert.Single(set.Maps, item => item.InstrumentId == "electric-guitar");
 
-        Assert.All(new[] { pad, lead, electric }, map =>
-        {
-            Assert.All(map.Mappings, mapping =>
-            {
-                Assert.False(mapping.Applicable);
-                Assert.Null(mapping.Articulation);
-            });
-        });
+        Assert.Equal(InstrumentArticulation.Pad, Mapped(pad, NeutralPerformanceGesture.Swell));
+        Assert.False(Lookup(pad, NeutralPerformanceGesture.Slide).Applicable);
+        Assert.False(Lookup(pad, NeutralPerformanceGesture.Hit).Applicable);
+        Assert.DoesNotContain(InstrumentArticulation.Filter, pad.Mappings.Select(item => item.Articulation));
+
+        Assert.Equal(InstrumentArticulation.Filter, Mapped(lead, NeutralPerformanceGesture.Swell));
+        Assert.Equal(InstrumentArticulation.Portamento, Mapped(lead, NeutralPerformanceGesture.Slide));
+        Assert.False(Lookup(lead, NeutralPerformanceGesture.Hit).Applicable);
+
+        Assert.Equal(InstrumentArticulation.Distortion, Mapped(electric, NeutralPerformanceGesture.Swell));
+        Assert.Equal(InstrumentArticulation.Bend, Mapped(electric, NeutralPerformanceGesture.Slide));
+        Assert.False(Lookup(electric, NeutralPerformanceGesture.Hit).Applicable);
+        Assert.DoesNotContain(InstrumentArticulation.Picking, electric.Mappings.Select(item => item.Articulation));
+        Assert.DoesNotContain(InstrumentArticulation.PalmMute, electric.Mappings.Select(item => item.Articulation));
     }
 
     [Fact]

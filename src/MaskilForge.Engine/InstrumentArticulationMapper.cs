@@ -48,6 +48,11 @@ public static class InstrumentArticulationMapper
         [("flute", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Breath,
         [("clarinet", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Legato,
         [("trumpet", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Legato,
+        [("synth-pad", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Pad,
+        [("synth-lead", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Filter,
+        [("synth-lead", NeutralPerformanceGesture.Slide)] = InstrumentArticulation.Portamento,
+        [("electric-guitar", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Distortion,
+        [("electric-guitar", NeutralPerformanceGesture.Slide)] = InstrumentArticulation.Bend,
     };
 
     public static InstrumentArticulationMapSet Map(InstrumentProfileCatalog? catalog = null)

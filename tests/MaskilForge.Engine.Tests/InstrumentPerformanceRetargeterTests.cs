@@ -57,10 +57,12 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.False(Target(set, "flute").Slide.Applicable);
         Assert.False(Target(set, "clarinet").Hit.Applicable);
         Assert.Empty(Target(set, "trumpet").Hit.Events);
-        Assert.False(Target(set, "synth-pad").Swell.Applicable);
-        Assert.False(Target(set, "synth-lead").Slide.Applicable);
+        Assert.Equal(InstrumentArticulation.Pad, Target(set, "synth-pad").Swell.Articulation);
+        Assert.Equal(InstrumentArticulation.Filter, Target(set, "synth-lead").Swell.Articulation);
+        Assert.Equal(InstrumentArticulation.Distortion, Target(set, "electric-guitar").Swell.Articulation);
+        Assert.False(Target(set, "synth-pad").Slide.Applicable);
         Assert.False(Target(set, "electric-guitar").Hit.Applicable);
-        Assert.Empty(Target(set, "synth-pad").Swell.Events);
+        Assert.Empty(Target(set, "synth-pad").Slide.Events);
         Assert.Empty(Target(set, "electric-guitar").Hit.Events);
     }
 
@@ -153,6 +155,12 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.Empty(Target(set, "flute").Slide.Events);
         Assert.False(Target(set, "clarinet").Slide.Applicable);
         Assert.False(Target(set, "trumpet").Slide.Applicable);
+        Assert.False(Target(set, "synth-pad").Slide.Applicable);
+        Assert.Empty(Target(set, "synth-pad").Slide.Events);
+        Assert.Equal(InstrumentArticulation.Portamento, Target(set, "synth-lead").Slide.Articulation);
+        Assert.Equal(69, Assert.Single(Target(set, "synth-lead").Slide.Events).Pitch!.MidiNumber);
+        Assert.Equal(InstrumentArticulation.Bend, Target(set, "electric-guitar").Slide.Articulation);
+        Assert.Equal(69, Assert.Single(Target(set, "electric-guitar").Slide.Events).Pitch!.MidiNumber);
     }
 
     [Fact]
@@ -193,6 +201,13 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.Empty(Target(set, "flute").Slide.Events);
         Assert.Empty(Target(set, "clarinet").Slide.Events);
         Assert.Empty(Target(set, "trumpet").Slide.Events);
+        Assert.Empty(Target(set, "synth-pad").Slide.Events);
+        var lead = Target(set, "synth-lead").Slide.Events;
+        Assert.Null(Assert.Single(lead, item => item.Pitch!.MidiNumber == 83).RangeKind);
+        Assert.Equal(RangeCollisionKind.Below, Assert.Single(lead, item => item.Pitch!.MidiNumber == 38).RangeKind);
+        var electric = Target(set, "electric-guitar").Slide.Events;
+        Assert.Null(Assert.Single(electric, item => item.Pitch!.MidiNumber == 83).RangeKind);
+        Assert.Equal(RangeCollisionKind.Below, Assert.Single(electric, item => item.Pitch!.MidiNumber == 38).RangeKind);
     }
 
     [Fact]

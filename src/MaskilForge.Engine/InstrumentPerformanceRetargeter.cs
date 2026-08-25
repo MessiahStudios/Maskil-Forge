@@ -35,9 +35,9 @@ public sealed record InstrumentPerformanceRetargetSet(
 
 /// <summary>
 /// Adapts approved pitch, loudness, and onset gestures onto the current catalog
-/// using the host articulation map. Piano, bass, flute, clarinet, and trumpet
-/// slides stay unused. Drum-kit swell and slide stay unused. Pitched instruments
-/// do not take kit hits. Flute swell is breath, not cello bow.
+/// using the host articulation map. Piano, bass, flute, clarinet, trumpet, and
+/// synth-pad slides stay unused. Drum-kit swell and slide stay unused. Pitched
+/// instruments do not take kit hits. Synth-pad swell is pad, not cello bow.
 /// </summary>
 public static class InstrumentPerformanceRetargeter
 {
