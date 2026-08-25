@@ -49,7 +49,11 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.Equal(celloSwell.Value, guitarSwell.Value);
         Assert.Empty(cello.Slide.Events);
         Assert.Empty(guitar.Slide.Events);
-        Assert.False(Target(set, "violin").Swell.Applicable);
+        Assert.True(Target(set, "violin").Swell.Applicable);
+        Assert.Equal(InstrumentArticulation.BowExpression, Target(set, "violin").Swell.Articulation);
+        Assert.Equal(InstrumentArticulation.Breath, Target(set, "flute").Swell.Articulation);
+        Assert.Equal(InstrumentArticulation.Legato, Target(set, "clarinet").Swell.Articulation);
+        Assert.Equal(InstrumentArticulation.Legato, Target(set, "trumpet").Swell.Articulation);
         Assert.False(Target(set, "flute").Slide.Applicable);
         Assert.False(Target(set, "clarinet").Hit.Applicable);
         Assert.Empty(Target(set, "trumpet").Hit.Events);
@@ -138,6 +142,12 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.Equal(celloSlide.StartTick, guitarSlide.StartTick);
         Assert.Empty(Target(set, "cello").Swell.Events);
         Assert.Empty(Target(set, "acoustic-guitar").Swell.Events);
+        Assert.Equal(InstrumentArticulation.Slide, Target(set, "violin").Slide.Articulation);
+        Assert.Equal(69, Assert.Single(Target(set, "violin").Slide.Events).Pitch!.MidiNumber);
+        Assert.False(Target(set, "flute").Slide.Applicable);
+        Assert.Empty(Target(set, "flute").Slide.Events);
+        Assert.False(Target(set, "clarinet").Slide.Applicable);
+        Assert.False(Target(set, "trumpet").Slide.Applicable);
     }
 
     [Fact]
@@ -172,6 +182,12 @@ public sealed class InstrumentPerformanceRetargeterTests
         Assert.Equal(RangeCollisionKind.Below, guitarLow.RangeKind);
         Assert.Equal(83, celloHigh.Pitch!.MidiNumber);
         Assert.Equal(38, guitarLow.Pitch!.MidiNumber);
+        var violin = Target(set, "violin").Slide.Events;
+        Assert.Null(Assert.Single(violin, item => item.Pitch!.MidiNumber == 83).RangeKind);
+        Assert.Equal(RangeCollisionKind.Below, Assert.Single(violin, item => item.Pitch!.MidiNumber == 38).RangeKind);
+        Assert.Empty(Target(set, "flute").Slide.Events);
+        Assert.Empty(Target(set, "clarinet").Slide.Events);
+        Assert.Empty(Target(set, "trumpet").Slide.Events);
     }
 
     [Fact]
@@ -294,8 +310,8 @@ public sealed class InstrumentPerformanceRetargeterTests
         project.SetPerformanceObservationGesture(observation.Id, now);
         var catalog = new InstrumentProfileCatalog(2, [
             new InstrumentProfile(
-                "violin",
-                "Violin",
+                "synth-pad",
+                "Synth Pad",
                 true,
                 new RegisteredPitch(NoteLetter.G, Accidental.Natural, 3),
                 new RegisteredPitch(NoteLetter.A, Accidental.Natural, 7),
@@ -305,15 +321,15 @@ public sealed class InstrumentPerformanceRetargeterTests
         ]);
 
         var set = InstrumentPerformanceRetargeter.Project(project, asset.Id, catalog);
-        var violin = Assert.Single(set.Targets);
+        var pad = Assert.Single(set.Targets);
 
-        Assert.Equal("violin", violin.InstrumentId);
-        Assert.False(violin.Swell.Applicable);
-        Assert.Empty(violin.Swell.Events);
-        Assert.False(violin.Slide.Applicable);
-        Assert.Empty(violin.Slide.Events);
-        Assert.False(violin.Hit.Applicable);
-        Assert.Empty(violin.Hit.Events);
+        Assert.Equal("synth-pad", pad.InstrumentId);
+        Assert.False(pad.Swell.Applicable);
+        Assert.Empty(pad.Swell.Events);
+        Assert.False(pad.Slide.Applicable);
+        Assert.Empty(pad.Slide.Events);
+        Assert.False(pad.Hit.Applicable);
+        Assert.Empty(pad.Hit.Events);
     }
 
     private static InstrumentPerformanceSketch Target(InstrumentPerformanceRetargetSet set, string instrumentId) =>

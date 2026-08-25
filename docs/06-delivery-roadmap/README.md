@@ -965,6 +965,16 @@ The slice does not add electric guitar, synth pad, synth lead, or other Wave 3 i
 
 **Deliverable:** an artist can name violin, flute, clarinet, or trumpet without the host choosing one or treating them like cello.
 
+### Milestone 7.12 — Wave 2 articulation maps
+
+Map swell, slide, and hit onto the version-3 orchestration instruments using each profile’s own articulations. Violin swell is bow expression; violin slide stays a slide. Flute swell is breath-shaped sustain. Clarinet and trumpet swells are legato. Flute, clarinet, and trumpet slides stay not applicable. All four stay unused for hit: the host does not invent kit technique on pitched instruments, and does not invent cello slides on winds.
+
+Desktop Arrangement inspects the map. Desktop Music previews the same approved take across the catalog and can store what applies onto a musical part that already names that instrument. Schema stays at v31. Catalog stays at version 3.
+
+The slice does not add electric guitar, synth pad, synth lead, or other Wave 3 instruments. It does not emit MIDI program changes, choose a kit piece, auto-pick from recommendations, or map tonguing onto hit. Phone Arrangement and Phone Music remain hidden. Later catalog waves remain later work.
+
+**Deliverable:** an artist can hear how a swell or slide would be played on violin, flute, clarinet, or trumpet, and store what applies, without the host treating them like cello or a drum kit.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

@@ -43,6 +43,11 @@ public static class InstrumentArticulationMapper
         [("piano", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Strike,
         [("electric-bass", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Finger,
         [("drum-kit", NeutralPerformanceGesture.Hit)] = InstrumentArticulation.Hit,
+        [("violin", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.BowExpression,
+        [("violin", NeutralPerformanceGesture.Slide)] = InstrumentArticulation.Slide,
+        [("flute", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Breath,
+        [("clarinet", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Legato,
+        [("trumpet", NeutralPerformanceGesture.Swell)] = InstrumentArticulation.Legato,
     };
 
     public static InstrumentArticulationMapSet Map(InstrumentProfileCatalog? catalog = null)

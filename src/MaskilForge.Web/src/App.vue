@@ -5523,7 +5523,7 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">From a reviewed take</span>
           <h2 id="instrument-performance-retarget-title">Retarget this take across the catalog</h2>
-          <p>Preview the same approved swell, slide, or onset on every catalog instrument, then store what applies onto a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides only where the catalog map allows; onset gestures become kit hits. Piano and bass do not take slides; drum kit does not take swell or slide; pitched instruments do not take kit hits. Violin, flute, clarinet, and trumpet stay unused until a later map. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. MIDI does not choose an instrument.</p>
+          <p>Preview the same approved swell, slide, or onset on every catalog instrument, then store what applies onto a musical part that already names that instrument. Loudness gestures become swells; pitch gestures become slides only where the catalog map allows; onset gestures become kit hits. Piano, bass, flute, clarinet, and trumpet do not take slides; drum kit does not take swell or slide; pitched instruments do not take kit hits. Violin swell is bow expression; flute swell is breath; clarinet and trumpet swells are legato. Timing uses the take’s song placement plus take-relative milliseconds at the first tempo. Out-of-range slide pitches are skipped, not transposed. MIDI does not choose an instrument.</p>
         </div>
         <p v-if="!project.assets.length" class="note-event-empty">Record a rough take above and promote a pitch, loudness, or onset claim first.</p>
         <p v-else-if="!instrumentRetargetTakes.length" class="note-event-empty">Promote at least one pitch, loudness, or onset claim to a gesture in the take inspector above.</p>
@@ -5538,7 +5538,7 @@ onBeforeUnmount(() => {
           <div v-if="instrumentPerformanceSketches[asset.id]" class="harmony-note-sketch-result">
             <p>
               <strong>Review, then store onto a named catalog part.</strong>
-              <span>Uses the first tempo only. Each instrument keeps its own catalog technique. Piano and bass slides stay unused. Drum-kit swell and slide stay unused. Pitched instruments do not take kit hits. MIDI still emits dynamics as CC 11 without a program change.</span>
+              <span>Uses the first tempo only. Each instrument keeps its own catalog technique. Piano, bass, flute, clarinet, and trumpet slides stay unused. Drum-kit swell and slide stay unused. Pitched instruments do not take kit hits. MIDI still emits dynamics as CC 11 without a program change.</span>
             </p>
             <div class="instrument-retarget-targets">
               <article v-for="target in instrumentPerformanceSketches[asset.id].targets" :key="target.instrumentId" class="instrument-retarget-target" :aria-label="`${target.instrumentName} retarget`">

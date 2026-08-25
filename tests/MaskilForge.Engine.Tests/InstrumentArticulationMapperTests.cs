@@ -47,20 +47,29 @@ public sealed class InstrumentArticulationMapperTests
     }
 
     [Fact]
-    public void Map_LeavesWaveTwoOrchestrationUnmapped()
+    public void Map_MapsWaveTwoWithoutInventingKitHitsOrWindSlides()
     {
         var set = InstrumentArticulationMapper.Map();
+        var violin = Assert.Single(set.Maps, item => item.InstrumentId == "violin");
+        var flute = Assert.Single(set.Maps, item => item.InstrumentId == "flute");
+        var clarinet = Assert.Single(set.Maps, item => item.InstrumentId == "clarinet");
+        var trumpet = Assert.Single(set.Maps, item => item.InstrumentId == "trumpet");
 
-        Assert.All(
-            set.Maps.Where(item => item.InstrumentId is "violin" or "flute" or "clarinet" or "trumpet"),
-            map =>
-            {
-                Assert.All(map.Mappings, mapping =>
-                {
-                    Assert.False(mapping.Applicable);
-                    Assert.Null(mapping.Articulation);
-                });
-            });
+        Assert.Equal(InstrumentArticulation.BowExpression, Mapped(violin, NeutralPerformanceGesture.Swell));
+        Assert.Equal(InstrumentArticulation.Slide, Mapped(violin, NeutralPerformanceGesture.Slide));
+        Assert.False(Lookup(violin, NeutralPerformanceGesture.Hit).Applicable);
+
+        Assert.Equal(InstrumentArticulation.Breath, Mapped(flute, NeutralPerformanceGesture.Swell));
+        Assert.False(Lookup(flute, NeutralPerformanceGesture.Slide).Applicable);
+        Assert.False(Lookup(flute, NeutralPerformanceGesture.Hit).Applicable);
+
+        Assert.Equal(InstrumentArticulation.Legato, Mapped(clarinet, NeutralPerformanceGesture.Swell));
+        Assert.False(Lookup(clarinet, NeutralPerformanceGesture.Slide).Applicable);
+        Assert.False(Lookup(clarinet, NeutralPerformanceGesture.Hit).Applicable);
+
+        Assert.Equal(InstrumentArticulation.Legato, Mapped(trumpet, NeutralPerformanceGesture.Swell));
+        Assert.False(Lookup(trumpet, NeutralPerformanceGesture.Slide).Applicable);
+        Assert.False(Lookup(trumpet, NeutralPerformanceGesture.Hit).Applicable);
     }
 
     [Fact]
@@ -107,8 +116,8 @@ public sealed class InstrumentArticulationMapperTests
     {
         var catalog = new InstrumentProfileCatalog(2, [
             new InstrumentProfile(
-                "violin",
-                "Violin",
+                "synth-pad",
+                "Synth Pad",
                 true,
                 new RegisteredPitch(NoteLetter.G, Accidental.Natural, 3),
                 new RegisteredPitch(NoteLetter.A, Accidental.Natural, 7),
@@ -118,10 +127,10 @@ public sealed class InstrumentArticulationMapperTests
         ]);
 
         var set = InstrumentArticulationMapper.Map(catalog);
-        var violin = Assert.Single(set.Maps);
+        var pad = Assert.Single(set.Maps);
 
-        Assert.Equal("violin", violin.InstrumentId);
-        Assert.All(violin.Mappings, mapping =>
+        Assert.Equal("synth-pad", pad.InstrumentId);
+        Assert.All(pad.Mappings, mapping =>
         {
             Assert.False(mapping.Applicable);
             Assert.Null(mapping.Articulation);

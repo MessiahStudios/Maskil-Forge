@@ -161,6 +161,50 @@ public sealed class UseInstrumentPerformanceSketchTests
     }
 
     [Fact]
+    public void Command_StoresWaveTwoSwellsAndViolinSlidesWithoutInventingWindSlidesOrKitHits()
+    {
+        var violin = SeedAssignedPart("Violin persist", "violin", out var violinAsset, out var violinPart);
+        PromotePitch(violin.Project, violinAsset.Id, 200, 440m);
+        PromoteLoudness(violin.Project, violinAsset.Id, 200, -18.2m);
+        PromoteOnset(violin.Project, violinAsset.Id, 96, 0.8m);
+        var violinNoteId = Assert.Single(violinPart.NoteEventIds);
+
+        violin.Execute(new UseInstrumentPerformanceSketchCommand(violinAsset.Id, "violin", violinPart.Id));
+
+        var added = Assert.Single(violin.Project.NoteEvents, item => item.Id != violinNoteId);
+        Assert.Equal(69, added.Pitch.MidiNumber);
+        Assert.Equal(96, added.Velocity);
+        Assert.Contains(added.Id, Assert.Single(violin.Project.MusicalParts).NoteEventIds);
+        Assert.DoesNotContain(violin.Project.NoteEvents, item => item.Pitch.MidiNumber == 60 && item.StartTick == 92);
+        var violinCurve = Assert.Single(violin.Project.ExpressionCurves);
+        Assert.Equal("Violin swell", violinCurve.Name);
+        Assert.Equal("violin", violinCurve.InstrumentProfileId);
+
+        foreach (var (instrumentId, curveName) in new[]
+        {
+            ("flute", "Flute swell"),
+            ("clarinet", "Clarinet swell"),
+            ("trumpet", "Trumpet swell"),
+        })
+        {
+            var editor = SeedAssignedPart($"Persist {instrumentId}", instrumentId, out var asset, out var part);
+            PromotePitch(editor.Project, asset.Id, 200, 440m);
+            PromoteLoudness(editor.Project, asset.Id, 0, -18.2m);
+            PromoteOnset(editor.Project, asset.Id, 96, 0.8m);
+            var existingNoteId = Assert.Single(part.NoteEventIds);
+
+            editor.Execute(new UseInstrumentPerformanceSketchCommand(asset.Id, instrumentId, part.Id));
+
+            Assert.Equal([existingNoteId], Assert.Single(editor.Project.MusicalParts).NoteEventIds);
+            Assert.Equal(existingNoteId, Assert.Single(editor.Project.NoteEvents).Id);
+            var curve = Assert.Single(editor.Project.ExpressionCurves);
+            Assert.Equal(curveName, curve.Name);
+            Assert.Equal(instrumentId, curve.InstrumentProfileId);
+            Assert.Equal(88, Assert.Single(curve.Points).Value);
+        }
+    }
+
+    [Fact]
     public void Command_IgnoresOnsetsWhenStoringACelloSketch()
     {
         var editor = SeedAssignedPart("Cello ignores hits", "cello", out var asset, out var part);
