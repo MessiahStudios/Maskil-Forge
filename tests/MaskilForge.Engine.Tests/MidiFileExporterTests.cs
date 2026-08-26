@@ -500,6 +500,48 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_EmitsStoredHarmonyAsConductorText()
+    {
+        var project = SongProject.Create("Harmony text MIDI");
+        var verse = project.AddSection(SectionKind.Verse);
+        project.AddHarmonyChord(verse.Id, new ChordSymbol(NoteLetter.C), new BeatPosition(1, 1, 0), 2);
+        project.AddHarmonyChord(
+            verse.Id,
+            new ChordSymbol(NoteLetter.A, Accidental.Natural, ChordQuality.Minor),
+            new BeatPosition(3, 1, 0),
+            2);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var minorTick = project.Timeline.ToAbsoluteTicks(
+            project.ResolveSyllablePosition(verse.Id, new BeatPosition(3, 1, 0)));
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Text("C")));
+        Assert.Contains(parsed.Events, item => item.Tick == minorTick && item.Bytes.SequenceEqual(Text("Am")));
+        Assert.Contains(parsed.Tracks[0], item => item.Bytes.SequenceEqual(Text("C")));
+        Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x07);
+    }
+
+    [Fact]
+    public void Export_OmitsHarmonyCandidatesAndEmptyProgressions()
+    {
+        var project = SongProject.Create("Harmony option MIDI");
+        var section = project.AddSection(SectionKind.Verse);
+        var stored = project.AddHarmonyChord(section.Id, new ChordSymbol(NoteLetter.G, Accidental.Natural, ChordQuality.DominantSeventh), new BeatPosition(1, 1, 0), 2);
+        project.CaptureHarmonyCandidate(section.Id, "Option A");
+        project.RemoveHarmonyChord(section.Id, stored.Id);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Empty(section.Harmony);
+        Assert.Contains(section.HarmonyCandidates, item => item.Label == "Option A");
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("G7")));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
+    }
+
+    [Fact]
     public void Export_RequiresApprovedPlayableNotes()
     {
         var exception = Assert.Throws<InvalidOperationException>(() => MidiFileExporter.Export(SongProject.Create("Empty")));
@@ -577,6 +619,12 @@ public sealed class MidiFileExporterTests
     {
         var payload = Encoding.ASCII.GetBytes(name);
         return new byte[] { 0xFF, 0x06, (byte)payload.Length }.Concat(payload).ToArray();
+    }
+
+    private static byte[] Text(string text)
+    {
+        var payload = Encoding.ASCII.GetBytes(text);
+        return new byte[] { 0xFF, 0x01, (byte)payload.Length }.Concat(payload).ToArray();
     }
 
     private static string TrackName(IReadOnlyList<ParsedEvent> events)

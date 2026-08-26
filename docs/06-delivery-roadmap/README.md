@@ -1087,6 +1087,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a song in another music application and see its placed syllables as lyrics, without the host inventing words that were never timed.
 
+### Milestone 7.26 — Stored-harmony MIDI chord symbols
+
+Emit each stored section harmony chord as a Standard MIDI text event on the conductor track at that chord's start tick. The text is the stored chord symbol, such as C or Am. Songs with playable notes but no active progression omit chord text: the host does not invent a cadence. Named harmony options stay off the file. The slice does not emit cue points or dump the raw lyric sheet as generic text.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a song in another music application and see its stored C and Am symbols, without the host inventing a progression that was never written.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

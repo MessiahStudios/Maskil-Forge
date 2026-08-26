@@ -21,10 +21,12 @@ namespace MaskilForge.Engine;
 /// change. Unassigned notes and untagged dynamics stay on channel 1 with
 /// Expression (CC 11). Unused catalog instruments do not get a track. The
 /// conductor track also emits the stored song key as a MIDI key signature when
-/// that key has a conventional major or minor spelling, and emits one MIDI
-/// marker per stored section at that section's start tick, and emits one MIDI
-/// lyric event per stored syllable placement. The host does not invent
-/// sections, unplaced lyrics, or cue points.
+/// that key has a conventional major or minor spelling, emits one MIDI
+/// marker per stored section at that section's start tick, emits one MIDI
+/// lyric event per stored syllable placement, and emits one MIDI text event
+/// per stored harmony chord at that chord's start tick. The host does not
+/// invent sections, unplaced lyrics, cue points, or a progression that was
+/// never written. Harmony options stay off the file.
 /// </summary>
 public static class MidiFileExporter
 {
@@ -138,6 +140,23 @@ public static class MidiFileExporter
             if (text.Length == 0) continue;
             events.Add(new MidiEvent(lyric.AbsoluteTick, 1, 10_000 + lyricIndex, 0, Guid.Empty, LyricMetaMessage(text)));
             lyricIndex++;
+        }
+
+        var chordIndex = 0;
+        foreach (var placement in project.Timeline.SectionPlacements)
+        {
+            var section = project.FindSection(placement.SectionId);
+            foreach (var chord in section.Harmony.OrderBy(item => item.Start))
+            {
+                var songPosition = project.ResolveSyllablePosition(section.Id, chord.Start);
+                var tick = project.Timeline.ToAbsoluteTicks(songPosition);
+                if (tick > MaximumVariableLengthValue)
+                    throw new InvalidOperationException("A harmony chord extends beyond the timing range supported by a Standard MIDI File.");
+                var text = SanitizeTrackName(chord.Chord.ToDisplayString(), string.Empty);
+                if (text.Length == 0) continue;
+                events.Add(new MidiEvent(tick, 1, 5_000 + chordIndex, 0, Guid.Empty, ChordTextMetaMessage(text)));
+                chordIndex++;
+            }
         }
 
         var usedInstrumentIds = project.NoteEvents
@@ -296,6 +315,8 @@ public static class MidiFileExporter
 
     private static byte[] LyricMetaMessage(string text) => MetaTextMessage(0x05, text);
 
+    private static byte[] ChordTextMetaMessage(string text) => MetaTextMessage(0x01, text);
+
     private static byte[] MetaTextMessage(byte type, string text)
     {
         var payload = Encoding.ASCII.GetBytes(text);
@@ -340,7 +361,7 @@ public static class MidiFileExporter
         stream.Write(buffer);
     }
 
-    // Priority: tempo 0, meter, key signature, section markers, and lyrics 1, program change 2,
+    // Priority: tempo 0, meter, key signature, section markers, chord-symbol text, and lyrics 1, program change 2,
     // pitch-bend RPN MSB 3, RPN LSB 4, data entry 5, portamento off 6, dynamics CC 7,
     // note-off 8, note-on 9.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);
