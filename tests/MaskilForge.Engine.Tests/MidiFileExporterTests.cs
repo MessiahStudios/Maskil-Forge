@@ -29,6 +29,7 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x51, 0x03, 0x09, 0x27, 0xC0 }));
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x58, 0x04, 0x06, 0x03, 0x18, 0x08 }));
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x59, 0x02, 0x00, 0x00 }));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x06);
 
         var notes = parsed.Events.Where(item => item.Bytes[0] is 0x80 or 0x90).ToList();
         Assert.Equal(new[]
@@ -426,6 +427,28 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_EmitsStoredSectionTitlesAsConductorMarkers()
+    {
+        var project = SongProject.Create("Section marker MIDI");
+        var verse = project.AddSection(SectionKind.Verse);
+        var chorus = project.AddSection(SectionKind.Chorus, "Lift");
+        project.RenameSection(verse.Id, "Opening verse");
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var chorusTick = project.Timeline.ToAbsoluteTicks(project.Timeline.FindSection(chorus.Id).Start);
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Marker("Opening verse")));
+        Assert.Contains(parsed.Events, item => item.Tick == chorusTick && item.Bytes.SequenceEqual(Marker("Lift")));
+        Assert.Contains(parsed.Tracks[0], item => item.Bytes.SequenceEqual(Marker("Opening verse")));
+        Assert.Contains(parsed.Tracks[0], item => item.Bytes.SequenceEqual(Marker("Lift")));
+        Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x06);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x05);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x07);
+        Assert.Equal(2, parsed.TrackCount);
+    }
+
+    [Fact]
     public void Export_RequiresApprovedPlayableNotes()
     {
         var exception = Assert.Throws<InvalidOperationException>(() => MidiFileExporter.Export(SongProject.Create("Empty")));
@@ -491,6 +514,12 @@ public sealed class MidiFileExporterTests
             value = (value << 7) | (long)(next & 0x7F);
         } while ((next & 0x80) != 0);
         return value;
+    }
+
+    private static byte[] Marker(string name)
+    {
+        var payload = Encoding.ASCII.GetBytes(name);
+        return new byte[] { 0xFF, 0x06, (byte)payload.Length }.Concat(payload).ToArray();
     }
 
     private static string TrackName(IReadOnlyList<ParsedEvent> events)

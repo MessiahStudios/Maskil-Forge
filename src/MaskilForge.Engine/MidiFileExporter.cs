@@ -21,7 +21,9 @@ namespace MaskilForge.Engine;
 /// change. Unassigned notes and untagged dynamics stay on channel 1 with
 /// Expression (CC 11). Unused catalog instruments do not get a track. The
 /// conductor track also emits the stored song key as a MIDI key signature when
-/// that key has a conventional major or minor spelling.
+/// that key has a conventional major or minor spelling, and emits one MIDI
+/// marker per stored section at that section's start tick. The host does not
+/// invent sections, lyrics, or cue points.
 /// </summary>
 public static class MidiFileExporter
 {
@@ -111,6 +113,18 @@ public static class MidiFileExporter
         if (keySignature is not null)
         {
             events.Add(new MidiEvent(0, 1, 1, 0, Guid.Empty, MidiKeySignatureMapper.MetaMessage(keySignature)));
+        }
+
+        var markerIndex = 0;
+        foreach (var placement in project.Timeline.SectionPlacements)
+        {
+            var section = project.FindSection(placement.SectionId);
+            var tick = project.Timeline.ToAbsoluteTicks(placement.Start);
+            if (tick > MaximumVariableLengthValue)
+                throw new InvalidOperationException("A section marker extends beyond the timing range supported by a Standard MIDI File.");
+            var name = SanitizeTrackName(section.Title, SongSection.DefaultTitle(section.Kind));
+            events.Add(new MidiEvent(tick, 1, 2 + markerIndex, 0, Guid.Empty, MarkerMetaMessage(name)));
+            markerIndex++;
         }
 
         var usedInstrumentIds = project.NoteEvents
@@ -265,6 +279,17 @@ public static class MidiFileExporter
         stream.Write(payload);
     }
 
+    private static byte[] MarkerMetaMessage(string name)
+    {
+        var payload = Encoding.ASCII.GetBytes(name);
+        var message = new byte[3 + payload.Length];
+        message[0] = 0xFF;
+        message[1] = 0x06;
+        message[2] = checked((byte)payload.Length);
+        payload.CopyTo(message, 3);
+        return message;
+    }
+
     private static string SanitizeTrackName(string? value, string fallback)
     {
         if (string.IsNullOrWhiteSpace(value)) return fallback;
@@ -298,7 +323,8 @@ public static class MidiFileExporter
         stream.Write(buffer);
     }
 
-    // Priority: tempo 0, meter and key signature 1, program change 2, pitch-bend RPN MSB 3, RPN LSB 4,
-    // data entry 5, portamento off 6, dynamics CC 7, note-off 8, note-on 9.
+    // Priority: tempo 0, meter, key signature, and section markers 1, program change 2,
+    // pitch-bend RPN MSB 3, RPN LSB 4, data entry 5, portamento off 6, dynamics CC 7,
+    // note-off 8, note-on 9.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);
 }

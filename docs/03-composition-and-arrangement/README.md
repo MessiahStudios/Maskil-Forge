@@ -65,6 +65,8 @@ Slice 7.22 exports a format-1 MIDI file with a named conductor track and one nam
 
 Slice 7.23 emits the stored song key as a MIDI key signature on the conductor track.
 
+Slice 7.24 emits each stored section title as a MIDI marker on the conductor track.
+
 ## Generator order
 
 1. Section energy and density plan

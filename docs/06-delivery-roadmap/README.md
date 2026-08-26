@@ -1071,6 +1071,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a song in another music application with its stored C major or A minor key intact, without the host inventing a signature for an unusual spelling.
 
+### Milestone 7.24 — Section MIDI markers
+
+Emit each stored section title as a Standard MIDI marker on the conductor track at that section's start tick. Default titles such as Verse and Chorus, and artist-renamed titles, export as stored. Songs with playable notes but no sections omit markers: the host does not invent a form. The slice does not emit lyric meta events, cue points, or extra locators.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a song in another music application and see its stored Verse and Chorus markers, without the host inventing sections that were never written.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
