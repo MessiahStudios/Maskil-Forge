@@ -22,8 +22,9 @@ namespace MaskilForge.Engine;
 /// Expression (CC 11). Unused catalog instruments do not get a track. The
 /// conductor track also emits the stored song key as a MIDI key signature when
 /// that key has a conventional major or minor spelling, and emits one MIDI
-/// marker per stored section at that section's start tick. The host does not
-/// invent sections, lyrics, or cue points.
+/// marker per stored section at that section's start tick, and emits one MIDI
+/// lyric event per stored syllable placement. The host does not invent
+/// sections, unplaced lyrics, or cue points.
 /// </summary>
 public static class MidiFileExporter
 {
@@ -125,6 +126,18 @@ public static class MidiFileExporter
             var name = SanitizeTrackName(section.Title, SongSection.DefaultTitle(section.Kind));
             events.Add(new MidiEvent(tick, 1, 2 + markerIndex, 0, Guid.Empty, MarkerMetaMessage(name)));
             markerIndex++;
+        }
+
+        var lyricIndex = 0;
+        foreach (var lyric in LyricTimelineProjector.Project(project).Markers
+                     .Where(item => item.Kind == LyricTimelineMarkerKind.ActivePlacement))
+        {
+            if (lyric.AbsoluteTick > MaximumVariableLengthValue)
+                throw new InvalidOperationException("A lyric event extends beyond the timing range supported by a Standard MIDI File.");
+            var text = SanitizeTrackName(lyric.SyllableText, string.Empty);
+            if (text.Length == 0) continue;
+            events.Add(new MidiEvent(lyric.AbsoluteTick, 1, 10_000 + lyricIndex, 0, Guid.Empty, LyricMetaMessage(text)));
+            lyricIndex++;
         }
 
         var usedInstrumentIds = project.NoteEvents
@@ -279,12 +292,16 @@ public static class MidiFileExporter
         stream.Write(payload);
     }
 
-    private static byte[] MarkerMetaMessage(string name)
+    private static byte[] MarkerMetaMessage(string name) => MetaTextMessage(0x06, name);
+
+    private static byte[] LyricMetaMessage(string text) => MetaTextMessage(0x05, text);
+
+    private static byte[] MetaTextMessage(byte type, string text)
     {
-        var payload = Encoding.ASCII.GetBytes(name);
+        var payload = Encoding.ASCII.GetBytes(text);
         var message = new byte[3 + payload.Length];
         message[0] = 0xFF;
-        message[1] = 0x06;
+        message[1] = type;
         message[2] = checked((byte)payload.Length);
         payload.CopyTo(message, 3);
         return message;
@@ -323,7 +340,7 @@ public static class MidiFileExporter
         stream.Write(buffer);
     }
 
-    // Priority: tempo 0, meter, key signature, and section markers 1, program change 2,
+    // Priority: tempo 0, meter, key signature, section markers, and lyrics 1, program change 2,
     // pitch-bend RPN MSB 3, RPN LSB 4, data entry 5, portamento off 6, dynamics CC 7,
     // note-off 8, note-on 9.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);

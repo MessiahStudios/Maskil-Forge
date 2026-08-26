@@ -67,6 +67,8 @@ Slice 7.23 emits the stored song key as a MIDI key signature on the conductor tr
 
 Slice 7.24 emits each stored section title as a MIDI marker on the conductor track.
 
+Slice 7.25 emits each stored syllable placement as a MIDI lyric on the conductor track.
+
 ## Generator order
 
 1. Section energy and density plan

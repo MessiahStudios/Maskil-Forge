@@ -1079,6 +1079,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a song in another music application and see its stored Verse and Chorus markers, without the host inventing sections that were never written.
 
+### Milestone 7.25 — Placed-syllable MIDI lyrics
+
+Emit each stored syllable placement as a Standard MIDI lyric on the conductor track at that syllable's song tick. The text is the stored syllable, not the whole line and not a guessed hyphenation. Unplaced words stay silent. Rhythm-candidate ghosts stay off the file: only the active placement exports. The slice does not emit generic text events, cue points, or lyrics invented from raw draft.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a song in another music application and see its placed syllables as lyrics, without the host inventing words that were never timed.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

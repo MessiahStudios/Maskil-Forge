@@ -449,6 +449,57 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_EmitsPlacedSyllablesAsConductorLyrics()
+    {
+        var project = SongProject.Create("Lyric MIDI");
+        var verse = project.AddSection(SectionKind.Verse);
+        var line = verse.AddLyricLine("hold on");
+        foreach (var word in line.Words) line.SetSyllables(word.Id, [word.Text]);
+        var first = line.Words[0].Syllables[0].Id;
+        var second = line.Words[1].Syllables[0].Id;
+        project.SetSyllablePlacement(verse.Id, line.Id, first, new BeatPosition(1, 1, 0));
+        project.SetSyllablePlacement(verse.Id, line.Id, second, new BeatPosition(2, 3, 0));
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var secondTick = project.Timeline.ToAbsoluteTicks(
+            project.ResolveSyllablePosition(verse.Id, new BeatPosition(2, 3, 0)));
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Lyric("hold")));
+        Assert.Contains(parsed.Events, item => item.Tick == secondTick && item.Bytes.SequenceEqual(Lyric("on")));
+        Assert.Contains(parsed.Tracks[0], item => item.Bytes.SequenceEqual(Lyric("hold")));
+        Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x05);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
+    }
+
+    [Fact]
+    public void Export_OmitsUnplacedLyricsAndRhythmCandidateGhosts()
+    {
+        var project = SongProject.Create("Unplaced lyric MIDI");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("one two");
+        foreach (var word in line.Words) line.SetSyllables(word.Id, [word.Text]);
+        var first = line.Words[0].Syllables[0].Id;
+        var second = line.Words[1].Syllables[0].Id;
+        project.SetSyllablePlacement(section.Id, line.Id, first, new BeatPosition(1, 1, 0));
+        project.SetSyllablePlacement(section.Id, line.Id, second, new BeatPosition(1, 3, 0));
+        project.CaptureRhythmCandidate(section.Id, line.Id, line.Phrases[0].Id, "Option A");
+        project.SetSyllablePlacement(section.Id, line.Id, second, new BeatPosition(2, 1, 0));
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var activeSecond = project.Timeline.ToAbsoluteTicks(
+            project.ResolveSyllablePosition(section.Id, new BeatPosition(2, 1, 0)));
+        var ghostSecond = project.Timeline.ToAbsoluteTicks(
+            project.ResolveSyllablePosition(section.Id, new BeatPosition(1, 3, 0)));
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Lyric("one")));
+        Assert.Contains(parsed.Events, item => item.Tick == activeSecond && item.Bytes.SequenceEqual(Lyric("two")));
+        Assert.DoesNotContain(parsed.Events, item => item.Tick == ghostSecond && item.Bytes.SequenceEqual(Lyric("two")));
+        Assert.Equal(2, parsed.Events.Count(item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x05));
+    }
+
+    [Fact]
     public void Export_RequiresApprovedPlayableNotes()
     {
         var exception = Assert.Throws<InvalidOperationException>(() => MidiFileExporter.Export(SongProject.Create("Empty")));
@@ -514,6 +565,12 @@ public sealed class MidiFileExporterTests
             value = (value << 7) | (long)(next & 0x7F);
         } while ((next & 0x80) != 0);
         return value;
+    }
+
+    private static byte[] Lyric(string text)
+    {
+        var payload = Encoding.ASCII.GetBytes(text);
+        return new byte[] { 0xFF, 0x05, (byte)payload.Length }.Concat(payload).ToArray();
     }
 
     private static byte[] Marker(string name)
