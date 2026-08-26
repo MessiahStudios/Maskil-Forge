@@ -1095,6 +1095,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a song in another music application and see its stored C and Am symbols, without the host inventing a progression that was never written.
 
+### Milestone 7.27 — Stored-breath MIDI cue points
+
+Emit each stored breath after a placed syllable as a Standard MIDI cue point on the conductor track at that syllable's song tick. The cue text is Breath. Songs with playable notes but no placed breaths omit cue points: the host does not invent an inhale. Unplaced breaths and rhythm-candidate ghosts stay off the file. The lyric-timeline visualization offset is not exported as musical time. The slice does not add timed breath coordinates or dump the raw lyric sheet.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a song in another music application and see its stored breaths as cue points, without the host inventing an inhale that was never marked.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

@@ -71,6 +71,8 @@ Slice 7.25 emits each stored syllable placement as a MIDI lyric on the conductor
 
 Slice 7.26 emits each stored section harmony chord as MIDI text on the conductor track.
 
+Slice 7.27 emits each stored breath after a placed syllable as a MIDI cue point on the conductor track.
+
 ## Generator order
 
 1. Section energy and density plan

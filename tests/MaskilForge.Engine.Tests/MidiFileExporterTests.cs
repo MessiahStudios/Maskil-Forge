@@ -542,6 +542,60 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_EmitsStoredBreathsAsConductorCuePoints()
+    {
+        var project = SongProject.Create("Breath cue MIDI");
+        var verse = project.AddSection(SectionKind.Verse);
+        var line = verse.AddLyricLine("hold on");
+        foreach (var word in line.Words) line.SetSyllables(word.Id, [word.Text]);
+        var first = line.Words[0].Syllables[0].Id;
+        var second = line.Words[1].Syllables[0].Id;
+        project.SetSyllablePlacement(verse.Id, line.Id, first, new BeatPosition(1, 1, 0));
+        project.SetSyllablePlacement(verse.Id, line.Id, second, new BeatPosition(2, 3, 0));
+        line.SetBreathPoint(first, true);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var firstTick = project.Timeline.ToAbsoluteTicks(
+            project.ResolveSyllablePosition(verse.Id, new BeatPosition(1, 1, 0)));
+        var visualizationTick = firstTick + project.Timeline.TicksPerQuarterNote / 4;
+
+        Assert.Contains(parsed.Events, item => item.Tick == firstTick && item.Bytes.SequenceEqual(Cue("Breath")));
+        Assert.DoesNotContain(parsed.Events, item => item.Tick == visualizationTick && item.Bytes.SequenceEqual(Cue("Breath")));
+        Assert.Contains(parsed.Tracks[0], item => item.Bytes.SequenceEqual(Cue("Breath")));
+        Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x07);
+        Assert.Single(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x07);
+    }
+
+    [Fact]
+    public void Export_OmitsUnplacedBreathsAndRhythmCandidateGhosts()
+    {
+        var project = SongProject.Create("Unplaced breath MIDI");
+        var section = project.AddSection(SectionKind.Verse);
+        var line = section.AddLyricLine("one two");
+        foreach (var word in line.Words) line.SetSyllables(word.Id, [word.Text]);
+        var first = line.Words[0].Syllables[0].Id;
+        var second = line.Words[1].Syllables[0].Id;
+        line.SetBreathPoint(first, true);
+        line.SetBreathPoint(second, true);
+        project.SetSyllablePlacement(section.Id, line.Id, second, new BeatPosition(1, 3, 0));
+        project.CaptureRhythmCandidate(section.Id, line.Id, line.Phrases[0].Id, "Option A");
+        project.SetSyllablePlacement(section.Id, line.Id, second, new BeatPosition(2, 1, 0));
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var activeSecond = project.Timeline.ToAbsoluteTicks(
+            project.ResolveSyllablePosition(section.Id, new BeatPosition(2, 1, 0)));
+        var ghostSecond = project.Timeline.ToAbsoluteTicks(
+            project.ResolveSyllablePosition(section.Id, new BeatPosition(1, 3, 0)));
+
+        Assert.Contains(parsed.Events, item => item.Tick == activeSecond && item.Bytes.SequenceEqual(Cue("Breath")));
+        Assert.DoesNotContain(parsed.Events, item => item.Tick == ghostSecond && item.Bytes.SequenceEqual(Cue("Breath")));
+        Assert.DoesNotContain(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Cue("Breath")));
+        Assert.Single(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x07);
+    }
+
+    [Fact]
     public void Export_RequiresApprovedPlayableNotes()
     {
         var exception = Assert.Throws<InvalidOperationException>(() => MidiFileExporter.Export(SongProject.Create("Empty")));
@@ -625,6 +679,12 @@ public sealed class MidiFileExporterTests
     {
         var payload = Encoding.ASCII.GetBytes(text);
         return new byte[] { 0xFF, 0x01, (byte)payload.Length }.Concat(payload).ToArray();
+    }
+
+    private static byte[] Cue(string text)
+    {
+        var payload = Encoding.ASCII.GetBytes(text);
+        return new byte[] { 0xFF, 0x07, (byte)payload.Length }.Concat(payload).ToArray();
     }
 
     private static string TrackName(IReadOnlyList<ParsedEvent> events)

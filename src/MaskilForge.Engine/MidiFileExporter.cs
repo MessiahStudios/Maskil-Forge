@@ -23,10 +23,12 @@ namespace MaskilForge.Engine;
 /// conductor track also emits the stored song key as a MIDI key signature when
 /// that key has a conventional major or minor spelling, emits one MIDI
 /// marker per stored section at that section's start tick, emits one MIDI
-/// lyric event per stored syllable placement, and emits one MIDI text event
-/// per stored harmony chord at that chord's start tick. The host does not
-/// invent sections, unplaced lyrics, cue points, or a progression that was
-/// never written. Harmony options stay off the file.
+/// lyric event per stored syllable placement, emits one MIDI text event
+/// per stored harmony chord at that chord's start tick, and emits one MIDI
+/// cue point per stored breath after a placed syllable at that syllable's
+/// song tick. The host does not invent sections, unplaced lyrics, a
+/// progression that was never written, or a timed breath coordinate. Harmony
+/// options and visualization breath offsets stay off the file.
 /// </summary>
 public static class MidiFileExporter
 {
@@ -157,6 +159,16 @@ public static class MidiFileExporter
                 events.Add(new MidiEvent(tick, 1, 5_000 + chordIndex, 0, Guid.Empty, ChordTextMetaMessage(text)));
                 chordIndex++;
             }
+        }
+
+        var breathIndex = 0;
+        foreach (var lyric in LyricTimelineProjector.Project(project).Markers
+                     .Where(item => item.Kind == LyricTimelineMarkerKind.ActivePlacement && item.HasBreathAfter))
+        {
+            if (lyric.AbsoluteTick > MaximumVariableLengthValue)
+                throw new InvalidOperationException("A breath cue extends beyond the timing range supported by a Standard MIDI File.");
+            events.Add(new MidiEvent(lyric.AbsoluteTick, 1, 15_000 + breathIndex, 0, Guid.Empty, CuePointMetaMessage("Breath")));
+            breathIndex++;
         }
 
         var usedInstrumentIds = project.NoteEvents
@@ -317,6 +329,8 @@ public static class MidiFileExporter
 
     private static byte[] ChordTextMetaMessage(string text) => MetaTextMessage(0x01, text);
 
+    private static byte[] CuePointMetaMessage(string text) => MetaTextMessage(0x07, text);
+
     private static byte[] MetaTextMessage(byte type, string text)
     {
         var payload = Encoding.ASCII.GetBytes(text);
@@ -361,7 +375,7 @@ public static class MidiFileExporter
         stream.Write(buffer);
     }
 
-    // Priority: tempo 0, meter, key signature, section markers, chord-symbol text, and lyrics 1, program change 2,
+    // Priority: tempo 0, meter, key signature, section markers, chord-symbol text, lyrics, and breath cues 1, program change 2,
     // pitch-bend RPN MSB 3, RPN LSB 4, data entry 5, portamento off 6, dynamics CC 7,
     // note-off 8, note-on 9.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);
