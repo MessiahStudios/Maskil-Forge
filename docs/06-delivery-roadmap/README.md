@@ -2,6 +2,8 @@
 
 This is the recommended logical build order for Maskil Forge and its underlying Maskil Engine. The repository has completed the Prototype boundary and the editable-demo MVP through end-to-end creator validation (slice 5.15). A milestone should start only after its dependency gate is reliable.
 
+The root README names the current slice only. Named-slice history, deliverables, and “not this slice” boundaries live here.
+
 ## Milestone 0 — Decisions and skeleton
 
 Define the supported desktop platforms, initial genre, first renderer, project file format, tick resolution, audio/MIDI libraries, and boundaries between TypeScript, .NET, and native audio code. When implementation begins, use `MaskilForge` as the C# namespace root. Create the solution, tests, CI, schema versioning, and architecture decision records.

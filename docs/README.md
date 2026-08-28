@@ -1,6 +1,6 @@
 # Maskil Forge Documentation
 
-This directory contains the product and architecture foundation for Maskil Forge. The documents are numbered to show their intended reading and dependency order: begin with the product vision, proceed through the planned engine layers, and finish with the delivery roadmap.
+This directory contains the product and architecture foundation for Maskil Forge. The documents are numbered to show their intended reading and dependency order: begin with the product vision, proceed through the planned engine layers, and finish with the delivery roadmap. The repository root README is the front door; slice history belongs in the delivery roadmap, not the root README.
 
 Maskil Forge is early-stage. These documents define intended behavior and future completion gates; they do not claim that the described application features are already functional.
 
