@@ -24,6 +24,7 @@ import { filterProjectLibrary, libraryRecentLimit, libraryResultStats, projectLi
 import { buildTrashQueue, filterTrashQueue, trashAgeLabel, trashOldDays, trashRecentLimit, trashResultStats } from './trashHygieneModel.js'
 import { microphonePreflightFailure, verifyMicrophoneInput, vocalCaptureSupport } from './vocalCapturePreflight.js'
 import { isPortableProjectPackage, portableExportFileName, portableImportLimit, portableImportLimitMessage } from './portableProjectPackage.js'
+import { midiExportFileName } from './exportFileName.js'
 import { beginRoughVocalCapture, formatRoughVocalBytes, formatRoughVocalDuration, roughVocalMaximumByteLength, roughVocalMaximumDurationMs, type CapturedRoughVocal, type RoughVocalCaptureSession } from './roughVocalCapture.js'
 import { analyzeSavedVocalTake, loudnessAnalyzerId, loudnessObservationKind } from './loudnessAnalysis.js'
 import { analyzeSavedVocalTakePitch, pitchAnalyzerId, pitchObservationKind } from './pitchAnalysis.js'
@@ -2739,9 +2740,8 @@ async function exportMidi() {
     const blob = await projectsApi.exportMidi(project.value.id, project.value)
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
-    const safeTitle = project.value.title.trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'song'
     link.href = url
-    link.download = `${safeTitle}-maskil-forge.mid`
+    link.download = midiExportFileName(project.value.title)
     document.body.appendChild(link)
     link.click()
     link.remove()

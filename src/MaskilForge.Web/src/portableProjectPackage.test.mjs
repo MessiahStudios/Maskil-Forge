@@ -20,6 +20,8 @@ test('package detection prefers the .maskil extension and zip signature', () => 
 test('export names and import limits distinguish json documents from asset packages', () => {
   assert.equal(portableExportFileName('Hallway Light', false), 'hallway-light.maskil.json')
   assert.equal(portableExportFileName('Hallway Light', true), 'hallway-light.maskil')
+  assert.equal(portableExportFileName('Canción 夜', false), 'canción-夜.maskil.json')
+  assert.equal(portableExportFileName('Canción 夜', true), 'canción-夜.maskil')
   assert.equal(portableImportLimit(false), portableJsonMaxBytes)
   assert.equal(portableImportLimit(true), portablePackageMaxBytes)
   assert.match(portableImportLimitMessage(true), /25 MB/)

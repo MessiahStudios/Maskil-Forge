@@ -75,6 +75,8 @@ Slice 7.27 emits each stored breath after a placed syllable as a MIDI cue point 
 
 Slice 7.28 preserves artist-authored non-ASCII track names, section markers, and placed-syllable lyrics as strict UTF-8 MIDI metadata instead of silently deleting characters. ASCII remains byte-for-byte unchanged. Text payloads use Standard MIDI variable-length sizes, control characters stay off the file, and metadata is bounded to 80 Unicode scalar values. This is a practical multi-language interchange contract; the Song Graph remains authoritative when a legacy MIDI reader supports only ASCII. Schema stays at v31 and the catalog stays at version 4.
 
+Slice 7.29 preserves normalized Unicode in the suggested `.mid`, `.maskil`, and `.maskil.json` download names. The shared filename rule replaces path-unsafe punctuation, removes control and formatting characters, avoids Windows-reserved stems, and bounds the result without transliterating artist-authored scripts. Export payloads and project titles remain unchanged.
+
 ## Generator order
 
 1. Section energy and density plan

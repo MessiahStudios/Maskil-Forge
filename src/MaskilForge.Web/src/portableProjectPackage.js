@@ -1,3 +1,5 @@
+import { safeExportStem } from './exportFileName.js'
+
 export const portableJsonMaxBytes = 10 * 1024 * 1024
 export const portablePackageMaxBytes = 25 * 1024 * 1024
 export const portablePackageContentType = 'application/vnd.maskil-forge.project+zip'
@@ -14,7 +16,7 @@ export function portableImportLimit(isPackage) {
 }
 
 export function portableExportFileName(title, hasAssets) {
-  const safeTitle = String(title ?? '').trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'song'
+  const safeTitle = safeExportStem(title)
   return hasAssets ? `${safeTitle}.maskil` : `${safeTitle}.maskil.json`
 }
 
