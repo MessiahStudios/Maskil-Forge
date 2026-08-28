@@ -28,14 +28,17 @@ namespace MaskilForge.Engine;
 /// cue point per stored breath after a placed syllable at that syllable's
 /// song tick. The host does not invent sections, unplaced lyrics, a
 /// progression that was never written, or a timed breath coordinate. Harmony
-/// options and visualization breath offsets stay off the file.
+/// options and visualization breath offsets stay off the file. Artist-authored
+/// text is bounded by Unicode scalar count and encoded as strict UTF-8; the
+/// ASCII subset remains byte-for-byte unchanged.
 /// </summary>
 public static class MidiFileExporter
 {
     public const string ConductorTrackName = "Conductor";
     public const string UnassignedTrackName = "Unassigned";
     private const long MaximumVariableLengthValue = 0x0FFFFFFF;
-    private const int MaximumTrackNameLength = 80;
+    private const int MaximumMetaTextRuneCount = 80;
+    private static readonly Encoding MidiTextEncoding = new UTF8Encoding(false, true);
 
     public static byte[] Export(SongProject project)
     {
@@ -51,7 +54,7 @@ public static class MidiFileExporter
 
         var tracks = new List<(string Name, IReadOnlyList<MidiEvent> Events)>
         {
-            (SanitizeTrackName(project.Title, ConductorTrackName), conductor)
+            (SanitizeMetaText(project.Title, ConductorTrackName), conductor)
         };
         var unassigned = InstrumentMidiChannelMapper.ZeroBasedChannel(channels.UnassignedMidiChannel);
         if (usedChannels.Contains(unassigned))
@@ -127,7 +130,7 @@ public static class MidiFileExporter
             var tick = project.Timeline.ToAbsoluteTicks(placement.Start);
             if (tick > MaximumVariableLengthValue)
                 throw new InvalidOperationException("A section marker extends beyond the timing range supported by a Standard MIDI File.");
-            var name = SanitizeTrackName(section.Title, SongSection.DefaultTitle(section.Kind));
+            var name = SanitizeMetaText(section.Title, SongSection.DefaultTitle(section.Kind));
             events.Add(new MidiEvent(tick, 1, 2 + markerIndex, 0, Guid.Empty, MarkerMetaMessage(name)));
             markerIndex++;
         }
@@ -138,7 +141,7 @@ public static class MidiFileExporter
         {
             if (lyric.AbsoluteTick > MaximumVariableLengthValue)
                 throw new InvalidOperationException("A lyric event extends beyond the timing range supported by a Standard MIDI File.");
-            var text = SanitizeTrackName(lyric.SyllableText, string.Empty);
+            var text = SanitizeMetaText(lyric.SyllableText, string.Empty);
             if (text.Length == 0) continue;
             events.Add(new MidiEvent(lyric.AbsoluteTick, 1, 10_000 + lyricIndex, 0, Guid.Empty, LyricMetaMessage(text)));
             lyricIndex++;
@@ -154,7 +157,7 @@ public static class MidiFileExporter
                 var tick = project.Timeline.ToAbsoluteTicks(songPosition);
                 if (tick > MaximumVariableLengthValue)
                     throw new InvalidOperationException("A harmony chord extends beyond the timing range supported by a Standard MIDI File.");
-                var text = SanitizeTrackName(chord.Chord.ToDisplayString(), string.Empty);
+                var text = SanitizeMetaText(chord.Chord.ToDisplayString(), string.Empty);
                 if (text.Length == 0) continue;
                 events.Add(new MidiEvent(tick, 1, 5_000 + chordIndex, 0, Guid.Empty, ChordTextMetaMessage(text)));
                 chordIndex++;
@@ -316,7 +319,7 @@ public static class MidiFileExporter
 
     private static void WriteMetaText(Stream stream, byte type, string text)
     {
-        var payload = Encoding.ASCII.GetBytes(text);
+        var payload = MidiTextEncoding.GetBytes(text);
         stream.WriteByte(0xFF);
         stream.WriteByte(type);
         WriteVariableLength(stream, payload.Length);
@@ -333,21 +336,26 @@ public static class MidiFileExporter
 
     private static byte[] MetaTextMessage(byte type, string text)
     {
-        var payload = Encoding.ASCII.GetBytes(text);
-        var message = new byte[3 + payload.Length];
-        message[0] = 0xFF;
-        message[1] = type;
-        message[2] = checked((byte)payload.Length);
-        payload.CopyTo(message, 3);
-        return message;
+        var payload = MidiTextEncoding.GetBytes(text);
+        using var message = new MemoryStream();
+        message.WriteByte(0xFF);
+        message.WriteByte(type);
+        WriteVariableLength(message, payload.Length);
+        message.Write(payload);
+        return message.ToArray();
     }
 
-    private static string SanitizeTrackName(string? value, string fallback)
+    private static string SanitizeMetaText(string? value, string fallback)
     {
         if (string.IsNullOrWhiteSpace(value)) return fallback;
-        var text = new string(value.Trim().Where(character => character is >= ' ' and <= '~').ToArray()).Trim();
+        var text = string.Concat(value.Trim()
+            .EnumerateRunes()
+            .Where(rune => !Rune.IsControl(rune))
+            .Take(MaximumMetaTextRuneCount)
+            .Select(rune => rune.ToString()))
+            .Trim();
         if (text.Length == 0) return fallback;
-        return text.Length <= MaximumTrackNameLength ? text : text[..MaximumTrackNameLength].TrimEnd();
+        return text;
     }
 
     private static void WriteVariableLength(Stream stream, long value)
