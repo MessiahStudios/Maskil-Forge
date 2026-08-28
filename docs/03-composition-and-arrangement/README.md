@@ -73,6 +73,8 @@ Slice 7.26 emits each stored section harmony chord as MIDI text on the conductor
 
 Slice 7.27 emits each stored breath after a placed syllable as a MIDI cue point on the conductor track.
 
+Slice 7.28 preserves artist-authored non-ASCII track names, section markers, and placed-syllable lyrics as strict UTF-8 MIDI metadata instead of silently deleting characters. ASCII remains byte-for-byte unchanged. Text payloads use Standard MIDI variable-length sizes, control characters stay off the file, and metadata is bounded to 80 Unicode scalar values. This is a practical multi-language interchange contract; the Song Graph remains authoritative when a legacy MIDI reader supports only ASCII. Schema stays at v31 and the catalog stays at version 4.
+
 ## Generator order
 
 1. Section energy and density plan

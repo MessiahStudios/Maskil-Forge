@@ -1103,6 +1103,16 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a song in another music application and see its stored breaths as cue points, without the host inventing an inhale that was never marked.
 
+### Milestone 7.28 — MIDI text interoperability
+
+Preserve artist-authored Unicode in the MIDI conductor track instead of silently stripping it. ASCII track names, markers, lyrics, chord text, and cue points stay byte-for-byte unchanged. Non-ASCII song titles, section titles, and placed syllables use strict UTF-8 payloads, and every text meta event uses a Standard MIDI variable-length payload size so multi-byte text can exceed 127 bytes safely. Control characters stay off the file, text remains bounded to 80 Unicode scalar values, and no transliteration or guessed replacement text is introduced.
+
+The original Standard MIDI File text rule was ASCII; the MIDI Association's later [SMF Language and Display Extensions](https://midi.org/smf-language-and-display-extensions) permit alternate multi-byte character sets, while legacy readers still vary. Maskil Forge therefore treats UTF-8 as its explicit modern interchange contract and keeps the Song Graph authoritative when a receiving application cannot display it. The slice adds a strict independent binary reader test, does not claim universal legacy display support, and does not add karaoke formatting, a sidecar file, or a second text store.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music exports the same `.mid` action. Phone Music remains hidden.
+
+**Deliverable:** an artist can export names and placed lyrics such as Canción, Refrão, café, or 夜 without Maskil Forge silently deleting their characters, while existing ASCII MIDI output remains compatible.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
