@@ -87,6 +87,8 @@ Slice 7.33 emits the stored song description as MIDI text on the conductor track
 
 Slice 7.34 emits each decided section song role as MIDI text at that section's start. Unspecified roles are omitted rather than invented from the section kind.
 
+Slice 7.35 emits the stored song genre as MIDI text at tick 0. Unspecified genre is omitted rather than invented from the title or description.
+
 ## Generator order
 
 1. Section energy and density plan

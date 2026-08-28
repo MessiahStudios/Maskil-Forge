@@ -474,10 +474,10 @@ public sealed class MidiFileExporterTests
 
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Text("Orbit story sketch")));
         Assert.Contains(parsed.Tracks[0], item => item.Bytes.SequenceEqual(Text("Orbit story sketch")));
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Text("Pop")));
         Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
-        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("Pop")));
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("Description text MIDI")));
-        Assert.Equal(1, parsed.Tracks[0].Count(item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01));
+        Assert.Equal(2, parsed.Tracks[0].Count(item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01));
     }
 
     [Fact]
@@ -485,12 +485,53 @@ public sealed class MidiFileExporterTests
     {
         var project = SongProject.Create("Untitled description MIDI");
         project.SetDescription("   ");
-        project.SetGenre(SongGenre.Folk);
         project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
 
         var parsed = Parse(MidiFileExporter.Export(project));
 
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
+    }
+
+    [Fact]
+    public void Export_EmitsStoredGenreAsConductorText()
+    {
+        var project = SongProject.Create("Genre text MIDI");
+        project.SetGenre(SongGenre.Folk);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Text("Folk")));
+        Assert.Contains(parsed.Tracks[0], item => item.Bytes.SequenceEqual(Text("Folk")));
+        Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("Genre text MIDI")));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("Unspecified")));
+        Assert.Equal(1, parsed.Tracks[0].Count(item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01));
+    }
+
+    [Fact]
+    public void Export_OmitsUnspecifiedGenreText()
+    {
+        var project = SongProject.Create("Untitled genre MIDI");
+        project.SetGenre(SongGenre.Unspecified);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
+    }
+
+    [Fact]
+    public void Export_EmitsRandBGenreAsArtistFacingText()
+    {
+        var project = SongProject.Create("RAndB genre MIDI");
+        project.SetGenre(SongGenre.RAndB);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Text("R&B")));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("RAndB")));
     }
 
     [Fact]

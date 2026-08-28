@@ -1167,6 +1167,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a song in another music application and see its decided Setup and Payoff roles, without the host inventing a song job that was never chosen.
 
+### Milestone 7.35 — Stored-genre MIDI text
+
+Emit the stored song genre as a Standard MIDI text event on the conductor track at tick 0 when that genre is decided. The text is the stored genre name, such as Folk or R&B. Unspecified omits text: the host does not invent a style from the title, description, or section kinds, and does not emit Unspecified. Description text stays at tick 0 when a description is present. Title and raw lyrics stay off that field. Delivery, energy, density, and arrangement-role names stay off the file.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a song in another music application and see its stored Folk or R&B genre, without the host inventing a style that was never chosen.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
