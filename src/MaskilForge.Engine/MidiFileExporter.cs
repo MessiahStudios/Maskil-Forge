@@ -24,15 +24,17 @@ namespace MaskilForge.Engine;
 /// that key has a conventional major or minor spelling, emits one MIDI
 /// marker per stored section at that section's start tick, emits one MIDI
 /// lyric event per stored syllable placement, emits one MIDI text event
-/// per stored harmony chord at that chord's start tick, and emits one MIDI
+/// per stored harmony chord at that chord's start tick, emits one MIDI
 /// cue point per stored breath after a placed syllable at that syllable's
-/// song tick. Every track ends no earlier than the current stored song-form
-/// boundary, while later musical events remain authoritative. That boundary is
-/// the artist's current arrangement plan, not a duration inferred from lyrics
-/// or a claim about the final performed recording. The host does not invent
-/// sections, unplaced lyrics, a
-/// progression that was never written, or a timed breath coordinate. Harmony
-/// options and visualization breath offsets stay off the file. Artist-authored
+/// song tick, and emits the stored artist name as a MIDI copyright notice
+/// when that name is present. Every track ends no earlier than the current
+/// stored song-form boundary, while later musical events remain
+/// authoritative. That boundary is the artist's current arrangement plan,
+/// not a duration inferred from lyrics or a claim about the final performed
+/// recording. The host does not invent sections, unplaced lyrics, a
+/// progression that was never written, a timed breath coordinate, or an
+/// author that was never named. Harmony options, visualization breath
+/// offsets, genre, and description stay off the file. Artist-authored
 /// text is bounded by Unicode scalar count and encoded as strict UTF-8; the
 /// ASCII subset remains byte-for-byte unchanged.
 /// </summary>
@@ -118,6 +120,10 @@ public static class MidiFileExporter
                 (byte)microseconds
             ]));
         }
+
+        var artist = SanitizeMetaText(project.Artist, string.Empty);
+        if (artist.Length > 0)
+            events.Add(new MidiEvent(0, 1, -1, 0, Guid.Empty, CopyrightMetaMessage(artist)));
 
         foreach (var meter in project.Timeline.TimeSignatureMap.Events)
         {
@@ -342,6 +348,8 @@ public static class MidiFileExporter
         stream.Write(payload);
     }
 
+    private static byte[] CopyrightMetaMessage(string text) => MetaTextMessage(0x02, text);
+
     private static byte[] MarkerMetaMessage(string name) => MetaTextMessage(0x06, name);
 
     private static byte[] LyricMetaMessage(string text) => MetaTextMessage(0x05, text);
@@ -399,7 +407,7 @@ public static class MidiFileExporter
         stream.Write(buffer);
     }
 
-    // Priority: tempo 0, meter, key signature, section markers, chord-symbol text, lyrics, and breath cues 1, program change 2,
+    // Priority: tempo 0, copyright, meter, key signature, section markers, chord-symbol text, lyrics, and breath cues 1, program change 2,
     // pitch-bend RPN MSB 3, RPN LSB 4, data entry 5, portamento off 6, dynamics CC 7,
     // note-off 8, note-on 9.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);

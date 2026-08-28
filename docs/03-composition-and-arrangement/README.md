@@ -79,6 +79,8 @@ Slice 7.29 preserves normalized Unicode in the suggested `.mid`, `.maskil`, and 
 
 Slice 7.30 makes the current song-form boundary explicit in Standard MIDI export. Every emitted track ends no earlier than the exclusive end of the last stored section, while a later approved note or controller event remains authoritative for that track. Stored section bars are an editable arrangement plan; they are not calculated from lyric length. Syllable placements identify onsets but do not claim sung duration, and `NoteEvent` start and duration remain the authority for playable material. Extending a track to the planned boundary adds no notes, rests, lyrics, audio, or inferred performance. Songs without sections retain event-derived length.
 
+Slice 7.31 emits the stored artist name as a MIDI copyright notice on the conductor track. An empty artist field omits the notice rather than inventing an author. Genre, description, and the song title stay off that field.
+
 ## Generator order
 
 1. Section energy and density plan

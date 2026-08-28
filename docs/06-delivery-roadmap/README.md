@@ -1133,6 +1133,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music exports the same 
 
 **Deliverable:** a DAW import includes the complete current section plan instead of stopping at the start of its final section, while later real events and the artist's eventual timing decisions remain authoritative.
 
+### Milestone 7.31 — Stored-artist MIDI copyright
+
+Emit the stored artist name as a Standard MIDI copyright notice on the conductor track at tick 0 when that name is present. Songs with playable notes but no artist omit the notice: the host does not invent an author. Genre, description, and the song title stay off that field. The slice does not add a second identity store or claim a legal copyright filing.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a song in another music application and see its stored artist name as copyright, without the host inventing an author that was never named.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

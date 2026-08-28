@@ -29,6 +29,7 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x51, 0x03, 0x09, 0x27, 0xC0 }));
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x58, 0x04, 0x06, 0x03, 0x18, 0x08 }));
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x59, 0x02, 0x00, 0x00 }));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x02);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x06);
 
         var notes = parsed.Events.Where(item => item.Bytes[0] is 0x80 or 0x90).ToList();
@@ -427,6 +428,33 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_EmitsStoredArtistAsConductorCopyright()
+    {
+        var project = SongProject.Create("Artist copyright MIDI");
+        project.SetArtist("Paper Satellites");
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Copyright("Paper Satellites")));
+        Assert.Contains(parsed.Tracks[0], item => item.Bytes.SequenceEqual(Copyright("Paper Satellites")));
+        Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x02);
+        Assert.Equal(1, parsed.Tracks[0].Count(item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x02));
+    }
+
+    [Fact]
+    public void Export_OmitsEmptyArtistCopyright()
+    {
+        var project = SongProject.Create("Untitled artist MIDI");
+        project.SetArtist("   ");
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x02);
+    }
+
+    [Fact]
     public void Export_EmitsStoredSectionTitlesAsConductorMarkers()
     {
         var project = SongProject.Create("Section marker MIDI");
@@ -693,6 +721,12 @@ public sealed class MidiFileExporterTests
             value = (value << 7) | (long)(next & 0x7F);
         } while ((next & 0x80) != 0);
         return value;
+    }
+
+    private static byte[] Copyright(string text)
+    {
+        var payload = Encoding.ASCII.GetBytes(text);
+        return new byte[] { 0xFF, 0x02, (byte)payload.Length }.Concat(payload).ToArray();
     }
 
     private static byte[] Lyric(string text)
