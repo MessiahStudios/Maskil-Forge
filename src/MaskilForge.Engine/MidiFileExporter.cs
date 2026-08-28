@@ -26,7 +26,11 @@ namespace MaskilForge.Engine;
 /// lyric event per stored syllable placement, emits one MIDI text event
 /// per stored harmony chord at that chord's start tick, and emits one MIDI
 /// cue point per stored breath after a placed syllable at that syllable's
-/// song tick. The host does not invent sections, unplaced lyrics, a
+/// song tick. Every track ends no earlier than the current stored song-form
+/// boundary, while later musical events remain authoritative. That boundary is
+/// the artist's current arrangement plan, not a duration inferred from lyrics
+/// or a claim about the final performed recording. The host does not invent
+/// sections, unplaced lyrics, a
 /// progression that was never written, or a timed breath coordinate. Harmony
 /// options and visualization breath offsets stay off the file. Artist-authored
 /// text is bounded by Unicode scalar count and encoded as strict UTF-8; the
@@ -48,6 +52,7 @@ public static class MidiFileExporter
 
         var channels = InstrumentMidiChannelMapper.Map();
         var events = BuildEvents(project, channels);
+        var songFormEndTick = SongFormEndTick(project);
         var conductor = events.Where(item => item.Priority <= 1).ToList();
         var performed = events.Where(item => item.Priority >= 2).ToList();
         var usedChannels = performed.Select(item => item.Channel).ToHashSet();
@@ -75,12 +80,23 @@ public static class MidiFileExporter
         WriteInt16(file, checked((short)project.Timeline.TicksPerQuarterNote));
         foreach (var track in tracks)
         {
-            var bytes = WriteTrack(track.Name, track.Events);
+            var bytes = WriteTrack(track.Name, track.Events, songFormEndTick);
             file.Write("MTrk"u8);
             WriteInt32(file, bytes.Length);
             file.Write(bytes);
         }
         return file.ToArray();
+    }
+
+    private static long SongFormEndTick(SongProject project)
+    {
+        if (project.Timeline.SectionPlacements.Count == 0) return 0;
+
+        var endBarExclusive = project.Timeline.SectionPlacements.Max(item => item.EndBarExclusive);
+        var endTick = project.Timeline.ToAbsoluteTicks(new MusicalPosition(endBarExclusive, 1, 0));
+        if (endTick > MaximumVariableLengthValue)
+            throw new InvalidOperationException("The song form extends beyond the timing range supported by a Standard MIDI File.");
+        return endTick;
     }
 
     private static IReadOnlyList<MidiEvent> BuildEvents(SongProject project, InstrumentMidiChannelMapSet channels)
@@ -300,7 +316,7 @@ public static class MidiFileExporter
             : InstrumentMidiChannelMapper.ZeroBasedChannel(assignment.MidiChannel);
     }
 
-    private static byte[] WriteTrack(string name, IReadOnlyList<MidiEvent> events)
+    private static byte[] WriteTrack(string name, IReadOnlyList<MidiEvent> events, long minimumEndTick)
     {
         using var track = new MemoryStream();
         WriteVariableLength(track, 0);
@@ -312,7 +328,7 @@ public static class MidiFileExporter
             track.Write(item.Data);
             previousTick = item.Tick;
         }
-        WriteVariableLength(track, 0);
+        WriteVariableLength(track, Math.Max(previousTick, minimumEndTick) - previousTick);
         track.Write([0xFF, 0x2F, 0x00]);
         return track.ToArray();
     }

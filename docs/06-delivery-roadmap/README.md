@@ -1123,6 +1123,16 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music uses the rule for
 
 **Deliverable:** exporting `DAW Smoke — Canción 夜` suggests `daw-smoke-canción-夜-maskil-forge.mid`, while the same project identity and export bytes remain authoritative and unchanged.
 
+### Milestone 7.30 — Planned-form MIDI duration
+
+End every emitted MIDI track no earlier than the exclusive end of the current stored song form. The real REAPER handoff exposed that a final section marker at bar 57 could otherwise become the file endpoint, hiding the eight planned bars that follow it. With an eight-bar final section, the file now carries through bar 65. Any approved note or controller event beyond the planned form remains authoritative and extends its own track; a song without sections retains its event-derived length.
+
+The song-form boundary is editable arrangement planning data, not a duration inferred from lyrics and not a claim about the final performed recording. Syllable placements continue to identify onsets without inventing sung lengths, while playable notes retain their exact stored start and duration. End-of-track padding adds only duration: it does not create notes, rests, lyric events, audio, or a performance that the artist never approved.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music exports the same `.mid` action. Phone Music remains hidden.
+
+**Deliverable:** a DAW import includes the complete current section plan instead of stopping at the start of its final section, while later real events and the artist's eventual timing decisions remain authoritative.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

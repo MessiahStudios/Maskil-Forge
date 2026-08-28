@@ -77,6 +77,8 @@ Slice 7.28 preserves artist-authored non-ASCII track names, section markers, and
 
 Slice 7.29 preserves normalized Unicode in the suggested `.mid`, `.maskil`, and `.maskil.json` download names. The shared filename rule replaces path-unsafe punctuation, removes control and formatting characters, avoids Windows-reserved stems, and bounds the result without transliterating artist-authored scripts. Export payloads and project titles remain unchanged.
 
+Slice 7.30 makes the current song-form boundary explicit in Standard MIDI export. Every emitted track ends no earlier than the exclusive end of the last stored section, while a later approved note or controller event remains authoritative for that track. Stored section bars are an editable arrangement plan; they are not calculated from lyric length. Syllable placements identify onsets but do not claim sung duration, and `NoteEvent` start and duration remain the authority for playable material. Extending a track to the planned boundary adds no notes, rests, lyrics, audio, or inferred performance. Songs without sections retain event-derived length.
+
 ## Generator order
 
 1. Section energy and density plan

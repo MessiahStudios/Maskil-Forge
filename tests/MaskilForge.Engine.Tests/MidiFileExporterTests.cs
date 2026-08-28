@@ -449,6 +449,38 @@ public sealed class MidiFileExporterTests
     }
 
     [Fact]
+    public void Export_HoldsEveryTrackThroughTheCurrentStoredSongForm()
+    {
+        var project = SongProject.Create("Planned form MIDI");
+        var verse = project.AddSection(SectionKind.Verse);
+        var outro = project.AddSection(SectionKind.Outro);
+        project.SetSectionDuration(verse.Id, 4);
+        project.SetSectionDuration(outro.Id, 3);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var formEndBar = project.Timeline.SectionPlacements.Max(item => item.EndBarExclusive);
+        var formEndTick = project.Timeline.ToAbsoluteTicks(new MusicalPosition(formEndBar, 1, 0));
+
+        Assert.All(parsed.Tracks, track => Assert.Equal(formEndTick, EndOfTrack(track).Tick));
+    }
+
+    [Fact]
+    public void Export_PreservesARealEventThatExtendsBeyondTheCurrentStoredSongForm()
+    {
+        var project = SongProject.Create("Later event MIDI");
+        var section = project.AddSection(SectionKind.Verse);
+        project.SetSectionDuration(section.Id, 1);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 2_400, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var formEndTick = project.Timeline.ToAbsoluteTicks(new MusicalPosition(2, 1, 0));
+
+        Assert.Equal(formEndTick, EndOfTrack(parsed.Tracks[0]).Tick);
+        Assert.Equal(note.EndTickExclusive, EndOfTrack(parsed.Tracks[1]).Tick);
+    }
+
+    [Fact]
     public void Export_EmitsPlacedSyllablesAsConductorLyrics()
     {
         var project = SongProject.Create("Lyric MIDI");
@@ -692,6 +724,9 @@ public sealed class MidiFileExporterTests
         var named = events.First(item => item.Bytes.Length >= 3 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x03);
         return Encoding.ASCII.GetString(named.Bytes, 3, named.Bytes.Length - 3);
     }
+
+    private static ParsedEvent EndOfTrack(IReadOnlyList<ParsedEvent> events) =>
+        Assert.Single(events, item => item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x2F, 0x00 }));
 
     private sealed record ParsedMidi(
         short Format,
