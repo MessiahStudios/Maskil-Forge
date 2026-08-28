@@ -558,7 +558,45 @@ public sealed class MidiFileExporterTests
         Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x06);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x05);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x07);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
         Assert.Equal(2, parsed.TrackCount);
+    }
+
+    [Fact]
+    public void Export_EmitsStoredStructuralFunctionsAsConductorText()
+    {
+        var project = SongProject.Create("Structural function MIDI");
+        var verse = project.AddSection(SectionKind.Verse);
+        var chorus = project.AddSection(SectionKind.Chorus, "Lift");
+        project.SetSectionStructuralFunction(verse.Id, StructuralFunction.Setup);
+        project.SetSectionStructuralFunction(chorus.Id, StructuralFunction.Payoff);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var chorusTick = project.Timeline.ToAbsoluteTicks(project.Timeline.FindSection(chorus.Id).Start);
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Text("Setup")));
+        Assert.Contains(parsed.Events, item => item.Tick == chorusTick && item.Bytes.SequenceEqual(Text("Payoff")));
+        Assert.Contains(parsed.Tracks[0], item => item.Bytes.SequenceEqual(Text("Setup")));
+        Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("Not decided")));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("Unspecified")));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("Verse")));
+        Assert.Equal(2, parsed.Tracks[0].Count(item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01));
+    }
+
+    [Fact]
+    public void Export_OmitsUnspecifiedStructuralFunctions()
+    {
+        var project = SongProject.Create("Undecided function MIDI");
+        var verse = project.AddSection(SectionKind.Verse);
+        project.SetSectionStructuralFunction(verse.Id, StructuralFunction.Unspecified);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
+        Assert.Contains(parsed.Events, item => item.Bytes.SequenceEqual(Marker("Verse")));
     }
 
     [Fact]

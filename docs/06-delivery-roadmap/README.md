@@ -1159,6 +1159,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a song in another music application and see its stored description as text, without the host inventing a blurb that was never written.
 
+### Milestone 7.34 — Stored song-role MIDI text
+
+Emit each decided section structural function as a Standard MIDI text event on the conductor track at that section's start tick. The text is the stored role name, such as Setup or Payoff. Unspecified roles omit text: the host does not invent a job from Verse or Chorus, and does not emit Not decided. Section title markers stay the 7.24 titles. Chord-symbol text remains at each stored chord's start. Delivery, energy, density, and arrangement-role names stay off the file.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a song in another music application and see its decided Setup and Payoff roles, without the host inventing a song job that was never chosen.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

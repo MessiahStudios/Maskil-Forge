@@ -28,8 +28,9 @@ namespace MaskilForge.Engine;
 /// cue point per stored breath after a placed syllable at that syllable's
 /// song tick, and emits the stored artist name as a MIDI copyright notice
 /// when that name is present. The conductor track also emits the stored song
-/// description as MIDI text at tick 0 when that description is present. Each
-/// catalog or Unassigned track also emits
+/// description as MIDI text at tick 0 when that description is present. It
+/// also emits each decided section structural function as MIDI text at that
+/// section's start tick. Each catalog or Unassigned track also emits
 /// one MIDI instrument name per stored musical-part label that actually
 /// contributes notes to that track. Catalog track names stay the 7.22
 /// instrument names. Every track ends no earlier than the current stored
@@ -38,11 +39,12 @@ namespace MaskilForge.Engine;
 /// inferred from lyrics or a claim about the final performed recording. The
 /// host does not invent sections, unplaced lyrics, a progression that was
 /// never written, a timed breath coordinate, an author that was never
-/// named, a part label that never exported notes, or a description that was
-/// never written. Harmony options, visualization breath offsets, genre,
-/// title, raw lyrics, and arrangement-role names stay off that description
-/// field. Artist-authored text is bounded by Unicode scalar count and
-/// encoded as strict UTF-8; the ASCII subset remains byte-for-byte unchanged.
+/// named, a part label that never exported notes, a description that was
+/// never written, or a song role that was never decided. Harmony options,
+/// visualization breath offsets, genre, title, raw lyrics, unspecified
+/// functions, and arrangement-role names stay off the file. Artist-authored
+/// text is bounded by Unicode scalar count and encoded as strict UTF-8; the
+/// ASCII subset remains byte-for-byte unchanged.
 /// </summary>
 public static class MidiFileExporter
 {
@@ -167,6 +169,10 @@ public static class MidiFileExporter
             var name = SanitizeMetaText(section.Title, SongSection.DefaultTitle(section.Kind));
             events.Add(new MidiEvent(tick, 1, 2 + markerIndex, 0, Guid.Empty, MarkerMetaMessage(name)));
             markerIndex++;
+            if (section.StructuralFunction == StructuralFunction.Unspecified) continue;
+            var function = SanitizeMetaText(section.StructuralFunction.ToString(), string.Empty);
+            if (function.Length == 0) continue;
+            events.Add(new MidiEvent(tick, 1, 4_000 + markerIndex, 0, Guid.Empty, FunctionTextMetaMessage(function)));
         }
 
         var lyricIndex = 0;
@@ -406,6 +412,8 @@ public static class MidiFileExporter
         stream.Write(payload);
     }
 
+    private static byte[] FunctionTextMetaMessage(string text) => MetaTextMessage(0x01, text);
+
     private static byte[] DescriptionTextMetaMessage(string text) => MetaTextMessage(0x01, text);
 
     private static byte[] CopyrightMetaMessage(string text) => MetaTextMessage(0x02, text);
@@ -467,7 +475,7 @@ public static class MidiFileExporter
         stream.Write(buffer);
     }
 
-    // Priority: tempo 0, copyright, description, meter, key signature, section markers, chord-symbol text, lyrics, and breath cues 1, program change 2,
+    // Priority: tempo 0, copyright, description, meter, key signature, section markers, structural-function text, chord-symbol text, lyrics, and breath cues 1, program change 2,
     // pitch-bend RPN MSB 3, RPN LSB 4, data entry 5, portamento off 6, dynamics CC 7,
     // note-off 8, note-on 9.
     private sealed record MidiEvent(long Tick, int Priority, int Pitch, byte Channel, Guid NoteId, byte[] Data);

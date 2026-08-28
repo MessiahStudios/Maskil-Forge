@@ -85,6 +85,8 @@ Slice 7.32 emits each stored musical-part label as a MIDI instrument name on the
 
 Slice 7.33 emits the stored song description as MIDI text on the conductor track. An empty description omits the text rather than inventing a blurb. Genre, title, and raw lyrics stay off that field.
 
+Slice 7.34 emits each decided section song role as MIDI text at that section's start. Unspecified roles are omitted rather than invented from the section kind.
+
 ## Generator order
 
 1. Section energy and density plan
