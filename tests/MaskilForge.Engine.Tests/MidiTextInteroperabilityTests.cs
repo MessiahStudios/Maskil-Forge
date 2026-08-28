@@ -14,6 +14,7 @@ public sealed class MidiTextInteroperabilityTests
     {
         var project = SongProject.Create("Canción 夜");
         project.SetArtist("Café 夜");
+        project.SetDescription("órbita 夜");
         var section = project.AddSection(SectionKind.Chorus, "Refrão 夜");
         var line = section.AddLyricLine("café");
         line.SetSyllables(line.Words[0].Id, ["café"]);
@@ -33,6 +34,7 @@ public sealed class MidiTextInteroperabilityTests
         Assert.Equal(first, second);
         Assert.Contains(text, item => item.Type == 0x03 && item.Text == "Canción 夜");
         Assert.Contains(text, item => item.Type == 0x02 && item.Text == "Café 夜");
+        Assert.Contains(text, item => item.Type == 0x01 && item.Text == "órbita 夜");
         Assert.Contains(text, item => item.Type == 0x06 && item.Text == "Refrão 夜");
         Assert.Contains(text, item => item.Type == 0x05 && item.Text == "café");
         Assert.Contains(ReadTextMeta(first, 0x04), item => item.Text == "Café 夜");

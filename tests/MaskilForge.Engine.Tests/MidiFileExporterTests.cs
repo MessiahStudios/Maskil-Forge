@@ -29,6 +29,7 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x51, 0x03, 0x09, 0x27, 0xC0 }));
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x58, 0x04, 0x06, 0x03, 0x18, 0x08 }));
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x59, 0x02, 0x00, 0x00 }));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x02);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x04);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x06);
@@ -459,6 +460,37 @@ public sealed class MidiFileExporterTests
         var parsed = Parse(MidiFileExporter.Export(project));
 
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x02);
+    }
+
+    [Fact]
+    public void Export_EmitsStoredDescriptionAsConductorText()
+    {
+        var project = SongProject.Create("Description text MIDI");
+        project.SetDescription("Orbit story sketch");
+        project.SetGenre(SongGenre.Pop);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(Text("Orbit story sketch")));
+        Assert.Contains(parsed.Tracks[0], item => item.Bytes.SequenceEqual(Text("Orbit story sketch")));
+        Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("Pop")));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(Text("Description text MIDI")));
+        Assert.Equal(1, parsed.Tracks[0].Count(item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01));
+    }
+
+    [Fact]
+    public void Export_OmitsEmptyDescriptionText()
+    {
+        var project = SongProject.Create("Untitled description MIDI");
+        project.SetDescription("   ");
+        project.SetGenre(SongGenre.Folk);
+        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x01);
     }
 
     [Fact]

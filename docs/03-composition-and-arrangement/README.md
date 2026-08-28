@@ -83,6 +83,8 @@ Slice 7.31 emits the stored artist name as a MIDI copyright notice on the conduc
 
 Slice 7.32 emits each stored musical-part label as a MIDI instrument name on the track that actually receives that part's notes. Catalog track names stay the instrument names. Unused parts and notes with no part omit a name rather than inventing one.
 
+Slice 7.33 emits the stored song description as MIDI text on the conductor track. An empty description omits the text rather than inventing a blurb. Genre, title, and raw lyrics stay off that field.
+
 ## Generator order
 
 1. Section energy and density plan

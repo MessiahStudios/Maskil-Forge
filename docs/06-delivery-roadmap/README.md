@@ -1149,6 +1149,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a named cello part in another music application and see Chorus foundation as that track's instrument name, without the host renaming the catalog track or inventing a part that never exported.
 
+### Milestone 7.33 — Stored-description MIDI text
+
+Emit the stored song description as a Standard MIDI text event on the conductor track at tick 0 when that description is present. Songs with playable notes but no description omit the text: the host does not invent a blurb. Genre, title, and raw lyrics stay off that field. Chord-symbol text remains on the same MIDI text type at each stored chord's start; an empty progression still omits chord text. The slice does not add a second comments store.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a song in another music application and see its stored description as text, without the host inventing a blurb that was never written.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
