@@ -1113,6 +1113,16 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music exports the same 
 
 **Deliverable:** an artist can export names and placed lyrics such as Canción, Refrão, café, or 夜 without Maskil Forge silently deleting their characters, while existing ASCII MIDI output remains compatible.
 
+### Milestone 7.29 — Unicode-safe export filenames
+
+Carry the MIDI text-interoperability contract through the browser download boundary. Suggested `.mid`, `.maskil`, and `.maskil.json` filenames preserve normalized artist-authored Unicode letters, marks, numbers, and symbols instead of reducing `Canción 夜` to an ASCII fragment. Whitespace and path punctuation become a single hyphen, control and formatting characters stay out, Windows-reserved stems receive a `song-` prefix, and stems are bounded to 80 Unicode scalar values and 160 UTF-8 bytes.
+
+The shared rule changes only the suggested download filename. It does not rename the Song Graph, alter the MIDI or portable-project payload, transliterate text, add cloud storage, or claim that every receiving application displays every script. The cross-platform contract covers browser downloads on supported Windows and macOS filesystems, including the real REAPER handoff that exposed the earlier filename loss.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music uses the rule for MIDI and portable-project downloads. Phone Music remains hidden.
+
+**Deliverable:** exporting `DAW Smoke — Canción 夜` suggests `daw-smoke-canción-夜-maskil-forge.mid`, while the same project identity and export bytes remain authoritative and unchanged.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.
