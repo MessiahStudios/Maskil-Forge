@@ -30,6 +30,7 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x58, 0x04, 0x06, 0x03, 0x18, 0x08 }));
         Assert.Contains(parsed.Events, item => item.Tick == 0 && item.Bytes.SequenceEqual(new byte[] { 0xFF, 0x59, 0x02, 0x00, 0x00 }));
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x02);
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x04);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x06);
 
         var notes = parsed.Events.Where(item => item.Bytes[0] is 0x80 or 0x90).ToList();
@@ -135,6 +136,8 @@ public sealed class MidiFileExporterTests
         Assert.Contains(parsed.Events, item => item.Bytes is [0x99, 36, 102]);
         Assert.DoesNotContain(parsed.Events, item => item.Bytes is [0x91, 36, 102]);
         Assert.DoesNotContain(parsed.Events, item => (item.Bytes[0] & 0xF0) == 0xC0);
+        Assert.Contains(parsed.Events, item => item.Bytes.SequenceEqual(InstrumentName("Verse pulse")));
+        Assert.DoesNotContain(parsed.Events, item => item.Bytes.SequenceEqual(InstrumentName("Verse cello")));
     }
 
     [Fact]
@@ -393,6 +396,10 @@ public sealed class MidiFileExporterTests
             ],
             parsed.Tracks.Select(TrackName));
         Assert.DoesNotContain("Piano", parsed.Tracks.Select(TrackName));
+        Assert.Contains(parsed.Tracks[2], item => item.Bytes.SequenceEqual(InstrumentName("Verse cello")));
+        Assert.Contains(parsed.Tracks[3], item => item.Bytes.SequenceEqual(InstrumentName("Verse pulse")));
+        Assert.DoesNotContain(parsed.Tracks[0], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x04);
+        Assert.DoesNotContain(parsed.Tracks[1], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x04);
         Assert.Contains(parsed.Tracks[2], item => item.Bytes is [0x91, 48, 100]);
         Assert.Contains(parsed.Tracks[3], item => item.Bytes is [0x99, 36, 102]);
         Assert.Contains(parsed.Tracks[1], item => item.Bytes is [0x90, 36, 80]);
@@ -452,6 +459,52 @@ public sealed class MidiFileExporterTests
         var parsed = Parse(MidiFileExporter.Export(project));
 
         Assert.DoesNotContain(parsed.Events, item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x02);
+    }
+
+    [Fact]
+    public void Export_EmitsStoredPartLabelsAsInstrumentNames()
+    {
+        var project = SongProject.Create("Part label MIDI");
+        var section = project.AddSection(SectionKind.Chorus);
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        project.SetSectionRole(section.Id, ArrangementRole.Pulse);
+        var cello = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 480, 100);
+        var pulse = project.AddNoteEvent(new RegisteredPitch(NoteLetter.E, Accidental.Natural, 4), 0, 240, 90);
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Chorus foundation", [cello.Id], "cello");
+        project.AddMusicalPart(section.Id, ArrangementRole.Pulse, "Chorus pulse", [pulse.Id]);
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+
+        Assert.Equal(
+            [
+                "Part label MIDI",
+                MidiFileExporter.UnassignedTrackName,
+                "Cello"
+            ],
+            parsed.Tracks.Select(TrackName));
+        Assert.Contains(parsed.Tracks[1], item => item.Bytes.SequenceEqual(InstrumentName("Chorus pulse")));
+        Assert.Contains(parsed.Tracks[2], item => item.Bytes.SequenceEqual(InstrumentName("Chorus foundation")));
+        Assert.DoesNotContain(parsed.Tracks[0], item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x04);
+        Assert.Equal(1, parsed.Tracks[1].Count(item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x04));
+        Assert.Equal(1, parsed.Tracks[2].Count(item => item.Bytes.Length >= 2 && item.Bytes[0] == 0xFF && item.Bytes[1] == 0x04));
+    }
+
+    [Fact]
+    public void Export_OmitsDuplicatePartLabelsOnTheSameTrack()
+    {
+        var project = SongProject.Create("Duplicate part label MIDI");
+        var section = project.AddSection(SectionKind.Verse);
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        project.SetSectionRole(section.Id, ArrangementRole.Texture);
+        var first = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 3), 0, 480, 100);
+        var second = project.AddNoteEvent(new RegisteredPitch(NoteLetter.G, Accidental.Natural, 3), 480, 480, 90);
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Verse cello", [first.Id], "cello");
+        project.AddMusicalPart(section.Id, ArrangementRole.Texture, "Verse cello", [second.Id], "cello");
+
+        var parsed = Parse(MidiFileExporter.Export(project));
+        var cello = Assert.Single(parsed.Tracks, track => TrackName(track) == "Cello");
+
+        Assert.Equal(1, cello.Count(item => item.Bytes.SequenceEqual(InstrumentName("Verse cello"))));
     }
 
     [Fact]
@@ -721,6 +774,12 @@ public sealed class MidiFileExporterTests
             value = (value << 7) | (long)(next & 0x7F);
         } while ((next & 0x80) != 0);
         return value;
+    }
+
+    private static byte[] InstrumentName(string text)
+    {
+        var payload = new UTF8Encoding(false, true).GetBytes(text);
+        return new byte[] { 0xFF, 0x04, (byte)payload.Length }.Concat(payload).ToArray();
     }
 
     private static byte[] Copyright(string text)

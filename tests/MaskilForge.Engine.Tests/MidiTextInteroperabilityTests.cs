@@ -22,7 +22,9 @@ public sealed class MidiTextInteroperabilityTests
             line.Id,
             line.Words[0].Syllables[0].Id,
             new BeatPosition(1, 1, 0));
-        project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+        var note = project.AddNoteEvent(new RegisteredPitch(NoteLetter.C, Accidental.Natural, 4), 0, 480, 100);
+        project.SetSectionRole(section.Id, ArrangementRole.Foundation);
+        project.AddMusicalPart(section.Id, ArrangementRole.Foundation, "Café 夜", [note.Id], "cello");
 
         var first = MidiFileExporter.Export(project);
         var second = MidiFileExporter.Export(project);
@@ -33,6 +35,7 @@ public sealed class MidiTextInteroperabilityTests
         Assert.Contains(text, item => item.Type == 0x02 && item.Text == "Café 夜");
         Assert.Contains(text, item => item.Type == 0x06 && item.Text == "Refrão 夜");
         Assert.Contains(text, item => item.Type == 0x05 && item.Text == "café");
+        Assert.Contains(ReadTextMeta(first, 0x04), item => item.Text == "Café 夜");
     }
 
     [Fact]
@@ -51,6 +54,44 @@ public sealed class MidiTextInteroperabilityTests
         Assert.Equal(expected, trackName.Text);
         Assert.Equal(250, trackName.PayloadLength);
         Assert.Equal(2, trackName.LengthByteCount);
+    }
+
+    private static IReadOnlyList<TextMetaEvent> ReadTextMeta(byte[] bytes, byte type)
+    {
+        Assert.Equal("MThd"u8.ToArray(), bytes[..4]);
+        var offset = 14;
+        var result = new List<TextMetaEvent>();
+        var trackCount = BinaryPrimitives.ReadInt16BigEndian(bytes.AsSpan(10, 2));
+        for (var track = 0; track < trackCount; track++)
+        {
+            Assert.Equal("MTrk"u8.ToArray(), bytes.AsSpan(offset, 4).ToArray());
+            offset += 4;
+            var trackLength = BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(offset, 4));
+            offset += 4;
+            var end = offset + trackLength;
+            while (offset < end)
+            {
+                ReadVariableLength(bytes, ref offset, out _);
+                var status = bytes[offset++];
+                if (status == 0xFF)
+                {
+                    var metaType = bytes[offset++];
+                    var length = checked((int)ReadVariableLength(bytes, ref offset, out var lengthByteCount));
+                    var payload = bytes.AsSpan(offset, length).ToArray();
+                    offset += length;
+                    if (metaType == type)
+                        result.Add(new TextMetaEvent(metaType, StrictUtf8.GetString(payload), length, lengthByteCount));
+                    continue;
+                }
+
+                var high = status & 0xF0;
+                offset += high is 0xC0 or 0xD0 ? 1 : 2;
+            }
+
+            Assert.Equal(end, offset);
+        }
+
+        return result;
     }
 
     private static IReadOnlyList<TextMetaEvent> ReadConductorText(byte[] bytes)

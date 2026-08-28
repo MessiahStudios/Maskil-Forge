@@ -1141,6 +1141,14 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a song in another music application and see its stored artist name as copyright, without the host inventing an author that was never named.
 
+### Milestone 7.32 — Stored musical-part MIDI instrument names
+
+Emit each stored musical-part label as a Standard MIDI instrument name on the catalog or Unassigned track that actually receives that part's notes. Catalog track names stay the 7.22 instrument names such as Cello and Drum Kit. Notes with no part omit an instrument name. Duplicate labels on the same track emit once. A part whose notes export on another channel, such as a cello part whose only note also belongs to drum kit, omits its label rather than inventing a silent track. Arrangement-role names stay off the file.
+
+Schema stays at v31. Catalog stays at version 4. Desktop Music can export the file. Phone Music remains hidden.
+
+**Deliverable:** an artist can open a named cello part in another music application and see Chorus foundation as that track's instrument name, without the host renaming the catalog track or inventing a part that never exported.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

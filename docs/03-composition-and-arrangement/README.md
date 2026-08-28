@@ -81,6 +81,8 @@ Slice 7.30 makes the current song-form boundary explicit in Standard MIDI export
 
 Slice 7.31 emits the stored artist name as a MIDI copyright notice on the conductor track. An empty artist field omits the notice rather than inventing an author. Genre, description, and the song title stay off that field.
 
+Slice 7.32 emits each stored musical-part label as a MIDI instrument name on the track that actually receives that part's notes. Catalog track names stay the instrument names. Unused parts and notes with no part omit a name rather than inventing one.
+
 ## Generator order
 
 1. Section energy and density plan

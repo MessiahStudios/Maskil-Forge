@@ -27,16 +27,20 @@ namespace MaskilForge.Engine;
 /// per stored harmony chord at that chord's start tick, emits one MIDI
 /// cue point per stored breath after a placed syllable at that syllable's
 /// song tick, and emits the stored artist name as a MIDI copyright notice
-/// when that name is present. Every track ends no earlier than the current
-/// stored song-form boundary, while later musical events remain
-/// authoritative. That boundary is the artist's current arrangement plan,
-/// not a duration inferred from lyrics or a claim about the final performed
-/// recording. The host does not invent sections, unplaced lyrics, a
-/// progression that was never written, a timed breath coordinate, or an
-/// author that was never named. Harmony options, visualization breath
-/// offsets, genre, and description stay off the file. Artist-authored
-/// text is bounded by Unicode scalar count and encoded as strict UTF-8; the
-/// ASCII subset remains byte-for-byte unchanged.
+/// when that name is present. Each catalog or Unassigned track also emits
+/// one MIDI instrument name per stored musical-part label that actually
+/// contributes notes to that track. Catalog track names stay the 7.22
+/// instrument names. Every track ends no earlier than the current stored
+/// song-form boundary, while later musical events remain authoritative.
+/// That boundary is the artist's current arrangement plan, not a duration
+/// inferred from lyrics or a claim about the final performed recording. The
+/// host does not invent sections, unplaced lyrics, a progression that was
+/// never written, a timed breath coordinate, an author that was never
+/// named, or a part label that never exported notes. Harmony options,
+/// visualization breath offsets, genre, description, and arrangement-role
+/// names stay off the file. Artist-authored text is bounded by Unicode
+/// scalar count and encoded as strict UTF-8; the ASCII subset remains
+/// byte-for-byte unchanged.
 /// </summary>
 public static class MidiFileExporter
 {
@@ -59,19 +63,21 @@ public static class MidiFileExporter
         var performed = events.Where(item => item.Priority >= 2).ToList();
         var usedChannels = performed.Select(item => item.Channel).ToHashSet();
 
-        var tracks = new List<(string Name, IReadOnlyList<MidiEvent> Events)>
+        var tracks = new List<(string Name, IReadOnlyList<MidiEvent> Events, IReadOnlyList<string> InstrumentNames)>
         {
-            (SanitizeMetaText(project.Title, ConductorTrackName), conductor)
+            (SanitizeMetaText(project.Title, ConductorTrackName), conductor, [])
         };
         var unassigned = InstrumentMidiChannelMapper.ZeroBasedChannel(channels.UnassignedMidiChannel);
         if (usedChannels.Contains(unassigned))
-            tracks.Add((UnassignedTrackName, performed.Where(item => item.Channel == unassigned).ToList()));
+            tracks.Add((UnassignedTrackName, performed.Where(item => item.Channel == unassigned).ToList(),
+                InstrumentNamesFor(unassigned, project, channels)));
 
         foreach (var assignment in channels.Assignments)
         {
             var channel = InstrumentMidiChannelMapper.ZeroBasedChannel(assignment.MidiChannel);
             if (!usedChannels.Contains(channel)) continue;
-            tracks.Add((assignment.InstrumentName, performed.Where(item => item.Channel == channel).ToList()));
+            tracks.Add((assignment.InstrumentName, performed.Where(item => item.Channel == channel).ToList(),
+                InstrumentNamesFor(channel, project, channels)));
         }
 
         using var file = new MemoryStream();
@@ -82,7 +88,7 @@ public static class MidiFileExporter
         WriteInt16(file, checked((short)project.Timeline.TicksPerQuarterNote));
         foreach (var track in tracks)
         {
-            var bytes = WriteTrack(track.Name, track.Events, songFormEndTick);
+            var bytes = WriteTrack(track.Name, track.Events, songFormEndTick, track.InstrumentNames);
             file.Write("MTrk"u8);
             WriteInt32(file, bytes.Length);
             file.Write(bytes);
@@ -322,11 +328,57 @@ public static class MidiFileExporter
             : InstrumentMidiChannelMapper.ZeroBasedChannel(assignment.MidiChannel);
     }
 
-    private static byte[] WriteTrack(string name, IReadOnlyList<MidiEvent> events, long minimumEndTick)
+    private static IReadOnlyList<string> InstrumentNamesFor(
+        byte channel,
+        SongProject project,
+        InstrumentMidiChannelMapSet map)
+    {
+        var names = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var part in project.MusicalParts)
+        {
+            var label = SanitizeMetaText(part.Label, string.Empty);
+            if (label.Length == 0) continue;
+            var expected = ExpectedChannelFor(part, map);
+            if (expected is null || expected.Value != channel) continue;
+            if (!part.NoteEventIds.Any(id =>
+            {
+                var note = project.NoteEvents.FirstOrDefault(item => item.Id == id);
+                return note is not null && ChannelFor(note, project, map) == channel;
+            })) continue;
+            if (!seen.Add(label)) continue;
+            names.Add(label);
+        }
+
+        return names;
+    }
+
+    private static byte? ExpectedChannelFor(MusicalPart part, InstrumentMidiChannelMapSet map)
+    {
+        if (part.InstrumentProfileId is null)
+            return InstrumentMidiChannelMapper.ZeroBasedChannel(map.UnassignedMidiChannel);
+
+        var assignment = map.Assignments.FirstOrDefault(item =>
+            string.Equals(item.InstrumentId, part.InstrumentProfileId, StringComparison.Ordinal));
+        return assignment is null
+            ? null
+            : InstrumentMidiChannelMapper.ZeroBasedChannel(assignment.MidiChannel);
+    }
+
+    private static byte[] WriteTrack(
+        string name,
+        IReadOnlyList<MidiEvent> events,
+        long minimumEndTick,
+        IReadOnlyList<string> instrumentNames)
     {
         using var track = new MemoryStream();
         WriteVariableLength(track, 0);
         WriteMetaText(track, 0x03, name);
+        foreach (var label in instrumentNames)
+        {
+            WriteVariableLength(track, 0);
+            WriteMetaText(track, 0x04, label);
+        }
         long previousTick = 0;
         foreach (var item in events)
         {
