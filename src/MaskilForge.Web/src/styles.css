@@ -360,6 +360,9 @@ button.journey-step:hover:not(:disabled) { border-color: #6e755f; background: #2
 .structure-lock-notice .eyebrow { margin: 0 0 .25rem; }
 .structure-lock-notice p:last-child { max-width: 86ch; margin: .2rem 0 0; color: #b9b3a7; font-size: .78rem; }
 .structure-lock-notice button { flex: 0 0 auto; }
+.timing-authority-notice { padding: .75rem .9rem; border: 1px solid #4e6657; border-left: .22rem solid #7faf8c; border-radius: .45rem; background: linear-gradient(110deg, #18231c, #171d18); }
+.timing-authority-notice .eyebrow { margin: 0 0 .25rem; color: #9fc7aa; }
+.timing-authority-notice p:last-child { max-width: 88ch; margin: .25rem 0 0; color: #b7c0b8; font-size: .8rem; }
 .canvas-heading { display: flex; justify-content: space-between; gap: 1.5rem; align-items: end; }
 .canvas-heading h1 { margin: .2rem 0 0; font: 2.3rem Georgia, serif; }
 .section-toolbar { display: flex; justify-content: end; gap: .45rem; flex-wrap: wrap; }
@@ -586,6 +589,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .midi-export-panel div { display: grid; gap: .25rem; }
 .midi-export-panel h2, .midi-export-panel p { margin: 0; }
 .midi-export-panel p { max-width: 52rem; color: #b8b5a8; }
+.midi-export-panel .timing-authority-copy { margin-bottom: .35rem; padding: .55rem .65rem; border-left: .2rem solid #7faf8c; color: #c5d2c7; background: #162019; }
 .midi-export-panel button { min-width: 9rem; }
 .pitch-gesture-notes, .onset-gesture-notes, .loudness-gesture-notes, .loudness-expression-curves { display: grid; gap: .85rem; margin-top: 1rem; padding: 1rem; background: linear-gradient(135deg, #1c211a, #151914); border: 1px solid #625b3e; border-radius: .45rem; }
 .pitch-gesture-notes > div:first-child, .onset-gesture-notes > div:first-child, .loudness-gesture-notes > div:first-child, .loudness-expression-curves > div:first-child { display: grid; gap: .25rem; }

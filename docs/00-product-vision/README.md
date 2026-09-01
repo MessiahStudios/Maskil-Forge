@@ -120,4 +120,6 @@ The product vision is fulfilled when an artist can move from lyrics and intent t
 
 ## Current status
 
-The repository contains the documentation foundation and an early executable songwriting foundation. Local project discovery, raw lyric capture, ordered sections, identified lyric lines, JSON persistence, and reversible section operations are implemented. Musical interpretation, prosody, composition, MIDI, audio, performance capture, and AI direction remain planned.
+The repository contains an executable songwriting MVP and its product documentation. Local project discovery, recovery, Trash, portable project interchange, raw and structured lyrics, manual syllable and prosody decisions, editable section timing, harmony and arrangement intent, approved playable notes, rough-vocal recording and review, narrow browser pitch/onset/loudness analysis, gesture-to-note sketches, and format-1 MIDI interchange are implemented. The current editor labels section bars as arrangement planning rather than lyric-derived or final performed duration.
+
+Automatic lyric interpretation, generated rhythm candidates, syllable duration, rests and melisma, synchronized audio clips, persistent undo history, realistic instrumental rendering, vocal-production processing, mixing, and AI direction remain planned. The installable web shell supports browser-owned offline lyric capture and view-only saved snapshots; complete offline project editing and device synchronization are not implemented.
