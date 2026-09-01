@@ -1,5 +1,6 @@
 import type { ScheduledNote } from './partAudition'
 import { peakPolyphony } from './partAuditionModel.js'
+import { scheduleBuiltInPreviewVoice, type PreviewVoiceHandle } from './builtInPreviewRenderer'
 
 export interface TransportTiming {
   beatsPerMinute: number
@@ -13,7 +14,7 @@ export interface TransportResult {
 
 export class PlaybackTransport {
   private context: AudioContext | null = null
-  private activeNodes: OscillatorNode[] = []
+  private activeVoices: PreviewVoiceHandle[] = []
   private completionTimer: number | undefined
   private animationFrame: number | undefined
   private generation = 0
@@ -21,7 +22,7 @@ export class PlaybackTransport {
   private durationSeconds = 0
 
   get isPlaying() {
-    return this.animationFrame !== undefined || this.activeNodes.length > 0
+    return this.animationFrame !== undefined || this.activeVoices.length > 0
   }
 
   currentSeconds() {
@@ -47,24 +48,9 @@ export class PlaybackTransport {
     let endAt = startAt
     const baseLevel = 0.16 / Math.sqrt(Math.max(1, peakPolyphony(notes)))
     for (const note of notes) {
-      const noteStart = startAt + note.startSeconds
-      const noteEnd = noteStart + note.durationSeconds
-      const attackSeconds = Math.min(0.02, note.durationSeconds / 3)
-      const releaseSeconds = Math.min(0.05, note.durationSeconds / 3)
+      const noteEnd = startAt + note.startSeconds + note.durationSeconds
       endAt = Math.max(endAt, noteEnd)
-      const level = baseLevel * (0.45 + 0.55 * (note.velocity / 127))
-      const oscillator = this.context.createOscillator()
-      const gain = this.context.createGain()
-      oscillator.type = 'sine'
-      oscillator.frequency.value = 440 * 2 ** ((note.midi - 69) / 12)
-      gain.gain.setValueAtTime(0, noteStart)
-      gain.gain.linearRampToValueAtTime(level, noteStart + attackSeconds)
-      gain.gain.setValueAtTime(level, noteEnd - releaseSeconds)
-      gain.gain.linearRampToValueAtTime(0, noteEnd)
-      oscillator.connect(gain).connect(this.context.destination)
-      oscillator.start(noteStart)
-      oscillator.stop(noteEnd + 0.01)
-      this.activeNodes.push(oscillator)
+      this.activeVoices.push(scheduleBuiltInPreviewVoice(this.context, note, startAt, baseLevel))
     }
 
     this.durationSeconds = endAt - startAt
@@ -79,7 +65,7 @@ export class PlaybackTransport {
       onPosition(this.durationSeconds)
       if (this.animationFrame !== undefined) window.cancelAnimationFrame(this.animationFrame)
       this.animationFrame = undefined
-      this.clearPlaybackNodes()
+      this.clearPlaybackVoices(false)
       onComplete()
     }, this.durationSeconds * 1000 + 100)
     return { noteCount: notes.length, durationSeconds: this.durationSeconds }
@@ -91,16 +77,16 @@ export class PlaybackTransport {
     this.completionTimer = undefined
     if (this.animationFrame !== undefined) window.cancelAnimationFrame(this.animationFrame)
     this.animationFrame = undefined
-    this.clearPlaybackNodes()
+    this.clearPlaybackVoices(true)
     this.startedAt = 0
     this.durationSeconds = 0
   }
 
-  private clearPlaybackNodes() {
-    for (const node of this.activeNodes) {
-      try { node.stop() } catch { /* already stopped */ }
-      node.disconnect()
+  private clearPlaybackVoices(stop: boolean) {
+    for (const voice of this.activeVoices) {
+      if (stop) voice.stop()
+      voice.disconnect()
     }
-    this.activeNodes = []
+    this.activeVoices = []
   }
 }

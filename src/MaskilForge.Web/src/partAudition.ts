@@ -1,8 +1,8 @@
-export interface ScheduledNote {
-  midi: number
-  startSeconds: number
-  durationSeconds: number
-  velocity: number
+import { scheduleBuiltInPreviewVoice, type PreviewScheduledNote, type PreviewVoiceHandle } from './builtInPreviewRenderer'
+
+export interface ScheduledNote extends PreviewScheduledNote {
+  partId?: string
+  partLabel?: string
 }
 
 export interface PartAuditionResult {
@@ -12,7 +12,7 @@ export interface PartAuditionResult {
 
 export class PartAudition {
   private context: AudioContext | null = null
-  private activeNodes: OscillatorNode[] = []
+  private activeVoices: PreviewVoiceHandle[] = []
   private completionTimer: number | undefined
   private generation = 0
 
@@ -29,28 +29,15 @@ export class PartAudition {
     let endAt = startAt
     const baseLevel = 0.16 / Math.sqrt(notes.length)
     for (const note of notes) {
-      const noteStart = startAt + note.startSeconds
-      const noteEnd = noteStart + note.durationSeconds
+      const noteEnd = startAt + note.startSeconds + note.durationSeconds
       endAt = Math.max(endAt, noteEnd)
-      const level = baseLevel * (0.45 + 0.55 * (note.velocity / 127))
-      const oscillator = this.context.createOscillator()
-      const gain = this.context.createGain()
-      oscillator.type = 'sine'
-      oscillator.frequency.value = 440 * 2 ** ((note.midi - 69) / 12)
-      gain.gain.setValueAtTime(0, noteStart)
-      gain.gain.linearRampToValueAtTime(level, noteStart + 0.02)
-      gain.gain.setValueAtTime(level, Math.max(noteStart + 0.02, noteEnd - 0.05))
-      gain.gain.linearRampToValueAtTime(0, noteEnd)
-      oscillator.connect(gain).connect(this.context.destination)
-      oscillator.start(noteStart)
-      oscillator.stop(noteEnd + 0.01)
-      this.activeNodes.push(oscillator)
+      this.activeVoices.push(scheduleBuiltInPreviewVoice(this.context, note, startAt, baseLevel))
     }
 
     const durationSeconds = endAt - startAt
     this.completionTimer = window.setTimeout(() => {
       if (generation !== this.generation) return
-      this.activeNodes = []
+      this.clearPlaybackVoices(false)
       this.completionTimer = undefined
       onComplete()
     }, durationSeconds * 1000 + 100)
@@ -61,10 +48,14 @@ export class PartAudition {
     this.generation++
     if (this.completionTimer !== undefined) window.clearTimeout(this.completionTimer)
     this.completionTimer = undefined
-    for (const node of this.activeNodes) {
-      try { node.stop() } catch { /* already stopped */ }
-      node.disconnect()
+    this.clearPlaybackVoices(true)
+  }
+
+  private clearPlaybackVoices(stop: boolean) {
+    for (const voice of this.activeVoices) {
+      if (stop) voice.stop()
+      voice.disconnect()
     }
-    this.activeNodes = []
+    this.activeVoices = []
   }
 }

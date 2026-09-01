@@ -180,6 +180,10 @@ Introduce renderers incrementally:
 
 Song logic must not depend on any renderer. VSTs, SoundFonts, DAWs, and possible future neural renderers may produce sound—including processing applied to the artist's recorded vocal—but they must not own the composition logic or stand in for the singer.
 
+Slice 8.1 completes the first rendering step with renderer ID `maskil-browser-preview-v1`. Section audition and full-song transport preserve musical-part ownership so a shared note assigned to two parts produces two intentional voices rather than being collapsed. All twelve version-4 catalog instruments receive explicit Web Audio oscillator, envelope, and filter guide voices; drum kit uses a short pitch-drop hit, and an unassigned or future unknown instrument uses the neutral sine voice. The UI names the active guide voices before playback and remote activity logs identify the renderer.
+
+This is audible arrangement proof, not realistic instrument simulation. The mapping is host-owned and replaceable, is not written into the Song Graph, does not change notes or catalog instrument identity, loads no sample library, processes no vocal, and creates no offline audio file. General MIDI / SoundFont rendering remains the next rendering tier.
+
 ## Human vocal workflow
 
 The lead-vocal path is a singer's workflow, not a vocal-generation workflow:

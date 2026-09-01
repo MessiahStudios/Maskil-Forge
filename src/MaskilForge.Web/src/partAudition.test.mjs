@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { assemblePartNotes, formatTransportPosition, midiNumber, musicalPositionFromTicks, peakPolyphony, scheduleAbsoluteNotes, scheduleAssembledNotes, tickFromSeconds } from './partAuditionModel.js'
+import { assemblePartNotes, assemblePartVoices, formatTransportPosition, midiNumber, musicalPositionFromTicks, peakPolyphony, scheduleAbsoluteNotes, scheduleAbsolutePartVoices, scheduleAssembledNotes, scheduleAssembledPartVoices, tickFromSeconds } from './partAuditionModel.js'
 
 const pitch = (letter, octave, accidental = 'Natural') => ({ letter, accidental, octave })
 const note = (id, letter, octave, startTick, durationTicks = 480, velocity = 96) => ({
@@ -33,6 +33,18 @@ test('assemblePartNotes ignores missing note references', () => {
   assert.equal(assembled[0].id, 'a')
 })
 
+test('assemblePartVoices preserves instrument ownership when a note is shared by two parts', () => {
+  const voices = assemblePartVoices([
+    { id: 'cello-part', sectionId: 'verse', label: 'Cello foundation', instrumentProfileId: 'cello', noteEventIds: ['a'] },
+    { id: 'pad-part', sectionId: 'verse', label: 'Pad texture', instrumentProfileId: 'synth-pad', noteEventIds: ['a'] },
+  ], [note('a', 'C', 3, 480)])
+
+  assert.deepEqual(voices.map(item => ({ partId: item.partId, instrument: item.instrumentProfileId })), [
+    { partId: 'cello-part', instrument: 'cello' },
+    { partId: 'pad-part', instrument: 'synth-pad' },
+  ])
+})
+
 test('scheduleAssembledNotes converts absolute ticks and normalizes the earliest onset to zero', () => {
   const scheduled = scheduleAssembledNotes([
     note('late', 'G', 4, 960, 240, 100),
@@ -53,6 +65,19 @@ test('scheduleAbsoluteNotes keeps song-timeline silence before the first note', 
   assert.deepEqual(scheduled, [
     { midi: 67, startSeconds: 1, durationSeconds: 0.25, velocity: 100 },
   ])
+})
+
+test('part-voice schedules retain renderer inputs for section and song playback', () => {
+  const voices = assemblePartVoices([
+    { id: 'part', sectionId: 'verse', label: 'Bass pulse', instrumentProfileId: 'electric-bass', noteEventIds: ['late'] },
+  ], [note('late', 'E', 2, 960, 240, 100)])
+  const timing = { beatsPerMinute: 120, ticksPerQuarterNote: 480 }
+
+  assert.deepEqual(scheduleAssembledPartVoices(voices, timing), [{
+    midi: 40, startSeconds: 0, durationSeconds: 0.25, velocity: 100,
+    partId: 'part', partLabel: 'Bass pulse', instrumentProfileId: 'electric-bass',
+  }])
+  assert.equal(scheduleAbsolutePartVoices(voices, timing)[0].startSeconds, 1)
 })
 
 test('musicalPositionFromTicks converts absolute ticks with constant meter', () => {
