@@ -1213,6 +1213,14 @@ Add SoundFont or equivalent rendering, external DAW export, plugin scanning, VST
 
 **Deliverable:** the same Song Graph can drive multiple sound sources.
 
+### Milestone 8.1 — Built-in instrument-aware preview renderer
+
+Replace the uniform sine-wave arrangement preview with one explicit host-owned browser renderer. Musical-part ownership survives scheduling, including a stored note shared by more than one part. Every version-4 catalog instrument receives a distinct synthesized guide voice using Web Audio oscillators, envelopes, and filters; drum kit receives a short pitch-drop hit and unassigned or unknown instruments retain a neutral fallback. Section audition and full-song transport expose the active voice names, and development activity logs identify renderer version `maskil-browser-preview-v1`.
+
+This slice is audible preview, not a realism claim. Renderer mappings remain replaceable host knowledge and are not stored in the Song Graph. The slice does not alter notes, assign instruments, load samples, render WAV files, process vocals, scan plugins, host VST3, or make a renderer part of catalog identity. Schema stays at v31. Catalog stays at version 4. Phone Music remains hidden.
+
+**Deliverable:** an artist can hear that a chosen cello part and piano, bass, drum, wind, string, guitar, pad, lead, or neutral part are different arrangement voices before DAW handoff, without committing the song to that sound source.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.

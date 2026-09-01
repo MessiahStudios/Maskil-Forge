@@ -453,6 +453,7 @@ button.add-section { color: #fff1d3; border-color: #917743; background: #30291d;
 .part-audition { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .4rem 1rem; align-items: center; padding: .65rem; color: #d7e0cf; background: #111711; border: 1px solid #4a5947; border-radius: .35rem; }
 .part-audition > div { display: grid; gap: .15rem; }
 .part-audition small, .part-audition p { color: #9ca798; }
+.part-audition .renderer-voice-summary, .song-transport .renderer-voice-summary { color: #b9d3b2; font-weight: 650; }
 .part-audition p { grid-column: 1 / -1; margin: 0; font-size: .76rem; }
 .song-transport { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .45rem 1rem; align-items: center; margin: 0 0 1rem; padding: .75rem; color: #e4ecd8; background: #171c16; border: 1px solid #5a684f; border-radius: .4rem; }
 .song-transport > div { display: grid; gap: .15rem; }

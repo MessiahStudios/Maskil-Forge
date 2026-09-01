@@ -12,8 +12,9 @@ import { chordToneNames, voicingIssues } from './voicingValidation.js'
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
 import { PartAudition } from './partAudition'
-import { assemblePartNotes, formatTransportPosition, musicalPositionFromTicks, scheduleAbsoluteNotes, scheduleAssembledNotes, tickFromSeconds } from './partAuditionModel.js'
+import { assemblePartVoices, formatTransportPosition, musicalPositionFromTicks, scheduleAbsolutePartVoices, scheduleAssembledPartVoices, tickFromSeconds } from './partAuditionModel.js'
 import { PlaybackTransport } from './playbackTransport'
+import { builtInPreviewRendererId, builtInPreviewRendererName, previewRendererSummary } from './previewRendererModel.js'
 import { activateApplicationShellUpdate, isStandaloneApplication, registerApplicationShell, type InstallPromptEvent } from './pwa'
 import { cacheBrowserProject, discardBrowserProject, discardBrowserRecovery, discardDeviceLyricCapture, listBrowserProjects, listBrowserRecoveries, listDeviceLyricCaptures, loadBrowserProject, loadBrowserRecovery, loadDeviceLyricCapture, protectBrowserRecovery, saveDeviceLyricCapture, type BrowserProjectRecord, type BrowserRecoveryRecord, type DeviceLyricCaptureRecord } from './browserRecovery'
 import { browserRecoveryNotice, summarizeBrowserRecovery } from './browserRecoveryModel.js'
@@ -2858,18 +2859,18 @@ async function hearAssembledParts(sectionId: string) {
   stopChordAudition()
   stopTransport()
   const tempo = project.value.timeline.tempoMap.events[0].beatsPerMinute
-  const notes = assemblePartNotes(project.value.musicalParts, project.value.noteEvents, sectionId)
+  const voices = assemblePartVoices(project.value.musicalParts, project.value.noteEvents, sectionId)
   partAuditionState.sectionId = sectionId
   partAuditionState.messageSectionId = sectionId
   partAuditionState.message = 'Preparing your assembled parts…'
   try {
-    const scheduled = scheduleAssembledNotes(notes, {
+    const scheduled = scheduleAssembledPartVoices(voices, {
       beatsPerMinute: tempo,
       ticksPerQuarterNote: project.value.timeline.ticksPerQuarterNote,
     })
     const result = await partAudition.play(scheduled, () => stopPartAudition('Assembled-part preview finished.'))
-    partAuditionState.message = `Playing ${result.noteCount} assembled note${result.noteCount === 1 ? '' : 's'} at ${tempo} BPM.`
-    activityLog.write('success', 'arrangement.parts.hear', partAuditionState.message, { sectionId, noteCount: result.noteCount, partCount: parts.length })
+    partAuditionState.message = `Playing ${result.noteCount} part voice${result.noteCount === 1 ? '' : 's'} at ${tempo} BPM. ${previewRendererSummary(scheduled)}.`
+    activityLog.write('success', 'arrangement.parts.hear', partAuditionState.message, { sectionId, noteCount: result.noteCount, partCount: parts.length, rendererId: builtInPreviewRendererId })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'The assembled parts could not be played.'
     stopPartAudition(message)
@@ -2883,12 +2884,12 @@ async function startTransport() {
   stopChordAudition()
   stopPartAudition()
   const tempo = project.value.timeline.tempoMap.events[0].beatsPerMinute
-  const notes = assemblePartNotes(parts, project.value.noteEvents)
+  const voices = assemblePartVoices(parts, project.value.noteEvents)
   transportState.playing = true
   transportState.message = 'Preparing song playback…'
   transportState.positionLabel = 'Bar 1 · Beat 1'
   try {
-    const scheduled = scheduleAbsoluteNotes(notes, {
+    const scheduled = scheduleAbsolutePartVoices(voices, {
       beatsPerMinute: tempo,
       ticksPerQuarterNote: project.value.timeline.ticksPerQuarterNote,
     })
@@ -2901,8 +2902,8 @@ async function startTransport() {
         activityLog.write('success', 'transport.play', 'Song playback finished.', { noteCount: result.noteCount })
       })
     transportState.noteCount = result.noteCount
-    transportState.message = `Playing ${result.noteCount} assembled note${result.noteCount === 1 ? '' : 's'} across the song at ${tempo} BPM.`
-    activityLog.write('success', 'transport.play', transportState.message, { noteCount: result.noteCount, partCount: parts.length })
+    transportState.message = `Playing ${result.noteCount} part voice${result.noteCount === 1 ? '' : 's'} across the song at ${tempo} BPM. ${previewRendererSummary(scheduled)}.`
+    activityLog.write('success', 'transport.play', transportState.message, { noteCount: result.noteCount, partCount: parts.length, rendererId: builtInPreviewRendererId })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Song playback could not start.'
     stopTransport(message)
@@ -5074,7 +5075,8 @@ onBeforeUnmount(() => {
         <section v-if="project.musicalParts.length" id="song-transport" class="song-transport" aria-label="Song playback transport">
           <div>
             <strong>Song transport</strong>
-            <small>Play assembled musical parts across the song timeline. This does not change the project.</small>
+            <small>Play assembled musical parts across the song timeline with {{ builtInPreviewRendererName }}. Catalog instruments receive distinct synthesized guide voices; unassigned parts stay neutral. Playback does not change the project.</small>
+            <small class="renderer-voice-summary">{{ previewRendererSummary(project.musicalParts) }}</small>
           </div>
           <p class="transport-position" aria-live="polite">{{ transportState.positionLabel }}</p>
           <button v-if="!transportState.playing" type="button" data-readiness-action="hear" :disabled="busy" @click="startTransport()">▶ Play song</button>
@@ -5336,7 +5338,8 @@ onBeforeUnmount(() => {
               <section v-if="partsForSection(section.id).length" class="part-audition" :aria-label="`Hear assembled parts for ${section.title}`">
                 <div>
                   <strong>Hear assembled parts</strong>
-                  <small>Play the notes already connected to musical parts in this section. This preview does not change the song.</small>
+                  <small>Play the notes already connected to musical parts in this section. {{ builtInPreviewRendererName }} makes catalog instrument choices audibly distinct without storing a renderer in the song.</small>
+                  <small class="renderer-voice-summary">{{ previewRendererSummary(partsForSection(section.id)) }}</small>
                 </div>
                 <button v-if="partAuditionState.sectionId !== section.id" type="button" :disabled="busy" @click="hearAssembledParts(section.id)">▶ Hear assembled parts</button>
                 <button v-else type="button" class="quiet" @click="stopPartAudition('Playback stopped.')">■ Stop</button>
