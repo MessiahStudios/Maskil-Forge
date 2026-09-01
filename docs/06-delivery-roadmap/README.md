@@ -1175,6 +1175,16 @@ Schema stays at v31. Catalog stays at version 4. Desktop Music can export the fi
 
 **Deliverable:** an artist can open a song in another music application and see its stored Folk or R&B genre, without the host inventing a style that was never chosen.
 
+### Milestone 7.36 — Visible timing authority
+
+Make the timing contract exposed by the real DAW smoke test visible before export. Section outline entries, section spans, and length controls identify their bars as **planned** arrangement timing. The structure workspace derives the current form span and names its exclusive boundary—for example, 64 planned bars ending when bar 65 begins—without presenting that plan as lyric-derived or final performed duration. The MIDI panel repeats that its current form boundary may be extended by later approved notes or controller events.
+
+This slice changes presentation only. It does not add a hidden confirmation flag, infer duration from word or syllable count, assign sung syllable lengths, create rests or melisma, move approved events, or change MIDI bytes. Songs without sections continue to derive MIDI length from their stored events. A later schema slice may add artist-authored syllable duration only after its editing, migration, and performance-authority rules are explicit.
+
+Schema stays at v31. Catalog stays at version 4. Desktop and the phone timing view use the same planned-language contract where timing is shown. Phone Music remains hidden.
+
+**Deliverable:** an artist can distinguish the current arrangement plan from the eventual performed song length before accepting or exporting musical timing.
+
 ## Delivery foundation — Portable before platform-specific
 
 Before native packaging or account infrastructure, define a versioned Maskil project package that can be explicitly exported, validated, migrated, imported, and recovered. The current JSON Song Graph is the creative core; the package must grow to own referenced vocal and audio assets when those arrive.

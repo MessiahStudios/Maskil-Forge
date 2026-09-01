@@ -89,6 +89,8 @@ Slice 7.34 emits each decided section song role as MIDI text at that section's s
 
 Slice 7.35 emits the stored song genre as MIDI text at tick 0. Unspecified genre is omitted rather than invented from the title or description.
 
+Slice 7.36 makes timing authority visible in the editor without changing the Song Graph. Section spans and length controls say **planned**, the structure workspace summarizes the current planned-bar count and exclusive form boundary, and MIDI export repeats that later stored events can extend the plan. Lyrics and syllable onsets are explicitly not presented as duration evidence, and the eventual performance may be shorter or longer. Songs without sections continue to use event-derived MIDI length. Schema stays at v31 and no confirmation decision is invented for the artist.
+
 ## Generator order
 
 1. Section energy and density plan

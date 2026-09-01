@@ -30,6 +30,7 @@ import { analyzeSavedVocalTake, loudnessAnalyzerId, loudnessObservationKind } fr
 import { analyzeSavedVocalTakePitch, pitchAnalyzerId, pitchObservationKind } from './pitchAnalysis.js'
 import { analyzeSavedVocalTakeOnsets, onsetAnalyzerId, onsetObservationKind } from './onsetAnalysis.js'
 import { buildPerformanceEvidenceGroups, nextPerformanceEvidenceVisibleCount } from './performanceEvidenceInspector.js'
+import { plannedSongTiming } from './timingAuthorityModel.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -139,6 +140,7 @@ const browserRecoveryNeedsReview = ref(false)
 let recoveryTimer: ReturnType<typeof setTimeout> | undefined
 let deviceLyricCaptureTimer: ReturnType<typeof setTimeout> | undefined
 const project = computed(() => response.value?.project ?? null)
+const timingAuthority = computed(() => plannedSongTiming(project.value?.timeline.sectionPlacements ?? []))
 const structureLocked = computed(() => Boolean(project.value?.musicalParts.length))
 const workspaceConnectionTitle = computed(() => workspaceConnection.value === 'ready'
   ? 'Local workspace connected'
@@ -4586,6 +4588,14 @@ onBeforeUnmount(() => {
           <button v-if="!phoneCaptureMode" type="button" class="quiet" @click="goToCreatorStage('arrangement')">Manage timing →</button>
         </aside>
 
+        <aside v-if="project.sections.length && (!phoneCaptureMode || phoneChrome.showSectionTiming)" class="timing-authority-notice" aria-label="Current planned song timing">
+          <div>
+            <p class="eyebrow">Current plan, not final duration</p>
+            <strong>{{ timingAuthority.label }}</strong>
+            <p>{{ timingAuthority.structureNotice }}</p>
+          </div>
+        </aside>
+
         <p v-if="project.sections.length === 0" class="empty-song">Choose a section above and start writing your first line.</p>
         <nav v-else-if="!phoneCaptureMode || !phoneChrome.compactShapeChrome || phoneShowsSongOutline(project.sections.length)" class="song-outline" aria-label="Song section outline">
           <div class="song-outline-heading">
@@ -4606,7 +4616,7 @@ onBeforeUnmount(() => {
             <li v-for="(section, index) in project.sections" :key="`outline-${section.id}`">
               <button type="button" :class="{ active: focusedSectionId === section.id, ready: songOutlineItems[index]?.ready }" :aria-current="focusedSectionId === section.id ? 'location' : undefined" @click="focusSongSection(section.id)">
                 <span class="outline-order">{{ String(index + 1).padStart(2, '0') }}</span>
-                <span class="outline-copy"><strong>{{ section.title }}</strong><small><template v-if="section.structuralFunction !== 'Unspecified'">{{ structuralFunctionLabel(section.structuralFunction) }} · </template>{{ label(section.kind) }}<template v-if="!phoneCaptureMode || phoneChrome.showSectionPerformance"> · {{ deliveryLabel(section.delivery) }}</template><template v-if="!phoneCaptureMode || phoneChrome.showSectionTiming"> · {{ placementFor(section.id)?.durationBars ?? 0 }} bars</template> · {{ section.lyricLines.length }} line{{ section.lyricLines.length === 1 ? '' : 's' }}</small></span>
+                <span class="outline-copy"><strong>{{ section.title }}</strong><small><template v-if="section.structuralFunction !== 'Unspecified'">{{ structuralFunctionLabel(section.structuralFunction) }} · </template>{{ label(section.kind) }}<template v-if="!phoneCaptureMode || phoneChrome.showSectionPerformance"> · {{ deliveryLabel(section.delivery) }}</template><template v-if="!phoneCaptureMode || phoneChrome.showSectionTiming"> · {{ placementFor(section.id)?.durationBars ?? 0 }} planned bar{{ placementFor(section.id)?.durationBars === 1 ? '' : 's' }}</template> · {{ section.lyricLines.length }} line{{ section.lyricLines.length === 1 ? '' : 's' }}</small></span>
                 <span class="outline-progress">{{ songOutlineItems[index]?.progress }}</span>
               </button>
             </li>
@@ -4626,8 +4636,8 @@ onBeforeUnmount(() => {
                 <span>{{ label(section.kind) }}</span>
                 <label><span class="sr-only">Section title</span><input :value="section.title" maxlength="100" @change="renameSection(section.id, ($event.target as HTMLInputElement).value)" /></label>
                 <div v-if="(!phoneCaptureMode || phoneChrome.showSectionTiming) && placementFor(section.id)" class="section-position">
-                  <span>Bars {{ placementFor(section.id)!.start.bar }}–{{ placementFor(section.id)!.start.bar + placementFor(section.id)!.durationBars - 1 }}</span>
-                  <label>Length <input :value="placementFor(section.id)!.durationBars" type="number" min="1" max="128" :aria-label="`${section.title} length in bars`" :disabled="busy || structureLocked" :title="structureLocked ? 'Remove all musical parts before changing section length.' : undefined" @change="setSectionDuration(section.id, Number(($event.target as HTMLInputElement).value))" /> bars</label>
+                  <span>Planned bars {{ placementFor(section.id)!.start.bar }}–{{ placementFor(section.id)!.start.bar + placementFor(section.id)!.durationBars - 1 }}</span>
+                  <label>Planned length <input :value="placementFor(section.id)!.durationBars" type="number" min="1" max="128" :aria-label="`${section.title} planned length in bars`" :disabled="busy || structureLocked" :title="structureLocked ? 'Remove all musical parts before changing section length.' : 'Editable arrangement planning; lyrics do not determine this length.'" @change="setSectionDuration(section.id, Number(($event.target as HTMLInputElement).value))" /> bars</label>
                 </div>
               </div>
               <div class="section-actions">
@@ -5080,7 +5090,7 @@ onBeforeUnmount(() => {
         </div>
         <div v-if="project.sections.length" class="arrangement-sections">
           <article v-for="section in project.sections" :id="`arrangement-${section.id}`" :key="`arrangement-${section.id}`" class="arrangement-card">
-            <div><strong>{{ section.title }}</strong><small>{{ label(section.kind) }} · {{ placementFor(section.id)?.durationBars ?? 0 }} bars</small></div>
+            <div><strong>{{ section.title }}</strong><small>{{ label(section.kind) }} · {{ placementFor(section.id)?.durationBars ?? 0 }} planned bar{{ placementFor(section.id)?.durationBars === 1 ? '' : 's' }}</small></div>
             <label>Energy
               <select :value="arrangementEnergy(section.id)" :disabled="busy" @change="setSectionArrangement(section.id, ($event.target as HTMLSelectElement).value as SectionEnergy, arrangementDensity(section.id))">
                 <option v-for="energy in sectionEnergies" :key="energy" :value="energy">{{ energy }}</option>
@@ -5343,6 +5353,7 @@ onBeforeUnmount(() => {
         <div>
           <span class="eyebrow">Take your sketch with you</span>
           <h2 id="midi-export-title">Export playable notes</h2>
+          <p class="timing-authority-copy"><strong>{{ timingAuthority.label }}</strong> {{ timingAuthority.midiNotice }}</p>
           <p v-if="project.noteEvents.length">Your {{ project.noteEvents.length }} approved playable note{{ project.noteEvents.length === 1 ? '' : 's' }} can be opened in another music application. Timing and dynamics are preserved. The file is format 1: a conductor track plus one named track for Unassigned and each catalog instrument that actually exports notes. Stored musical-part labels export as MIDI instrument names on the tracks that actually receive those notes, without renaming catalog tracks or inventing a part that never exported. The conductor track includes the song key as a MIDI key signature when that key is a conventional major or minor spelling, includes each stored section title as a MIDI marker at that section’s start, includes each placed syllable as a MIDI lyric, includes each stored harmony chord as MIDI text at that chord’s start, includes each stored breath after a placed syllable as a MIDI cue point at that syllable’s start, includes the stored artist name as a MIDI copyright notice when an artist is set, and includes the stored song description as MIDI text when a description is set, includes the stored genre as MIDI text when a genre is set, and includes each decided song role as MIDI text at that section’s start. Named pitched catalog parts export on inspectable MIDI channels with an inspectable General MIDI program change. Tagged dynamics use each instrument’s inspectable controller: flute swell is Breath Controller (CC 2); synth lead swell is Brightness (CC 74); other catalog swells stay Expression (CC 11). Cello, violin, acoustic guitar, and electric guitar declare an inspectable pitch-bend range of ±2 semitones. MIDI does not move the pitch wheel. Synth-lead portamento is CC 65 and stays off so stored notes stay discrete. Drum kit stays on channel 10 as Acoustic Bass Drum without a program change, a dynamics controller, or a pitch-bend range. Unassigned notes stay on channel 1. Untagged dynamics stay CC 11.</p>
           <p v-else>Your song does not contain playable notes yet. Create and approve a harmony sketch, a pitch-gesture sketch, an onset-gesture sketch, or a loudness-gesture sketch first.</p>
         </div>
