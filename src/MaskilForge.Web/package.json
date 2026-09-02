@@ -4,12 +4,17 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "sync:soundfont-worklet": "node scripts/sync-soundfont-worklet.mjs",
+    "predev": "npm run sync:soundfont-worklet",
     "dev": "vite",
     "test": "node --test src/*.test.mjs",
+    "prebuild": "npm run sync:soundfont-worklet",
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
+    "spessasynth_core": "^4.3.22",
+    "spessasynth_lib": "^4.3.14",
     "vue": "^3.5.22"
   },
   "devDependencies": {

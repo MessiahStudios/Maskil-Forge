@@ -1221,6 +1221,16 @@ This slice is audible preview, not a realism claim. Renderer mappings remain rep
 
 **Deliverable:** an artist can hear that a chosen cello part and piano, bass, drum, wind, string, guitar, pad, lead, or neutral part are different arrangement voices before DAW handoff, without committing the song to that sound source.
 
+### Milestone 8.2 — Device-local General MIDI SoundFont preview
+
+Let the desktop artist choose an SF2, SF3, or DLS bank from the current device and use it for assembled-section audition and whole-song transport. Renderer `maskil-soundfont-preview-v1` runs through SpessaSynth's Web Audio worklet and follows the same inspectable General MIDI channel and program maps already used by MIDI export. Musician-facing one-based values become zero-based synth values only at the renderer boundary. Drum kit remains channel 10 with no program change; unassigned and future unknown instruments use Acoustic Grand Piano on the unassigned channel as an audible renderer fallback. A stored note shared by multiple parts still reaches the schedule once per owning part.
+
+Loading the bank is an explicit device action. Its bytes remain in memory for the current tab and are not uploaded, persisted, cached, packaged, backed up, or written into the Song Graph. Reloading requires the artist to choose the bank again. The installable shell caches the renderer worklet, not the artist's bank. Clearing the bank, a load failure, or simply choosing the built-in option restores renderer 8.1. Activity logs identify the active renderer, bank format, and byte size without logging bank bytes, local paths, or filenames.
+
+This slice bundles no bank, makes no quality promise about an artist-supplied bank, renders no WAV, processes no vocal, scans no plugin, and does not make General MIDI program identity part of the catalog instrument. SpessaSynth is an Apache-2.0 implementation dependency; sound-bank licensing remains the artist's responsibility. Schema stays at v31. Catalog stays at version 4. Phone Music remains hidden.
+
+**Deliverable:** an artist can audition the same Song Graph through a real sample-based General MIDI bank on their device, compare it with Maskil's built-in guide voices, and change or remove that renderer without changing the song.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.

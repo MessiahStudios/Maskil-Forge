@@ -10,9 +10,9 @@ The artist supplies the words, intent, revisions, and the recorded human lead vo
 
 ## Now
 
-The prototype and editable-demo MVP are complete through slice 5.15. Current named work is **Milestone 8.1**. Schema is **v31**. The instrument catalog is **version 4**. Desktop Music can hear instrument-aware built-in previews and export stored song facts as a format-1 Standard MIDI File. Phone Music stays hidden. General MIDI / SoundFont rendering and Milestone 9.1 vocal-production intent are not started.
+The prototype and editable-demo MVP are complete through slice 5.15. Current named work is **Milestone 8.2**. Schema is **v31**. The instrument catalog is **version 4**. Desktop Music can switch between instrument-aware built-in previews and a user-supplied SF2, SF3, or DLS General MIDI bank, then export stored song facts as a format-1 Standard MIDI File. Phone Music stays hidden. Bundled sound banks, offline WAV rendering, plugin hosting, and Milestone 9.1 vocal-production intent are not started.
 
-The app can capture ideas and lyrics, shape sections, time syllables, plan harmony and arrangement, approve playable notes, name catalog instruments on musical parts, hear those parts through distinct synthesized guide voices, record and review rough vocal takes, and export MIDI without inventing unstored material. Undo is session-only. Songs persist in a local library with recovery, Trash, and portable `.maskil` / `.maskil.json` interchange.
+The app can capture ideas and lyrics, shape sections, time syllables, plan harmony and arrangement, approve playable notes, name catalog instruments on musical parts, hear those parts through distinct synthesized guide voices or a device-local General MIDI sound bank, record and review rough vocal takes, and export MIDI without inventing unstored material. Undo is session-only. Songs persist in a local library with recovery, Trash, and portable `.maskil` / `.maskil.json` interchange.
 
 It is not a DAW, a prompt-to-song generator, or a complete audio renderer.
 

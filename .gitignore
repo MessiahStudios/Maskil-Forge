@@ -10,6 +10,7 @@ artifacts/
 node_modules/
 dist/
 *.tsbuildinfo
+src/MaskilForge.Web/public/spessasynth_processor.min.js
 
 # Local persistence and configuration
 App_Data/
