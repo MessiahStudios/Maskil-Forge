@@ -11,10 +11,12 @@ import { structuralRole, structuralRoles } from './structuralRoles.js'
 import { chordToneNames, voicingIssues } from './voicingValidation.js'
 import type { RegisteredPitch } from './api'
 import { ChordAudition } from './chordAudition'
-import { PartAudition } from './partAudition'
+import { PartAudition, type ScheduledNote } from './partAudition'
 import { assemblePartVoices, formatTransportPosition, musicalPositionFromTicks, scheduleAbsolutePartVoices, scheduleAssembledPartVoices, tickFromSeconds } from './partAuditionModel.js'
 import { PlaybackTransport } from './playbackTransport'
 import { builtInPreviewRendererId, builtInPreviewRendererName, previewRendererSummary } from './previewRendererModel.js'
+import { SoundFontRenderer } from './soundFontRenderer'
+import { formatSoundBankSize, prepareSoundFontSchedule, soundFontRendererId, soundFontRendererName, soundFontRendererSummary } from './soundFontRendererModel.js'
 import { activateApplicationShellUpdate, isStandaloneApplication, registerApplicationShell, type InstallPromptEvent } from './pwa'
 import { cacheBrowserProject, discardBrowserProject, discardBrowserRecovery, discardDeviceLyricCapture, listBrowserProjects, listBrowserRecoveries, listDeviceLyricCaptures, loadBrowserProject, loadBrowserRecovery, loadDeviceLyricCapture, protectBrowserRecovery, saveDeviceLyricCapture, type BrowserProjectRecord, type BrowserRecoveryRecord, type DeviceLyricCaptureRecord } from './browserRecovery'
 import { browserRecoveryNotice, summarizeBrowserRecovery } from './browserRecoveryModel.js'
@@ -261,6 +263,12 @@ const accentProposals = reactive<Record<string, AccentProposal>>({})
 const chordAudition = new ChordAudition()
 const partAudition = new PartAudition()
 const playbackTransport = new PlaybackTransport()
+const soundFontRenderer = new SoundFontRenderer()
+const previewRendererChoice = ref<'built-in' | 'soundfont'>('built-in')
+const soundFontState = reactive({ busy: false, bankName: '', bankSize: 0, message: 'No device-local sound bank loaded.' })
+const activePreviewRendererName = computed(() => previewRendererChoice.value === 'soundfont' && soundFontState.bankName
+  ? soundFontRendererName
+  : builtInPreviewRendererName)
 const auditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const partAuditionState = reactive({ sectionId: '', messageSectionId: '', message: '' })
 const transportState = reactive({ playing: false, positionLabel: 'Bar 1 · Beat 1', message: '', noteCount: 0 })
@@ -275,6 +283,7 @@ function accept(next: ProjectResponse, message: string, markPersisted = false) {
   stopChordAudition()
   stopPartAudition()
   stopTransport()
+  void soundFontRenderer.unload()
   response.value = next
   Object.keys(placementDrafts).forEach(key => delete placementDrafts[key])
   Object.keys(harmonyCandidateLabelDrafts).forEach(key => delete harmonyCandidateLabelDrafts[key])
@@ -2615,6 +2624,87 @@ function midiProgramLabel(instrumentId: string) {
   if (!assignment.applicable || assignment.midiProgram == null || !assignment.programName) return 'GM program does not apply.'
   return `GM program ${assignment.midiProgram} ${assignment.programName}`
 }
+function soundFontPresetName(instrumentId: string | null | undefined) {
+  if (instrumentId === 'drum-kit') return 'Drum Kit'
+  const assignment = instrumentId
+    ? instrumentMidiPrograms.value?.assignments.find(item => item.instrumentId === instrumentId)
+    : null
+  return assignment?.applicable && assignment.programName
+    ? assignment.programName
+    : 'Acoustic Grand Piano (fallback)'
+}
+function currentPreviewRendererSummary(items: Array<{ instrumentProfileId?: string | null }>) {
+  if (previewRendererChoice.value !== 'soundfont' || !soundFontState.bankName)
+    return previewRendererSummary(items)
+  return soundFontRendererSummary(soundFontState.bankName,
+    items.map(item => ({ soundFontPresetName: soundFontPresetName(item.instrumentProfileId) })))
+}
+function activeRendererId() {
+  return previewRendererChoice.value === 'soundfont' && soundFontState.bankName
+    ? soundFontRendererId
+    : builtInPreviewRendererId
+}
+function activeSoundFontRenderer() {
+  return previewRendererChoice.value === 'soundfont' && soundFontState.bankName
+    ? soundFontRenderer
+    : undefined
+}
+function prepareActivePreviewSchedule(notes: ScheduledNote[]) {
+  return activeSoundFontRenderer()
+    ? prepareSoundFontSchedule(notes, instrumentMidiChannels.value, instrumentMidiPrograms.value)
+    : notes
+}
+function stopPreviewPlaybackForRendererChange() {
+  const partWasPlaying = Boolean(partAuditionState.sectionId)
+  const transportWasPlaying = transportState.playing
+  stopPartAudition(partWasPlaying ? 'Playback stopped because the preview renderer changed.' : '')
+  stopTransport(transportWasPlaying ? 'Playback stopped because the preview renderer changed.' : '')
+}
+async function selectSoundBank(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  stopPreviewPlaybackForRendererChange()
+  soundFontState.busy = true
+  soundFontState.message = `Loading ${file.name} on this device…`
+  activityLog.write('info', 'renderer.soundfont.load', 'Device-local sound bank selected.', { size: file.size })
+  try {
+    const bank = await soundFontRenderer.load(file)
+    soundFontState.bankName = bank.name
+    soundFontState.bankSize = bank.size
+    previewRendererChoice.value = 'soundfont'
+    soundFontState.message = `${bank.name} (${formatSoundBankSize(bank.size)}) is ready for this tab.`
+    activityLog.write('success', 'renderer.soundfont.load', 'Device-local sound bank is ready.', { rendererId: soundFontRendererId, size: bank.size, kind: bank.kind })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'The sound bank could not be loaded.'
+    soundFontState.message = message
+    if (!soundFontState.bankName) previewRendererChoice.value = 'built-in'
+    activityLog.write('error', 'renderer.soundfont.load', message)
+  } finally {
+    soundFontState.busy = false
+    input.value = ''
+  }
+}
+function switchPreviewRenderer() {
+  stopPreviewPlaybackForRendererChange()
+  const renderer = previewRendererChoice.value === 'soundfont' ? soundFontRendererName : builtInPreviewRendererName
+  soundFontState.message = `${renderer} selected. Playback choices stay on this device and are not saved in the song.`
+  activityLog.write('info', 'renderer.select', soundFontState.message, { rendererId: activeRendererId() })
+}
+async function clearSoundBank() {
+  stopPreviewPlaybackForRendererChange()
+  previewRendererChoice.value = 'built-in'
+  soundFontState.busy = true
+  try {
+    await soundFontRenderer.unload()
+    soundFontState.bankName = ''
+    soundFontState.bankSize = 0
+    soundFontState.message = 'Device-local sound bank cleared. Built-in preview selected.'
+    activityLog.write('info', 'renderer.soundfont.clear', soundFontState.message)
+  } finally {
+    soundFontState.busy = false
+  }
+}
 function midiControllerLabel(instrumentId: string) {
   const assignment = instrumentMidiControllers.value?.assignments.find(item => item.instrumentId === instrumentId)
   if (!assignment) return ''
@@ -2864,13 +2954,13 @@ async function hearAssembledParts(sectionId: string) {
   partAuditionState.messageSectionId = sectionId
   partAuditionState.message = 'Preparing your assembled parts…'
   try {
-    const scheduled = scheduleAssembledPartVoices(voices, {
+    const scheduled = prepareActivePreviewSchedule(scheduleAssembledPartVoices(voices, {
       beatsPerMinute: tempo,
       ticksPerQuarterNote: project.value.timeline.ticksPerQuarterNote,
-    })
-    const result = await partAudition.play(scheduled, () => stopPartAudition('Assembled-part preview finished.'))
-    partAuditionState.message = `Playing ${result.noteCount} part voice${result.noteCount === 1 ? '' : 's'} at ${tempo} BPM. ${previewRendererSummary(scheduled)}.`
-    activityLog.write('success', 'arrangement.parts.hear', partAuditionState.message, { sectionId, noteCount: result.noteCount, partCount: parts.length, rendererId: builtInPreviewRendererId })
+    }))
+    const result = await partAudition.play(scheduled, () => stopPartAudition('Assembled-part preview finished.'), activeSoundFontRenderer())
+    partAuditionState.message = `Playing ${result.noteCount} part voice${result.noteCount === 1 ? '' : 's'} at ${tempo} BPM. ${currentPreviewRendererSummary(scheduled)}.`
+    activityLog.write('success', 'arrangement.parts.hear', partAuditionState.message, { sectionId, noteCount: result.noteCount, partCount: parts.length, rendererId: activeRendererId() })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'The assembled parts could not be played.'
     stopPartAudition(message)
@@ -2889,10 +2979,10 @@ async function startTransport() {
   transportState.message = 'Preparing song playback…'
   transportState.positionLabel = 'Bar 1 · Beat 1'
   try {
-    const scheduled = scheduleAbsolutePartVoices(voices, {
+    const scheduled = prepareActivePreviewSchedule(scheduleAbsolutePartVoices(voices, {
       beatsPerMinute: tempo,
       ticksPerQuarterNote: project.value.timeline.ticksPerQuarterNote,
-    })
+    }))
     const result = await playbackTransport.play(
       scheduled,
       seconds => updateTransportPosition(seconds),
@@ -2900,10 +2990,11 @@ async function startTransport() {
         transportState.playing = false
         transportState.message = 'Playback finished.'
         activityLog.write('success', 'transport.play', 'Song playback finished.', { noteCount: result.noteCount })
-      })
+      },
+      activeSoundFontRenderer())
     transportState.noteCount = result.noteCount
-    transportState.message = `Playing ${result.noteCount} part voice${result.noteCount === 1 ? '' : 's'} across the song at ${tempo} BPM. ${previewRendererSummary(scheduled)}.`
-    activityLog.write('success', 'transport.play', transportState.message, { noteCount: result.noteCount, partCount: parts.length, rendererId: builtInPreviewRendererId })
+    transportState.message = `Playing ${result.noteCount} part voice${result.noteCount === 1 ? '' : 's'} across the song at ${tempo} BPM. ${currentPreviewRendererSummary(scheduled)}.`
+    activityLog.write('success', 'transport.play', transportState.message, { noteCount: result.noteCount, partCount: parts.length, rendererId: activeRendererId() })
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Song playback could not start.'
     stopTransport(message)
@@ -5072,11 +5163,28 @@ onBeforeUnmount(() => {
             </li>
           </ol>
         </section>
+        <section v-if="project.musicalParts.length" class="renderer-setup" aria-labelledby="renderer-setup-title">
+          <div>
+            <span class="eyebrow">Device-local sound source</span>
+            <h3 id="renderer-setup-title">Preview renderer</h3>
+            <p>Keep the built-in guide voices, or load an SF2, SF3, or DLS General MIDI bank from this device. Bank bytes stay in this browser tab: they are not uploaded, copied into the project, or written into the Song Graph.</p>
+          </div>
+          <label class="soundfont-file">Load sound bank
+            <input type="file" accept=".sf2,.sf3,.dls" :disabled="busy || soundFontState.busy" @change="selectSoundBank" />
+          </label>
+          <fieldset class="renderer-choice">
+            <legend>Use for arrangement playback</legend>
+            <label><input v-model="previewRendererChoice" type="radio" value="built-in" :disabled="soundFontState.busy" @change="switchPreviewRenderer" /> Built-in guide voices</label>
+            <label><input v-model="previewRendererChoice" type="radio" value="soundfont" :disabled="soundFontState.busy || !soundFontState.bankName" @change="switchPreviewRenderer" /> Loaded SoundFont / DLS</label>
+          </fieldset>
+          <button v-if="soundFontState.bankName" type="button" class="quiet" :disabled="soundFontState.busy" @click="clearSoundBank">Clear bank</button>
+          <p class="renderer-bank-status" role="status" aria-live="polite">{{ soundFontState.message }}</p>
+        </section>
         <section v-if="project.musicalParts.length" id="song-transport" class="song-transport" aria-label="Song playback transport">
           <div>
             <strong>Song transport</strong>
-            <small>Play assembled musical parts across the song timeline with {{ builtInPreviewRendererName }}. Catalog instruments receive distinct synthesized guide voices; unassigned parts stay neutral. Playback does not change the project.</small>
-            <small class="renderer-voice-summary">{{ previewRendererSummary(project.musicalParts) }}</small>
+            <small>Play assembled musical parts across the song timeline with {{ activePreviewRendererName }}. A loaded General MIDI bank follows the same inspectable channel and program map used by MIDI export. Playback does not change the project.</small>
+            <small class="renderer-voice-summary">{{ currentPreviewRendererSummary(project.musicalParts) }}</small>
           </div>
           <p class="transport-position" aria-live="polite">{{ transportState.positionLabel }}</p>
           <button v-if="!transportState.playing" type="button" data-readiness-action="hear" :disabled="busy" @click="startTransport()">▶ Play song</button>
@@ -5338,8 +5446,8 @@ onBeforeUnmount(() => {
               <section v-if="partsForSection(section.id).length" class="part-audition" :aria-label="`Hear assembled parts for ${section.title}`">
                 <div>
                   <strong>Hear assembled parts</strong>
-                  <small>Play the notes already connected to musical parts in this section. {{ builtInPreviewRendererName }} makes catalog instrument choices audibly distinct without storing a renderer in the song.</small>
-                  <small class="renderer-voice-summary">{{ previewRendererSummary(partsForSection(section.id)) }}</small>
+                  <small>Play the notes already connected to musical parts in this section with {{ activePreviewRendererName }}. The renderer remains device-local and is never stored as instrument identity.</small>
+                  <small class="renderer-voice-summary">{{ currentPreviewRendererSummary(partsForSection(section.id)) }}</small>
                 </div>
                 <button v-if="partAuditionState.sectionId !== section.id" type="button" :disabled="busy" @click="hearAssembledParts(section.id)">▶ Hear assembled parts</button>
                 <button v-else type="button" class="quiet" @click="stopPartAudition('Playback stopped.')">■ Stop</button>

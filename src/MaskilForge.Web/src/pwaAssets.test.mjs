@@ -27,3 +27,7 @@ test('application shell cache explicitly leaves project API requests on the netw
   assert.match(serviceWorker, /caches\.match\('\/'\)/)
   assert.doesNotMatch(serviceWorker, /cache\.put\([^\n]*\/api/)
 })
+
+test('application shell caches the SoundFont playback worklet for installed use', () => {
+  assert.match(serviceWorker, /'\/spessasynth_processor\.min\.js'/)
+})

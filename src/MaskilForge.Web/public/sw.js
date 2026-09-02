@@ -1,4 +1,4 @@
-const shellCacheName = 'maskil-forge-shell-v68'
+const shellCacheName = 'maskil-forge-shell-v69'
 const shellDocuments = ['/', '/logs.html']
 const shellResources = [
   ...shellDocuments,
@@ -6,6 +6,7 @@ const shellResources = [
   '/icons/maskil-forge.svg',
   '/icons/maskil-forge-192.png',
   '/icons/maskil-forge-512.png',
+  '/spessasynth_processor.min.js',
 ]
 
 function isProjectApi(url) {
