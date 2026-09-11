@@ -625,12 +625,23 @@ export interface SongProject {
   expressionCurves: ExpressionCurve[]
   vocalProductionIntent: VocalProductionIntent | null
   vocalProcessingChain: VocalProcessingChain | null
+  vocalProcessingRecipes: VocalProcessingRecipe[]
   key: MusicalKey
 }
 
 export type VocalProductionDescriptor = 'Clean' | 'Warm' | 'Intimate' | 'Forward' | 'SoftRock' | 'Cinematic' | 'Aggressive'
 
 export type VocalProcessingRole = 'Cleanup' | 'CorrectiveTone' | 'CharacterCompression' | 'Saturation' | 'TransparentDynamics' | 'SibilanceControl' | 'Space'
+
+export interface VocalProcessingRecipe {
+  assetId: string
+  sourceSha256: string
+  processorId: string
+  role: VocalProcessingRole
+  cutoffHertz: number
+  q: number
+  acceptedUtc: string
+}
 
 export interface VocalProcessingChain {
   roles: VocalProcessingRole[]
@@ -766,6 +777,7 @@ export interface ProjectCommand {
   vocalProductionDescriptors?: VocalProductionDescriptor[]
   vocalProductionNotes?: string
   vocalProcessingRoles?: VocalProcessingRole[]
+  sourceSha256?: string
 }
 
 export interface ProposedSongSection {

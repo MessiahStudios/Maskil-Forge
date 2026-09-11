@@ -33,6 +33,7 @@ public sealed class SongProject
     private readonly List<PerformanceObservationGesture> _performanceObservationGestures;
     private readonly List<VocalTakePlacement> _vocalTakePlacements;
     private readonly List<ExpressionCurve> _expressionCurves;
+    private readonly List<VocalProcessingRecipe> _vocalProcessingRecipes;
 
     [JsonConstructor]
     public SongProject(
@@ -62,7 +63,8 @@ public sealed class SongProject
         IReadOnlyList<VocalTakePlacement>? vocalTakePlacements = null,
         IReadOnlyList<ExpressionCurve>? expressionCurves = null,
         VocalProductionIntent? vocalProductionIntent = null,
-        VocalProcessingChain? vocalProcessingChain = null)
+        VocalProcessingChain? vocalProcessingChain = null,
+        IReadOnlyList<VocalProcessingRecipe>? vocalProcessingRecipes = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -90,6 +92,12 @@ public sealed class SongProject
         _expressionCurves = expressionCurves?.ToList() ?? [];
         VocalProductionIntent = vocalProductionIntent;
         VocalProcessingChain = vocalProcessingChain;
+        _vocalProcessingRecipes = vocalProcessingRecipes?.ToList() ?? [];
+        if (_vocalProcessingRecipes.Any(item => item is null))
+            throw new ArgumentException("Accepted vocal processing recipes cannot contain null entries.", nameof(vocalProcessingRecipes));
+        if (_vocalProcessingRecipes.Select(item => item.AssetId).Distinct().Count() != _vocalProcessingRecipes.Count)
+            throw new ArgumentException("Each take may have only one accepted vocal processing recipe.");
+        foreach (var recipe in _vocalProcessingRecipes) ValidateVocalProcessingRecipe(recipe);
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -138,6 +146,7 @@ public sealed class SongProject
     public IReadOnlyList<ExpressionCurve> ExpressionCurves => _expressionCurves;
     public VocalProductionIntent? VocalProductionIntent { get; private set; }
     public VocalProcessingChain? VocalProcessingChain { get; private set; }
+    public IReadOnlyList<VocalProcessingRecipe> VocalProcessingRecipes => _vocalProcessingRecipes.AsReadOnly();
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -149,17 +158,49 @@ public sealed class SongProject
     public void SetVocalProcessingChain(VocalProcessingChain chain)
     {
         ArgumentNullException.ThrowIfNull(chain);
+        if (_vocalProcessingRecipes.Count > 0 && !chain.Roles.Contains(VocalProcessingRole.CorrectiveTone))
+            throw new InvalidOperationException("Clear accepted low-cut settings from the takes before removing Corrective Tone.");
         VocalProcessingChain = chain;
         Touch();
     }
 
     public VocalProcessingChain ClearVocalProcessingChain()
     {
+        if (_vocalProcessingRecipes.Count > 0)
+            throw new InvalidOperationException("Clear accepted low-cut settings from the takes before clearing production jobs.");
         var chain = VocalProcessingChain
             ?? throw new InvalidOperationException("The project has no vocal processing chain to clear.");
         VocalProcessingChain = null;
         Touch();
         return chain;
+    }
+
+    public void SetVocalProcessingRecipe(VocalProcessingRecipe recipe)
+    {
+        ArgumentNullException.ThrowIfNull(recipe);
+        ValidateVocalProcessingRecipe(recipe);
+        var index = _vocalProcessingRecipes.FindIndex(item => item.AssetId == recipe.AssetId);
+        if (index < 0) _vocalProcessingRecipes.Add(recipe);
+        else _vocalProcessingRecipes[index] = recipe;
+        Touch();
+    }
+
+    public VocalProcessingRecipe ClearVocalProcessingRecipe(ProjectAssetId assetId)
+    {
+        var recipe = _vocalProcessingRecipes.SingleOrDefault(item => item.AssetId == assetId)
+            ?? throw new InvalidOperationException("This take has no accepted vocal processing settings.");
+        _vocalProcessingRecipes.Remove(recipe);
+        Touch();
+        return recipe;
+    }
+
+    private void ValidateVocalProcessingRecipe(VocalProcessingRecipe recipe)
+    {
+        var asset = _assets.SingleOrDefault(item => item.Id == recipe.AssetId && item.Kind == ProjectAssetKind.OriginalVocalTake);
+        if (asset is null || asset.Sha256 != recipe.SourceSha256)
+            throw new ArgumentException("Accepted processing must reference the exact original vocal take.");
+        if (VocalProcessingChain?.Roles.Contains(recipe.Role) != true)
+            throw new ArgumentException("Add Corrective Tone to the production plan before accepting the low-cut settings.");
     }
 
     public void SetVocalProductionIntent(VocalProductionIntent intent)
@@ -198,6 +239,7 @@ public sealed class SongProject
         _assets.Remove(asset);
         _performanceObservations.RemoveAll(item => item.SourceAssetId == assetId);
         _vocalTakePlacements.RemoveAll(item => item.AssetId == assetId);
+        _vocalProcessingRecipes.RemoveAll(item => item.AssetId == assetId);
         RemoveDependentObservationRecords(removedObservationIds);
         Touch();
         return asset;

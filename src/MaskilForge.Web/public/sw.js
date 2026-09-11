@@ -1,4 +1,4 @@
-const shellCacheName = 'maskil-forge-shell-v71'
+const shellCacheName = 'maskil-forge-shell-v72'
 const shellDocuments = ['/', '/logs.html']
 const shellResources = [
   ...shellDocuments,
