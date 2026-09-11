@@ -61,7 +61,8 @@ public sealed class SongProject
         IReadOnlyList<PerformanceObservationGesture>? performanceObservationGestures = null,
         IReadOnlyList<VocalTakePlacement>? vocalTakePlacements = null,
         IReadOnlyList<ExpressionCurve>? expressionCurves = null,
-        VocalProductionIntent? vocalProductionIntent = null)
+        VocalProductionIntent? vocalProductionIntent = null,
+        VocalProcessingChain? vocalProcessingChain = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -88,6 +89,7 @@ public sealed class SongProject
         _vocalTakePlacements = vocalTakePlacements?.ToList() ?? [];
         _expressionCurves = expressionCurves?.ToList() ?? [];
         VocalProductionIntent = vocalProductionIntent;
+        VocalProcessingChain = vocalProcessingChain;
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
         Timeline.ValidateSectionOrder(_sections.Select(section => section.Id).ToList());
@@ -135,6 +137,7 @@ public sealed class SongProject
     public IReadOnlyList<VocalTakePlacement> VocalTakePlacements => _vocalTakePlacements;
     public IReadOnlyList<ExpressionCurve> ExpressionCurves => _expressionCurves;
     public VocalProductionIntent? VocalProductionIntent { get; private set; }
+    public VocalProcessingChain? VocalProcessingChain { get; private set; }
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -142,6 +145,22 @@ public sealed class SongProject
         SchemaVersion.Current,
         title,
         SongTimeline.CreateDefault());
+
+    public void SetVocalProcessingChain(VocalProcessingChain chain)
+    {
+        ArgumentNullException.ThrowIfNull(chain);
+        VocalProcessingChain = chain;
+        Touch();
+    }
+
+    public VocalProcessingChain ClearVocalProcessingChain()
+    {
+        var chain = VocalProcessingChain
+            ?? throw new InvalidOperationException("The project has no vocal processing chain to clear.");
+        VocalProcessingChain = null;
+        Touch();
+        return chain;
+    }
 
     public void SetVocalProductionIntent(VocalProductionIntent intent)
     {

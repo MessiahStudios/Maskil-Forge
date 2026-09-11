@@ -1257,6 +1257,12 @@ This is the smallest safe first slice: it gives later profiles, DSP, VST mapping
 
 Define an ordered chain of processing roles independent of any DSP or plugin: Cleanup / Gate, Corrective Tone / Dynamic EQ, Character Compression, Saturation / Color, Transparent Dynamics Control, Sibilance Control / De-Esser, Space / Reverb and Delay, and Output / Gain or limiting only if later justified. The chain is host knowledge and inspectable project data. It does not flatten character compression into generic compression, bind a role to a product, process audio, or replace mix buses and sends from Milestone 11.
 
+The delivered slice introduces a version-1 host catalog of seven production jobs. Desktop Music shows the current order and an optional editor for selecting, removing, and moving jobs earlier or later in a draft. The artist explicitly sets or updates that order; clear, set, and reorder participate in session undo/redo. A job appears at most once. The stored role identifiers are stable job identities, while names, purposes, and technique explanations remain host knowledge.
+
+Schema v33 adds optional project-scoped `VocalProcessingChain` with an ordered role list and update time. Existing projects and recovery snapshots migrate to no chain, preserving vocal direction and source assets. Local save, recovery, duplication, browser review snapshots, and both portable formats retain the plan. Vocal intent and the chain have independent lifecycles: neither setting nor clearing intent invents, changes, or clears production jobs. Removing a take leaves the project plan intact.
+
+This is inspectable planning only. No role has a processor, parameters, audio routing, or an enabled audio effect. Output/gain/limiting is deferred until justified; automatic intent-to-role proposals belong to 9.4, and audio preview/processing belongs to 9.3. The seven jobs are available choices, not a recommended universal chain. Phone production controls remain hidden; instrument catalog stays at version 4.
+
 **Deliverable:** the same vocal intent can be described as production jobs rather than as a plugin rack.
 
 ### Milestone 9.3 — Built-in processing foundation

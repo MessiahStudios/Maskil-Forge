@@ -213,6 +213,8 @@ The product principle is: the artist chooses the desired vocal result; Maskil Fo
 
 Milestone 9.1 implements that first boundary as project data. The desktop studio lets the artist choose one to four of those result descriptors and preserve optional direction notes. `VocalProductionIntent` travels with local persistence, recovery, and portable project interchange independently of original take bytes. It stores no processor, plugin, parameter, or generated chain, and setting or clearing it runs no audio code.
 
+Milestone 9.2 adds the next data boundary: an optional ordered `VocalProcessingChain` of artist-selected production jobs. The host's version-1 role catalog explains seven jobs independently of any processor. Desktop Music lets the artist select and reorder a draft, then explicitly set, update, or clear the plan with undo/redo. Schema v33 preserves the chain through persistence, recovery, duplication, and portable interchange; older songs start with no chain. Intent edits do not rewrite jobs, and take removal does not erase the plan. Output/gain/limiting, automatic profile proposals, parameter controls, and actual processing remain later work.
+
 Internally the host reasons in processing **roles**, not plugin dependencies:
 
 - Cleanup / Gate

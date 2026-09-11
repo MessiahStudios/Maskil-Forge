@@ -9,7 +9,8 @@ import { noteOwners, noteRemovalGuidance } from './noteOwnership.js'
 import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 import { structuralRole, structuralRoles } from './structuralRoles.js'
 import { chordToneNames, voicingIssues } from './voicingValidation.js'
-import type { RegisteredPitch, VocalProductionDescriptor } from './api'
+import type { RegisteredPitch, VocalProductionDescriptor, VocalProcessingRole } from './api'
+import VocalProcessingChainEditor from './VocalProcessingChainEditor.vue'
 import { ChordAudition } from './chordAudition'
 import { PartAudition, type ScheduledNote } from './partAudition'
 import { assemblePartVoices, formatTransportPosition, musicalPositionFromTicks, scheduleAbsolutePartVoices, scheduleAssembledPartVoices, tickFromSeconds } from './partAuditionModel.js'
@@ -3319,6 +3320,25 @@ function setVocalProductionIntent(event: Event) {
   )
 }
 
+function setVocalProcessingChain(roles: VocalProcessingRole[]) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-vocal-processing-chain', vocalProcessingRoles: roles }),
+    'Vocal production jobs updated. Recordings stay unchanged.',
+    'vocal-production.chain',
+    { roleCount: roles.length },
+  )
+}
+
+function clearVocalProcessingChain() {
+  if (!project.value?.vocalProcessingChain) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'clear-vocal-processing-chain' }),
+    'Vocal production jobs cleared. Recordings stay unchanged.',
+    'vocal-production.chain-clear',
+  )
+}
+
 function clearVocalProductionIntent() {
   if (!project.value?.vocalProductionIntent) return
   return run(
@@ -5554,6 +5574,13 @@ onBeforeUnmount(() => {
           </form>
           <p class="vocal-production-boundary">This records your direction for later production. Your recordings stay unchanged. Use Save to keep the direction with your song.</p>
         </section>
+        <VocalProcessingChainEditor
+          :project-id="project.id"
+          :chain="project.vocalProcessingChain"
+          :busy="busy"
+          @set="setVocalProcessingChain"
+          @clear="clearVocalProcessingChain"
+        />
         <section class="microphone-preflight" aria-labelledby="desktop-microphone-preflight-title">
           <div>
             <h3 id="desktop-microphone-preflight-title">Record a rough vocal take</h3>

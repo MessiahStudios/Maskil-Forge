@@ -624,10 +624,23 @@ export interface SongProject {
   vocalTakePlacements: VocalTakePlacement[]
   expressionCurves: ExpressionCurve[]
   vocalProductionIntent: VocalProductionIntent | null
+  vocalProcessingChain: VocalProcessingChain | null
   key: MusicalKey
 }
 
 export type VocalProductionDescriptor = 'Clean' | 'Warm' | 'Intimate' | 'Forward' | 'SoftRock' | 'Cinematic' | 'Aggressive'
+
+export type VocalProcessingRole = 'Cleanup' | 'CorrectiveTone' | 'CharacterCompression' | 'Saturation' | 'TransparentDynamics' | 'SibilanceControl' | 'Space'
+
+export interface VocalProcessingChain {
+  roles: VocalProcessingRole[]
+  updatedUtc: string
+}
+
+export interface VocalProcessingRoleCatalog {
+  version: number
+  roles: Array<{ id: VocalProcessingRole; name: string; purpose: string; technique: string }>
+}
 
 export interface VocalProductionIntent {
   descriptors: VocalProductionDescriptor[]
@@ -752,6 +765,7 @@ export interface ProjectCommand {
   syllables?: string[]
   vocalProductionDescriptors?: VocalProductionDescriptor[]
   vocalProductionNotes?: string
+  vocalProcessingRoles?: VocalProcessingRole[]
 }
 
 export interface ProposedSongSection {
@@ -823,6 +837,7 @@ async function requestBlob(url: string, init?: RequestInit): Promise<Blob> {
 export const projectsApi = {
   health: () => request<WorkspaceHealth>('/api/health'),
   instrumentProfiles: () => request<InstrumentProfileCatalog>('/api/instrument-profiles'),
+  vocalProcessingRoles: () => request<VocalProcessingRoleCatalog>('/api/vocal-processing-roles'),
   recommendInstruments: (roles: ArrangementRole[], quality: InstrumentExpressiveQuality | null = null) =>
     request<InstrumentRecommendationSet>('/api/instrument-recommendations', {
       method: 'POST',

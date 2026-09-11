@@ -83,7 +83,7 @@ public sealed class VocalProductionIntentTests
         var migrated = PortableProjectImporter.Inspect(legacy.ToJsonString());
 
         Assert.Equal(31, migrated.SourceSchemaVersion);
-        Assert.Equal(32, migrated.Project.SchemaVersion.Value);
+        Assert.Equal(SchemaVersion.Current.Value, migrated.Project.SchemaVersion.Value);
         Assert.Null(migrated.Project.VocalProductionIntent);
 
         var project = SongProject.Create("Portable intent");

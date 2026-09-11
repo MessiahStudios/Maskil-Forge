@@ -105,6 +105,12 @@ if (app.Environment.IsDevelopment())
             : Results.NotFound(new ApiError("Development activity log session not found.")));
 }
 
+app.MapGet("/api/vocal-processing-roles", () => Results.Ok(new
+{
+    Version = VocalProcessingRoleCatalog.Version,
+    Roles = VocalProcessingRoleCatalog.Roles
+}));
+
 app.MapGet("/api/projects", async (IProjectRepository repository, CancellationToken cancellationToken) =>
     Results.Ok(await repository.ListAsync(cancellationToken)));
 
@@ -1135,6 +1141,9 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             request.VocalProductionDescriptors ?? throw new ArgumentException("Desired vocal results are required."),
             request.VocalProductionNotes ?? string.Empty)); break;
         case "clear-vocal-production-intent": editor.Execute(new ClearVocalProductionIntentCommand()); break;
+        case "set-vocal-processing-chain": editor.Execute(new SetVocalProcessingChainCommand(
+            request.VocalProcessingRoles ?? throw new ArgumentException("Vocal production jobs are required."))); break;
+        case "clear-vocal-processing-chain": editor.Execute(new ClearVocalProcessingChainCommand()); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
@@ -1473,7 +1482,8 @@ public sealed record ProjectCommandRequest(
     string? Text = null,
     IReadOnlyList<string>? Syllables = null,
     IReadOnlyList<VocalProductionDescriptor>? VocalProductionDescriptors = null,
-    string? VocalProductionNotes = null);
+    string? VocalProductionNotes = null,
+    IReadOnlyList<VocalProcessingRole>? VocalProcessingRoles = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
 public sealed record WorkspaceHealthResponse(
     string Status,
