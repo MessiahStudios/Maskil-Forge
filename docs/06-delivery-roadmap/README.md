@@ -1271,6 +1271,12 @@ Introduce the first Maskil built-in processors that fulfill named roles. Process
 
 **Deliverable:** an artist can hear a reviewable built-in process on their own take and reject it without losing the source.
 
+**Implemented:** Desktop Music offers a fixed 80 Hz high-pass biquad (Q 0.7071067811865476, processor `maskil.vocal.low-cut.v1`) for Corrective Tone on a saved original take. The artist prepares a comparison, plays both original and processed versions, and explicitly accepts or discards. Both temporary PCM16 WAV comparisons come from the same decoded source without gain matching, normalization, tuning, or limiting. The source digest and byte length are verified before decoding. Mono/stereo takes up to one minute at decoded rates of 8–96 kHz are supported; invalid samples or peaks beyond available headroom stop the preview with an explanation.
+
+Schema v34 adds per-take `vocalProcessingRecipes`; older songs migrate to an empty list. A recipe binds the fixed settings to the original asset ID and SHA-256. Acceptance and clearing are undoable and survive save, recovery, duplication, and asset-owning packages. Removing a take removes its recipe; removing Corrective Tone or clearing the chain requires explicitly clearing accepted recipes first. Closing the comparison, leaving Music, changing the song/source/required role, or discarding releases temporary preview resources. Accepted settings can be explicitly previewed again after reload.
+
+Acceptance stores settings, not rendered media. It does not apply the treatment to song transport or export, and other planned roles remain inactive. No runtime parameter editing, profile generation, replacement audio asset, VST integration, or full-song WAV export is included. Phone production controls stay hidden; catalog remains version 4.
+
 ### Milestone 9.4 — Vocal profile proposals
 
 Compile chosen result language into a reviewable processing-role proposal: which jobs are suggested, why, and what will change if accepted. The beginner studio leads with result language and progressive disclosure rather than threshold, ratio, or Q. Profiles remain proposals, not baked one-click renders. The slice does not skip preview, does not hide the underlying roles, and does not treat the profile name as the Song Graph identity of the chain.

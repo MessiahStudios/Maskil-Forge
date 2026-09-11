@@ -11,6 +11,7 @@ import { structuralRole, structuralRoles } from './structuralRoles.js'
 import { chordToneNames, voicingIssues } from './voicingValidation.js'
 import type { RegisteredPitch, VocalProductionDescriptor, VocalProcessingRole } from './api'
 import VocalProcessingChainEditor from './VocalProcessingChainEditor.vue'
+import VocalLowCutPreview from './VocalLowCutPreview.vue'
 import { ChordAudition } from './chordAudition'
 import { PartAudition, type ScheduledNote } from './partAudition'
 import { assemblePartVoices, formatTransportPosition, musicalPositionFromTicks, scheduleAbsolutePartVoices, scheduleAssembledPartVoices, tickFromSeconds } from './partAuditionModel.js'
@@ -3320,6 +3321,26 @@ function setVocalProductionIntent(event: Event) {
   )
 }
 
+function acceptVocalLowCut(assetId: string, sourceSha256: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-low-cut', assetId, sourceSha256 }),
+    'Low-cut settings accepted. Save to keep them with the song. Original audio is unchanged.',
+    'vocal-production.accept-low-cut',
+  )
+}
+
+function clearVocalProcessingRecipe(assetId: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'clear-vocal-processing-recipe', assetId }),
+    'Accepted low-cut settings cleared. Original audio is unchanged.',
+    'vocal-production.clear-low-cut',
+  )
+}
+
+function stopInstrumentPreviews() { stopChordAudition(); stopPartAudition(); stopTransport() }
+
 function setVocalProcessingChain(roles: VocalProcessingRole[]) {
   if (!project.value) return
   return run(
@@ -5628,6 +5649,12 @@ onBeforeUnmount(() => {
             <li v-for="(asset, index) in project.assets" :key="`desktop-${asset.id}`">
               <div><strong>{{ asset.name }}</strong><small>{{ new Date(asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(asset.byteLength) }}</small></div>
               <audio controls preload="none" :src="projectsApi.originalVocalTakeUrl(project.id, asset.id)" @play="logRoughVocalPlayback('saved', asset.id)">Your browser cannot play this saved take.</audio>
+              <VocalLowCutPreview
+                :project-id="project.id" :asset="asset" :busy="busy"
+                :role-enabled="project.vocalProcessingChain?.roles.includes('CorrectiveTone') ?? false"
+                :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id)"
+                @accept="acceptVocalLowCut" @clear="clearVocalProcessingRecipe" @playing="stopInstrumentPreviews"
+              />
               <form class="vocal-take-placement" @submit.prevent="setVocalTakePlacement(asset.id, $event)">
                 <p>{{ vocalTakePlacementLabel(asset.id) }}. Changing this start does not move notes you already accepted.</p>
                 <label>Bar<input name="bar" type="number" min="1" :value="vocalTakePlacement(asset.id)?.start.bar ?? 1" required :disabled="busy" :aria-label="`${asset.name} start bar`"></label>
