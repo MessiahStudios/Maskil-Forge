@@ -47,7 +47,8 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
         new V27ToV28ProjectMigration(),
         new V28ToV29ProjectMigration(),
         new V29ToV30ProjectMigration(),
-        new V30ToV31ProjectMigration()
+        new V30ToV31ProjectMigration(),
+        new V31ToV32ProjectMigration()
     ]);
 
     public JsonObject Normalize(JsonObject project)
@@ -724,6 +725,19 @@ internal sealed class V30ToV31ProjectMigration : IProjectMigration
                 curve["instrumentProfileId"] = null;
         }
 
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}
+
+internal sealed class V31ToV32ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 31;
+    public int ToVersion => 32;
+
+    public JsonObject Apply(JsonObject project)
+    {
+        project["vocalProductionIntent"] = null;
         project["schemaVersion"] = ToVersion;
         return project;
     }

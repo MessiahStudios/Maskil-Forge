@@ -9,7 +9,7 @@ import { noteOwners, noteRemovalGuidance } from './noteOwnership.js'
 import { adjacentSectionId, songOutline, structuralRoleReview } from './songOutline.js'
 import { structuralRole, structuralRoles } from './structuralRoles.js'
 import { chordToneNames, voicingIssues } from './voicingValidation.js'
-import type { RegisteredPitch } from './api'
+import type { RegisteredPitch, VocalProductionDescriptor } from './api'
 import { ChordAudition } from './chordAudition'
 import { PartAudition, type ScheduledNote } from './partAudition'
 import { assemblePartVoices, formatTransportPosition, musicalPositionFromTicks, scheduleAbsolutePartVoices, scheduleAssembledPartVoices, tickFromSeconds } from './partAuditionModel.js'
@@ -34,6 +34,7 @@ import { analyzeSavedVocalTakePitch, pitchAnalyzerId, pitchObservationKind } fro
 import { analyzeSavedVocalTakeOnsets, onsetAnalyzerId, onsetObservationKind } from './onsetAnalysis.js'
 import { buildPerformanceEvidenceGroups, nextPerformanceEvidenceVisibleCount } from './performanceEvidenceInspector.js'
 import { plannedSongTiming } from './timingAuthorityModel.js'
+import { vocalProductionDescriptors, vocalProductionIntentSummary } from './vocalProductionIntentModel.js'
 
 const response = ref<ProjectResponse | null>(null)
 const projectId = ref(localStorage.getItem('maskilForge.projectId') ?? '')
@@ -3288,6 +3289,44 @@ function clearVocalTakePlacement(assetId: string) {
     if (instrumentPerformanceSketches[assetId]) return prepareInstrumentPerformanceSketch(assetId)
   })
 }
+
+function setVocalProductionIntent(event: Event) {
+  if (!project.value) return
+  const form = event.currentTarget as HTMLFormElement
+  const data = new FormData(form)
+  const selectedDescriptors = data.getAll('vocalProductionDescriptor')
+    .filter((value): value is VocalProductionDescriptor => typeof value === 'string')
+  if (!selectedDescriptors.length) {
+    status.value = 'Choose at least one desired vocal result.'
+    activityLog.write('warning', 'vocal-production.intent', status.value, { projectId: project.value.id })
+    return
+  }
+  if (selectedDescriptors.length > 4) {
+    status.value = 'Choose no more than four desired vocal results.'
+    activityLog.write('warning', 'vocal-production.intent', status.value, { projectId: project.value.id })
+    return
+  }
+  const vocalProductionNotes = String(data.get('vocalProductionNotes') ?? '')
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, {
+      type: 'set-vocal-production-intent',
+      vocalProductionDescriptors: selectedDescriptors,
+      vocalProductionNotes,
+    }),
+    'Vocal direction updated. No audio was processed.',
+    'vocal-production.intent',
+    { descriptorCount: selectedDescriptors.length, hasArtistNotes: Boolean(vocalProductionNotes.trim()) },
+  )
+}
+
+function clearVocalProductionIntent() {
+  if (!project.value?.vocalProductionIntent) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'clear-vocal-production-intent' }),
+    'Vocal direction cleared. No audio was changed.',
+    'vocal-production.intent-clear',
+  )
+}
 function addHarmonyChord(sectionId: string) {
   if (!project.value) return
   return run(
@@ -5477,6 +5516,44 @@ onBeforeUnmount(() => {
           <h2 id="vocal-take-studio-title">Saved rough takes</h2>
           <p>Play, analyze, review, promote, and place takes here on the studio screen. Recording still requires a saved song revision. Placement is song time, not a clip on the section timeline. Pitch, onset, and loudness gestures become notes only after you preview and accept the sketches below.</p>
         </div>
+        <section class="vocal-production-intent" aria-labelledby="vocal-production-intent-title">
+          <div>
+            <p class="eyebrow">Desired vocal result</p>
+            <h3 id="vocal-production-intent-title">How should your vocal feel?</h3>
+            <p>Choose a direction for your recorded voice and describe what matters to you.</p>
+            <strong>{{ vocalProductionIntentSummary(project.vocalProductionIntent) }}</strong>
+          </div>
+          <form :key="`${project.id}:${project.vocalProductionIntent?.updatedUtc ?? 'unset'}`" @submit.prevent="setVocalProductionIntent">
+            <fieldset class="vocal-production-descriptors">
+              <legend>Choose one to four results</legend>
+              <label v-for="descriptor in vocalProductionDescriptors" :key="descriptor.id">
+                <input
+                  type="checkbox"
+                  name="vocalProductionDescriptor"
+                  :value="descriptor.id"
+                  :checked="project.vocalProductionIntent?.descriptors.includes(descriptor.id)"
+                  :disabled="busy"
+                >
+                <span><strong>{{ descriptor.label }}</strong><small>{{ descriptor.description }}</small></span>
+              </label>
+            </fieldset>
+            <label class="vocal-production-notes">What should remain true about your performance?
+              <textarea
+                name="vocalProductionNotes"
+                rows="3"
+                maxlength="500"
+                :value="project.vocalProductionIntent?.artistNotes ?? ''"
+                placeholder="Keep the breath in the verses; let the final chorus feel closer and stronger."
+                :disabled="busy"
+              ></textarea>
+            </label>
+            <div class="vocal-production-intent-actions">
+              <button type="submit" :disabled="busy">{{ project.vocalProductionIntent ? 'Update vocal direction' : 'Set vocal direction' }}</button>
+              <button v-if="project.vocalProductionIntent" type="button" class="quiet" :disabled="busy" @click="clearVocalProductionIntent">Clear direction</button>
+            </div>
+          </form>
+          <p class="vocal-production-boundary">This records your direction for later production. Your recordings stay unchanged. Use Save to keep the direction with your song.</p>
+        </section>
         <section class="microphone-preflight" aria-labelledby="desktop-microphone-preflight-title">
           <div>
             <h3 id="desktop-microphone-preflight-title">Record a rough vocal take</h3>

@@ -1243,7 +1243,11 @@ Guide vocals, punch-in, comps, and pitch or timing feedback remain other Milesto
 
 ### Milestone 9.1 — Vocal production intent model
 
-Store an inspectable description of the desired vocal result before any audio is processed. Artist-facing language such as Clean, Warm, Intimate, Forward, Soft Rock, Cinematic, or Aggressive names a result, not a hidden FX preset. The slice is data and contracts only. It does not run DSP, host a VST, invent a chain, or alter the take. Schema work, if needed, records intent separately from immutable source bytes.
+Store an inspectable description of the desired vocal result before any audio is processed. Desktop Studio offers the fixed artist-facing vocabulary Clean, Warm, Intimate, Forward, Soft Rock, Cinematic, and Aggressive. The artist chooses one to four results and may preserve up to 500 characters of direction notes. Those words name a result, not a hidden FX preset.
+
+Project-scoped `VocalProductionIntent` stores the selected descriptors, normalized artist notes, and update time. Set and clear are explicit undoable commands. Schema v32 migrates earlier projects to no chosen intent; local persistence, recovery, browser review snapshots, and portable project interchange carry a chosen intent separately from immutable source bytes. A take is not required to name the direction.
+
+The slice is data, contracts, and desktop UI only. It does not run DSP, host or select a VST, invent a processing-role chain, generate a preset, analyze audio, or alter a take. Phone capture remains unchanged. Catalog stays at version 4.
 
 This is the smallest safe first slice: it gives later profiles, DSP, VST mapping, and the AI Director a vocabulary that is not shaped like a commercial plugin, and it preserves artist authority before sound changes exist.
 
