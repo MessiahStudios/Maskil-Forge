@@ -211,6 +211,8 @@ Artist intent → vocal-production profile → processing-role chain
 
 The product principle is: the artist chooses the desired vocal result; Maskil Forge determines or proposes the processing roles needed to achieve it. Example result vocabulary includes Clean, Warm, Intimate, Forward, Soft Rock, Cinematic, and Aggressive. Those names are later mapping language, not baked presets.
 
+Milestone 9.1 implements that first boundary as project data. The desktop studio lets the artist choose one to four of those result descriptors and preserve optional direction notes. `VocalProductionIntent` travels with local persistence, recovery, and portable project interchange independently of original take bytes. It stores no processor, plugin, parameter, or generated chain, and setting or clearing it runs no audio code.
+
 Internally the host reasons in processing **roles**, not plugin dependencies:
 
 - Cleanup / Gate

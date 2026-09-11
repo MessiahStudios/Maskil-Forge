@@ -1114,6 +1114,53 @@ public sealed class ClearVocalTakePlacementCommand(ProjectAssetId assetId) : IPr
     }
 }
 
+public sealed class SetVocalProductionIntentCommand(
+    IReadOnlyList<VocalProductionDescriptor> descriptors,
+    string artistNotes) : IProjectCommand
+{
+    private VocalProductionIntent? _previous;
+    private VocalProductionIntent? _applied;
+    private bool _executed;
+
+    public void Execute(SongProject project)
+    {
+        if (!_executed)
+        {
+            _previous = project.VocalProductionIntent;
+            _applied = new VocalProductionIntent(descriptors, artistNotes, DateTimeOffset.UtcNow);
+            _executed = true;
+        }
+
+        project.SetVocalProductionIntent(_applied!);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (!_executed) throw new InvalidOperationException("Command has not been executed.");
+        if (_previous is null) project.ClearVocalProductionIntent();
+        else project.SetVocalProductionIntent(_previous);
+    }
+}
+
+public sealed class ClearVocalProductionIntentCommand : IProjectCommand
+{
+    private VocalProductionIntent? _previous;
+
+    public void Execute(SongProject project)
+    {
+        _previous ??= project.VocalProductionIntent
+            ?? throw new InvalidOperationException("The project has no vocal-production intent to clear.");
+        if (project.VocalProductionIntent is not null)
+            project.ClearVocalProductionIntent();
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previous is null) throw new InvalidOperationException("Command has not been executed.");
+        project.SetVocalProductionIntent(_previous);
+    }
+}
+
 public sealed class SplitLyricPhraseCommand(
     SectionId sectionId,
     LyricLineId lineId,

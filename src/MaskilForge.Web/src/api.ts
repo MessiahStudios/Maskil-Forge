@@ -623,7 +623,16 @@ export interface SongProject {
   performanceObservationGestures: PerformanceObservationGesture[]
   vocalTakePlacements: VocalTakePlacement[]
   expressionCurves: ExpressionCurve[]
+  vocalProductionIntent: VocalProductionIntent | null
   key: MusicalKey
+}
+
+export type VocalProductionDescriptor = 'Clean' | 'Warm' | 'Intimate' | 'Forward' | 'SoftRock' | 'Cinematic' | 'Aggressive'
+
+export interface VocalProductionIntent {
+  descriptors: VocalProductionDescriptor[]
+  artistNotes: string
+  updatedUtc: string
 }
 
 export interface ProjectResponse {
@@ -741,6 +750,8 @@ export interface ProjectCommand {
   expressionCurveId?: string
   text?: string
   syllables?: string[]
+  vocalProductionDescriptors?: VocalProductionDescriptor[]
+  vocalProductionNotes?: string
 }
 
 export interface ProposedSongSection {

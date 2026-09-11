@@ -1131,6 +1131,10 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             RequiredAssetId(request),
             request.Start ?? throw new ArgumentException("Start position is required."))); break;
         case "clear-vocal-take-placement": editor.Execute(new ClearVocalTakePlacementCommand(RequiredAssetId(request))); break;
+        case "set-vocal-production-intent": editor.Execute(new SetVocalProductionIntentCommand(
+            request.VocalProductionDescriptors ?? throw new ArgumentException("Desired vocal results are required."),
+            request.VocalProductionNotes ?? string.Empty)); break;
+        case "clear-vocal-production-intent": editor.Execute(new ClearVocalProductionIntentCommand()); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
             var section = project.FindSection(RequiredSectionId(request));
@@ -1467,7 +1471,9 @@ public sealed record ProjectCommandRequest(
     MusicalPosition? Start = null,
     ExpressionCurveId? ExpressionCurveId = null,
     string? Text = null,
-    IReadOnlyList<string>? Syllables = null);
+    IReadOnlyList<string>? Syllables = null,
+    IReadOnlyList<VocalProductionDescriptor>? VocalProductionDescriptors = null,
+    string? VocalProductionNotes = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
 public sealed record WorkspaceHealthResponse(
     string Status,
