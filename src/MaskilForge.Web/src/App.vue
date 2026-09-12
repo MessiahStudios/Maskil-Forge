@@ -3331,10 +3331,10 @@ function acceptVocalProfileProposal(proposalSignature: string) {
   )
 }
 
-function acceptVocalLowCut(assetId: string, sourceSha256: string) {
+function acceptVocalLowCut(assetId: string, sourceSha256: string, cutoffHertz: number, q: number) {
   if (!project.value) return
   return run(
-    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-low-cut', assetId, sourceSha256 }),
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-low-cut', assetId, sourceSha256, cutoffHertz, q }),
     'Low-cut settings accepted. Save to keep them with the song. Original audio is unchanged.',
     'vocal-production.accept-low-cut',
   )

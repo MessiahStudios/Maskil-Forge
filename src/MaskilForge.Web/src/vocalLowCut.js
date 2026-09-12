@@ -1,5 +1,14 @@
 export const vocalLowCut = Object.freeze({ processorId: 'maskil.vocal.low-cut.v1', role: 'CorrectiveTone', cutoffHertz: 80, q: 0.7071067811865476 })
 
+export function validateLowCutSettings(settings = vocalLowCut) {
+  const { cutoffHertz, q } = settings ?? {}
+  if (!Number.isInteger(cutoffHertz) || cutoffHertz < 40 || cutoffHertz > 200)
+    throw new Error('Low-cut frequency must be a whole number from 40 to 200 Hz.')
+  if (!Number.isFinite(q) || q < .5 || q > 1)
+    throw new Error('Low-cut Q must be from 0.5 to 1.')
+  return Object.freeze({ cutoffHertz, q })
+}
+
 function channelsOf(buffer) {
   const { sampleRate, length, numberOfChannels } = buffer ?? {}
   if (!Number.isInteger(sampleRate) || sampleRate < 8000 || sampleRate > 96000 ||
@@ -12,13 +21,14 @@ function channelsOf(buffer) {
   return channels
 }
 
-export function renderVocalLowCut(buffer) {
+export function renderVocalLowCut(buffer, settings = vocalLowCut) {
+  const { cutoffHertz, q } = validateLowCutSettings(settings)
   const source = channelsOf(buffer)
   // RBJ high-pass biquad, normalized by a0; W3C Audio EQ Cookbook:
   // https://www.w3.org/TR/audio-eq-cookbook/#:~:text=HPF
-  const omega = 2 * Math.PI * vocalLowCut.cutoffHertz / buffer.sampleRate
+  const omega = 2 * Math.PI * cutoffHertz / buffer.sampleRate
   const cosine = Math.cos(omega)
-  const alpha = Math.sin(omega) / (2 * vocalLowCut.q)
+  const alpha = Math.sin(omega) / (2 * q)
   const a0 = 1 + alpha
   const b0 = (1 + cosine) / (2 * a0)
   const b1 = -(1 + cosine) / a0
@@ -63,7 +73,8 @@ export function encodePreviewWav(channels, sampleRate) {
   return bytes
 }
 
-export async function prepareVocalLowCut(url, asset, signal, environment = globalThis) {
+export async function prepareVocalLowCut(url, asset, signal, environment = globalThis, draftSettings = vocalLowCut) {
+  const settings = validateLowCutSettings(draftSettings)
   const AudioContextType = environment.AudioContext ?? environment.webkitAudioContext
   if (!AudioContextType || !environment.crypto?.subtle) throw new Error('This browser cannot prepare verified vocal processing previews.')
   if (!Number.isInteger(asset.byteLength) || asset.byteLength < 1 || asset.byteLength > 25 * 1024 * 1024)
@@ -82,14 +93,14 @@ export async function prepareVocalLowCut(url, asset, signal, environment = globa
     context = new AudioContextType({ sampleRate: 48000 })
     const buffer = await context.decodeAudioData(bytes)
     abort()
-    const processed = renderVocalLowCut(buffer)
+    const processed = renderVocalLowCut(buffer, settings)
     const original = channelsOf(buffer)
     // Encode both comparisons identically; no gain matching, normalization, or replacement source asset.
     originalUrl = environment.URL.createObjectURL(new environment.Blob([encodePreviewWav(original, buffer.sampleRate)], { type: 'audio/wav' }))
     processedUrl = environment.URL.createObjectURL(new environment.Blob([encodePreviewWav(processed, buffer.sampleRate)], { type: 'audio/wav' }))
     abort()
     let disposed = false
-    return { originalUrl, processedUrl, dispose() {
+    return { originalUrl, processedUrl, settings, dispose() {
       if (disposed) return
       disposed = true
       environment.URL.revokeObjectURL(originalUrl)

@@ -236,7 +236,7 @@ public readonly record struct HarmonyCandidateEventId(Guid Value)
 [JsonConverter(typeof(SchemaVersionJsonConverter))]
 public readonly record struct SchemaVersion(int Value)
 {
-    public static SchemaVersion Current => new(34);
+    public static SchemaVersion Current => new(35);
 }
 
 internal sealed class SchemaVersionJsonConverter : JsonConverter<SchemaVersion>

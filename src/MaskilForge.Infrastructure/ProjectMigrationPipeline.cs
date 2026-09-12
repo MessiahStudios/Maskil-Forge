@@ -50,7 +50,8 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
         new V30ToV31ProjectMigration(),
         new V31ToV32ProjectMigration(),
         new V32ToV33ProjectMigration(),
-        new V33ToV34ProjectMigration()
+        new V33ToV34ProjectMigration(),
+        new V34ToV35ProjectMigration()
     ]);
 
     public JsonObject Normalize(JsonObject project)
@@ -765,6 +766,18 @@ internal sealed class V33ToV34ProjectMigration : IProjectMigration
     public JsonObject Apply(JsonObject project)
     {
         project["vocalProcessingRecipes"] = new JsonArray();
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}
+
+internal sealed class V34ToV35ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 34;
+    public int ToVersion => 35;
+    public JsonObject Apply(JsonObject project)
+    {
+        // Existing v1 recipes retain their exact processor identity and settings.
         project["schemaVersion"] = ToVersion;
         return project;
     }

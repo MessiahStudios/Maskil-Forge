@@ -788,6 +788,8 @@ export interface ProjectCommand {
   vocalProductionNotes?: string
   vocalProcessingRoles?: VocalProcessingRole[]
   sourceSha256?: string
+  cutoffHertz?: number
+  q?: number
   proposalSignature?: string
 }
 

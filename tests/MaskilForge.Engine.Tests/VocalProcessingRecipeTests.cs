@@ -141,15 +141,18 @@ public sealed class VocalProcessingRecipeTests
         Assert.ThrowsAny<ArgumentException>(() => System.Text.Json.JsonSerializer.Deserialize<SongProject>(document.ToJsonString(), JsonOptions));
     }
 
-    [Fact]
-    public async Task Recipes_SurviveSaveRecoveryDuplicateAndPackageWithOriginalBytesIntact()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Recipes_SurviveSaveRecoveryDuplicateAndPackageWithOriginalBytesIntact(bool adjustable)
     {
         var directory = Path.Combine(Path.GetTempPath(), "maskil-processing-tests", Guid.NewGuid().ToString("N"));
         try
         {
             var (project, asset) = Fixture();
             var editor = new ProjectEditor(project);
-            editor.Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256));
+            editor.Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256,
+                adjustable ? 120 : VocalProcessingRecipe.LowCutHertz, adjustable ? .9 : VocalProcessingRecipe.LowCutQ));
             var recipe = Assert.Single(project.VocalProcessingRecipes);
             var assets = new Dictionary<ProjectAssetId, byte[]> { [asset.Id] = Source };
             var package = PortableProjectPackage.Inspect(PortableProjectPackage.Export(project, assets));
@@ -186,5 +189,71 @@ public sealed class VocalProcessingRecipeTests
         Assert.Equal(SchemaVersion.Current, imported.Project.SchemaVersion);
         Assert.Empty(imported.Project.VocalProcessingRecipes);
         Assert.Equal(project.VocalProcessingChain!.Roles, imported.Project.VocalProcessingChain!.Roles);
+    }
+
+    [Fact]
+    public void AdvancedRevision_UndoesToTheExactLegacyRecipeAndInvalidatesProfileProposals()
+    {
+        var (project, asset) = Fixture();
+        project.SetVocalProductionIntent(new VocalProductionIntent([VocalProductionDescriptor.Warm], "", DateTimeOffset.UtcNow));
+        var editor = new ProjectEditor(project);
+        editor.Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256));
+        var legacy = Assert.Single(project.VocalProcessingRecipes);
+        var proposal = VocalProfileProposer.Propose(project);
+        editor.Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256, 120, .9));
+        var revised = Assert.Single(project.VocalProcessingRecipes);
+        Assert.Equal(VocalProcessingRecipe.AdjustableLowCutProcessorId, revised.ProcessorId);
+        Assert.Equal(120, revised.CutoffHertz);
+        Assert.Equal(.9, revised.Q);
+        Assert.Throws<InvalidOperationException>(() => editor.Execute(new AcceptVocalProfileProposalCommand(proposal.SourceSignature)));
+        editor.Undo();
+        Assert.Same(legacy, Assert.Single(project.VocalProcessingRecipes));
+        editor.Redo();
+        Assert.Same(revised, Assert.Single(project.VocalProcessingRecipes));
+        editor.Execute(new ClearVocalProcessingRecipeCommand(asset.Id));
+        editor.Undo();
+        Assert.Same(revised, Assert.Single(project.VocalProcessingRecipes));
+        Assert.Same(asset, Assert.Single(project.Assets));
+    }
+
+    [Theory]
+    [InlineData(39, .7)]
+    [InlineData(201, .7)]
+    [InlineData(80.5, .7)]
+    [InlineData(double.NaN, .7)]
+    [InlineData(double.PositiveInfinity, .7)]
+    [InlineData(80, .49)]
+    [InlineData(80, 1.01)]
+    [InlineData(80, double.NaN)]
+    [InlineData(80, double.PositiveInfinity)]
+    public void InvalidAdvancedSettings_KeepTheAcceptedRecipeAndHistory(double cutoffHertz, double q)
+    {
+        var (project, asset) = Fixture();
+        var editor = new ProjectEditor(project);
+        editor.Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256));
+        var original = Assert.Single(project.VocalProcessingRecipes);
+        var revision = project.LastModifiedUtc;
+        Assert.Throws<ArgumentException>(() => editor.Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256, cutoffHertz, q)));
+        Assert.Same(original, Assert.Single(project.VocalProcessingRecipes));
+        Assert.Equal(revision, project.LastModifiedUtc);
+        editor.Undo();
+        Assert.Empty(project.VocalProcessingRecipes);
+        Assert.False(editor.CanUndo);
+    }
+
+    [Fact]
+    public void Schema34Package_MigratesWithLegacySettingsAndOriginalAudioUnchanged()
+    {
+        var (project, asset) = Fixture();
+        new ProjectEditor(project).Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256));
+        var recipe = Assert.Single(project.VocalProcessingRecipes);
+        var document = JsonNode.Parse(PortableProjectExporter.SerializeDocument(project))!.AsObject();
+        document["schemaVersion"] = 34;
+        var oldProject = System.Text.Json.JsonSerializer.Deserialize<SongProject>(document.ToJsonString(), JsonOptions)!;
+        var imported = PortableProjectPackage.Inspect(PortableProjectPackage.Export(oldProject, new Dictionary<ProjectAssetId, byte[]> { [asset.Id] = Source }));
+        Assert.Equal(34, imported.SourceSchemaVersion);
+        Assert.Equal(SchemaVersion.Current, imported.Project.SchemaVersion);
+        Assert.Equal(recipe, Assert.Single(imported.Project.VocalProcessingRecipes));
+        Assert.Equal(Source, imported.Assets[asset.Id]);
     }
 }

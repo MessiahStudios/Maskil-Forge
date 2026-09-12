@@ -3,6 +3,38 @@ import test from 'node:test'
 import { webcrypto } from 'node:crypto'
 import { encodePreviewWav, prepareVocalLowCut, renderVocalLowCut, vocalLowCut } from './vocalLowCut.js'
 
+test('adjustable low-cut has the requested Q at its cutoff across the supported range', () => {
+  for (const rate of [8000, 44100, 48000, 96000]) for (const cutoffHertz of [40, 120, 200]) for (const q of [.5, Math.SQRT1_2, 1]) {
+    const source = sine(cutoffHertz, rate), unchanged = source.slice()
+    const output = renderVocalLowCut(buffer([source], rate), { cutoffHertz, q })[0]
+    assert.ok(Math.abs(rms(output) / rms(source) - q) < .002, `${rate} Hz, cutoff ${cutoffHertz}, Q ${q}`)
+    assert.deepEqual(source, unchanged)
+    assert.equal(output.length, source.length)
+  }
+})
+
+test('advanced settings reject invalid frequency and Q before preparing audio', async () => {
+  const { environment, stats, asset } = await fixture()
+  for (const cutoffHertz of [39, 201, 80.5, NaN, Infinity, '', null])
+    await assert.rejects(prepareVocalLowCut('/take', asset, undefined, environment, { cutoffHertz, q: .7 }), /whole number/)
+  for (const q of [.49, 1.01, NaN, Infinity, '', null])
+    await assert.rejects(prepareVocalLowCut('/take', asset, undefined, environment, { cutoffHertz: 80, q }), /Q must/)
+  assert.equal(stats.decoded, 0)
+  assert.equal(stats.created.length, 0)
+})
+
+test('prepared comparison owns an immutable snapshot of the exact rendered settings', async () => {
+  const { environment, stats, asset } = await fixture()
+  const draft = { cutoffHertz: 120, q: .9 }
+  const pending = prepareVocalLowCut('/take', asset, undefined, environment, draft)
+  draft.cutoffHertz = 200; draft.q = .5
+  const result = await pending
+  assert.deepEqual(result.settings, { cutoffHertz: 120, q: .9 })
+  assert.ok(Object.isFrozen(result.settings))
+  assert.deepEqual(await stats.created[1].arrayBuffer(), encodePreviewWav(renderVocalLowCut(buffer([sine(40)]), result.settings), 48000))
+  result.dispose()
+})
+
 const buffer = (channels, sampleRate = 48000) => ({ sampleRate, length: channels[0].length, numberOfChannels: channels.length, getChannelData: i => channels[i] })
 const sine = (frequency, sampleRate = 48000) => Float32Array.from({ length: sampleRate }, (_, i) => .2 * Math.sin(2 * Math.PI * frequency * i / sampleRate))
 const rms = data => Math.sqrt(data.slice(Math.floor(data.length / 2)).reduce((sum, value) => sum + value * value, 0) / Math.ceil(data.length / 2))
