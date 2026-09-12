@@ -2,15 +2,18 @@ using MaskilForge.Domain;
 
 namespace MaskilForge.Engine;
 
-public sealed class AcceptVocalLowCutCommand(ProjectAssetId assetId, string sourceSha256) : IProjectCommand
+public sealed class AcceptVocalLowCutCommand(ProjectAssetId assetId, string sourceSha256,
+    double cutoffHertz = VocalProcessingRecipe.LowCutHertz, double q = VocalProcessingRecipe.LowCutQ) : IProjectCommand
 {
     private VocalProcessingRecipe? _previous;
     private VocalProcessingRecipe? _accepted;
 
     public void Execute(SongProject project)
     {
-        var recipe = _accepted ?? new VocalProcessingRecipe(assetId, sourceSha256, VocalProcessingRecipe.LowCutProcessorId,
-            VocalProcessingRole.CorrectiveTone, VocalProcessingRecipe.LowCutHertz, VocalProcessingRecipe.LowCutQ, DateTimeOffset.UtcNow);
+        var processorId = cutoffHertz == VocalProcessingRecipe.LowCutHertz && q == VocalProcessingRecipe.LowCutQ
+            ? VocalProcessingRecipe.LowCutProcessorId : VocalProcessingRecipe.AdjustableLowCutProcessorId;
+        var recipe = _accepted ?? new VocalProcessingRecipe(assetId, sourceSha256, processorId,
+            VocalProcessingRole.CorrectiveTone, cutoffHertz, q, DateTimeOffset.UtcNow);
         var previous = project.VocalProcessingRecipes.SingleOrDefault(item => item.AssetId == assetId);
         project.SetVocalProcessingRecipe(recipe);
         if (_accepted is null) _previous = previous;

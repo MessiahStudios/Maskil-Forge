@@ -1163,7 +1163,8 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "accept-vocal-profile-proposal": editor.Execute(new AcceptVocalProfileProposalCommand(
             request.ProposalSignature ?? throw new ArgumentException("The reviewed proposal signature is required."))); break;
         case "accept-vocal-low-cut": editor.Execute(new AcceptVocalLowCutCommand(
-            RequiredAssetId(request), request.SourceSha256 ?? throw new ArgumentException("The previewed source digest is required."))); break;
+            RequiredAssetId(request), request.SourceSha256 ?? throw new ArgumentException("The previewed source digest is required."),
+            request.CutoffHertz ?? VocalProcessingRecipe.LowCutHertz, request.Q ?? VocalProcessingRecipe.LowCutQ)); break;
         case "clear-vocal-processing-recipe": editor.Execute(new ClearVocalProcessingRecipeCommand(RequiredAssetId(request))); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;
         case "set-lyrics":
@@ -1507,7 +1508,9 @@ public sealed record ProjectCommandRequest(
     string? VocalProductionNotes = null,
     IReadOnlyList<VocalProcessingRole>? VocalProcessingRoles = null,
     string? SourceSha256 = null,
-    string? ProposalSignature = null);
+    string? ProposalSignature = null,
+    double? CutoffHertz = null,
+    double? Q = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
 public sealed record WorkspaceHealthResponse(
     string Status,

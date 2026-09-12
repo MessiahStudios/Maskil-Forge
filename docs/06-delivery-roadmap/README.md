@@ -1295,6 +1295,12 @@ Expose detailed production controls for experienced users on the same role chain
 
 **Deliverable:** an experienced producer can inspect and revise role settings without abandoning the intent-first model.
 
+**Implemented:** Saved takes in Desktop Music expose optional Advanced low-cut controls for the existing Corrective Tone role: frequency from 40–200 Hz in whole Hz and Q from 0.5–1. The default remains 80 Hz / Q 0.7071067811865476. Changing a value stops and discards the old comparison, including pending decoding, and resets the listening gate. A new original/processed comparison must be prepared and both versions played before the exact rendered settings can be accepted. Draft values never alter accepted settings. Reset restores the accepted values, or the starting values when none are accepted.
+
+Schema v35 supports adjustable recipes under `maskil.vocal.low-cut.v2`. Existing v1 recipes keep their exact fixed parameters and source digest through migration; accepting the original defaults still uses v1. Revision and clearing preserve undo/redo, save/recovery, duplication, and asset-owning packages. Invalid or non-finite parameters are rejected in the browser and domain. The existing headroom refusal remains in force; no gain correction, limiter, or replacement recording is introduced.
+
+Advanced settings live on the same per-take recipe and role chain. Profile auditions retain their fixed 80 Hz example and cannot accept processing. Other roles still have no processor controls. Phone production controls stay hidden; instrument catalog remains version 4. Additional processors, automation, transport processing, and rendered vocal export remain future work.
+
 ### Milestone 9.6 — External processor substitution
 
 Map a processing role onto either Maskil built-in DSP or an artist-selected compatible VST3 once Milestone 8 plugin scanning and hosting exist. The project continues to describe processing intent independently of the realization. This slice does not make any commercial plugin canonical, does not require a specific third-party product to open a song, and does not let a VST own the take or the Song Graph.
