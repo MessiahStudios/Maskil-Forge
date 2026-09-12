@@ -648,6 +648,16 @@ export interface VocalProcessingChain {
   updatedUtc: string
 }
 
+export interface VocalProfileProposal {
+  sourceSignature: string
+  jobs: { role: VocalProcessingRole; name: string; reasons: string[]; canPreview: boolean }[]
+  currentRoles: VocalProcessingRole[]
+  addedRoles: VocalProcessingRole[]
+  removedRoles: VocalProcessingRole[]
+  orderChanges: boolean
+  hasChanges: boolean
+}
+
 export interface VocalProcessingRoleCatalog {
   version: number
   roles: Array<{ id: VocalProcessingRole; name: string; purpose: string; technique: string }>
@@ -778,6 +788,7 @@ export interface ProjectCommand {
   vocalProductionNotes?: string
   vocalProcessingRoles?: VocalProcessingRole[]
   sourceSha256?: string
+  proposalSignature?: string
 }
 
 export interface ProposedSongSection {
@@ -850,6 +861,9 @@ export const projectsApi = {
   health: () => request<WorkspaceHealth>('/api/health'),
   instrumentProfiles: () => request<InstrumentProfileCatalog>('/api/instrument-profiles'),
   vocalProcessingRoles: () => request<VocalProcessingRoleCatalog>('/api/vocal-processing-roles'),
+  vocalProfileProposal: (project: SongProject) => request<VocalProfileProposal>(`/api/projects/${project.id}/vocal-profile-proposal`, {
+    method: 'POST', body: JSON.stringify({ project }),
+  }),
   recommendInstruments: (roles: ArrangementRole[], quality: InstrumentExpressiveQuality | null = null) =>
     request<InstrumentRecommendationSet>('/api/instrument-recommendations', {
       method: 'POST',

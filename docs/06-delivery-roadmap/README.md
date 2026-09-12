@@ -1283,6 +1283,12 @@ Compile chosen result language into a reviewable processing-role proposal: which
 
 **Deliverable:** an artist can ask for a result such as Warm and Intimate, inspect the proposed jobs, preview, and accept or reject.
 
+**Implemented:** Desktop Music compiles the set vocal direction into an on-demand, transient proposal using version-1 host rules. Each job explains its relationship to the selected descriptors; combinations retain their separate reasons in a stable role order. Warm + Intimate suggests Corrective Tone, Saturation / Color, Transparent Level Control, and Space. These are starting points for artist judgment, not measurements of a take. Cleanup and sibilance control are not inferred from result language. Written artist notes stay visible but are not automatically interpreted.
+
+The review shows current and proposed order, additions, removals, and reordering. It retains Corrective Tone whenever an original take already has accepted low-cut settings. An optional audition compares the original with the available 80 Hz low-cut example before the plan is accepted, without requiring Corrective Tone to be set first. This audition has no processing-acceptance action; other jobs clearly remain plans with no audio preview. Profiles without an available processor can be reviewed as plans only. This slice does not claim to render the full requested sound.
+
+Explicit acceptance recomputes the proposal against its reviewed vocal direction, chain, recipes, and asset manifests and stores only the ordinary ordered role chain, with undo/redo. Changed project state invalidates the pending review; stale proposal signatures are rejected. Discarding or navigating away releases the temporary proposal and audition. Direction, original audio, and accepted per-take recipes remain unchanged. No schema change or profile identity is added: schema stays v34 and instrument catalog stays version 4. Existing persistence, recovery, and portable interchange carry the accepted chain. Parameter controls, further processors, and analyzer-informed recommendations remain later slices.
+
 ### Milestone 9.5 — Advanced production controls
 
 Expose detailed production controls for experienced users on the same role chain the beginner UI already uses. Advanced terminology remains optional disclosure. It does not become a second incompatible chain, and it does not unlock silent processing.
