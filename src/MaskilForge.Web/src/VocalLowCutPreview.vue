@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { projectsApi, type ProjectAsset, type VocalProcessingRecipe } from './api'
 import { prepareVocalLowCut, type VocalComparison } from './vocalLowCut'
 
-const props = defineProps<{ projectId: string; asset: ProjectAsset; roleEnabled: boolean; recipe?: VocalProcessingRecipe; busy: boolean }>()
+const props = defineProps<{ projectId: string; asset: ProjectAsset; roleEnabled: boolean; recipe?: VocalProcessingRecipe; busy: boolean; previewOnly?: boolean }>()
 const emit = defineEmits<{ accept: [assetId: string, sourceSha256: string]; clear: [assetId: string]; playing: [] }>()
 const comparison = shallowRef<VocalComparison | null>(null)
 const preparing = ref(false)
@@ -54,7 +54,7 @@ function playing(version: 'original' | 'processed', event: Event) {
 }
 
 function accept() {
-  if (!props.busy && props.roleEnabled && comparison.value && heardOriginal.value && heardProcessed.value)
+  if (!props.previewOnly && !props.busy && props.roleEnabled && comparison.value && heardOriginal.value && heardProcessed.value)
     emit('accept', props.asset.id, props.asset.sha256)
 }
 watch([() => props.projectId, () => props.asset.id, () => props.asset.sha256, () => props.roleEnabled], discard)
@@ -73,15 +73,16 @@ onBeforeUnmount(discard)
     <div class="low-cut-actions">
       <button type="button" :disabled="busy || preparing || !roleEnabled" @click="prepare">{{ preparing ? 'Preparing comparison…' : 'Prepare comparison' }}</button>
       <button v-if="preparing || comparison" type="button" class="quiet" :disabled="busy" @click="discard">Discard comparison</button>
-      <button v-if="accepted" type="button" class="quiet" :disabled="busy || preparing" @click="emit('clear', asset.id)">Clear accepted low-cut</button>
+      <button v-if="accepted && !previewOnly" type="button" class="quiet" :disabled="busy || preparing" @click="emit('clear', asset.id)">Clear accepted low-cut</button>
     </div>
     <p v-if="message" role="status">{{ message }}</p>
     <div v-if="comparison" class="low-cut-comparison">
       <label>Original comparison<audio ref="originalPlayer" controls preload="metadata" :src="comparison.originalUrl" :aria-label="`Original comparison for ${asset.name}`" @playing="playing('original', $event)"></audio></label>
       <label>Low-cut preview<audio ref="processedPlayer" controls preload="metadata" :src="comparison.processedUrl" :aria-label="`Low-cut preview for ${asset.name}`" @playing="playing('processed', $event)"></audio></label>
       <p>Both comparisons start from the same decoded take at its original level. Playing one pauses the other. Playback and prepared audio stay in this tab.</p>
-      <button v-if="!accepted" type="button" :disabled="busy || !heardOriginal || !heardProcessed" @click="accept">Accept low-cut settings</button>
-      <p v-if="!accepted && (!heardOriginal || !heardProcessed)">Play both versions to enable acceptance.</p>
+      <button v-if="!accepted && !previewOnly" type="button" :disabled="busy || !heardOriginal || !heardProcessed" @click="accept">Accept low-cut settings</button>
+      <p v-if="!previewOnly && !accepted && (!heardOriginal || !heardProcessed)">Play both versions to enable acceptance.</p>
+      <p v-if="previewOnly">This is an audition only. To accept this treatment, choose Corrective Tone in your plan, then compare the take in “Takes on this song.”</p>
     </div>
     <p class="low-cut-boundary">Your saved original stays unchanged. Discard removes the temporary comparison; clearing accepted settings is undoable.</p>
   </details>

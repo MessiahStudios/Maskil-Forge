@@ -799,6 +799,22 @@ app.MapPost("/api/projects/{id}/instrument-performance-sketch", async (string id
     }
 });
 
+app.MapPost("/api/projects/{id}/vocal-profile-proposal", async (string id, VocalProfileProposalRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var proposal = await workspace.UseAsync(projectId, null,
+            _ => VocalProfileProposer.Propose(request.Project), cancellationToken);
+        return proposal is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(proposal);
+    }
+    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+    {
+        return Validation(exception);
+    }
+});
+
 app.MapPost("/api/projects/{id}/low-end-support-proposal", async (string id, LowEndSupportProposalRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -1144,6 +1160,8 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "set-vocal-processing-chain": editor.Execute(new SetVocalProcessingChainCommand(
             request.VocalProcessingRoles ?? throw new ArgumentException("Vocal production jobs are required."))); break;
         case "clear-vocal-processing-chain": editor.Execute(new ClearVocalProcessingChainCommand()); break;
+        case "accept-vocal-profile-proposal": editor.Execute(new AcceptVocalProfileProposalCommand(
+            request.ProposalSignature ?? throw new ArgumentException("The reviewed proposal signature is required."))); break;
         case "accept-vocal-low-cut": editor.Execute(new AcceptVocalLowCutCommand(
             RequiredAssetId(request), request.SourceSha256 ?? throw new ArgumentException("The previewed source digest is required."))); break;
         case "clear-vocal-processing-recipe": editor.Execute(new ClearVocalProcessingRecipeCommand(RequiredAssetId(request))); break;
@@ -1400,6 +1418,7 @@ public sealed record OnsetGestureNoteSketchRequest(SongProject Project, ProjectA
 public sealed record LoudnessGestureNoteSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record LoudnessGestureExpressionSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record InstrumentPerformanceSketchRequest(SongProject Project, ProjectAssetId AssetId);
+public sealed record VocalProfileProposalRequest(SongProject Project);
 public sealed record LowEndSupportProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record PulseProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record HarmonySupportProposalRequest(SongProject Project, SectionId SectionId);
@@ -1487,7 +1506,8 @@ public sealed record ProjectCommandRequest(
     IReadOnlyList<VocalProductionDescriptor>? VocalProductionDescriptors = null,
     string? VocalProductionNotes = null,
     IReadOnlyList<VocalProcessingRole>? VocalProcessingRoles = null,
-    string? SourceSha256 = null);
+    string? SourceSha256 = null,
+    string? ProposalSignature = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
 public sealed record WorkspaceHealthResponse(
     string Status,

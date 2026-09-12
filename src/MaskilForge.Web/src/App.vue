@@ -12,6 +12,7 @@ import { chordToneNames, voicingIssues } from './voicingValidation.js'
 import type { RegisteredPitch, VocalProductionDescriptor, VocalProcessingRole } from './api'
 import VocalProcessingChainEditor from './VocalProcessingChainEditor.vue'
 import VocalLowCutPreview from './VocalLowCutPreview.vue'
+import VocalProfileProposal from './VocalProfileProposal.vue'
 import { ChordAudition } from './chordAudition'
 import { PartAudition, type ScheduledNote } from './partAudition'
 import { assemblePartVoices, formatTransportPosition, musicalPositionFromTicks, scheduleAbsolutePartVoices, scheduleAssembledPartVoices, tickFromSeconds } from './partAuditionModel.js'
@@ -3321,6 +3322,15 @@ function setVocalProductionIntent(event: Event) {
   )
 }
 
+function acceptVocalProfileProposal(proposalSignature: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-profile-proposal', proposalSignature }),
+    'Suggested production jobs accepted. Save to keep the plan. Take settings and original audio are unchanged.',
+    'vocal-production.accept-profile-proposal',
+  )
+}
+
 function acceptVocalLowCut(assetId: string, sourceSha256: string) {
   if (!project.value) return
   return run(
@@ -5595,6 +5605,7 @@ onBeforeUnmount(() => {
           </form>
           <p class="vocal-production-boundary">This records your direction for later production. Your recordings stay unchanged. Use Save to keep the direction with your song.</p>
         </section>
+        <VocalProfileProposal :project="project" :busy="busy" @accept="acceptVocalProfileProposal" @playing="stopInstrumentPreviews" />
         <VocalProcessingChainEditor
           :project-id="project.id"
           :chain="project.vocalProcessingChain"
