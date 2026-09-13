@@ -221,6 +221,8 @@ Milestone 9.4 adds transient, explained production-job proposals from set vocal 
 
 Milestone 9.5 adds optional advanced low-cut frequency (40–200 Hz, whole numbers) and Q (0.5–1) controls on the same per-take recipe. An edit invalidates the previous comparison and listening gate; only the exact freshly rendered settings can be accepted. Reset restores accepted or default values. Schema v35 preserves fixed v1 recipes and supports adjustable v2 recipes, with undo/redo and the same source ownership and persistence guarantees. Profile auditions remain the fixed 80 Hz example; other role processors are still unavailable.
 
+Milestone 9.7 adds reviewed-loudness guidance while 9.6 awaits VST3 hosting. At least three reviewed built-in loudness frames above −60 dBFS with a 12 dB RMS spread can suggest Transparent Level Control. Artist corrections are identified separately from original measurements; unsupported and unreviewed evidence is excluded. The transient review cites source frame IDs, times, values, and provenance and provides original playback. Acceptance appends the ordinary job with undo/redo and rejects stale evidence. This is a plan preview; a level-control processor is not yet available. Schema remains v35.
+
 Internally the host reasons in processing **roles**, not plugin dependencies:
 
 - Cleanup / Gate
