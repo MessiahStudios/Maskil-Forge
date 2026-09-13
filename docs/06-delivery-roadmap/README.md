@@ -1307,11 +1307,19 @@ Map a processing role onto either Maskil built-in DSP or an artist-selected comp
 
 **Deliverable:** the same production role can be realized by built-in processing or a compatible plugin without rewriting the song’s intent.
 
+**Dependency pending:** Milestone 8 plugin scanning and VST3 hosting are not implemented. This slice remains deferred; the independent reviewed-evidence guidance slice 9.7 proceeds using existing analyzer contracts.
+
 ### Milestone 9.7 — Analyzer-informed production guidance
 
 Use structured `PerformanceObservation` evidence—and later timbre, sibilance, or masking descriptors if those analyzers exist—to propose production-role changes with an explanation. A valid proposal sounds like “wide level variation; gentle transparent control may improve intelligibility,” not a command to load a named commercial plugin. The artist still previews and accepts. This slice does not auto-apply processing, does not bypass reviews, and gives Milestone 10 the same role vocabulary rather than a parallel AI-only FX path.
 
 **Deliverable:** production suggestions cite observations and roles the artist can inspect, preview, and refuse.
+
+**Implemented:** Each desktop saved take offers an on-demand guidance preview from reviewed loudness evidence. Version-1 host guidance suggests Transparent Level Control when at least three usable reviewed frames above −60 dBFS span at least 12 dB in RMS level. This threshold is an explicit starting rule, not a diagnosis, perceived-loudness estimate, or assessment of the whole performance. Intentional phrasing may explain the variation.
+
+The first rule accepts only the known `maskil.browser.loudness` v1.0.0 deterministic `loudness.frame` contract with bounded, nonduplicated 250 ms grid positions. Accurate claims use original measurements; inaccurate claims require stored artist corrections. Quiet, unreviewed, unsupported, malformed, and duplicate-time frames do not supply evidence. Other analyzer kinds and model interpretations remain excluded. The review cites every used observation ID, source frame time, effective RMS, original RMS when corrected, analyzer/version/provenance, and confidence availability. Playback links let the artist listen from those frames in the original recording.
+
+The preview shows the current and proposed job order. Acceptance appends Transparent Level Control only when absent, keeps all existing jobs in order, and uses the ordinary undoable chain command. A source signature rejects changed evidence, reviews, corrections, takes, or plan state. Discard, collapse, project changes, and navigation remove the temporary review and stop its player. No guidance object or new schema field is persisted; schema stays v35 and instrument catalog stays version 4. Existing chain save/recovery and package paths carry accepted jobs. Transparent Level Control audio processing is not available yet, so this is a plan preview with original playback; it does not alter take settings, source audio, or analyzer evidence. External processor substitution remains pending its hosting dependency.
 
 ## Milestone 10 — AI director
 

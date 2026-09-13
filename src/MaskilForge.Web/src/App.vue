@@ -13,6 +13,7 @@ import type { RegisteredPitch, VocalProductionDescriptor, VocalProcessingRole } 
 import VocalProcessingChainEditor from './VocalProcessingChainEditor.vue'
 import VocalLowCutPreview from './VocalLowCutPreview.vue'
 import VocalProfileProposal from './VocalProfileProposal.vue'
+import VocalEvidenceGuidance from './VocalEvidenceGuidance.vue'
 import { ChordAudition } from './chordAudition'
 import { PartAudition, type ScheduledNote } from './partAudition'
 import { assemblePartVoices, formatTransportPosition, musicalPositionFromTicks, scheduleAbsolutePartVoices, scheduleAssembledPartVoices, tickFromSeconds } from './partAuditionModel.js'
@@ -3331,6 +3332,15 @@ function acceptVocalProfileProposal(proposalSignature: string) {
   )
 }
 
+function acceptVocalEvidenceGuidance(assetId: string, proposalSignature: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-evidence-guidance', assetId, proposalSignature }),
+    'Level-control job added. Save to keep the plan. Audio and take settings are unchanged.',
+    'vocal-production.accept-evidence-guidance',
+  )
+}
+
 function acceptVocalLowCut(assetId: string, sourceSha256: string, cutoffHertz: number, q: number) {
   if (!project.value) return
   return run(
@@ -5666,6 +5676,7 @@ onBeforeUnmount(() => {
                 :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id)"
                 @accept="acceptVocalLowCut" @clear="clearVocalProcessingRecipe" @playing="stopInstrumentPreviews"
               />
+              <VocalEvidenceGuidance :project="project" :asset="asset" :busy="busy" @accept="acceptVocalEvidenceGuidance" @playing="stopInstrumentPreviews" />
               <form class="vocal-take-placement" @submit.prevent="setVocalTakePlacement(asset.id, $event)">
                 <p>{{ vocalTakePlacementLabel(asset.id) }}. Changing this start does not move notes you already accepted.</p>
                 <label>Bar<input name="bar" type="number" min="1" :value="vocalTakePlacement(asset.id)?.start.bar ?? 1" required :disabled="busy" :aria-label="`${asset.name} start bar`"></label>

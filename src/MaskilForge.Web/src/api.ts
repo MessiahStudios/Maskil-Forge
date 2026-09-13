@@ -658,6 +658,17 @@ export interface VocalProfileProposal {
   hasChanges: boolean
 }
 
+export interface VocalEvidenceGuidance {
+  sourceSignature: string
+  assetId: string
+  evidence: { observationId: string; startMilliseconds: number; durationMilliseconds: number; originalRmsDbfs: number; rmsDbfs: number; artistCorrected: boolean; analyzerId: string; analyzerVersion: string; provenance: string; confidence: number | null }[]
+  spreadDecibels: number | null
+  suggestLevelControl: boolean
+  hasChanges: boolean
+  currentRoles: VocalProcessingRole[]
+  proposedRoles: VocalProcessingRole[]
+}
+
 export interface VocalProcessingRoleCatalog {
   version: number
   roles: Array<{ id: VocalProcessingRole; name: string; purpose: string; technique: string }>
@@ -863,6 +874,9 @@ export const projectsApi = {
   health: () => request<WorkspaceHealth>('/api/health'),
   instrumentProfiles: () => request<InstrumentProfileCatalog>('/api/instrument-profiles'),
   vocalProcessingRoles: () => request<VocalProcessingRoleCatalog>('/api/vocal-processing-roles'),
+  vocalEvidenceGuidance: (project: SongProject, assetId: string) => request<VocalEvidenceGuidance>(`/api/projects/${project.id}/vocal-evidence-guidance`, {
+    method: 'POST', body: JSON.stringify({ project, assetId }),
+  }),
   vocalProfileProposal: (project: SongProject) => request<VocalProfileProposal>(`/api/projects/${project.id}/vocal-profile-proposal`, {
     method: 'POST', body: JSON.stringify({ project }),
   }),

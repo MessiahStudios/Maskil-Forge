@@ -799,6 +799,19 @@ app.MapPost("/api/projects/{id}/instrument-performance-sketch", async (string id
     }
 });
 
+app.MapPost("/api/projects/{id}/vocal-evidence-guidance", async (string id, VocalEvidenceGuidanceRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var result = await workspace.UseAsync(projectId, null,
+            _ => VocalEvidenceAdvisor.Preview(request.Project, request.AssetId), cancellationToken);
+        return result is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(result);
+    }
+    catch (Exception exception) when (exception is ArgumentException or InvalidOperationException) { return Validation(exception); }
+});
+
 app.MapPost("/api/projects/{id}/vocal-profile-proposal", async (string id, VocalProfileProposalRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -1160,6 +1173,8 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
         case "set-vocal-processing-chain": editor.Execute(new SetVocalProcessingChainCommand(
             request.VocalProcessingRoles ?? throw new ArgumentException("Vocal production jobs are required."))); break;
         case "clear-vocal-processing-chain": editor.Execute(new ClearVocalProcessingChainCommand()); break;
+        case "accept-vocal-evidence-guidance": editor.Execute(new AcceptVocalEvidenceGuidanceCommand(RequiredAssetId(request),
+            request.ProposalSignature ?? throw new ArgumentException("The reviewed guidance signature is required."))); break;
         case "accept-vocal-profile-proposal": editor.Execute(new AcceptVocalProfileProposalCommand(
             request.ProposalSignature ?? throw new ArgumentException("The reviewed proposal signature is required."))); break;
         case "accept-vocal-low-cut": editor.Execute(new AcceptVocalLowCutCommand(
@@ -1420,6 +1435,7 @@ public sealed record LoudnessGestureNoteSketchRequest(SongProject Project, Proje
 public sealed record LoudnessGestureExpressionSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record InstrumentPerformanceSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record VocalProfileProposalRequest(SongProject Project);
+public sealed record VocalEvidenceGuidanceRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record LowEndSupportProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record PulseProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record HarmonySupportProposalRequest(SongProject Project, SectionId SectionId);
