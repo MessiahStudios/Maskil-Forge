@@ -19,6 +19,7 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddSingleton<IProjectRepository>(_ =>
     new JsonFileProjectRepository(projectLibraryPath));
 builder.Services.AddSingleton<ProjectWorkspace>();
+builder.Services.AddSingleton<Vst3Discovery>();
 builder.Services.AddSingleton<DevelopmentActivityLogStore>();
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy =>
     policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173").AllowAnyHeader().AllowAnyMethod()));
@@ -62,6 +63,11 @@ app.MapGet("/api/health", () => Results.Ok(new WorkspaceHealthResponse(
     app.Environment.IsDevelopment())));
 
 app.MapGet("/api/instrument-profiles", () => Results.Ok(InstrumentProfileCatalogLoader.Current));
+app.MapPost("/api/host/vst3-discovery", async (Vst3Discovery discovery, HttpContext context, CancellationToken cancellationToken) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.Ok(await discovery.ScanAsync(cancellationToken));
+});
 app.MapPost("/api/instrument-recommendations", (InstrumentRecommendationRequest request) =>
     Results.Ok(InstrumentRoleRecommender.Recommend(request.Roles, request.Quality)));
 app.MapPost("/api/instrument-range-review", (InstrumentRangeReviewRequest request) =>
