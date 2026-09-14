@@ -870,7 +870,20 @@ async function requestBlob(url: string, init?: RequestInit): Promise<Blob> {
   return response.blob()
 }
 
+export interface Vst3DiscoveryResult {
+  platform: string
+  scannedUtc: string
+  locations: {
+    name: string
+    hint: string
+    status: string
+    issues: string[]
+    candidates: { name: string; relativePath: string; kind: string }[]
+  }[]
+}
+
 export const projectsApi = {
+  discoverVst3: (signal?: AbortSignal) => request<Vst3DiscoveryResult>('/api/host/vst3-discovery', { method: 'POST', signal }),
   health: () => request<WorkspaceHealth>('/api/health'),
   instrumentProfiles: () => request<InstrumentProfileCatalog>('/api/instrument-profiles'),
   vocalProcessingRoles: () => request<VocalProcessingRoleCatalog>('/api/vocal-processing-roles'),

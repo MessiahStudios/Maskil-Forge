@@ -1231,6 +1231,18 @@ This slice bundles no bank, makes no quality promise about an artist-supplied ba
 
 **Deliverable:** an artist can audition the same Song Graph through a real sample-based General MIDI bank on their device, compare it with Maskil's built-in guide voices, and change or remove that renderer without changing the song.
 
+### Milestone 8.3 — Host-local VST3 candidate discovery
+
+**Implemented:** Desktop Music offers an explicit check of the computer running the Maskil project service. Discovery visits standard user and system VST3 folders on Windows, macOS, and Linux, plus the standalone host's VST3 folder, and lists candidate files or bundles with their relative location. Folder resolution follows the [Steinberg VST3 locations](https://steinbergmedia.github.io/vst3_dev_portal/pages/Technical%2BDocumentation/Locations%2BFormat/Plugin%2BLocations.html). A DAW installation is not required. A browser on another device checks the service host, not its own filesystem.
+
+This is filesystem discovery only: no module is loaded, no binary or manifest is read, and no plugin class, architecture, compatibility, license, or processor role is inferred. A bundle is one candidate and its contents are not traversed. Duplicate names and installations remain separate until a future isolated scanner can identify actual plugin classes. Results cannot be selected as a renderer or substituted into a production chain.
+
+Each folder is bounded to 10,000 examined entries, 512 candidates, and eight nested directory levels. Missing, unreadable, linked, and partially scanned folders are distinguished; skipped entries and limits remain visible. Symbolic links/reparse points are skipped, and custom folders and the macOS network search location are excluded. Scans are serialized, cancellation-aware, and run only on request. Results contain display hints and relative paths rather than absolute host paths. Nothing is written to plugin folders or the song library.
+
+The API response is uncached and the browser holds only transient results. Clear, collapse, leaving Music, changing projects, or closing the page discards them. There is no new SDK dependency, persisted plugin inventory, schema field, audio processing, or hosting capability. Schema stays v35 and instrument catalog stays version 4. Phone Music remains hidden. Milestone 9.6 still awaits isolated plugin inspection and native hosting.
+
+**Deliverable:** the artist can inspect which VST3 filesystem candidates exist on the Maskil host and distinguish discovery from verified playback support.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.
@@ -1307,7 +1319,7 @@ Map a processing role onto either Maskil built-in DSP or an artist-selected comp
 
 **Deliverable:** the same production role can be realized by built-in processing or a compatible plugin without rewriting the song’s intent.
 
-**Dependency pending:** Milestone 8 plugin scanning and VST3 hosting are not implemented. This slice remains deferred; the independent reviewed-evidence guidance slice 9.7 proceeds using existing analyzer contracts.
+**Dependency pending:** Milestone 8.3 discovers filesystem candidates; isolated plugin inspection and VST3 hosting are not implemented. This slice remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts.
 
 ### Milestone 9.7 — Analyzer-informed production guidance
 

@@ -14,6 +14,7 @@ import VocalProcessingChainEditor from './VocalProcessingChainEditor.vue'
 import VocalLowCutPreview from './VocalLowCutPreview.vue'
 import VocalProfileProposal from './VocalProfileProposal.vue'
 import VocalEvidenceGuidance from './VocalEvidenceGuidance.vue'
+import Vst3DiscoveryPanel from './Vst3DiscoveryPanel.vue'
 import { ChordAudition } from './chordAudition'
 import { PartAudition, type ScheduledNote } from './partAudition'
 import { assemblePartVoices, formatTransportPosition, musicalPositionFromTicks, scheduleAbsolutePartVoices, scheduleAssembledPartVoices, tickFromSeconds } from './partAuditionModel.js'
@@ -5280,6 +5281,7 @@ onBeforeUnmount(() => {
           <button v-if="soundFontState.bankName" type="button" class="quiet" :disabled="soundFontState.busy" @click="clearSoundBank">Clear bank</button>
           <p class="renderer-bank-status" role="status" aria-live="polite">{{ soundFontState.message }}</p>
         </section>
+        <Vst3DiscoveryPanel v-if="activeCreatorStage === 'music'" :key="project.id" />
         <section v-if="project.musicalParts.length" id="song-transport" class="song-transport" aria-label="Song playback transport">
           <div>
             <strong>Song transport</strong>

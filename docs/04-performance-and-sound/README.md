@@ -186,6 +186,8 @@ Slice 8.2 adds renderer ID `maskil-soundfont-preview-v1`. Desktop Music accepts 
 
 The selected bank's bytes remain in the current browser tab and are neither uploaded nor stored in the Song Graph, portable package, recovery copy, service-worker cache, or browser project record. The renderer engine and worklet belong to the installable shell, but the artist must reselect the bank after a reload. Clearing the bank or failing to load one returns playback to the 8.1 built-in renderer. This slice bundles no third-party sound bank, claims no bank is canonical, processes no vocal, and creates no offline audio file. SpessaSynth is an Apache-2.0 browser dependency; the user supplies any bank under its own license.
 
+Slice 8.3 adds explicit host-local VST3 discovery in desktop Music. The service lists files and bundles in standard local plugin folders without loading their code or inferring compatibility. Folder status, partial results, and relative candidate paths remain inspectable. Results are transient, and a remote browser checks the computer running the project service. Linked entries and custom folders are skipped. This establishes candidate discovery only; isolated plugin inspection, hosting, and role substitution remain future work. No DAW installation is required.
+
 ## Human vocal workflow
 
 The lead-vocal path is a singer's workflow, not a vocal-generation workflow:
