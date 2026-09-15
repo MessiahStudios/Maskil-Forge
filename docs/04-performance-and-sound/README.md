@@ -188,6 +188,8 @@ The selected bank's bytes remain in the current browser tab and are neither uplo
 
 Slice 8.3 adds explicit host-local VST3 discovery in desktop Music. The service lists files and bundles in standard local plugin folders without loading their code or inferring compatibility. Folder status, partial results, and relative candidate paths remain inspectable. Results are transient, and a remote browser checks the computer running the project service. Linked entries and custom folders are skipped. This establishes candidate discovery only; isolated plugin inspection, hosting, and role substitution remain future work. No DAW installation is required.
 
+Slice 8.4 reads bounded optional VST3 module manifests and presents their reported module/vendor/version and class declarations, with source location and a digest of the metadata bytes. Current and legacy manifest paths are supported. Missing, unsupported, invalid, oversized, linked, and unreadable metadata receive distinct notices while candidates remain visible. These declarations are unverified and transient: they do not select a renderer, establish executable compatibility, or substitute a production role. No plugin code is loaded.
+
 ## Human vocal workflow
 
 The lead-vocal path is a singer's workflow, not a vocal-generation workflow:
