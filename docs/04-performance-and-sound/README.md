@@ -190,6 +190,8 @@ Slice 8.3 adds explicit host-local VST3 discovery in desktop Music. The service 
 
 Slice 8.4 reads bounded optional VST3 module manifests and presents their reported module/vendor/version and class declarations, with source location and a digest of the metadata bytes. Current and legacy manifest paths are supported. Missing, unsupported, invalid, oversized, linked, and unreadable metadata receive distinct notices while candidates remain visible. These declarations are unverified and transient: they do not select a renderer, establish executable compatibility, or substitute a production role. No plugin code is loaded.
 
+Slice 8.5 adds bounded binary-header preflight for PE, ELF, and thin/universal Mach-O files at conventional module paths. It compares header format and CPU identifiers with the running Maskil service process and exposes different or undetermined results. These findings do not establish full binary validity, VST entry points, OS/ABI compatibility, or playback; plugin code is never loaded. Header evidence remains separate from reported manifest metadata and never changes the song or renderer.
+
 ## Human vocal workflow
 
 The lead-vocal path is a singer's workflow, not a vocal-generation workflow:

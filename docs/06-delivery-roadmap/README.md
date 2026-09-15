@@ -1255,6 +1255,20 @@ Metadata failures do not hide filesystem candidates or healthy neighbors. Rescan
 
 **Deliverable:** the artist can inspect what discovered bundles report about themselves, identify the source of each declaration, and distinguish missing metadata from a verified loading result.
 
+### Milestone 8.5 — Binary format and CPU preflight
+
+**Implemented:** VST3 discovery now reads bounded binary header fields and shows whether the recognized format and CPU match the running project-service process. This extends reported metadata with evidence from the file itself. It supports PE DLL headers, ELF shared-object headers, and thin or universal Mach-O library/bundle headers. Universal Mach-O tables are bounded and their slice ranges, headers, and CPU declarations are checked before reporting architectures. Folder names are never accepted as CPU evidence.
+
+Single-file candidates are inspected directly. Bundle inspection checks conventional same-name module paths under six Windows architecture folders, five common Linux architecture folders, and `Contents/MacOS`, following the [VST3 bundle layout](https://steinbergmedia.github.io/vst3_dev_portal/pages/Technical%2BDocumentation/Locations%2BFormat/Plugin%2BFormat.html). It does not recurse through bundle contents, follow links/reparse points, resolve custom layouts or macOS `Info.plist` executable names, or interpret metadata paths as executable paths. Missing conventional files, unreadable/linked paths, unsupported layouts, and invalid/truncated headers remain inspectable without hiding candidates.
+
+The reader uses the [PE machine/header contract](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format), [ELF header fields](https://refspecs.linuxfoundation.org/elf/gabi4+/ch4.eheader.html), and [Mach-O universal headers](https://github.com/apple-oss-distributions/xnu/blob/main/EXTERNAL_HEADERS/mach-o/fat.h). Reads are limited to at most 128 candidates per scan and twelve conventional paths per bundle. A file requires at most 1,056 header bytes; PE header offsets beyond 1 MiB and universal tables beyond 16 slices are unsupported. Cancellation is checked between probes and header reads. No module is loaded or executed and no file is written.
+
+Match means only that the inspected header format and a CPU identifier match the host process. A differing format or CPU is reported as different, not as a universal incompatibility verdict. Unknown CPUs, unsupported formats, and hybrid Windows Arm64EC/Arm64X cases remain undetermined where an exact match cannot be established. Emulation, CPU subtypes, OS minimum versions, full binary integrity, plugin entry points, dependencies, signatures, licensing, and playback are not verified. ELF format alone is not proof of Linux ABI compatibility; Mach-O format alone is not proof of macOS compatibility.
+
+The UI keeps reported manifests and header findings separate and identifies the host platform/process CPU and each inspected relative binary path. Rescanning refreshes findings; existing clear/collapse/navigation cleanup remains in force. No schema, renderer choice, production-role assignment, or stored inventory changes. Schema stays v35. Native plugin loading/inspection and hosting remain the next dependency for Milestone 9.6; completed 9.x work stays intact.
+
+**Deliverable:** the artist can distinguish a plausible host-format/CPU match from a different or undetermined binary before native plugin loading exists.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.
@@ -1331,7 +1345,7 @@ Map a processing role onto either Maskil built-in DSP or an artist-selected comp
 
 **Deliverable:** the same production role can be realized by built-in processing or a compatible plugin without rewriting the song’s intent.
 
-**Dependency pending:** Milestones 8.3–8.4 discover filesystem candidates and inspect optional reported metadata; isolated native plugin inspection and VST3 hosting are not implemented. This slice remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts.
+**Dependency pending:** Milestones 8.3–8.5 discover candidates, inspect reported metadata, and compare binary header format/CPU with the host process. Isolated native plugin inspection and VST3 hosting are not implemented. This slice remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts.
 
 ### Milestone 9.7 — Analyzer-informed production guidance
 
