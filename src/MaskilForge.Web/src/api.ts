@@ -870,6 +870,18 @@ async function requestBlob(url: string, init?: RequestInit): Promise<Blob> {
   return response.blob()
 }
 
+export interface Vst3MetadataInspection {
+  status: string
+  source: string | null
+  sha256: string | null
+  module: {
+    name: string
+    version: string
+    vendor: string
+    classes: { id: string; name: string; category: string; vendor: string | null; version: string | null; sdkVersion: string | null; subCategories: string[] }[]
+  } | null
+}
+
 export interface Vst3DiscoveryResult {
   platform: string
   scannedUtc: string
@@ -878,7 +890,7 @@ export interface Vst3DiscoveryResult {
     hint: string
     status: string
     issues: string[]
-    candidates: { name: string; relativePath: string; kind: string }[]
+    candidates: { name: string; relativePath: string; kind: string; metadata: Vst3MetadataInspection }[]
   }[]
 }
 

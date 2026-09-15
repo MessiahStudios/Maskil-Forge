@@ -1243,6 +1243,18 @@ The API response is uncached and the browser holds only transient results. Clear
 
 **Deliverable:** the artist can inspect which VST3 filesystem candidates exist on the Maskil host and distinguish discovery from verified playback support.
 
+### Milestone 8.4 — Inspectable VST3 module metadata
+
+**Implemented:** Discovery now reads optional `moduleinfo.json` declarations from a candidate bundle without loading executable code. It prefers `Contents/Resources/moduleinfo.json` and uses the older `Contents/moduleinfo.json` only when the current location is absent, following the [Steinberg module-info contract](https://steinbergmedia.github.io/vst3_dev_portal/pages/Technical%2BDocumentation/VST%2BModule%2BArchitecture/ModuleInfo-JSON.html). Invalid, unreadable, or linked current metadata is reported rather than silently replaced by legacy declarations. Single-file candidates remain listed without manifest inspection.
+
+Desktop Music exposes optional reported-details disclosure for each readable manifest: module name/version, factory vendor, class IDs, class names, class categories, optional class vendor/version/SDK, and subcategories. Processor and controller classes remain distinct; class count is not advertised as a count of playable instruments. Missing class details are not inferred from factory values. The source location and SHA-256 of the exact manifest bytes provide attribution. These are unverified declarations, not executable compatibility, publisher authenticity, licensing, or role assignments. URLs, snapshots, and compatibility declarations are not followed or acted on.
+
+The reader accepts UTF-8 JSON, an optional UTF-8 BOM, comments, and trailing commas; it does not implement the entire JSON5 grammar. Other JSON5 syntax is reported as invalid or unsupported, without claiming the plugin is broken. Duplicate properties, duplicate or malformed 32-hex class IDs, invalid field types, and excessive declarations reject that manifest as a whole. Limits are 128 KiB per manifest, 64 manifest attempts per discovery scan, JSON depth 16, 128 classes, 16 subcategories per class, and 256 characters per displayed string. Cancellation remains active during reads. Bundle and manifest path components are checked for links/reparse points; linked paths are skipped.
+
+Metadata failures do not hide filesystem candidates or healthy neighbors. Rescanning rereads the files and refreshes their digests. Clear, collapse, navigation, and project changes still discard all results; no inventory or plugin metadata enters the Song Graph or local song storage. Schema remains v35 and instrument catalog remains version 4. Native plugin inspection and hosting, and therefore Milestone 9.6, remain pending.
+
+**Deliverable:** the artist can inspect what discovered bundles report about themselves, identify the source of each declaration, and distinguish missing metadata from a verified loading result.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.
@@ -1319,7 +1331,7 @@ Map a processing role onto either Maskil built-in DSP or an artist-selected comp
 
 **Deliverable:** the same production role can be realized by built-in processing or a compatible plugin without rewriting the song’s intent.
 
-**Dependency pending:** Milestone 8.3 discovers filesystem candidates; isolated plugin inspection and VST3 hosting are not implemented. This slice remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts.
+**Dependency pending:** Milestones 8.3–8.4 discover filesystem candidates and inspect optional reported metadata; isolated native plugin inspection and VST3 hosting are not implemented. This slice remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts.
 
 ### Milestone 9.7 — Analyzer-informed production guidance
 
