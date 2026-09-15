@@ -1269,6 +1269,18 @@ The UI keeps reported manifests and header findings separate and identifies the 
 
 **Deliverable:** the artist can distinguish a plausible host-format/CPU match from a different or undetermined binary before native plugin loading exists.
 
+### Milestone 8.6 — Searchable plugin inventory review
+
+**Implemented:** Desktop Music can search the temporary discovery inventory by candidate path, folder label, reported module/class names, vendor, version, class ID, category, and subcategory. Search is case-insensitive, normalizes Unicode, and requires every whitespace-separated term. Search combines with architecture and repeated-class-ID filters. Folder status and original counts remain visible when filters hide all candidates.
+
+Architecture filters summarize existing header evidence: at least one recognized matching header; all inspected headers recognized and different; or undetermined/incomplete. Missing, unreadable, unsupported, and uninspected evidence never becomes a positive match or an all-different verdict. These filters do not establish plugin compatibility.
+
+Repeated reported class IDs are grouped across the entire scan, including filtered-out candidates. IDs are compared case-insensitively and count once per candidate. The review preserves each candidate's folder, relative path, reported class name/category, and optional class version. Processor and controller IDs are included. Reports can represent copies or versions and do not prove a conflict or identify the installation to use. No candidate is automatically selected, merged, removed, or assigned to a renderer.
+
+Explicit rescans preserve filters while refreshing evidence. Reset filters shows the full inventory; clearing results, collapsing the panel, and project/navigation cleanup discard both findings and filters. Inventory review never changes the song or persists scan results. Schema remains v35; completed Milestone 9.7 remains intact, and native inspection/hosting is still pending.
+
+**Deliverable:** the artist can narrow a discovered inventory and compare installations reporting the same class ID without losing the full-scan context.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.
