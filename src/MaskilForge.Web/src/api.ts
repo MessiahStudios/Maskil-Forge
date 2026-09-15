@@ -890,7 +890,13 @@ export interface Vst3DiscoveryResult {
     hint: string
     status: string
     issues: string[]
-    candidates: { name: string; relativePath: string; kind: string; metadata: Vst3MetadataInspection }[]
+    candidates: {
+      name: string; relativePath: string; kind: string; metadata: Vst3MetadataInspection
+      binary: {
+        hostPlatform: string; hostArchitecture: string; status: string
+        files: { source: string; status: string; format: string | null; architectures: string[]; hostMatch: string }[]
+      }
+    }[]
   }[]
 }
 

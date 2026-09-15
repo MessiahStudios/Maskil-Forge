@@ -14,6 +14,8 @@ const metadataStatuses: Record<string, string> = {
   TooLarge: 'Metadata exceeds the 128 KiB limit', ScanLimit: 'Metadata read limit reached; details were not inspected',
   InvalidOrUnsupported: 'Metadata is invalid or uses an unsupported format. This does not establish that the plugin is broken.',
 }
+const binaryStatuses: Record<string, string> = { Recognized: 'Library header recognized', Invalid: 'Truncated or invalid header', Unsupported: 'Header format or layout not supported by this check', Unreadable: 'Header could not be read', LinkedPath: 'Linked binary path skipped' }
+const binaryMatches: Record<string, string> = { Match: 'Header format and CPU match this host process', Different: 'Header format or CPU differs from this host process', Unknown: 'Host match is undetermined' }
 function clear() {
   generation++
   controller?.abort()
@@ -64,6 +66,21 @@ onBeforeUnmount(clear)
             <span>{{ candidate.kind === 'Bundle' ? 'Bundle' : 'File' }} · Unverified</span>
             <small>{{ candidate.relativePath }}</small>
             <span>{{ metadataStatuses[candidate.metadata.status] ?? candidate.metadata.status }}</span>
+            <details class="plugin-metadata" :aria-label="`Binary headers for ${candidate.relativePath}`">
+              <summary>Check binary architecture</summary>
+              <p>Running host: {{ candidate.binary.hostPlatform }} · {{ candidate.binary.hostArchitecture }} process</p>
+              <p v-if="candidate.binary.status === 'ScanLimit'">Binary inspection limit reached. This candidate's headers were not read.</p>
+              <p v-else-if="candidate.binary.status === 'NoConventionalBinary'">No binary found in the conventional layouts checked. Custom layouts and macOS executable names declared only in Info.plist are not resolved yet.</p>
+              <ul v-else aria-label="Inspected binary headers">
+                <li v-for="binary in candidate.binary.files" :key="binary.source">
+                  <strong>{{ binary.source }}</strong>
+                  <span>{{ binaryStatuses[binary.status] ?? binary.status }}</span>
+                  <span v-if="binary.format">{{ binary.format }} · {{ binary.architectures.join(', ') || 'CPU not identified' }}</span>
+                  <span>{{ binaryMatches[binary.hostMatch] ?? binary.hostMatch }}</span>
+                </li>
+              </ul>
+              <p>This compares header format and CPU only. It does not validate the complete binary, VST entry points, OS version, dependencies, signatures, licensing, or playback. Emulation and hybrid Windows/Arm loading are not inferred. No plugin code was loaded.</p>
+            </details>
             <details v-if="candidate.metadata.module" class="plugin-metadata" :aria-label="`Reported metadata for ${candidate.relativePath}`">
               <summary>Reported plugin details</summary>
               <dl>
@@ -90,6 +107,7 @@ onBeforeUnmount(clear)
         <p v-else-if="location.status === 'Complete'">No .vst3 candidates in this folder.</p>
       </section>
       <p>Metadata inspection supports UTF-8 JSON with comments and trailing commas; other JSON5 syntax may be reported as unsupported. At most 64 manifest files are read per scan. Missing details do not prevent a candidate from being listed.</p>
+      <p>Binary checks inspect bounded headers for at most 128 candidates per scan. Reported metadata and binary-header findings remain separate; neither selects a renderer.</p>
       <p>Linked entries are skipped. Custom folders and the macOS network plugin location are outside this scan. Copies remain separate because plugin identities have not been verified. Results are temporary and do not change your song or renderer.</p>
     </div>
   </details>

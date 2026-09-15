@@ -19,7 +19,7 @@ public sealed class Vst3DiscoveryTests : IDisposable
     private Vst3Discovery Scanner(Vst3ScanLimits? limits = null) => new("Test", [new("Fixture", "Test folder", _directory)], limits);
 
     [Fact]
-    public async Task Discovery_ListsFilesAndBundlesWithoutReadingTheirContents()
+    public async Task Discovery_ListsFilesAndBundlesWithoutLoadingTheirCode()
     {
         FileAt("Vendor/声.VST3");
         FileAt("Vendor/Synth.vst3/Contents/inside.vst3");

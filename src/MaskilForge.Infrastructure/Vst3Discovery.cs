@@ -3,7 +3,7 @@ namespace MaskilForge.Infrastructure;
 public sealed record Vst3SearchLocation(string Name, string Hint, string Path);
 public sealed record Vst3HostPaths(string Platform, string UserHome, string LocalAppData,
     string CommonProgramFiles, string CommonProgramFilesX86, string ApplicationDirectory);
-public sealed record Vst3Candidate(string Name, string RelativePath, string Kind, Vst3MetadataInspection Metadata);
+public sealed record Vst3Candidate(string Name, string RelativePath, string Kind, Vst3MetadataInspection Metadata, Vst3BinaryInspection Binary);
 public sealed record Vst3LocationResult(string Name, string Hint, string Status,
     IReadOnlyList<string> Issues, IReadOnlyList<Vst3Candidate> Candidates);
 public sealed record Vst3DiscoveryResult(string Platform, DateTimeOffset ScannedUtc,
@@ -52,7 +52,7 @@ public static class Vst3SearchLocations
     }
 }
 
-/// <summary>Lists filesystem candidates and optional reported metadata. Never loads modules or reads binaries.</summary>
+/// <summary>Lists candidates, reported metadata, and bounded binary headers. Never loads executable modules.</summary>
 public sealed class Vst3Discovery
 {
     private readonly string _platform;
@@ -80,10 +80,11 @@ public sealed class Vst3Discovery
             {
                 var results = new List<Vst3LocationResult>();
                 var metadata = new Vst3MetadataReader();
+                var binaries = Vst3BinaryPreflight.ForHost(_platform);
                 foreach (var location in _locations)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    results.Add(ScanLocation(location, metadata, cancellationToken));
+                    results.Add(ScanLocation(location, metadata, binaries, cancellationToken));
                 }
                 return new Vst3DiscoveryResult(_platform, DateTimeOffset.UtcNow, results.AsReadOnly());
             }, cancellationToken);
@@ -91,7 +92,7 @@ public sealed class Vst3Discovery
         finally { _scanGate.Release(); }
     }
 
-    private Vst3LocationResult ScanLocation(Vst3SearchLocation location, Vst3MetadataReader metadata, CancellationToken cancellationToken)
+    private Vst3LocationResult ScanLocation(Vst3SearchLocation location, Vst3MetadataReader metadata, Vst3BinaryPreflight binaries, CancellationToken cancellationToken)
     {
         var candidates = new List<Vst3Candidate>();
         var issues = new HashSet<string>(StringComparer.Ordinal);
@@ -129,8 +130,9 @@ public sealed class Vst3Discovery
                         {
                             if (candidates.Count == _limits.MaxCandidates) { issues.Add("CandidateLimit"); stopped = true; break; }
                             candidates.Add(new(Path.GetFileName(path), Path.GetRelativePath(location.Path, path).Replace('\\', '/'),
-                                isDirectory ? "Bundle" : "File", isDirectory ? metadata.Read(path, cancellationToken) : new("NotApplicable")));
-                            continue; // Only the known optional manifest is read; never enumerate bundle internals.
+                                isDirectory ? "Bundle" : "File", isDirectory ? metadata.Read(path, cancellationToken) : new("NotApplicable"),
+                                binaries.Inspect(path, isDirectory, cancellationToken)));
+                            continue; // Inspect only known manifest/binary paths; never enumerate bundle internals.
                         }
                         if (isDirectory)
                         {
