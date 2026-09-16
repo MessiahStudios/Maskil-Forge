@@ -1281,6 +1281,18 @@ Explicit rescans preserve filters while refreshing evidence. Reset filters shows
 
 **Deliverable:** the artist can narrow a discovered inventory and compare installations reporting the same class ID without losing the full-scan context.
 
+### Milestone 8.7 — macOS VST3 executable-name resolution
+
+**Implemented:** Binary preflight reads `CFBundleExecutable` from a bundle's `Contents/Info.plist`, following [Apple's executable-name contract](https://developer.apple.com/documentation/bundleresources/information-property-list/cfbundleexecutable). A valid filename replaces the conventional bundle-name guess under `Contents/MacOS`. This handles bundles whose display name differs from their binary name, including the installed Saturation Knob bundle used to validate this slice.
+
+The XML reader is cross-platform and uses no native loader or new dependency. It reads at most 128 KiB per plist for the existing maximum of 128 binary-inspected candidates per scan; XML depth is limited to 16. The ordinary plist DOCTYPE is ignored without resolving external resources or expanding declared entities. Duplicate top-level keys, wrong executable value types, control characters, path separators, dot paths, and names over 255 characters are rejected. Bundle, Contents, plist, and executable path links are skipped. Binary property lists remain explicitly unsupported in this slice.
+
+The UI separates the declared filename, relative plist source, and SHA-256 of its bytes from the actual binary-header result. An absent, unreadable, invalid, or unsupported declaration leaves conventional-path inspection available with an explicit notice. A valid declaration pointing to an absent executable produces a missing-binary finding; it never silently falls back to a different same-name file. At most twelve binary paths are checked per candidate. Rescanning refreshes the declaration and header evidence; clear, collapse, and navigation still discard the transient inventory. Schema remains v35 and catalog remains version 4. VST2, native loading, DSP, DAW control, and role substitution are outside this slice.
+
+**Validation:** On the Apple Silicon development MacBook, the system scan found 20 VST3 candidates. Before this change, Saturation Knob reported no conventional binary. Afterward it resolved `Contents/MacOS/SaturationKnob_VST_AU_Protect` and reported a universal Mach-O header with X64 and Arm64. All 20 candidates had recognized matching headers; this is header evidence only, not proof of plugin loading or audio processing. Browser review confirmed the filtered result and declaration attribution. The .NET suite passed 632 tests and the frontend suite passed 149 tests; the production frontend build passed.
+
+**Deliverable:** an artist can inspect the actual declared macOS plugin binary even when its name differs from the bundle, while keeping declaration evidence separate from loading and playback claims.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.

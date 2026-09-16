@@ -192,6 +192,8 @@ Slice 8.4 reads bounded optional VST3 module manifests and presents their report
 
 Slice 8.5 adds bounded binary-header preflight for PE, ELF, and thin/universal Mach-O files at conventional module paths. It compares header format and CPU identifiers with the running Maskil service process and exposes different or undetermined results. These findings do not establish full binary validity, VST entry points, OS/ABI compatibility, or playback; plugin code is never loaded. Header evidence remains separate from reported manifest metadata and never changes the song or renderer.
 
+Slice 8.7 also resolves a macOS bundle's executable filename from a bounded XML `Contents/Info.plist`. A valid `CFBundleExecutable` replaces the same-name binary guess, with the declaration source and digest shown separately from header findings. Missing declared binaries and unsupported or invalid plists remain explicit; binary plists are not supported. Reads reject links and filenames containing paths. This closes a real discovery gap for installed bundles such as Saturation Knob without loading plugin code or changing the song.
+
 Slice 8.6 makes the temporary inventory searchable and filterable by header evidence or repeated reported class IDs. Repeated-ID review retains every installation and its reported class version across the full scan, including candidates hidden by filters. Both processor and controller declarations are included; repetitions do not prove a conflict or determine which installation to use. Rescans preserve filters, while clear/collapse/navigation discard them with the results. The review never changes the song, selects a renderer, or persists an inventory.
 
 ## Human vocal workflow

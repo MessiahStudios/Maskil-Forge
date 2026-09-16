@@ -19,7 +19,15 @@ const metadataStatuses: Record<string, string> = {
   TooLarge: 'Metadata exceeds the 128 KiB limit', ScanLimit: 'Metadata read limit reached; details were not inspected',
   InvalidOrUnsupported: 'Metadata is invalid or uses an unsupported format. This does not establish that the plugin is broken.',
 }
-const binaryStatuses: Record<string, string> = { Recognized: 'Library header recognized', Invalid: 'Truncated or invalid header', Unsupported: 'Header format or layout not supported by this check', Unreadable: 'Header could not be read', LinkedPath: 'Linked binary path skipped' }
+const binaryStatuses: Record<string, string> = { Recognized: 'Library header recognized', Invalid: 'Truncated or invalid header', Unsupported: 'Header format or layout not supported by this check', Unreadable: 'Header could not be read', LinkedPath: 'Linked binary path skipped', Missing: 'Declared executable was not found' }
+const macExecutableStatuses: Record<string, string> = {
+  Available: 'macOS executable name read from the bundle', Missing: 'No Info.plist found',
+  MissingExecutable: 'Info.plist does not declare an executable', LinkedPath: 'Linked Info.plist path skipped',
+  Unreadable: 'Info.plist could not be read', TooLarge: 'Info.plist exceeds the 128 KiB limit',
+  UnsupportedFormat: 'Binary property lists are not supported by this check',
+  InvalidOrUnsupported: 'Info.plist is invalid or uses an unsupported XML layout',
+  InvalidExecutableName: 'Declared executable is not a supported filename',
+}
 const binaryMatches: Record<string, string> = { Match: 'Header format and CPU match this host process', Different: 'Header format or CPU differs from this host process', Unknown: 'Host match is undetermined' }
 function clear(reset = true) {
   generation++
@@ -101,8 +109,15 @@ onBeforeUnmount(() => clear())
             <details class="plugin-metadata" :aria-label="`Binary headers for ${candidate.relativePath}`">
               <summary>Check binary architecture</summary>
               <p>Running host: {{ candidate.binary.hostPlatform }} · {{ candidate.binary.hostArchitecture }} process</p>
+              <div v-if="candidate.binary.macExecutable && (result.platform === 'macOS' || candidate.binary.macExecutable.status !== 'Missing')">
+                <p>{{ macExecutableStatuses[candidate.binary.macExecutable.status] ?? candidate.binary.macExecutable.status }}</p>
+                <p v-if="candidate.binary.macExecutable.executable">Declared executable: {{ candidate.binary.macExecutable.executable }}</p>
+                <p v-else>The conventional bundle-name executable is checked when no usable declaration is available.</p>
+                <small>Executable-name source: {{ candidate.binary.macExecutable.source }}</small>
+                <small v-if="candidate.binary.macExecutable.sha256">Info.plist SHA-256: {{ candidate.binary.macExecutable.sha256 }}</small>
+              </div>
               <p v-if="candidate.binary.status === 'ScanLimit'">Binary inspection limit reached. This candidate's headers were not read.</p>
-              <p v-else-if="candidate.binary.status === 'NoConventionalBinary'">No binary found in the conventional layouts checked. Custom layouts and macOS executable names declared only in Info.plist are not resolved yet.</p>
+              <p v-else-if="candidate.binary.status === 'NoConventionalBinary'">No binary found in the layouts checked. Other custom layouts are outside this check.</p>
               <ul v-else aria-label="Inspected binary headers">
                 <li v-for="binary in candidate.binary.files" :key="binary.source">
                   <strong>{{ binary.source }}</strong>
@@ -140,7 +155,7 @@ onBeforeUnmount(() => clear())
         <p v-else-if="location.status === 'Complete'">No .vst3 candidates in this folder.</p>
       </section>
       <p>Metadata inspection supports UTF-8 JSON with comments and trailing commas; other JSON5 syntax may be reported as unsupported. At most 64 manifest files are read per scan. Missing details do not prevent a candidate from being listed.</p>
-      <p>Binary checks inspect bounded headers for at most 128 candidates per scan. Reported metadata and binary-header findings remain separate; neither selects a renderer.</p>
+      <p>Binary checks inspect bounded headers for at most 128 candidates per scan. macOS executable names can come from a bounded XML Info.plist; its digest identifies those declaration bytes, not executable integrity. Reported metadata and binary-header findings remain separate; neither selects a renderer.</p>
       <p>Linked entries are skipped. Custom folders and the macOS network plugin location are outside this scan. Copies remain separate because plugin identities have not been verified. Results are temporary and do not change your song or renderer.</p>
     </div>
   </details>

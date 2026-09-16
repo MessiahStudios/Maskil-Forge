@@ -894,6 +894,7 @@ export interface Vst3DiscoveryResult {
       name: string; relativePath: string; kind: string; metadata: Vst3MetadataInspection
       binary: {
         hostPlatform: string; hostArchitecture: string; status: string
+        macExecutable?: { status: string; executable: string | null; source: string; sha256: string | null } | null
         files: { source: string; status: string; format: string | null; architectures: string[]; hostMatch: string }[]
       }
     }[]
