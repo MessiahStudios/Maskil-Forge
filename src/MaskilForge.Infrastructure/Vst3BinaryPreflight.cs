@@ -3,7 +3,8 @@ using System.Runtime.InteropServices;
 namespace MaskilForge.Infrastructure;
 
 public sealed record Vst3BinaryFile(string Source, string Status, string? Format, IReadOnlyList<string> Architectures, string HostMatch);
-public sealed record Vst3BinaryInspection(string HostPlatform, string HostArchitecture, string Status, IReadOnlyList<Vst3BinaryFile> Files);
+public sealed record Vst3BinaryInspection(string HostPlatform, string HostArchitecture, string Status, IReadOnlyList<Vst3BinaryFile> Files,
+    Vst3MacExecutableInspection? MacExecutable = null);
 
 public sealed class Vst3BinaryPreflight(string platform, string architecture, int maxCandidates = 128)
 {
@@ -16,11 +17,14 @@ public sealed class Vst3BinaryPreflight(string platform, string architecture, in
         _remaining--;
         var files = new List<Vst3BinaryFile>();
         var name = Path.GetFileNameWithoutExtension(candidate);
-        // Only conventional module paths, never arbitrary files named by metadata or a recursive binary search.
+        var macExecutable = bundle ? Vst3MacBundle.Read(candidate, cancellationToken) : null;
+        var declaredSource = macExecutable?.Status == "Available" ? $"Contents/MacOS/{macExecutable.Executable}" : null;
+        // At most twelve module paths. A valid plist replaces the same-name macOS guess.
         var sources = bundle
             ? new[] { "x86-win", "x86_64-win", "arm-win", "arm64-win", "arm64ec-win", "arm64x-win", "i386-linux", "i686-linux", "x86_64-linux", "aarch64-linux", "armv7l-linux", "MacOS" }
                 .Select(folder => $"Contents/{folder}/{name}{(folder.EndsWith("-win") ? ".vst3" : folder.EndsWith("-linux") ? ".so" : "")}").ToArray()
             : new[] { Path.GetFileName(candidate) };
+        if (declaredSource is not null) sources[^1] = declaredSource;
         foreach (var source in sources)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -45,11 +49,14 @@ public sealed class Vst3BinaryPreflight(string platform, string architecture, in
                 var info = Vst3BinaryHeaders.Read(stream, cancellationToken);
                 files.Add(new(source, info.Status, info.Format, info.Architectures, Match(info, platform, architecture)));
             }
-            catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException) { }
+            catch (Exception exception) when (exception is FileNotFoundException or DirectoryNotFoundException)
+            {
+                if (source == declaredSource) Add("Missing");
+            }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { Add("Unreadable"); }
             void Add(string status) => files.Add(new(source, status, null, [], "Unknown"));
         }
-        return new(platform, architecture, files.Count == 0 ? "NoConventionalBinary" : "Inspected", files.AsReadOnly());
+        return new(platform, architecture, files.Count == 0 ? "NoConventionalBinary" : "Inspected", files.AsReadOnly(), macExecutable);
     }
 
     public static string Match(BinaryHeaderInfo info, string platform, string architecture)
