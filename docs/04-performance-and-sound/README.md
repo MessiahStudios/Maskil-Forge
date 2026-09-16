@@ -196,6 +196,8 @@ Slice 8.7 also resolves a macOS bundle's executable filename from a bounded XML 
 
 Slice 8.6 makes the temporary inventory searchable and filterable by header evidence or repeated reported class IDs. Repeated-ID review retains every installation and its reported class version across the full scan, including candidates hidden by filters. Both processor and controller declarations are included; repetitions do not prove a conflict or determine which installation to use. Rescans preserve filters, while clear/collapse/navigation discard them with the results. The review never changes the song, selects a renderer, or persists an inventory.
 
+Milestone 8.8 provides an explicit local macOS native module check in a separate worker. It tests loading, required exports, entry/exit, and cleanup with a runtime/output limit and reports the last completed stage. It does not call the factory or create audio components. Process isolation contains crashes but does not restrict a plugin's user-account privileges. The [worker contract](../../native/README.md) describes request restrictions, fingerprints, cancellation, fixtures, and remaining hosting work. External processor substitution still awaits factory/class inspection and audio hosting.
+
 ## Human vocal workflow
 
 The lead-vocal path is a singer's workflow, not a vocal-generation workflow:

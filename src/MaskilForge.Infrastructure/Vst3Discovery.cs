@@ -7,7 +7,7 @@ public sealed record Vst3Candidate(string Name, string RelativePath, string Kind
 public sealed record Vst3LocationResult(string Name, string Hint, string Status,
     IReadOnlyList<string> Issues, IReadOnlyList<Vst3Candidate> Candidates);
 public sealed record Vst3DiscoveryResult(string Platform, DateTimeOffset ScannedUtc,
-    IReadOnlyList<Vst3LocationResult> Locations);
+    IReadOnlyList<Vst3LocationResult> Locations, bool NativeCheckAvailable = false);
 public sealed record Vst3ScanLimits(int MaxEntries = 10_000, int MaxCandidates = 512, int MaxDepth = 8);
 
 public static class Vst3SearchLocations
@@ -90,6 +90,27 @@ public sealed class Vst3Discovery
             }, cancellationToken);
         }
         finally { _scanGate.Release(); }
+    }
+
+    public async Task<(string Path, Vst3Candidate Candidate)?> ResolveNativeCandidateAsync(
+        string locationName, string relativePath, CancellationToken cancellationToken)
+    {
+        // Accept only an exact candidate rediscovered in a configured folder, never a caller-supplied absolute path.
+        if (string.IsNullOrWhiteSpace(locationName) || locationName.Length > 128 ||
+            string.IsNullOrWhiteSpace(relativePath) || relativePath.Length > 2048) return null;
+        var scan = await ScanAsync(cancellationToken);
+        var location = _locations.SingleOrDefault(item => item.Name == locationName);
+        var candidate = scan.Locations.SingleOrDefault(item => item.Name == locationName)?.Candidates
+            .SingleOrDefault(item => item.RelativePath == relativePath && item.Kind == "Bundle");
+        if (location is null || candidate is null) return null;
+        var path = location.Path;
+        foreach (var segment in new[] { "" }.Concat(candidate.RelativePath.Split('/')))
+        {
+            if (segment.Length > 0) path = Path.Combine(path, segment);
+            var attributes = File.GetAttributes(path);
+            if (attributes.HasFlag(FileAttributes.ReparsePoint) || !attributes.HasFlag(FileAttributes.Directory)) return null;
+        }
+        return (Path.GetFullPath(path), candidate);
     }
 
     private Vst3LocationResult ScanLocation(Vst3SearchLocation location, Vst3MetadataReader metadata, Vst3BinaryPreflight binaries, CancellationToken cancellationToken)

@@ -1293,6 +1293,18 @@ The UI separates the declared filename, relative plist source, and SHA-256 of it
 
 **Deliverable:** an artist can inspect the actual declared macOS plugin binary even when its name differs from the bundle, while keeping declaration evidence separate from loading and playback claims.
 
+### Milestone 8.8 — Isolated macOS native module check
+
+**Implemented:** Desktop Music exposes a separate, explicit native check for rediscovered macOS VST3 bundles with a readable XML executable declaration and matching Mach-O header. A fresh C worker opens and loads the bundle, resolves the required `bundleEntry`, `bundleExit`, and `GetPluginFactory` exports, calls entry and exit, and releases the module. The factory export is located but not called. Results name the deepest completed stage and retain executable/plist fingerprints separately from filesystem and reported-manifest evidence.
+
+The .NET supervisor permits one worker at a time, enforces a ten-second runtime and 16 KiB per output stream, validates ordered protocol messages, and terminates the worker on timeout, cancellation, or output overflow. Missing exports, entry/exit rejection, crashes, invalid output, unavailable workers, and changed source evidence remain distinct outcomes. Results are temporary and disappear on clear, rescan, collapse, and navigation. Loopback client and Host checks plus browser-origin checks restrict the action to the local studio. Arbitrary paths are not accepted. Installed bundles are rediscovered and their declaration/header checked before execution; executable hashes are bounded to 512 MiB and checked again afterward. See the [worker contract and limitations](../../native/README.md).
+
+This is process crash containment, not an OS security sandbox. Plugin initialization runs with the user's account privileges and may have side effects. The UI explains that only trusted plugins should be checked. The app itself does not process audio, create plugin components, change recordings, select a renderer, or store plugin results in the Song Graph. macOS builds compile the worker with Apple's Command Line Tools; other platforms retain discovery. Schema remains v35 and catalog remains version 4.
+
+**Validation:** The native fixtures verify completed loading, missing exports, rejected entry/exit, hangs during load/entry/exit, crashes during entry/cleanup, output flooding, cancellation, and a healthy check after failures. Browser validation of the installed Deelay bundle reached module cleanup successfully on Apple Silicon. Full .NET and frontend tests and the production build pass. A dedicated macOS CI job now covers worker compilation and failure fixtures.
+
+**Deliverable:** an artist can distinguish successful native module entry/exit from a crash, timeout, or loading failure without loading plugin code into the web service. The next dependency is factory creation and class enumeration inside the worker, followed by component/audio hosting; Milestone 9.6 remains deferred until those capabilities exist.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.
@@ -1369,7 +1381,7 @@ Map a processing role onto either Maskil built-in DSP or an artist-selected comp
 
 **Deliverable:** the same production role can be realized by built-in processing or a compatible plugin without rewriting the song’s intent.
 
-**Dependency pending:** Milestones 8.3–8.5 discover candidates, inspect reported metadata, and compare binary header format/CPU with the host process. Isolated native plugin inspection and VST3 hosting are not implemented. This slice remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts.
+**Dependency pending:** Milestones 8.3–8.7 provide discovery, reported metadata, header evidence, inventory review, and macOS executable resolution. Milestone 8.8 adds an isolated macOS module entry/exit check. Factory creation, native class enumeration, and component/audio hosting remain unimplemented. External processor substitution therefore remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts.
 
 ### Milestone 9.7 — Analyzer-informed production guidance
 

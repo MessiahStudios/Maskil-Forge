@@ -884,6 +884,7 @@ export interface Vst3MetadataInspection {
 
 export interface Vst3DiscoveryResult {
   platform: string
+  nativeCheckAvailable: boolean
   scannedUtc: string
   locations: {
     name: string
@@ -901,7 +902,16 @@ export interface Vst3DiscoveryResult {
   }[]
 }
 
+export interface Vst3NativeCheckResult {
+  status: string; lastCompletedStage: string; checkedUtc: string
+  binarySource: string | null; binarySha256: string | null; plistSha256: string | null; exitCode: number | null
+}
+
 export const projectsApi = {
+  checkNativeVst3: (location: string, relativePath: string, expectedPlistSha256: string, signal?: AbortSignal) =>
+    request<Vst3NativeCheckResult>('/api/host/vst3-native-check', {
+      method: 'POST', body: JSON.stringify({ location, relativePath, expectedPlistSha256 }), signal,
+    }),
   discoverVst3: (signal?: AbortSignal) => request<Vst3DiscoveryResult>('/api/host/vst3-discovery', { method: 'POST', signal }),
   health: () => request<WorkspaceHealth>('/api/health'),
   instrumentProfiles: () => request<InstrumentProfileCatalog>('/api/instrument-profiles'),

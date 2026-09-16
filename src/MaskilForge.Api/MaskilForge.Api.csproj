@@ -19,4 +19,15 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <Content Include="$(IntermediateOutputPath)native/maskil-vst3-probe" Link="native/maskil-vst3-probe"
+             CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <Target Name="BuildMacVst3Probe" BeforeTargets="PrepareForBuild" Condition="$([MSBuild]::IsOSPlatform('OSX'))"
+          Inputs="$(MSBuildProjectDirectory)/../../native/vst3-probe-macos.c"
+          Outputs="$(IntermediateOutputPath)native/maskil-vst3-probe">
+    <MakeDir Directories="$(IntermediateOutputPath)native" />
+    <Exec Command="/usr/bin/clang -std=c11 -Wall -Wextra -Werror -O2 -framework CoreFoundation &quot;$(MSBuildProjectDirectory)/../../native/vst3-probe-macos.c&quot; -o &quot;$(IntermediateOutputPath)native/maskil-vst3-probe&quot;" />
+  </Target>
+
 </Project>
