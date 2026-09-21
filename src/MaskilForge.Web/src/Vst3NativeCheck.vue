@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { projectsApi, type Vst3DiscoveryResult, type Vst3NativeCheckResult } from './api'
+import { projectsApi, type Vst3DiscoveryResult, type Vst3NativeCheckResult, type Vst3NativeFactoryCheckResult } from './api'
 
 type Candidate = Vst3DiscoveryResult['locations'][number]['candidates'][number]
 const props = defineProps<{ location: string; candidate: Candidate }>()
-const result = ref<Vst3NativeCheckResult | null>(null), busy = ref(false), error = ref('')
+const result = ref<Vst3NativeCheckResult | null>(null), factoryResult = ref<Vst3NativeFactoryCheckResult | null>(null), busy = ref(false), factoryBusy = ref(false), error = ref('')
 let controller: AbortController | null = null
 let generation = 0
 const eligible = computed(() => {
@@ -25,6 +25,7 @@ const statuses: Record<string, string> = {
   ExecutableChanged: 'The native loader resolved a different executable', LoadFailed: 'macOS could not load the module',
   MissingEntryPoints: 'A required VST3 export was missing', EntryRejected: 'The module rejected bundle entry', ExitRejected: 'The module rejected bundle exit',
 }
+const factoryStatuses: Record<string, string> = { WorkerUnavailable: 'Native worker is unavailable on this host', Busy: 'Another native check is running', CandidateUnavailable: 'Candidate is no longer available', RescanRequired: 'The bundle changed; check plugin folders again', HeaderNotMatched: 'The current executable header does not match this host', TimedOut: 'Factory enumeration exceeded 10 seconds', Cancelled: 'Factory enumeration was cancelled', OutputLimit: 'Factory output exceeded its limit', WorkerCrashed: 'The factory worker exited unexpectedly', InvalidWorkerOutput: 'The factory worker did not return a valid result', FactoryUnavailable: 'The factory export returned no usable interface', FactoryClassLimit: 'The factory reported too many classes', FactoryClassReadFailed: 'A factory class could not be read' }
 const stages: Record<string, string> = {
   NotStarted: 'Worker not started', WorkerStarted: 'Worker started', BundleOpened: 'Bundle opened', ModuleLoaded: 'Native module loaded',
   EntryPointsResolved: 'Required exports found', ModuleEntered: 'Bundle entry completed', ModuleExited: 'Bundle exit completed', ModuleUnloaded: 'Module cleanup completed',
@@ -34,8 +35,20 @@ function clear() {
   controller?.abort()
   controller = null
   result.value = null
-  busy.value = false
+  factoryResult.value = null
+  busy.value = false; factoryBusy.value = false
   error.value = ''
+}
+async function enumerateFactory() {
+  clear()
+  if (!eligible.value) return
+  const token = generation; controller = new AbortController(); factoryBusy.value = true
+  try {
+    const outcome = await projectsApi.checkNativeVst3Factory(props.location, props.candidate.relativePath,
+      props.candidate.binary.macExecutable!.sha256!, controller.signal)
+    if (token === generation) factoryResult.value = outcome
+  } catch (cause) { if (token === generation) error.value = cause instanceof Error ? cause.message : 'Factory enumeration failed.' }
+  finally { if (token === generation) { factoryBusy.value = false; controller = null } }
 }
 async function check() {
   clear()
@@ -63,9 +76,10 @@ onBeforeUnmount(clear)
     <p>This runs the installed plugin's module code in a separate process on this Mac, with a 10-second limit. It calls bundle entry and exit and looks for the factory export. It does not create a processor or play audio.</p>
     <p>The separate process contains crashes; it is not a security sandbox and runs with your user account's access. Run checks only for plugins you trust.</p>
     <p v-if="!eligible">A readable XML bundle declaration and a matching macOS binary header are required. Check plugin folders again after changing an installation.</p>
-    <button type="button" :disabled="busy || !eligible" @click="check">{{ busy ? 'Checking native module…' : 'Run native module check' }}</button>
-    <button v-if="busy" type="button" class="quiet" @click="() => { clear(); error = 'Check cancelled.' }">Cancel check</button>
-    <button v-else-if="result" type="button" class="quiet" @click="clear">Clear native result</button>
+    <button type="button" :disabled="busy || factoryBusy || !eligible" @click="check">{{ busy ? 'Checking native module…' : 'Run native module check' }}</button>
+    <button type="button" :disabled="busy || factoryBusy || !eligible" @click="enumerateFactory">{{ factoryBusy ? 'Reading factory classes…' : 'Enumerate factory classes' }}</button>
+    <button v-if="busy || factoryBusy" type="button" class="quiet" @click="() => { clear(); error = 'Check cancelled.' }">Cancel check</button>
+    <button v-else-if="result || factoryResult" type="button" class="quiet" @click="clear">Clear native result</button>
     <p v-if="error" role="status">{{ error }}</p>
     <div v-if="result" role="status">
       <p>{{ statuses[result.status] ?? result.status }}</p>
@@ -75,6 +89,12 @@ onBeforeUnmount(clear)
       <small v-if="result.binarySha256">Executable SHA-256: {{ result.binarySha256 }}</small>
       <small v-if="result.plistSha256">Info.plist SHA-256: {{ result.plistSha256 }}</small>
       <p>These fingerprints identify the inspected executable and declaration only. Factory creation, classes, dependencies, licensing, processor behavior, and audio compatibility remain unverified.</p>
+    </div>
+    <div v-if="factoryResult" role="status">
+      <p>{{ factoryResult.status === 'Completed' ? 'Factory class enumeration completed.' : (factoryStatuses[factoryResult.status] ?? factoryResult.status) }} Last completed stage: {{ stages[factoryResult.lastCompletedStage] ?? factoryResult.lastCompletedStage }}</p>
+      <p v-if="factoryResult.status === 'Completed'">{{ factoryResult.classes.length }} classes were returned by the native factory. No component instance was created.</p>
+      <ul v-if="factoryResult.status === 'Completed'" aria-label="Native factory classes"><li v-for="pluginClass in factoryResult.classes" :key="pluginClass.id"><strong>{{ pluginClass.name }}</strong><span>{{ pluginClass.category }} · Class ID: {{ pluginClass.id }}</span></li></ul>
+      <p>Class declarations are runtime evidence from this executable. They do not prove processor behavior, audio compatibility, licensing, or a suitable production role.</p>
     </div>
   </details>
 </template>

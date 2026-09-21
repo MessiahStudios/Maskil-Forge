@@ -1305,6 +1305,16 @@ This is process crash containment, not an OS security sandbox. Plugin initializa
 
 **Deliverable:** an artist can distinguish successful native module entry/exit from a crash, timeout, or loading failure without loading plugin code into the web service. The next dependency is factory creation and class enumeration inside the worker, followed by component/audio hosting; Milestone 9.6 remains deferred until those capabilities exist.
 
+### Milestone 8.9 — Native VST3 factory class enumeration
+
+**Implemented:** Desktop Music adds an explicit factory-enumeration action for the same rediscovered, header-matched macOS bundle. The supervised worker calls `GetPluginFactory`, reads the bounded base factory class list, and reports runtime class IDs, names, and categories. It never calls `createInstance`, initializes a component, opens an editor, or processes audio. Factory output is temporary and is cleared with the native-check result.
+
+The factory action retains the 10-second deadline, output cap, process-tree cancellation, loopback/origin policy, exact-candidate rediscovery, and before/after executable fingerprints from Milestone 8.8. Factory classes are runtime evidence from this executable; they do not establish processor behavior, audio compatibility, licensing, or a production role. Schema remains v35 and catalog remains version 4.
+
+**Validation:** A native fixture returns two runtime classes and proves the factory path completes without component construction. The existing lifecycle, cancellation, malformed-protocol, stale-source, path, link, concurrency, and browser-origin tests remain in the suite. The next dependency is component creation and audio hosting.
+
+**Deliverable:** an artist can compare reported manifest classes with the classes actually returned by a trusted installed VST3 factory, while keeping both forms of evidence separate from playback and song data.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.

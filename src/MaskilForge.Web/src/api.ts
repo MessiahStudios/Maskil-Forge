@@ -906,10 +906,16 @@ export interface Vst3NativeCheckResult {
   status: string; lastCompletedStage: string; checkedUtc: string
   binarySource: string | null; binarySha256: string | null; plistSha256: string | null; exitCode: number | null
 }
+export interface Vst3NativeFactoryClass { id: string; name: string; category: string }
+export interface Vst3NativeFactoryCheckResult extends Vst3NativeCheckResult { classes: Vst3NativeFactoryClass[] }
 
 export const projectsApi = {
   checkNativeVst3: (location: string, relativePath: string, expectedPlistSha256: string, signal?: AbortSignal) =>
     request<Vst3NativeCheckResult>('/api/host/vst3-native-check', {
+      method: 'POST', body: JSON.stringify({ location, relativePath, expectedPlistSha256 }), signal,
+    }),
+  checkNativeVst3Factory: (location: string, relativePath: string, expectedPlistSha256: string, signal?: AbortSignal) =>
+    request<Vst3NativeFactoryCheckResult>('/api/host/vst3-native-factory-check', {
       method: 'POST', body: JSON.stringify({ location, relativePath, expectedPlistSha256 }), signal,
     }),
   discoverVst3: (signal?: AbortSignal) => request<Vst3DiscoveryResult>('/api/host/vst3-discovery', { method: 'POST', signal }),

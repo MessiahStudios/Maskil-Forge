@@ -5,6 +5,8 @@ namespace MaskilForge.Infrastructure;
 public sealed record Vst3NativeCheckRequest(string Location, string RelativePath, string ExpectedPlistSha256);
 public sealed record Vst3NativeCheckResult(string Status, string LastCompletedStage, DateTimeOffset CheckedUtc,
     string? BinarySource = null, string? BinarySha256 = null, string? PlistSha256 = null, int? ExitCode = null);
+public sealed record Vst3NativeFactoryCheckResult(string Status, string LastCompletedStage, DateTimeOffset CheckedUtc,
+    IReadOnlyList<Vst3FactoryClass> Classes, string? BinarySource = null, string? BinarySha256 = null, string? PlistSha256 = null, int? ExitCode = null);
 
 public sealed class Vst3NativeCheck(Vst3Discovery discovery)
 {
@@ -12,6 +14,36 @@ public sealed class Vst3NativeCheck(Vst3Discovery discovery)
     private readonly SemaphoreSlim _gate = new(1, 1);
     public string WorkerPath { get; } = Path.Combine(AppContext.BaseDirectory, "native", "maskil-vst3-probe");
     public bool IsAvailable => OperatingSystem.IsMacOS() && File.Exists(WorkerPath);
+
+    public async Task<Vst3NativeFactoryCheckResult> EnumerateFactoryAsync(Vst3NativeCheckRequest request, CancellationToken cancellationToken = default)
+    {
+        Vst3NativeFactoryCheckResult Empty(string status) => new(status, "NotStarted", DateTimeOffset.UtcNow, []);
+        if (!IsAvailable) return Empty("WorkerUnavailable");
+        if (!await _gate.WaitAsync(0, cancellationToken)) return Empty("Busy");
+        try
+        {
+            var resolved = await discovery.ResolveNativeCandidateAsync(request.Location, request.RelativePath, cancellationToken);
+            if (resolved is null) return Empty("CandidateUnavailable");
+            var (bundle, candidate) = resolved.Value; var declaration = candidate.Binary.MacExecutable;
+            if (declaration?.Status != "Available" || declaration.Sha256 != request.ExpectedPlistSha256) return Empty("RescanRequired");
+            var source = $"Contents/MacOS/{declaration.Executable}";
+            if (!candidate.Binary.Files.Any(file => file.Source == source && file.Status == "Recognized" && file.Format == "Mach-O" && file.HostMatch == "Match")) return Empty("HeaderNotMatched");
+            var binary = Path.Combine(bundle, source); var before = await Digest(binary, cancellationToken);
+            if (before is null) return Empty("BinaryTooLarge");
+            var refreshed = new Vst3BinaryPreflight("macOS", candidate.Binary.HostArchitecture).Inspect(bundle, true, cancellationToken);
+            if (refreshed.MacExecutable != declaration || !refreshed.Files.Any(file => file.Source == source && file.HostMatch == "Match")) return Empty("RescanRequired");
+            var outcome = await new Vst3FactoryProbeProcess().RunAsync(WorkerPath, bundle, binary, cancellationToken);
+            var status = outcome.Status;
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                try { var after = new Vst3BinaryPreflight("macOS", candidate.Binary.HostArchitecture).Inspect(bundle, true, cancellationToken); if (after.MacExecutable != declaration || !after.Files.Any(file => file.Source == source && file.HostMatch == "Match") || await Digest(binary, cancellationToken) != before) status = "SourceChanged"; }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { status = "SourceChanged"; }
+            }
+            return new(status, outcome.LastCompletedStage, DateTimeOffset.UtcNow, outcome.Classes, source, before, declaration.Sha256, outcome.ExitCode);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return Empty("CandidateUnavailable"); }
+        finally { _gate.Release(); }
+    }
 
     public async Task<Vst3NativeCheckResult> CheckAsync(Vst3NativeCheckRequest request, CancellationToken cancellationToken = default)
     {

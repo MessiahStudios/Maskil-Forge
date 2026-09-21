@@ -128,6 +128,21 @@ public sealed class Vst3NativeCheckTests : IDisposable
     }
 
     [Fact]
+    public async Task FactoryEnumerationReadsRuntimeClassesWithoutCreatingComponents()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        var fixture = await Fixture(10);
+        var scanner = new Vst3Discovery("macOS", [new("Fixture", "fixture", _root)]);
+        var candidate = Assert.Single((await scanner.ScanAsync()).Locations.Single().Candidates);
+        var request = new Vst3NativeCheckRequest("Fixture", candidate.RelativePath, candidate.Binary.MacExecutable!.Sha256!);
+        var result = await new Vst3NativeCheck(scanner).EnumerateFactoryAsync(request);
+        Assert.Equal("Completed", result.Status);
+        Assert.Equal("ModuleUnloaded", result.LastCompletedStage);
+        Assert.Equal(["Fixture 1", "Fixture 2"], result.Classes.Select(item => item.Name));
+        Assert.All(result.Classes, item => Assert.Equal("Audio Module Class", item.Category));
+    }
+
+    [Fact]
     public async Task MissingWorker_ReturnsAnExplicitResult()
     {
         var result = await new Vst3ProbeProcess().RunAsync(Path.Combine(_root, "absent-worker"), "bundle", "binary");
