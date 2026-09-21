@@ -82,6 +82,12 @@ app.MapPost("/api/host/vst3-native-factory-check", async (Vst3NativeCheckRequest
     if (!NativePluginAccess.IsLocalRequest(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
     return Results.Ok(await nativeCheck.EnumerateFactoryAsync(request, cancellationToken));
 });
+app.MapPost("/api/host/vst3-native-component-check", async (Vst3NativeComponentCheckRequest request, Vst3NativeCheck nativeCheck, HttpContext context, CancellationToken cancellationToken) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    if (!NativePluginAccess.IsLocalRequest(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
+    return Results.Ok(await nativeCheck.InspectComponentAsync(request, cancellationToken));
+});
 app.MapPost("/api/instrument-recommendations", (InstrumentRecommendationRequest request) =>
     Results.Ok(InstrumentRoleRecommender.Recommend(request.Roles, request.Quality)));
 app.MapPost("/api/instrument-range-review", (InstrumentRangeReviewRequest request) =>

@@ -36,4 +36,18 @@ public sealed class Vst3ProbeProtocolTests : IDisposable
         var result = await new Vst3FactoryProbeProcess().RunAsync(worker, "bundle", "binary");
         Assert.Equal("InvalidWorkerOutput", result.Status);
     }
+
+    [Fact]
+    public async Task ComponentProtocol_RejectsBusBeforeComponentInitialization()
+    {
+        if (OperatingSystem.IsWindows()) return;
+        var worker = Path.Combine(_root, "component-fixture.sh");
+        await File.WriteAllTextAsync(worker, """
+            #!/bin/sh
+            printf '%s\n' '{"protocolVersion":1,"status":"Bus","stage":"AudioBus","direction":"Input","index":0,"name":"Input","channelCount":2,"busType":"Main","defaultActive":true,"controlVoltage":false}'
+            """);
+        File.SetUnixFileMode(worker, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        var result = await new Vst3ComponentProbeProcess().RunAsync(worker, "bundle", "binary", "00000000000000000000000000000001");
+        Assert.Equal("InvalidWorkerOutput", result.Status);
+    }
 }

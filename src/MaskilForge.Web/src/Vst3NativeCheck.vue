@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
-import { projectsApi, type Vst3DiscoveryResult, type Vst3NativeCheckResult, type Vst3NativeFactoryCheckResult } from './api'
+import { projectsApi, type Vst3DiscoveryResult, type Vst3NativeCheckResult, type Vst3NativeFactoryCheckResult, type Vst3NativeComponentCheckResult, type Vst3NativeFactoryClass } from './api'
 
 type Candidate = Vst3DiscoveryResult['locations'][number]['candidates'][number]
 const props = defineProps<{ location: string; candidate: Candidate }>()
-const result = ref<Vst3NativeCheckResult | null>(null), factoryResult = ref<Vst3NativeFactoryCheckResult | null>(null), busy = ref(false), factoryBusy = ref(false), error = ref('')
+const result = ref<Vst3NativeCheckResult | null>(null), factoryResult = ref<Vst3NativeFactoryCheckResult | null>(null), componentResult = ref<Vst3NativeComponentCheckResult | null>(null)
+const busy = ref(false), factoryBusy = ref(false), componentBusyClassId = ref(''), error = ref('')
 let controller: AbortController | null = null
 let generation = 0
 const eligible = computed(() => {
@@ -26,9 +27,12 @@ const statuses: Record<string, string> = {
   MissingEntryPoints: 'A required VST3 export was missing', EntryRejected: 'The module rejected bundle entry', ExitRejected: 'The module rejected bundle exit',
 }
 const factoryStatuses: Record<string, string> = { WorkerUnavailable: 'Native worker is unavailable on this host', Busy: 'Another native check is running', CandidateUnavailable: 'Candidate is no longer available', RescanRequired: 'The bundle changed; check plugin folders again', HeaderNotMatched: 'The current executable header does not match this host', TimedOut: 'Factory enumeration exceeded 10 seconds', Cancelled: 'Factory enumeration was cancelled', OutputLimit: 'Factory output exceeded its limit', WorkerCrashed: 'The factory worker exited unexpectedly', InvalidWorkerOutput: 'The factory worker did not return a valid result', FactoryUnavailable: 'The factory export returned no usable interface', FactoryClassLimit: 'The factory reported too many classes', FactoryClassReadFailed: 'A factory class could not be read' }
+const componentStatuses: Record<string, string> = { WorkerUnavailable: 'Native worker is unavailable on this host', Busy: 'Another native check is running', CandidateUnavailable: 'Candidate is no longer available', RescanRequired: 'The bundle changed; check plugin folders again', HeaderNotMatched: 'The current executable header does not match this host', InvalidClassId: 'The selected class ID is invalid', TimedOut: 'Component inspection exceeded 10 seconds', Cancelled: 'Component inspection was cancelled', OutputLimit: 'Component output exceeded its limit', WorkerCrashed: 'The component worker exited unexpectedly', InvalidWorkerOutput: 'The component worker did not return a valid result', FactoryUnavailable: 'The factory returned no usable interface', FactoryClassLimit: 'The factory reported too many classes', FactoryClassReadFailed: 'A factory class could not be read', ComponentClassUnavailable: 'The selected class is no longer returned by the factory', ComponentClassUnsupported: 'The selected class is not an audio module', ComponentCreateFailed: 'The factory could not create this audio component', ComponentInitializeFailed: 'The audio component could not be initialized', AudioBusLimit: 'The component reported too many audio buses', AudioBusReadFailed: 'An audio bus description could not be read', ComponentTerminateFailed: 'The component did not terminate cleanly', ExitRejected: 'The module rejected bundle exit' }
 const stages: Record<string, string> = {
   NotStarted: 'Worker not started', WorkerStarted: 'Worker started', BundleOpened: 'Bundle opened', ModuleLoaded: 'Native module loaded',
-  EntryPointsResolved: 'Required exports found', ModuleEntered: 'Bundle entry completed', ModuleExited: 'Bundle exit completed', ModuleUnloaded: 'Module cleanup completed',
+  EntryPointsResolved: 'Required exports found', ModuleEntered: 'Bundle entry completed', ComponentCreated: 'Audio component created',
+  ComponentInitialized: 'Audio component initialized', BusesInspected: 'Audio buses inspected', ComponentTerminated: 'Audio component terminated',
+  ModuleExited: 'Bundle exit completed', ModuleUnloaded: 'Module cleanup completed',
 }
 function clear() {
   generation++
@@ -36,8 +40,20 @@ function clear() {
   controller = null
   result.value = null
   factoryResult.value = null
-  busy.value = false; factoryBusy.value = false
+  componentResult.value = null
+  busy.value = false; factoryBusy.value = false; componentBusyClassId.value = ''
   error.value = ''
+}
+async function inspectComponent(pluginClass: Vst3NativeFactoryClass) {
+  if (!eligible.value || pluginClass.category !== 'Audio Module Class') return
+  componentResult.value = null; error.value = ''
+  const token = generation; controller = new AbortController(); componentBusyClassId.value = pluginClass.id
+  try {
+    const outcome = await projectsApi.checkNativeVst3Component(props.location, props.candidate.relativePath,
+      props.candidate.binary.macExecutable!.sha256!, pluginClass.id, controller.signal)
+    if (token === generation) componentResult.value = outcome
+  } catch (cause) { if (token === generation) error.value = cause instanceof Error ? cause.message : 'Component inspection failed.' }
+  finally { if (token === generation) { componentBusyClassId.value = ''; controller = null } }
 }
 async function enumerateFactory() {
   clear()
@@ -73,13 +89,13 @@ onBeforeUnmount(clear)
   <details class="native-check" :aria-label="`Native module check for ${candidate.relativePath}`"
     @toggle="event => { if (!(event.target as HTMLDetailsElement).open) clear() }">
     <summary>Check native module loading</summary>
-    <p>This runs the installed plugin's module code in a separate process on this Mac, with a 10-second limit. It calls bundle entry and exit and looks for the factory export. It does not create a processor or play audio.</p>
+    <p>This runs the installed plugin's module code in a separate process on this Mac, with a 10-second limit. Native and factory checks do not create a processor. Audio-bus inspection creates and initializes one selected component, reads its declared audio buses, then terminates it. No bus is activated and no audio is processed.</p>
     <p>The separate process contains crashes; it is not a security sandbox and runs with your user account's access. Run checks only for plugins you trust.</p>
     <p v-if="!eligible">A readable XML bundle declaration and a matching macOS binary header are required. Check plugin folders again after changing an installation.</p>
-    <button type="button" :disabled="busy || factoryBusy || !eligible" @click="check">{{ busy ? 'Checking native module…' : 'Run native module check' }}</button>
-    <button type="button" :disabled="busy || factoryBusy || !eligible" @click="enumerateFactory">{{ factoryBusy ? 'Reading factory classes…' : 'Enumerate factory classes' }}</button>
-    <button v-if="busy || factoryBusy" type="button" class="quiet" @click="() => { clear(); error = 'Check cancelled.' }">Cancel check</button>
-    <button v-else-if="result || factoryResult" type="button" class="quiet" @click="clear">Clear native result</button>
+    <button type="button" :disabled="busy || factoryBusy || !!componentBusyClassId || !eligible" @click="check">{{ busy ? 'Checking native module…' : 'Run native module check' }}</button>
+    <button type="button" :disabled="busy || factoryBusy || !!componentBusyClassId || !eligible" @click="enumerateFactory">{{ factoryBusy ? 'Reading factory classes…' : 'Enumerate factory classes' }}</button>
+    <button v-if="busy || factoryBusy || componentBusyClassId" type="button" class="quiet" @click="() => { clear(); error = 'Check cancelled.' }">Cancel check</button>
+    <button v-else-if="result || factoryResult || componentResult" type="button" class="quiet" @click="clear">Clear native result</button>
     <p v-if="error" role="status">{{ error }}</p>
     <div v-if="result" role="status">
       <p>{{ statuses[result.status] ?? result.status }}</p>
@@ -93,8 +109,14 @@ onBeforeUnmount(clear)
     <div v-if="factoryResult" role="status">
       <p>{{ factoryResult.status === 'Completed' ? 'Factory class enumeration completed.' : (factoryStatuses[factoryResult.status] ?? factoryResult.status) }} Last completed stage: {{ stages[factoryResult.lastCompletedStage] ?? factoryResult.lastCompletedStage }}</p>
       <p v-if="factoryResult.status === 'Completed'">{{ factoryResult.classes.length }} classes were returned by the native factory. No component instance was created.</p>
-      <ul v-if="factoryResult.status === 'Completed'" aria-label="Native factory classes"><li v-for="pluginClass in factoryResult.classes" :key="pluginClass.id"><strong>{{ pluginClass.name }}</strong><span>{{ pluginClass.category }} · Class ID: {{ pluginClass.id }}</span></li></ul>
+      <ul v-if="factoryResult.status === 'Completed'" aria-label="Native factory classes"><li v-for="pluginClass in factoryResult.classes" :key="pluginClass.id"><strong>{{ pluginClass.name }}</strong><span>{{ pluginClass.category }} · Class ID: {{ pluginClass.id }}</span><button v-if="pluginClass.category === 'Audio Module Class'" type="button" :disabled="!!componentBusyClassId" @click="inspectComponent(pluginClass)">{{ componentBusyClassId === pluginClass.id ? 'Inspecting audio buses…' : 'Inspect audio buses' }}</button></li></ul>
       <p>Class declarations are runtime evidence from this executable. They do not prove processor behavior, audio compatibility, licensing, or a suitable production role.</p>
+    </div>
+    <div v-if="componentResult" role="status">
+      <p>{{ componentResult.status === 'Completed' ? 'Audio component inspection completed.' : (componentStatuses[componentResult.status] ?? componentResult.status) }} Last completed stage: {{ stages[componentResult.lastCompletedStage] ?? componentResult.lastCompletedStage }}</p>
+      <p v-if="componentResult.status === 'Completed'">{{ componentResult.buses.length }} audio buses were returned. The component was terminated without activating buses or processing audio.</p>
+      <ul v-if="componentResult.status === 'Completed'" aria-label="Audio component buses"><li v-for="bus in componentResult.buses" :key="`${bus.direction}-${bus.index}`"><strong>{{ bus.direction }} {{ bus.index + 1 }}: {{ bus.name || 'Unnamed bus' }}</strong><span>{{ bus.channelCount }} channels · {{ bus.busType }}<template v-if="bus.defaultActive"> · Default active</template><template v-if="bus.controlVoltage"> · Control voltage</template></span></li></ul>
+      <p>This is initialization and bus-declaration evidence only. Processing setup, activation, audio output, latency, presets, editors, and production-role suitability remain unverified.</p>
     </div>
   </details>
 </template>

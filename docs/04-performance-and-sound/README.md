@@ -198,6 +198,8 @@ Slice 8.6 makes the temporary inventory searchable and filterable by header evid
 
 Milestone 8.8 provides an explicit local macOS native module check in a separate worker. It tests loading, required exports, entry/exit, and cleanup with a runtime/output limit and reports the last completed stage. It does not call the factory or create audio components. Process isolation contains crashes but does not restrict a plugin's user-account privileges. The [worker contract](../../native/README.md) describes request restrictions, fingerprints, cancellation, fixtures, and remaining hosting work. External processor substitution still awaits factory/class inspection and audio hosting.
 
+Milestone 8.9 adds bounded runtime factory-class enumeration in the same isolated lifecycle. Milestone 8.10 lets the artist select one returned audio-module class for component creation, initialization with a minimal host application, audio input/output bus inspection, termination, release, and module cleanup. These are temporary runtime findings. No bus is activated, no processing setup or audio-buffer call occurs, and no plugin is assigned to a song or production role. External processor substitution still awaits a real audio-processing host.
+
 ## Human vocal workflow
 
 The lead-vocal path is a singer's workflow, not a vocal-generation workflow:

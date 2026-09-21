@@ -143,6 +143,25 @@ public sealed class Vst3NativeCheckTests : IDisposable
     }
 
     [Fact]
+    public async Task ComponentInspectionInitializesSelectedClassAndReadsAudioBuses()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+        var fixture = await Fixture(11);
+        var scanner = new Vst3Discovery("macOS", [new("Fixture", "fixture", _root)]);
+        var candidate = Assert.Single((await scanner.ScanAsync()).Locations.Single().Candidates);
+        var request = new Vst3NativeComponentCheckRequest("Fixture", candidate.RelativePath,
+            candidate.Binary.MacExecutable!.Sha256!, "00000000000000000000000000000001");
+        var result = await new Vst3NativeCheck(scanner).InspectComponentAsync(request);
+        Assert.Equal("Completed", result.Status);
+        Assert.Equal("ModuleUnloaded", result.LastCompletedStage);
+        Assert.Equal(["Input", "Main Out", "Side Out"], result.Buses.Select(bus => bus.Name));
+        Assert.Equal(["Input", "Output", "Output"], result.Buses.Select(bus => bus.Direction));
+        Assert.Equal([2, 2, 1], result.Buses.Select(bus => bus.ChannelCount));
+        Assert.Equal(["Main", "Main", "Aux"], result.Buses.Select(bus => bus.BusType));
+        Assert.Equal([true, true, false], result.Buses.Select(bus => bus.DefaultActive));
+    }
+
+    [Fact]
     public async Task MissingWorker_ReturnsAnExplicitResult()
     {
         var result = await new Vst3ProbeProcess().RunAsync(Path.Combine(_root, "absent-worker"), "bundle", "binary");

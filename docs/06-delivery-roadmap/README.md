@@ -1315,6 +1315,18 @@ The factory action retains the 10-second deadline, output cap, process-tree canc
 
 **Deliverable:** an artist can compare reported manifest classes with the classes actually returned by a trusted installed VST3 factory, while keeping both forms of evidence separate from playback and song data.
 
+### Milestone 8.10 — Isolated VST3 component and audio-bus inspection
+
+**Implemented:** After enumerating runtime factory classes, Desktop Music lets the artist explicitly select an `Audio Module Class` for deeper inspection. A fresh supervised worker confirms that exact class still exists, creates its `IComponent`, supplies a minimal `IHostApplication` context, initializes it, and reads bounded audio input/output bus declarations. Results show direction, name, channel count, main/aux type, default-active request, and control-voltage flag. The worker then terminates and releases the component before bundle exit and unload.
+
+The action retains exact-candidate rediscovery, header/declaration checks, before/after fingerprints, loopback/origin restrictions, a ten-second deadline, process-tree cancellation, bounded output, and ordered protocol validation. It accepts one 32-hex class ID and at most 64 buses per direction, 128 total, with at most 1,024 channels per bus. Component creation, initialization, bus reading, termination, module exit, crashes, timeouts, malformed output, and changed source evidence remain distinct outcomes with the deepest completed stage. Results stay temporary and do not enter the Song Graph.
+
+This slice does not activate any bus, call `setActive`, configure `IAudioProcessor`, pass an audio buffer, open an editor, load a preset, select a renderer, or assign a production role. It proves only that one installed component can complete initialization and describe its current audio buses in the bounded inspection context. Schema remains v35 and catalog remains version 4.
+
+**Validation:** The native fixture verifies the supplied host application, component creation and initialization, one main input plus main and auxiliary outputs, termination, release, and module cleanup. Protocol tests reject an audio-bus record before initialization. On the Apple Silicon development MacBook, Deelay 1.3.2 created its runtime processor class, reported one stereo main input and one stereo main output, terminated, and reached module cleanup. The .NET suite passed 664 tests and the frontend suite passed 149 tests; the production frontend build passed.
+
+**Deliverable:** an artist can inspect the declared audio topology of one trusted installed VST3 component while distinguishing initialization evidence from audio-processing compatibility. The next dependency is processor interface discovery and bounded processing setup before any silent-buffer processing.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.
@@ -1391,7 +1403,7 @@ Map a processing role onto either Maskil built-in DSP or an artist-selected comp
 
 **Deliverable:** the same production role can be realized by built-in processing or a compatible plugin without rewriting the song’s intent.
 
-**Dependency pending:** Milestones 8.3–8.7 provide discovery, reported metadata, header evidence, inventory review, and macOS executable resolution. Milestone 8.8 adds an isolated macOS module entry/exit check. Factory creation, native class enumeration, and component/audio hosting remain unimplemented. External processor substitution therefore remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts.
+**Dependency pending:** Milestones 8.3–8.10 provide discovery, reported metadata, header evidence, inventory review, macOS executable resolution, isolated module lifecycle checks, runtime class enumeration, and selected-component audio-bus inspection. Processing setup, bus activation, audio-buffer processing, state, and persistent host ownership remain unimplemented. External processor substitution therefore remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts.
 
 ### Milestone 9.7 — Analyzer-informed production guidance
 

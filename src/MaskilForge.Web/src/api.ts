@@ -908,6 +908,11 @@ export interface Vst3NativeCheckResult {
 }
 export interface Vst3NativeFactoryClass { id: string; name: string; category: string }
 export interface Vst3NativeFactoryCheckResult extends Vst3NativeCheckResult { classes: Vst3NativeFactoryClass[] }
+export interface Vst3AudioBus {
+  direction: 'Input' | 'Output'; index: number; name: string; channelCount: number; busType: 'Main' | 'Aux'
+  defaultActive: boolean; controlVoltage: boolean
+}
+export interface Vst3NativeComponentCheckResult extends Vst3NativeCheckResult { classId: string; buses: Vst3AudioBus[] }
 
 export const projectsApi = {
   checkNativeVst3: (location: string, relativePath: string, expectedPlistSha256: string, signal?: AbortSignal) =>
@@ -917,6 +922,10 @@ export const projectsApi = {
   checkNativeVst3Factory: (location: string, relativePath: string, expectedPlistSha256: string, signal?: AbortSignal) =>
     request<Vst3NativeFactoryCheckResult>('/api/host/vst3-native-factory-check', {
       method: 'POST', body: JSON.stringify({ location, relativePath, expectedPlistSha256 }), signal,
+    }),
+  checkNativeVst3Component: (location: string, relativePath: string, expectedPlistSha256: string, classId: string, signal?: AbortSignal) =>
+    request<Vst3NativeComponentCheckResult>('/api/host/vst3-native-component-check', {
+      method: 'POST', body: JSON.stringify({ location, relativePath, expectedPlistSha256, classId }), signal,
     }),
   discoverVst3: (signal?: AbortSignal) => request<Vst3DiscoveryResult>('/api/host/vst3-discovery', { method: 'POST', signal }),
   health: () => request<WorkspaceHealth>('/api/health'),
