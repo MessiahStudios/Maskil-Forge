@@ -1161,6 +1161,52 @@ public sealed class ClearVocalProductionIntentCommand : IProjectCommand
     }
 }
 
+public sealed class SetLeadVocalTakeCommand(ProjectAssetId assetId) : IProjectCommand
+{
+    private ProjectAssetId? _previous;
+    private bool _executed;
+
+    public void Execute(SongProject project)
+    {
+        if (!_executed)
+        {
+            _previous = project.LeadVocalAssetId;
+            project.SetLeadVocalTake(assetId);
+            _executed = true;
+            return;
+        }
+
+        if (project.LeadVocalAssetId != assetId)
+            project.SetLeadVocalTake(assetId);
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (!_executed) throw new InvalidOperationException("Command has not been executed.");
+        if (_previous is null) project.ClearLeadVocalTake();
+        else if (project.LeadVocalAssetId != _previous) project.SetLeadVocalTake(_previous.Value);
+    }
+}
+
+public sealed class ClearLeadVocalTakeCommand : IProjectCommand
+{
+    private ProjectAssetId? _previous;
+
+    public void Execute(SongProject project)
+    {
+        _previous ??= project.LeadVocalAssetId
+            ?? throw new InvalidOperationException("This song has no lead vocal to clear.");
+        if (project.LeadVocalAssetId is not null)
+            project.ClearLeadVocalTake();
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_previous is null) throw new InvalidOperationException("Command has not been executed.");
+        if (project.LeadVocalAssetId != _previous) project.SetLeadVocalTake(_previous.Value);
+    }
+}
+
 public sealed class SplitLyricPhraseCommand(
     SectionId sectionId,
     LyricLineId lineId,

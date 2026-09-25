@@ -54,7 +54,8 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
         new V34ToV35ProjectMigration(),
         new V35ToV36ProjectMigration(),
         new V36ToV37ProjectMigration(),
-        new V37ToV38ProjectMigration()
+        new V37ToV38ProjectMigration(),
+        new V38ToV39ProjectMigration()
     ]);
 
     public JsonObject Normalize(JsonObject project)
@@ -817,6 +818,18 @@ internal sealed class V37ToV38ProjectMigration : IProjectMigration
     public JsonObject Apply(JsonObject project)
     {
         // Existing recipes keep their settings. Space is absent until accepted.
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}
+
+internal sealed class V38ToV39ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 38;
+    public int ToVersion => 39;
+    public JsonObject Apply(JsonObject project)
+    {
+        // Existing takes stay saved. No lead vocal is chosen until the artist names one.
         project["schemaVersion"] = ToVersion;
         return project;
     }

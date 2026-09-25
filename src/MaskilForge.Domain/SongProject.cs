@@ -64,7 +64,8 @@ public sealed class SongProject
         IReadOnlyList<ExpressionCurve>? expressionCurves = null,
         VocalProductionIntent? vocalProductionIntent = null,
         VocalProcessingChain? vocalProcessingChain = null,
-        IReadOnlyList<VocalProcessingRecipe>? vocalProcessingRecipes = null)
+        IReadOnlyList<VocalProcessingRecipe>? vocalProcessingRecipes = null,
+        ProjectAssetId? leadVocalAssetId = null)
     {
         if (id.Value == Guid.Empty) throw new ArgumentException("A project ID is required.", nameof(id));
         if (schemaVersion.Value < 1) throw new ArgumentOutOfRangeException(nameof(schemaVersion));
@@ -92,6 +93,7 @@ public sealed class SongProject
         _expressionCurves = expressionCurves?.ToList() ?? [];
         VocalProductionIntent = vocalProductionIntent;
         VocalProcessingChain = vocalProcessingChain;
+        LeadVocalAssetId = leadVocalAssetId;
         _vocalProcessingRecipes = vocalProcessingRecipes?.ToList() ?? [];
         if (_vocalProcessingRecipes.Any(item => item is null))
             throw new ArgumentException("Accepted vocal processing recipes cannot contain null entries.", nameof(vocalProcessingRecipes));
@@ -111,6 +113,7 @@ public sealed class SongProject
         ValidatePerformanceObservationCorrectionReferences();
         ValidatePerformanceObservationGestureReferences();
         ValidateVocalTakePlacementReferences();
+        ValidateLeadVocalTake();
         CreatedUtc = createdUtc == default ? DateTimeOffset.UtcNow : createdUtc;
         LastModifiedUtc = lastModifiedUtc == default ? CreatedUtc : lastModifiedUtc;
     }
@@ -147,6 +150,8 @@ public sealed class SongProject
     public VocalProductionIntent? VocalProductionIntent { get; private set; }
     public VocalProcessingChain? VocalProcessingChain { get; private set; }
     public IReadOnlyList<VocalProcessingRecipe> VocalProcessingRecipes => _vocalProcessingRecipes.AsReadOnly();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProjectAssetId? LeadVocalAssetId { get; private set; }
     public MusicalKey Key { get; private set; } = MusicalKey.Default;
 
     public static SongProject Create(string title) => new(
@@ -263,6 +268,27 @@ public sealed class SongProject
         return intent;
     }
 
+    public void SetLeadVocalTake(ProjectAssetId assetId)
+    {
+        if (assetId.Value == Guid.Empty)
+            throw new ArgumentException("Choose a saved vocal take.", nameof(assetId));
+        if (_assets.All(asset => asset.Id != assetId || asset.Kind != ProjectAssetKind.OriginalVocalTake))
+            throw new ArgumentException("Choose a saved original vocal take.", nameof(assetId));
+        if (LeadVocalAssetId == assetId)
+            throw new InvalidOperationException("This take is already the lead vocal.");
+        LeadVocalAssetId = assetId;
+        Touch();
+    }
+
+    public ProjectAssetId ClearLeadVocalTake()
+    {
+        var current = LeadVocalAssetId
+            ?? throw new InvalidOperationException("This song has no lead vocal to clear.");
+        LeadVocalAssetId = null;
+        Touch();
+        return current;
+    }
+
     public void RegisterAsset(ProjectAsset asset)
     {
         ArgumentNullException.ThrowIfNull(asset);
@@ -284,6 +310,7 @@ public sealed class SongProject
         _performanceObservations.RemoveAll(item => item.SourceAssetId == assetId);
         _vocalTakePlacements.RemoveAll(item => item.AssetId == assetId);
         _vocalProcessingRecipes.RemoveAll(item => item.AssetId == assetId);
+        if (LeadVocalAssetId == assetId) LeadVocalAssetId = null;
         RemoveDependentObservationRecords(removedObservationIds);
         Touch();
         return asset;
@@ -1229,6 +1256,14 @@ public sealed class SongProject
     {
         if (_assets.All(asset => asset.Id != assetId || asset.Kind != ProjectAssetKind.OriginalVocalTake))
             throw new KeyNotFoundException($"Original vocal asset '{assetId}' was not found.");
+    }
+
+    private void ValidateLeadVocalTake()
+    {
+        if (LeadVocalAssetId is null) return;
+        if (LeadVocalAssetId.Value.Value == Guid.Empty ||
+            _assets.All(asset => asset.Id != LeadVocalAssetId || asset.Kind != ProjectAssetKind.OriginalVocalTake))
+            throw new ArgumentException("The lead vocal must be a saved original vocal take.");
     }
 
     private void ValidateVocalTakePlacementReferences() => ValidateVocalTakePlacements(TimeSignature);

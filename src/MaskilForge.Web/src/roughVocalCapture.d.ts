@@ -6,6 +6,7 @@ export interface CapturedRoughVocal {
 
 export interface RoughVocalCaptureSession {
   mediaType: string
+  start(): void
   stop(): Promise<CapturedRoughVocal>
   discard(): void
 }
@@ -15,4 +16,4 @@ export const roughVocalMaximumByteLength: number
 export function preferredRoughVocalMediaType(MediaRecorderType: typeof MediaRecorder): string
 export function formatRoughVocalDuration(durationMs: number): string
 export function formatRoughVocalBytes(byteLength: number): string
-export function beginRoughVocalCapture(environment?: typeof globalThis): Promise<RoughVocalCaptureSession>
+export function beginRoughVocalCapture(environment?: typeof globalThis, options?: { holdStart?: boolean }): Promise<RoughVocalCaptureSession>

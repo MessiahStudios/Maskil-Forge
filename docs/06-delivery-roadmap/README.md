@@ -1333,7 +1333,7 @@ Build guide vocals, lyric highlighting, take management, punch-in, comping, pitc
 
 Vocal production is intent-first. The artist chooses a desired vocal result; Maskil Forge determines or proposes the processing roles needed to achieve it. A typical DAW vocal chain is evidence of which jobs exist—cleanup, corrective tone, character compression, saturation, transparent level control, sibilance control, and separate space—not a plugin list to clone. Character compression and transparent dynamics stay distinct. A role may later be realized as built-in DSP or as an artist-selected compatible VST3 once Milestone 8 hosting exists. No processor is the canonical chain. Analyze, propose, preview, and accept still apply: the host must not silently process the authoritative take.
 
-Guide vocals, punch-in, comps, and pitch or timing feedback remain other Milestone 9 work. The named slices below are the processing-role track only.
+Guide vocals, lyric highlighting, punch-in, comps, and pitch or timing feedback remain other Milestone 9 work. Milestone 9.15 names one saved take as the lead vocal; that choice is not a comp. The named slices below are the processing-role track through 9.14, then that lead-vocal choice.
 
 **Deliverable:** the artist can complete the human lead-vocal workflow inside the product without the product becoming the singer.
 
@@ -1403,7 +1403,7 @@ Map a processing role onto either Maskil built-in DSP or an artist-selected comp
 
 **Deliverable:** the same production role can be realized by built-in processing or a compatible plugin without rewriting the song’s intent.
 
-**Dependency pending:** Milestones 8.3–8.10 provide discovery, reported metadata, header evidence, inventory review, macOS executable resolution, isolated module lifecycle checks, runtime class enumeration, and selected-component audio-bus inspection. Processing setup, bus activation, audio-buffer processing, state, and persistent host ownership remain unimplemented. External processor substitution therefore remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts.
+**Dependency pending:** Milestones 8.3–8.10 provide discovery, reported metadata, header evidence, inventory review, macOS executable resolution, isolated module lifecycle checks, runtime class enumeration, and selected-component audio-bus inspection. Processing setup, bus activation, audio-buffer processing, state, and persistent host ownership remain unimplemented. External processor substitution therefore remains deferred; the independent reviewed-evidence guidance slice 9.7 uses existing analyzer contracts. When that hosting arrives, a missing plugin keeps the production job and the artist’s intent, reports the missing realization, and offers the built-in treatment where one exists. A different sound is never substituted in silence.
 
 ### Milestone 9.7 — Analyzer-informed production guidance
 
@@ -1484,6 +1484,22 @@ The artist prepares a comparison, plays the original and processed versions, and
 Schema v38 migrates earlier projects without changing existing recipes. Save, recovery, duplication, and asset-owning packages carry the recipe and leave original bytes unchanged. There is no advanced control, transport processing, rendered vocal export, or VST substitution in this slice. Phone production controls stay hidden. Instrument catalog remains version 4.
 
 **Deliverable:** an artist can hear a reviewable space treatment on their own take and reject it without losing the source or the other accepted treatments.
+
+### Milestone 9.15 — Lead vocal choice
+
+**Implemented:** Desktop Music can name one saved original take as the lead vocal. Other takes stay in the song. The choice is explicit and undoable. Clearing it leaves every take saved. Removing the chosen take clears the designation. The choice does not mix, tune, punch in, comp, or replace the recording.
+
+Schema v39 migrates earlier projects with no lead vocal chosen. Save, recovery, duplication, and portable interchange carry the choice and leave original bytes unchanged. Phone production controls stay hidden. Instrument catalog remains version 4. Guide vocals, lyric highlighting, punch-in, comping, and pitch or timing feedback remain later work.
+
+**Deliverable:** an artist with several saved takes can say which performance the song follows, and can change that choice without losing the others.
+
+### Milestone 9.16 — Vocal count-in
+
+**Implemented:** Desktop and phone recording can play one bar of clicks at the song’s saved tempo and meter before a rough take begins. The last click is higher so the entrance is clear. Recording starts on the following downbeat. The microphone is open during the clicks, and the recorder starts only after they finish, so the clicks are not part of the take. Cancel stops the count-in and records nothing. The choice is on by default for the current tab and is not stored in the song.
+
+Schema remains v39. No recipe, asset, or lead-vocal field changes. Phone Music stays hidden. Instrument catalog remains version 4.
+
+**Deliverable:** an artist can hear when to start singing, and the saved take contains only the performance.
 
 ## Milestone 10 — AI director
 

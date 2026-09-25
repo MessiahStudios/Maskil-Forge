@@ -22,7 +22,7 @@ export function formatRoughVocalBytes(byteLength) {
   return `${(byteLength / 1_024 / 1_024).toFixed(1)} MB`
 }
 
-export async function beginRoughVocalCapture(environment = globalThis) {
+export async function beginRoughVocalCapture(environment = globalThis, options = {}) {
   const stream = await environment.navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: true, noiseSuppression: true },
   })
@@ -45,7 +45,7 @@ export async function beginRoughVocalCapture(environment = globalThis) {
   }
 
   const chunks = []
-  const startedAt = environment.performance?.now?.() ?? Date.now()
+  let startedAt = 0
   let discarded = false
   let settled = false
   let resolveCompleted
@@ -77,10 +77,16 @@ export async function beginRoughVocalCapture(environment = globalThis) {
       mediaType,
     })
   }
-  recorder.start(1_000)
+  const startRecorder = () => {
+    if (discarded || recorder.state !== 'inactive') return
+    startedAt = environment.performance?.now?.() ?? Date.now()
+    recorder.start(1_000)
+  }
+  if (!options.holdStart) startRecorder()
 
   return {
     mediaType: recorder.mimeType || requestedMediaType || 'audio/webm',
+    start: startRecorder,
     stop() {
       if (recorder.state !== 'inactive') recorder.stop()
       return completed

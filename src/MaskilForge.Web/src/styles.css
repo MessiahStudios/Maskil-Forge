@@ -194,8 +194,9 @@ button.journey-step:hover:not(:disabled) { border-color: #6e755f; background: #2
 .microphone-preflight-status { display: grid; gap: .15rem; padding: .7rem .75rem; color: #d8d0c1; background: #20241e; border-left: 3px solid #b59a5c; }
 .microphone-preflight-status.ready { color: #cfe0c1; border-left-color: #7fa36c; }
 .microphone-preflight-status.unavailable { color: #e0c2b8; border-left-color: #b46f59; }
-.rough-vocal-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
+.rough-vocal-actions { display: flex; flex-wrap: wrap; gap: .55rem; align-items: center; }
 .rough-vocal-actions button { min-height: 2.7rem; }
+.count-in-choice { display: inline-flex; align-items: center; gap: .4rem; color: #abb4a4; font-size: .85rem; }
 .recording-stop { animation: recording-pulse 1.4s ease-in-out infinite; }
 .rough-vocal-review, .saved-vocal-takes { display: grid; gap: .7rem; padding: .8rem; background: #10130f; border: 1px solid #596550; border-radius: .45rem; }
 .rough-vocal-review h4, .saved-vocal-takes h4 { margin: 0; color: #eee3d0; font: 1.05rem Georgia, serif; }

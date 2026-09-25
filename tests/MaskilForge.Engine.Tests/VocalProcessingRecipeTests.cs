@@ -487,4 +487,45 @@ public sealed class VocalProcessingRecipeTests
         altered["vocalProcessingRecipes"]!.AsArray().Single(item => item!["role"]!.GetValue<string>() == "Space")!["wetAmount"] = 0.4;
         Assert.ThrowsAny<ArgumentException>(() => System.Text.Json.JsonSerializer.Deserialize<SongProject>(altered.ToJsonString(), JsonOptions));
     }
+
+    [Fact]
+    public void LeadVocal_IsAnExplicitChoiceAndSurvivesSchema38Migration()
+    {
+        var (project, first) = Fixture();
+        var second = new ProjectAsset(ProjectAssetId.New(), ProjectAssetKind.OriginalVocalTake, "audio/ogg", Source.Length,
+            first.Sha256, DateTimeOffset.UtcNow, "Second take");
+        project.RegisterAsset(second);
+        var editor = new ProjectEditor(project);
+        Assert.Null(project.LeadVocalAssetId);
+        Assert.Throws<InvalidOperationException>(() => editor.Execute(new ClearLeadVocalTakeCommand()));
+        editor.Execute(new SetLeadVocalTakeCommand(second.Id));
+        Assert.Equal(second.Id, project.LeadVocalAssetId);
+        Assert.Throws<InvalidOperationException>(() => editor.Execute(new SetLeadVocalTakeCommand(second.Id)));
+        editor.Execute(new SetLeadVocalTakeCommand(first.Id));
+        editor.Undo();
+        Assert.Equal(second.Id, project.LeadVocalAssetId);
+        editor.Execute(new ClearLeadVocalTakeCommand());
+        Assert.Null(project.LeadVocalAssetId);
+        editor.Undo();
+        Assert.Equal(second.Id, project.LeadVocalAssetId);
+        var json = System.Text.Encoding.UTF8.GetString(PortableProjectExporter.SerializeDocument(project));
+        Assert.Contains("leadVocalAssetId", json);
+        var cleared = SongProject.Create("No lead");
+        Assert.DoesNotContain("leadVocalAssetId", System.Text.Encoding.UTF8.GetString(PortableProjectExporter.SerializeDocument(cleared)));
+        var document = JsonNode.Parse(json)!.AsObject();
+        document["schemaVersion"] = 38;
+        document.Remove("leadVocalAssetId");
+        var oldProject = System.Text.Json.JsonSerializer.Deserialize<SongProject>(document.ToJsonString(), JsonOptions)!;
+        var imported = PortableProjectPackage.Inspect(PortableProjectPackage.Export(oldProject, new Dictionary<ProjectAssetId, byte[]>
+        {
+            [first.Id] = Source,
+            [second.Id] = Source,
+        }));
+        Assert.Equal(38, imported.SourceSchemaVersion);
+        Assert.Equal(SchemaVersion.Current, imported.Project.SchemaVersion);
+        Assert.Null(imported.Project.LeadVocalAssetId);
+        project.RemoveAsset(second.Id);
+        Assert.Null(project.LeadVocalAssetId);
+        Assert.Contains(project.Assets, asset => asset.Id == first.Id);
+    }
 }

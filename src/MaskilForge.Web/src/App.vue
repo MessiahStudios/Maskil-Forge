@@ -41,6 +41,7 @@ import { microphonePreflightFailure, verifyMicrophoneInput, vocalCaptureSupport 
 import { isPortableProjectPackage, portableExportFileName, portableImportLimit, portableImportLimitMessage } from './portableProjectPackage.js'
 import { midiExportFileName } from './exportFileName.js'
 import { beginRoughVocalCapture, formatRoughVocalBytes, formatRoughVocalDuration, roughVocalMaximumByteLength, roughVocalMaximumDurationMs, type CapturedRoughVocal, type RoughVocalCaptureSession } from './roughVocalCapture.js'
+import { playVocalCountIn } from './vocalCountIn.js'
 import { analyzeSavedVocalTake, loudnessAnalyzerId, loudnessObservationKind } from './loudnessAnalysis.js'
 import { analyzeSavedVocalTakePitch, pitchAnalyzerId, pitchObservationKind } from './pitchAnalysis.js'
 import { analyzeSavedVocalTakeOnsets, onsetAnalyzerId, onsetObservationKind } from './onsetAnalysis.js'
@@ -70,7 +71,8 @@ const roughVocalSupport = vocalCaptureSupport(window)
 const microphonePreflightState = ref<'idle' | 'checking' | 'ready' | 'failed'>('idle')
 const microphonePreflightLabel = ref('')
 const microphonePreflightMessage = ref('')
-const roughVocalCaptureState = ref<'idle' | 'requesting' | 'recording' | 'review' | 'saving' | 'saved' | 'failed'>('idle')
+const roughVocalCaptureState = ref<'idle' | 'requesting' | 'counting-in' | 'recording' | 'review' | 'saving' | 'saved' | 'failed'>('idle')
+const vocalCountInEnabled = ref(true)
 const roughVocalCaptureMessage = ref('')
 const pendingRoughVocal = ref<(CapturedRoughVocal & { projectId: string; url: string }) | null>(null)
 const roughVocalRemovalTarget = ref<{ asset: ProjectAsset; takeNumber: number } | null>(null)
@@ -89,6 +91,7 @@ const performanceReviewMessages = reactive<Record<string, string>>({})
 const observationCorrectionDrafts = reactive<Record<string, Record<string, string>>>({})
 let roughVocalCaptureSession: RoughVocalCaptureSession | null = null
 let roughVocalAutoStopTimer: number | undefined
+let vocalCountInAbort: AbortController | null = null
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
 const trashedProjects = ref<TrashedProjectSummary[]>([])
 const libraryBusy = ref(true)
@@ -902,8 +905,13 @@ function releasePendingRoughVocal() {
   pendingRoughVocal.value = null
 }
 
+function cancelVocalCountIn() {
+  vocalCountInAbort?.abort()
+}
+
 function discardPendingRoughVocal(report = true) {
   clearRoughVocalAutoStop()
+  cancelVocalCountIn()
   roughVocalCaptureSession?.discard()
   roughVocalCaptureSession = null
   releasePendingRoughVocal()
@@ -913,7 +921,7 @@ function discardPendingRoughVocal(report = true) {
 }
 
 async function startRoughVocalRecording() {
-  if (!project.value || roughVocalCaptureState.value === 'requesting' || roughVocalCaptureState.value === 'recording') return
+  if (!project.value || roughVocalCaptureState.value === 'requesting' || roughVocalCaptureState.value === 'counting-in' || roughVocalCaptureState.value === 'recording') return
   if (workspaceConnection.value !== 'ready') {
     roughVocalCaptureState.value = 'failed'
     roughVocalCaptureMessage.value = 'Reconnect to the Maskil Forge host before recording a take for this song.'
@@ -926,23 +934,63 @@ async function startRoughVocalRecording() {
   }
 
   discardPendingRoughVocal(false)
+  const captureProjectId = project.value.id
+  const countIn = vocalCountInEnabled.value
   roughVocalCaptureState.value = 'requesting'
   roughVocalCaptureMessage.value = 'Waiting for microphone access…'
-  activityLog.write('info', 'vocal.capture-start', 'Rough vocal recording requested. Audio remains in browser memory until reviewed and explicitly saved.', { projectId: project.value.id })
+  activityLog.write('info', 'vocal.capture-start', 'Rough vocal recording requested. Audio remains in browser memory until reviewed and explicitly saved.', { projectId: captureProjectId })
   try {
-    roughVocalCaptureSession = await beginRoughVocalCapture(window)
+    stopInstrumentPreviews()
+    roughVocalCaptureSession = await beginRoughVocalCapture(window, countIn ? { holdStart: true } : undefined)
+    if (countIn) {
+      if (!project.value || project.value.id !== captureProjectId) {
+        roughVocalCaptureSession?.discard()
+        roughVocalCaptureSession = null
+        return
+      }
+      const beats = project.value.timeline.timeSignatureMap.events[0].numerator
+      const tempo = Number(project.value.timeline.tempoMap.events[0].beatsPerMinute)
+      roughVocalCaptureState.value = 'counting-in'
+      roughVocalCaptureMessage.value = `Counting in ${beats} at ${tempo} BPM. Recording starts on the next bar. These clicks are not saved.`
+      vocalCountInAbort = new AbortController()
+      try {
+        await playVocalCountIn({
+          beatsPerMinute: tempo,
+          beatsPerBar: beats,
+          signal: vocalCountInAbort.signal,
+        })
+      } catch (error) {
+        roughVocalCaptureSession?.discard()
+        roughVocalCaptureSession = null
+        vocalCountInAbort = null
+        if (error instanceof Error && error.message === 'Count-in cancelled.') {
+          roughVocalCaptureState.value = 'idle'
+          roughVocalCaptureMessage.value = 'Count-in cancelled. No take was recorded.'
+          activityLog.write('info', 'vocal.count-in', roughVocalCaptureMessage.value, { projectId: captureProjectId })
+          return
+        }
+        throw error
+      }
+      vocalCountInAbort = null
+      if (!roughVocalCaptureSession || project.value?.id !== captureProjectId) {
+        roughVocalCaptureSession?.discard()
+        roughVocalCaptureSession = null
+        return
+      }
+      roughVocalCaptureSession.start()
+    }
     roughVocalCaptureState.value = 'recording'
     roughVocalCaptureMessage.value = 'Recording now. Stop when the rough performance is complete; recording stops automatically after one minute.'
     activityLog.write('success', 'vocal.capture-start', 'Rough vocal recording started.', {
-      projectId: project.value.id,
-      mediaType: roughVocalCaptureSession.mediaType,
+      projectId: captureProjectId,
+      mediaType: roughVocalCaptureSession?.mediaType ?? '',
     })
     roughVocalAutoStopTimer = window.setTimeout(() => void stopRoughVocalRecording(true), roughVocalMaximumDurationMs)
   } catch (error) {
     roughVocalCaptureState.value = 'failed'
     roughVocalCaptureMessage.value = microphonePreflightFailure(error)
     activityLog.write('warning', 'vocal.capture-start', roughVocalCaptureMessage.value, {
-      projectId: project.value.id,
+      projectId: captureProjectId,
       reason: error instanceof DOMException || error instanceof Error ? error.name : 'UnknownError',
     })
   }
@@ -3403,6 +3451,24 @@ function acceptVocalSibilance(assetId: string, sourceSha256: string) {
   )
 }
 
+function setLeadVocalTake(assetId: string) {
+  if (!project.value || project.value.leadVocalAssetId === assetId) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'set-lead-vocal-take', assetId }),
+    'Lead vocal chosen. Other takes stay saved. Save to keep this choice with the song.',
+    'vocal.lead-take',
+  )
+}
+
+function clearLeadVocalTake() {
+  if (!project.value?.leadVocalAssetId) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'clear-lead-vocal-take' }),
+    'Lead vocal choice cleared. Every saved take remains.',
+    'vocal.clear-lead-take',
+  )
+}
+
 function acceptVocalSpace(assetId: string, sourceSha256: string) {
   if (!project.value) return
   return run(
@@ -4063,7 +4129,7 @@ async function goToCreatorStage(stage: CreatorStage) {
 function undo() { if (project.value) return run(() => projectsApi.undo(project.value!.id, project.value!), 'Last edit undone.', 'history.undo') }
 function redo() { if (project.value) return run(() => projectsApi.redo(project.value!.id, project.value!), 'Edit restored.', 'history.redo') }
 function warnBeforeClose(event: BeforeUnloadEvent) {
-  if (isDirty.value || deviceLyricCaptureDirty.value || pendingRoughVocal.value || roughVocalCaptureState.value === 'recording')
+  if (isDirty.value || deviceLyricCaptureDirty.value || pendingRoughVocal.value || roughVocalCaptureState.value === 'recording' || roughVocalCaptureState.value === 'counting-in')
     event.preventDefault()
 }
 
@@ -4607,7 +4673,7 @@ onBeforeUnmount(() => {
           <div>
             <p class="eyebrow">Original performance</p>
             <h3 id="microphone-preflight-title">Record a rough vocal take</h3>
-            <p>Recording starts only when you ask. The take stays temporary in this tab until you listen and choose Save take.</p>
+            <p>Recording starts only when you ask. A count-in plays one bar at this song’s tempo first, and those clicks are not saved. The take stays temporary in this tab until you listen and choose Save take.</p>
           </div>
           <p v-if="!roughVocalSupport.supported" class="microphone-preflight-status unavailable" role="status">{{ roughVocalSupport.reason }}</p>
           <p v-else-if="microphonePreflightState === 'ready'" class="microphone-preflight-status ready" role="status"><strong>{{ microphonePreflightLabel }}</strong>{{ microphonePreflightMessage }}</p>
@@ -4618,18 +4684,19 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="secondary"
-              :disabled="!roughVocalSupport.supported || microphonePreflightState === 'checking' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
+              :disabled="!roughVocalSupport.supported || microphonePreflightState === 'checking' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'counting-in' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
               @click="checkRoughVocalMicrophone">
               {{ microphonePreflightState === 'checking' ? 'Checking microphone…' : microphonePreflightState === 'ready' ? 'Check again' : 'Check microphone' }}
             </button>
             <button
-              v-if="roughVocalCaptureState !== 'recording'"
+              v-if="roughVocalCaptureState !== 'recording' && roughVocalCaptureState !== 'counting-in'"
               type="button"
               :disabled="!roughVocalSupport.supported || busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
               @click="startRoughVocalRecording">
               {{ roughVocalCaptureState === 'requesting' ? 'Opening microphone…' : project.assets.length ? 'Record another take' : 'Record rough take' }}
             </button>
-            <button v-else type="button" class="danger recording-stop" @click="stopRoughVocalRecording(false)">Stop recording</button>
+            <button v-else type="button" class="danger recording-stop" @click="roughVocalCaptureState === 'counting-in' ? cancelVocalCountIn() : stopRoughVocalRecording(false)">{{ roughVocalCaptureState === 'counting-in' ? 'Cancel count-in' : 'Stop recording' }}</button>
+            <label class="count-in-choice"><input type="checkbox" v-model="vocalCountInEnabled" :disabled="roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'counting-in' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'"> Count me in</label>
           </div>
           <section v-if="pendingRoughVocal" class="rough-vocal-review" aria-labelledby="rough-vocal-review-title">
             <div>
@@ -5715,7 +5782,7 @@ onBeforeUnmount(() => {
         <section class="microphone-preflight" aria-labelledby="desktop-microphone-preflight-title">
           <div>
             <h3 id="desktop-microphone-preflight-title">Record a rough vocal take</h3>
-            <p>Recording starts only when you ask. The take stays temporary in this tab until you listen and choose Save take.</p>
+            <p>Recording starts only when you ask. A count-in plays one bar at this song’s tempo first, and those clicks are not saved. The take stays temporary in this tab until you listen and choose Save take.</p>
           </div>
           <p v-if="!roughVocalSupport.supported" class="microphone-preflight-status unavailable" role="status">{{ roughVocalSupport.reason }}</p>
           <p v-else-if="microphonePreflightState === 'ready'" class="microphone-preflight-status ready" role="status"><strong>{{ microphonePreflightLabel }}</strong>{{ microphonePreflightMessage }}</p>
@@ -5726,18 +5793,19 @@ onBeforeUnmount(() => {
             <button
               type="button"
               class="secondary"
-              :disabled="!roughVocalSupport.supported || microphonePreflightState === 'checking' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
+              :disabled="!roughVocalSupport.supported || microphonePreflightState === 'checking' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'counting-in' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
               @click="checkRoughVocalMicrophone">
               {{ microphonePreflightState === 'checking' ? 'Checking microphone…' : microphonePreflightState === 'ready' ? 'Check again' : 'Check microphone' }}
             </button>
             <button
-              v-if="roughVocalCaptureState !== 'recording'"
+              v-if="roughVocalCaptureState !== 'recording' && roughVocalCaptureState !== 'counting-in'"
               type="button"
               :disabled="!roughVocalSupport.supported || busy || isDirty || workspaceConnection !== 'ready' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
               @click="startRoughVocalRecording">
               {{ roughVocalCaptureState === 'requesting' ? 'Opening microphone…' : project.assets.length ? 'Record another take' : 'Record rough take' }}
             </button>
-            <button v-else type="button" class="danger recording-stop" @click="stopRoughVocalRecording(false)">Stop recording</button>
+            <button v-else type="button" class="danger recording-stop" @click="roughVocalCaptureState === 'counting-in' ? cancelVocalCountIn() : stopRoughVocalRecording(false)">{{ roughVocalCaptureState === 'counting-in' ? 'Cancel count-in' : 'Stop recording' }}</button>
+            <label class="count-in-choice"><input type="checkbox" v-model="vocalCountInEnabled" :disabled="roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'counting-in' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'"> Count me in</label>
           </div>
           <section v-if="pendingRoughVocal" class="rough-vocal-review" aria-labelledby="desktop-rough-vocal-review-title">
             <div>
@@ -5755,9 +5823,19 @@ onBeforeUnmount(() => {
         <p v-if="!project.assets.length" class="note-event-empty">No saved takes yet. Record one here, or capture it in phone Review. Immutable audio, analyzer evidence, and artist gestures travel with the song.</p>
         <section v-else class="saved-vocal-takes" aria-labelledby="desktop-saved-vocal-takes-title">
           <h4 id="desktop-saved-vocal-takes-title">Takes on this song</h4>
+          <p>Name one saved take as the lead vocal when you are ready. Other takes stay in the song. This choice does not mix, tune, or replace the recording.</p>
+          <p v-if="!project.leadVocalAssetId">No lead vocal is chosen yet.</p>
           <ol>
             <li v-for="(asset, index) in project.assets" :key="`desktop-${asset.id}`">
-              <div><strong>{{ asset.name }}</strong><small>{{ new Date(asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(asset.byteLength) }}</small></div>
+              <div>
+                <strong>{{ asset.name }}</strong>
+                <small v-if="project.leadVocalAssetId === asset.id">Lead vocal</small>
+                <small>{{ new Date(asset.createdUtc).toLocaleString() }} · {{ formatRoughVocalBytes(asset.byteLength) }}</small>
+              </div>
+              <div class="saved-vocal-take-actions">
+                <button v-if="project.leadVocalAssetId !== asset.id" type="button" :disabled="busy || isDirty" @click="setLeadVocalTake(asset.id)">Use as lead vocal</button>
+                <button v-else type="button" class="quiet" :disabled="busy || isDirty" @click="clearLeadVocalTake">Clear lead choice</button>
+              </div>
               <audio controls preload="none" :src="projectsApi.originalVocalTakeUrl(project.id, asset.id)" @play="logRoughVocalPlayback('saved', asset.id)">Your browser cannot play this saved take.</audio>
               <VocalLowCutPreview
                 :project-id="project.id" :asset="asset" :busy="busy"

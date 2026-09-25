@@ -626,6 +626,7 @@ export interface SongProject {
   vocalProductionIntent: VocalProductionIntent | null
   vocalProcessingChain: VocalProcessingChain | null
   vocalProcessingRecipes: VocalProcessingRecipe[]
+  leadVocalAssetId?: string
   key: MusicalKey
 }
 

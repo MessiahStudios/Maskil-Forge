@@ -37,6 +37,35 @@ test('rough vocal capture remains temporary until stop and closes every micropho
   assert.equal(tracks[0].stopped, true)
 })
 
+test('a held capture waits to record until the count-in finishes', async () => {
+  const track = { readyState: 'live', stopped: false, stop() { this.stopped = true } }
+  const events = []
+  class FakeMediaRecorder {
+    static isTypeSupported() { return true }
+    constructor() { this.mimeType = 'audio/webm;codecs=opus'; this.state = 'inactive' }
+    start() { this.state = 'recording'; events.push('start') }
+    stop() {
+      this.ondataavailable({ data: new Blob(['voice'], { type: this.mimeType }) })
+      this.state = 'inactive'
+      this.onstop()
+    }
+  }
+  let now = 100
+  const session = await beginRoughVocalCapture({
+    navigator: { mediaDevices: { getUserMedia: async () => ({ getAudioTracks: () => [track], getTracks: () => [track] }) } },
+    MediaRecorder: FakeMediaRecorder,
+    performance: { now: () => now },
+  }, { holdStart: true })
+  assert.deepEqual(events, [])
+  now = 5_000
+  session.start()
+  now = 6_200
+  const result = await session.stop()
+  assert.deepEqual(events, ['start'])
+  assert.equal(result.durationMs, 1_200)
+  assert.equal(await result.blob.text(), 'voice')
+})
+
 test('discarding a rough vocal closes the live input without retaining audio', async () => {
   const track = { readyState: 'live', stopped: false, stop() { this.stopped = true } }
   class FakeMediaRecorder {

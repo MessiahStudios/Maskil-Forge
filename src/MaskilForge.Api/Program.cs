@@ -1196,6 +1196,8 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             request.VocalProductionDescriptors ?? throw new ArgumentException("Desired vocal results are required."),
             request.VocalProductionNotes ?? string.Empty)); break;
         case "clear-vocal-production-intent": editor.Execute(new ClearVocalProductionIntentCommand()); break;
+        case "set-lead-vocal-take": editor.Execute(new SetLeadVocalTakeCommand(RequiredAssetId(request))); break;
+        case "clear-lead-vocal-take": editor.Execute(new ClearLeadVocalTakeCommand()); break;
         case "set-vocal-processing-chain": editor.Execute(new SetVocalProcessingChainCommand(
             request.VocalProcessingRoles ?? throw new ArgumentException("Vocal production jobs are required."))); break;
         case "clear-vocal-processing-chain": editor.Execute(new ClearVocalProcessingChainCommand()); break;
