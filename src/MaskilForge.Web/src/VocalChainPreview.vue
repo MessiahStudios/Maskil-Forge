@@ -57,7 +57,7 @@ onBeforeUnmount(discard)
 <template>
   <details class="vocal-chain" @toggle="event => { if (!(event.target as HTMLDetailsElement).open) discard() }">
     <summary>Hear accepted treatments</summary>
-    <p>This plays the original take through the low-cut and level-control settings already accepted for it, in the current production-job order. Jobs without a processor stay in the plan and are not heard.</p>
+    <p>This plays the original take through the low-cut, level-control, saturation, character-compression, and cleanup settings already accepted for it, in the current production-job order. Jobs without a processor stay in the plan and are not heard.</p>
     <p>{{ description }}</p>
     <div class="chain-actions">
       <button type="button" :disabled="busy || preparing || !steps.length" @click="prepare">{{ preparing ? 'Preparing comparison…' : 'Prepare comparison' }}</button>

@@ -51,6 +51,75 @@ public sealed class AcceptVocalLevelControlCommand(ProjectAssetId assetId, strin
     }
 }
 
+public sealed class AcceptVocalSaturationCommand(ProjectAssetId assetId, string sourceSha256) : IProjectCommand
+{
+    private VocalProcessingRecipe? _previous;
+    private VocalProcessingRecipe? _accepted;
+
+    public void Execute(SongProject project)
+    {
+        var recipe = _accepted ?? VocalProcessingRecipe.FixedSaturation(assetId, sourceSha256, DateTimeOffset.UtcNow);
+        var previous = project.VocalProcessingRecipes.SingleOrDefault(item =>
+            item.AssetId == assetId && item.Role == VocalProcessingRole.Saturation);
+        project.SetVocalProcessingRecipe(recipe);
+        if (_accepted is null) _previous = previous;
+        _accepted = recipe;
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_accepted is null) throw new InvalidOperationException("Command has not been executed.");
+        if (_previous is null) project.ClearVocalProcessingRecipe(assetId, VocalProcessingRole.Saturation);
+        else project.SetVocalProcessingRecipe(_previous);
+    }
+}
+
+public sealed class AcceptVocalCharacterCompressionCommand(ProjectAssetId assetId, string sourceSha256) : IProjectCommand
+{
+    private VocalProcessingRecipe? _previous;
+    private VocalProcessingRecipe? _accepted;
+
+    public void Execute(SongProject project)
+    {
+        var recipe = _accepted ?? VocalProcessingRecipe.FixedCharacterCompression(assetId, sourceSha256, DateTimeOffset.UtcNow);
+        var previous = project.VocalProcessingRecipes.SingleOrDefault(item =>
+            item.AssetId == assetId && item.Role == VocalProcessingRole.CharacterCompression);
+        project.SetVocalProcessingRecipe(recipe);
+        if (_accepted is null) _previous = previous;
+        _accepted = recipe;
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_accepted is null) throw new InvalidOperationException("Command has not been executed.");
+        if (_previous is null) project.ClearVocalProcessingRecipe(assetId, VocalProcessingRole.CharacterCompression);
+        else project.SetVocalProcessingRecipe(_previous);
+    }
+}
+
+public sealed class AcceptVocalCleanupCommand(ProjectAssetId assetId, string sourceSha256) : IProjectCommand
+{
+    private VocalProcessingRecipe? _previous;
+    private VocalProcessingRecipe? _accepted;
+
+    public void Execute(SongProject project)
+    {
+        var recipe = _accepted ?? VocalProcessingRecipe.FixedCleanup(assetId, sourceSha256, DateTimeOffset.UtcNow);
+        var previous = project.VocalProcessingRecipes.SingleOrDefault(item =>
+            item.AssetId == assetId && item.Role == VocalProcessingRole.Cleanup);
+        project.SetVocalProcessingRecipe(recipe);
+        if (_accepted is null) _previous = previous;
+        _accepted = recipe;
+    }
+
+    public void Undo(SongProject project)
+    {
+        if (_accepted is null) throw new InvalidOperationException("Command has not been executed.");
+        if (_previous is null) project.ClearVocalProcessingRecipe(assetId, VocalProcessingRole.Cleanup);
+        else project.SetVocalProcessingRecipe(_previous);
+    }
+}
+
 public sealed class ClearVocalProcessingRecipeCommand(ProjectAssetId assetId, VocalProcessingRole role = VocalProcessingRole.CorrectiveTone) : IProjectCommand
 {
     private VocalProcessingRecipe? _previous;

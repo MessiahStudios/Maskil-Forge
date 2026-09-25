@@ -644,6 +644,7 @@ export interface VocalProcessingRecipe {
   ratio?: number
   attackMilliseconds?: number
   releaseMilliseconds?: number
+  colorAmount?: number
   acceptedUtc: string
 }
 

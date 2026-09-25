@@ -327,4 +327,101 @@ public sealed class VocalProcessingRecipeTests
         Assert.Equal(VocalProcessingRecipe.LevelControlProcessorId, Assert.Single(imported.Project.VocalProcessingRecipes).ProcessorId);
         Assert.Equal(Source, imported.Assets[asset.Id]);
     }
+
+    [Fact]
+    public void Saturation_CanShareATakeAndSurvivesSchema36Migration()
+    {
+        var (project, asset) = Fixture();
+        project.SetVocalProductionIntent(new VocalProductionIntent([VocalProductionDescriptor.Clean], "", DateTimeOffset.UtcNow));
+        project.SetVocalProcessingChain(new VocalProcessingChain(
+            [VocalProcessingRole.CorrectiveTone, VocalProcessingRole.Saturation], DateTimeOffset.UtcNow));
+        var editor = new ProjectEditor(project);
+        Assert.Throws<ArgumentException>(() => editor.Execute(new AcceptVocalSaturationCommand(asset.Id, "not-a-digest")));
+        editor.Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256));
+        editor.Execute(new AcceptVocalSaturationCommand(asset.Id, asset.Sha256));
+        var saturation = project.VocalProcessingRecipes.Single(item => item.Role == VocalProcessingRole.Saturation);
+        Assert.Equal(VocalProcessingRecipe.SaturationProcessorId, saturation.ProcessorId);
+        Assert.Equal(VocalProcessingRecipe.SaturationColorAmount, saturation.ColorAmount);
+        Assert.Null(saturation.CutoffHertz);
+        Assert.Null(saturation.ThresholdDecibels);
+        var proposal = VocalProfileProposer.Propose(project);
+        Assert.Contains(proposal.Jobs.Single(job => job.Role == VocalProcessingRole.Saturation).Reasons, reason => reason.Contains("already has accepted"));
+        editor.Undo();
+        Assert.Equal(VocalProcessingRole.CorrectiveTone, Assert.Single(project.VocalProcessingRecipes).Role);
+        editor.Redo();
+        var json = System.Text.Encoding.UTF8.GetString(PortableProjectExporter.SerializeDocument(project));
+        Assert.Contains("colorAmount", json);
+        Assert.DoesNotContain("\"colorAmount\":null", json);
+        Assert.Throws<InvalidOperationException>(() => project.SetVocalProcessingChain(
+            new VocalProcessingChain([VocalProcessingRole.CorrectiveTone], DateTimeOffset.UtcNow)));
+        var document = JsonNode.Parse(json)!.AsObject();
+        document["schemaVersion"] = 36;
+        document["vocalProcessingRecipes"]!.AsArray().Remove(
+            document["vocalProcessingRecipes"]!.AsArray().Single(item => item!["role"]!.GetValue<string>() == "Saturation"));
+        var oldProject = System.Text.Json.JsonSerializer.Deserialize<SongProject>(document.ToJsonString(), JsonOptions)!;
+        var imported = PortableProjectPackage.Inspect(PortableProjectPackage.Export(oldProject, new Dictionary<ProjectAssetId, byte[]> { [asset.Id] = Source }));
+        Assert.Equal(36, imported.SourceSchemaVersion);
+        Assert.Equal(SchemaVersion.Current, imported.Project.SchemaVersion);
+        Assert.Equal(VocalProcessingRecipe.LowCutProcessorId, Assert.Single(imported.Project.VocalProcessingRecipes).ProcessorId);
+        Assert.Equal(Source, imported.Assets[asset.Id]);
+        var altered = JsonNode.Parse(json)!.AsObject();
+        altered["vocalProcessingRecipes"]!.AsArray().Single(item => item!["role"]!.GetValue<string>() == "Saturation")!["colorAmount"] = 0.4;
+        Assert.ThrowsAny<ArgumentException>(() => System.Text.Json.JsonSerializer.Deserialize<SongProject>(altered.ToJsonString(), JsonOptions));
+    }
+
+    [Fact]
+    public void CharacterCompression_StaysDistinctFromLevelControlAndSurvivesSave()
+    {
+        var (project, asset) = Fixture();
+        project.SetVocalProductionIntent(new VocalProductionIntent([VocalProductionDescriptor.Clean], "", DateTimeOffset.UtcNow));
+        project.SetVocalProcessingChain(new VocalProcessingChain(
+            [VocalProcessingRole.TransparentDynamics, VocalProcessingRole.CharacterCompression], DateTimeOffset.UtcNow));
+        var editor = new ProjectEditor(project);
+        editor.Execute(new AcceptVocalLevelControlCommand(asset.Id, asset.Sha256));
+        editor.Execute(new AcceptVocalCharacterCompressionCommand(asset.Id, asset.Sha256));
+        var character = project.VocalProcessingRecipes.Single(item => item.Role == VocalProcessingRole.CharacterCompression);
+        Assert.Equal(VocalProcessingRecipe.CharacterCompressionProcessorId, character.ProcessorId);
+        Assert.Equal(-24, character.ThresholdDecibels);
+        Assert.Equal(4, character.Ratio);
+        Assert.Equal(0, character.AttackMilliseconds);
+        Assert.Equal(250, character.ReleaseMilliseconds);
+        Assert.Null(character.ColorAmount);
+        Assert.Null(character.CutoffHertz);
+        var proposal = VocalProfileProposer.Propose(project);
+        Assert.Contains(proposal.Jobs.Single(job => job.Role == VocalProcessingRole.CharacterCompression).Reasons, reason => reason.Contains("already has accepted"));
+        editor.Undo();
+        Assert.Equal(VocalProcessingRole.TransparentDynamics, Assert.Single(project.VocalProcessingRecipes).Role);
+        editor.Redo();
+        Assert.Throws<InvalidOperationException>(() => project.SetVocalProcessingChain(
+            new VocalProcessingChain([VocalProcessingRole.TransparentDynamics], DateTimeOffset.UtcNow)));
+        var document = JsonNode.Parse(PortableProjectExporter.SerializeDocument(project))!.AsObject();
+        Assert.Equal(SchemaVersion.Current.Value, document["schemaVersion"]!.GetValue<int>());
+        var stored = document["vocalProcessingRecipes"]!.AsArray().Single(item => item!["role"]!.GetValue<string>() == "CharacterCompression")!;
+        stored["ratio"] = 2;
+        Assert.ThrowsAny<ArgumentException>(() => System.Text.Json.JsonSerializer.Deserialize<SongProject>(document.ToJsonString(), JsonOptions));
+    }
+
+    [Fact]
+    public void Cleanup_LowersOnlyTheAcceptedRoleAndBlocksPlanRemoval()
+    {
+        var (project, asset) = Fixture();
+        project.SetVocalProductionIntent(new VocalProductionIntent([VocalProductionDescriptor.Warm], "", DateTimeOffset.UtcNow));
+        project.SetVocalProcessingChain(new VocalProcessingChain([VocalProcessingRole.Cleanup], DateTimeOffset.UtcNow));
+        var editor = new ProjectEditor(project);
+        editor.Execute(new AcceptVocalCleanupCommand(asset.Id, asset.Sha256));
+        var cleanup = Assert.Single(project.VocalProcessingRecipes);
+        Assert.Equal(VocalProcessingRecipe.CleanupProcessorId, cleanup.ProcessorId);
+        Assert.Equal(-40, cleanup.ThresholdDecibels);
+        Assert.Equal(4, cleanup.Ratio);
+        Assert.Equal(10, cleanup.AttackMilliseconds);
+        Assert.Equal(200, cleanup.ReleaseMilliseconds);
+        Assert.Null(cleanup.ColorAmount);
+        var proposal = VocalProfileProposer.Propose(project);
+        Assert.Contains(proposal.Jobs.Single(job => job.Role == VocalProcessingRole.Cleanup).Reasons, reason => reason.Contains("already has accepted"));
+        editor.Undo();
+        Assert.Empty(project.VocalProcessingRecipes);
+        editor.Redo();
+        Assert.Throws<InvalidOperationException>(() => project.ClearVocalProcessingChain());
+        Assert.Equal(SchemaVersion.Current.Value, JsonNode.Parse(PortableProjectExporter.SerializeDocument(project))!["schemaVersion"]!.GetValue<int>());
+    }
 }

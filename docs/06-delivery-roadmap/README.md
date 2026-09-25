@@ -1435,6 +1435,36 @@ The comparison is temporary. It has no acceptance action, does not change stored
 
 **Deliverable:** an artist can hear the accepted vocal treatments together, in the order of the plan, and discard that listening pass without changing the song.
 
+### Milestone 9.10 — Built-in saturation
+
+**Implemented:** Desktop Music can preview and accept a fixed Saturation / Color treatment on a saved original take. Processor `maskil.vocal.saturation.v1` applies the memoryless curve sample minus 0.15 times its cube. Louder moments lose a little peak and gain a little harmonic color. Silence and quiet phrases barely move. The curve does not raise level, apply makeup gain, gate, equalize, compress, or limit. It is not Transparent Level Control.
+
+The artist prepares a comparison, plays the original and processed versions, and explicitly accepts or discards. Acceptance stores the fixed color amount against that take's asset ID and SHA-256. A take may keep this recipe beside an accepted low-cut and level control; each role still has at most one recipe. Clearing saturation is undoable and does not remove the others. Removing Saturation / Color from the plan, or clearing the plan, requires clearing accepted saturation settings first. A profile proposal keeps Saturation / Color when a take already stores it. The accepted-treatment comparison includes it in the current job order.
+
+Schema v37 migrates earlier projects without changing existing recipes. Save, recovery, duplication, and asset-owning packages carry the recipe and leave original bytes unchanged. There is no advanced control, transport processing, rendered vocal export, or VST substitution in this slice. Phone production controls stay hidden. Instrument catalog remains version 4.
+
+**Deliverable:** an artist can hear a reviewable saturation treatment on their own take and reject it without losing the source or the other accepted treatments.
+
+### Milestone 9.11 — Built-in character compression
+
+**Implemented:** Desktop Music can preview and accept a fixed Character Compression treatment on a saved original take. Processor `maskil.vocal.character-compression.v1` follows a louder moment immediately, releases over 250 ms, and shapes levels above −24 dBFS at 4:1. A following makeup restores the loudest moment to its original peak, so quieter phrases can come forward. No sample is raised above that original peak, and no limiter is applied. Transparent Level Control remains separate: a higher threshold, a gentler ratio, a 20 ms attack, and no lift for a quiet phrase.
+
+The artist prepares a comparison, plays the original and processed versions, and explicitly accepts or discards. Acceptance stores the fixed settings against that take's asset ID and SHA-256. A take may keep this recipe beside an accepted low-cut, level control, and saturation; each role still has at most one recipe. Clearing it is undoable and does not remove the others. Removing Character Compression from the plan, or clearing the plan, requires clearing accepted character-compression settings first. A profile proposal keeps the job when a take already stores it. The accepted-treatment comparison includes it in the current job order.
+
+Schema stays v37. The recipe uses the existing per-role settings fields. Save, recovery, duplication, and asset-owning packages carry it and leave original bytes unchanged. There is no advanced control, transport processing, rendered vocal export, or VST substitution in this slice. Phone production controls stay hidden. Instrument catalog remains version 4.
+
+**Deliverable:** an artist can hear a reviewable character-compression treatment on their own take and reject it without losing the source or the other accepted treatments.
+
+### Milestone 9.12 — Built-in cleanup
+
+**Implemented:** Desktop Music can preview and accept a fixed Cleanup treatment on a saved original take. Processor `maskil.vocal.cleanup.v1` watches the linked peak. Gaps below −40 dBFS ease toward one quarter of their level over 200 ms. A sung level returns over 10 ms. The gaps are lowered, not silenced, and nothing is boosted. Sung levels above the threshold stay at their original gain.
+
+The artist prepares a comparison, plays the original and processed versions, and explicitly accepts or discards. Acceptance stores the fixed settings against that take's asset ID and SHA-256. A take may keep this recipe beside the other accepted treatments; each role still has at most one recipe. Clearing it is undoable and does not remove the others. Removing Cleanup from the plan, or clearing the plan, requires clearing accepted cleanup settings first. A profile proposal keeps the job when a take already stores it. The accepted-treatment comparison includes it in the current job order.
+
+Schema stays v37. The recipe uses the existing per-role settings fields. Save, recovery, duplication, and asset-owning packages carry it and leave original bytes unchanged. There is no advanced control, transport processing, rendered vocal export, or VST substitution in this slice. Phone production controls stay hidden. Instrument catalog remains version 4.
+
+**Deliverable:** an artist can hear a reviewable cleanup treatment on their own take and reject it without losing the source or the other accepted treatments.
+
 ## Milestone 10 — AI director
 
 Expose tested engine functions as typed tools, add intent interpretation, structured musical and performance observations as reasoning inputs, plan preview, command validation, explanations, and conversational revision. Any direct audio-capable model interpretation is supplemental, carries confidence and provenance, and cannot replace structured observations or artist review. Vocal-production direction uses Milestone 9 intent, roles, and observations; it does not invent a plugin-shaped plan that the rest of the product cannot preview or undo.

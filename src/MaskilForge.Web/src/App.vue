@@ -13,6 +13,9 @@ import type { RegisteredPitch, VocalProductionDescriptor, VocalProcessingRole } 
 import VocalProcessingChainEditor from './VocalProcessingChainEditor.vue'
 import VocalLowCutPreview from './VocalLowCutPreview.vue'
 import VocalLevelControlPreview from './VocalLevelControlPreview.vue'
+import VocalSaturationPreview from './VocalSaturationPreview.vue'
+import VocalCharacterCompressionPreview from './VocalCharacterCompressionPreview.vue'
+import VocalCleanupPreview from './VocalCleanupPreview.vue'
 import VocalChainPreview from './VocalChainPreview.vue'
 import VocalProfileProposal from './VocalProfileProposal.vue'
 import VocalEvidenceGuidance from './VocalEvidenceGuidance.vue'
@@ -3362,14 +3365,57 @@ function acceptVocalLevelControl(assetId: string, sourceSha256: string) {
   )
 }
 
-function clearVocalProcessingRecipe(assetId: string, role: VocalProcessingRole = 'CorrectiveTone') {
+function acceptVocalSaturation(assetId: string, sourceSha256: string) {
   if (!project.value) return
   return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-saturation', assetId, sourceSha256 }),
+    'Saturation settings accepted. Save to keep them with the song. Original audio is unchanged.',
+    'vocal-production.accept-saturation',
+  )
+}
+
+function acceptVocalCharacterCompression(assetId: string, sourceSha256: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-character-compression', assetId, sourceSha256 }),
+    'Character-compression settings accepted. Save to keep them with the song. Original audio is unchanged.',
+    'vocal-production.accept-character-compression',
+  )
+}
+
+function acceptVocalCleanup(assetId: string, sourceSha256: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-cleanup', assetId, sourceSha256 }),
+    'Cleanup settings accepted. Save to keep them with the song. Original audio is unchanged.',
+    'vocal-production.accept-cleanup',
+  )
+}
+
+function clearVocalProcessingRecipe(assetId: string, role: VocalProcessingRole = 'CorrectiveTone') {
+  if (!project.value) return
+  const cleared = role === 'TransparentDynamics'
+    ? 'Accepted level-control settings cleared. Original audio is unchanged.'
+    : role === 'Saturation'
+      ? 'Accepted saturation settings cleared. Original audio is unchanged.'
+      : role === 'CharacterCompression'
+        ? 'Accepted character-compression settings cleared. Original audio is unchanged.'
+        : role === 'Cleanup'
+          ? 'Accepted cleanup settings cleared. Original audio is unchanged.'
+          : 'Accepted low-cut settings cleared. Original audio is unchanged.'
+  const action = role === 'TransparentDynamics'
+    ? 'vocal-production.clear-level-control'
+    : role === 'Saturation'
+      ? 'vocal-production.clear-saturation'
+      : role === 'CharacterCompression'
+        ? 'vocal-production.clear-character-compression'
+        : role === 'Cleanup'
+          ? 'vocal-production.clear-cleanup'
+          : 'vocal-production.clear-low-cut'
+  return run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'clear-vocal-processing-recipe', assetId, recipeRole: role }),
-    role === 'TransparentDynamics'
-      ? 'Accepted level-control settings cleared. Original audio is unchanged.'
-      : 'Accepted low-cut settings cleared. Original audio is unchanged.',
-    role === 'TransparentDynamics' ? 'vocal-production.clear-level-control' : 'vocal-production.clear-low-cut',
+    cleared,
+    action,
   )
 }
 
@@ -5696,6 +5742,24 @@ onBeforeUnmount(() => {
                 :role-enabled="project.vocalProcessingChain?.roles.includes('TransparentDynamics') ?? false"
                 :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id && recipe.role === 'TransparentDynamics')"
                 @accept="acceptVocalLevelControl" @clear="assetId => clearVocalProcessingRecipe(assetId, 'TransparentDynamics')" @playing="stopInstrumentPreviews"
+              />
+              <VocalSaturationPreview
+                :project-id="project.id" :asset="asset" :busy="busy"
+                :role-enabled="project.vocalProcessingChain?.roles.includes('Saturation') ?? false"
+                :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id && recipe.role === 'Saturation')"
+                @accept="acceptVocalSaturation" @clear="assetId => clearVocalProcessingRecipe(assetId, 'Saturation')" @playing="stopInstrumentPreviews"
+              />
+              <VocalCharacterCompressionPreview
+                :project-id="project.id" :asset="asset" :busy="busy"
+                :role-enabled="project.vocalProcessingChain?.roles.includes('CharacterCompression') ?? false"
+                :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id && recipe.role === 'CharacterCompression')"
+                @accept="acceptVocalCharacterCompression" @clear="assetId => clearVocalProcessingRecipe(assetId, 'CharacterCompression')" @playing="stopInstrumentPreviews"
+              />
+              <VocalCleanupPreview
+                :project-id="project.id" :asset="asset" :busy="busy"
+                :role-enabled="project.vocalProcessingChain?.roles.includes('Cleanup') ?? false"
+                :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id && recipe.role === 'Cleanup')"
+                @accept="acceptVocalCleanup" @clear="assetId => clearVocalProcessingRecipe(assetId, 'Cleanup')" @playing="stopInstrumentPreviews"
               />
               <VocalChainPreview
                 :project-id="project.id" :asset="asset" :busy="busy"

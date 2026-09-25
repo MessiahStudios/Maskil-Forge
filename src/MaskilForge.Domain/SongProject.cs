@@ -204,6 +204,18 @@ public sealed class SongProject
             throw new InvalidOperationException(clearing
                 ? "Clear accepted level-control settings from the takes before clearing production jobs."
                 : "Clear accepted level-control settings from the takes before removing Transparent Level Control.");
+        if (blocked.Length == 1 && blocked[0] == VocalProcessingRole.Saturation)
+            throw new InvalidOperationException(clearing
+                ? "Clear accepted saturation settings from the takes before clearing production jobs."
+                : "Clear accepted saturation settings from the takes before removing Saturation / Color.");
+        if (blocked.Length == 1 && blocked[0] == VocalProcessingRole.CharacterCompression)
+            throw new InvalidOperationException(clearing
+                ? "Clear accepted character-compression settings from the takes before clearing production jobs."
+                : "Clear accepted character-compression settings from the takes before removing Character Compression.");
+        if (blocked.Length == 1 && blocked[0] == VocalProcessingRole.Cleanup)
+            throw new InvalidOperationException(clearing
+                ? "Clear accepted cleanup settings from the takes before clearing production jobs."
+                : "Clear accepted cleanup settings from the takes before removing Cleanup.");
         throw new InvalidOperationException(clearing
             ? "Clear accepted vocal processing settings from the takes before clearing production jobs."
             : "Clear accepted vocal processing settings from the takes before removing those production jobs.");
@@ -215,9 +227,14 @@ public sealed class SongProject
         if (asset is null || asset.Sha256 != recipe.SourceSha256)
             throw new ArgumentException("Accepted processing must reference the exact original vocal take.");
         if (VocalProcessingChain?.Roles.Contains(recipe.Role) != true)
-            throw new ArgumentException(recipe.Role == VocalProcessingRole.TransparentDynamics
-                ? "Add Transparent Level Control to the production plan before accepting the level-control settings."
-                : "Add Corrective Tone to the production plan before accepting the low-cut settings.");
+            throw new ArgumentException(recipe.Role switch
+            {
+                VocalProcessingRole.TransparentDynamics => "Add Transparent Level Control to the production plan before accepting the level-control settings.",
+                VocalProcessingRole.Saturation => "Add Saturation / Color to the production plan before accepting the saturation settings.",
+                VocalProcessingRole.CharacterCompression => "Add Character Compression to the production plan before accepting the character-compression settings.",
+                VocalProcessingRole.Cleanup => "Add Cleanup to the production plan before accepting the cleanup settings.",
+                _ => "Add Corrective Tone to the production plan before accepting the low-cut settings.",
+            });
     }
 
     public void SetVocalProductionIntent(VocalProductionIntent intent)

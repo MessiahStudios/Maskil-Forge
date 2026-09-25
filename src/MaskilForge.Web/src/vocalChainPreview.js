@@ -1,7 +1,10 @@
 import { encodePreviewWav, renderVocalLowCut, validateLowCutSettings } from './vocalLowCut.js'
 import { renderVocalLevelControl } from './vocalLevelControl.js'
+import { renderVocalSaturation } from './vocalSaturation.js'
+import { renderVocalCharacterCompression } from './vocalCharacterCompression.js'
+import { renderVocalCleanup } from './vocalCleanup.js'
 
-const names = Object.freeze({ CorrectiveTone: 'Low-cut', TransparentDynamics: 'Level control' })
+const names = Object.freeze({ CorrectiveTone: 'Low-cut', TransparentDynamics: 'Level control', Saturation: 'Saturation', CharacterCompression: 'Character compression', Cleanup: 'Cleanup' })
 
 function asBuffer(channels, sampleRate) {
   return { sampleRate, length: channels[0].length, numberOfChannels: channels.length, getChannelData: index => channels[index] }
@@ -16,19 +19,19 @@ export function acceptedVocalChainSteps(chainRoles, recipes, asset) {
     const recipe = (recipes ?? []).find(item => item?.assetId === asset?.id && item.role === role && item.sourceSha256 === asset?.sha256)
     if (!recipe) continue
     if (role === 'CorrectiveTone') steps.push(Object.freeze({ role, cutoffHertz: recipe.cutoffHertz, q: recipe.q }))
-    else if (role === 'TransparentDynamics') steps.push(Object.freeze({ role }))
+    else if (role === 'TransparentDynamics' || role === 'Saturation' || role === 'CharacterCompression' || role === 'Cleanup') steps.push(Object.freeze({ role }))
   }
   return Object.freeze(steps)
 }
 
 export function describeAcceptedVocalChain(steps) {
-  if (!steps?.length) return 'Accept a low-cut or level-control treatment on this take to hear it here.'
+  if (!steps?.length) return 'Accept a low-cut, level-control, saturation, character-compression, or cleanup treatment on this take to hear it here.'
   return steps.map(step => names[step.role]).join(' → ')
 }
 
 export function renderAcceptedVocalChain(buffer, steps) {
-  if (!Array.isArray(steps) || steps.length < 1 || steps.length > 2)
-    throw new Error('Hear one or both accepted treatments in plan order.')
+  if (!Array.isArray(steps) || steps.length < 1 || steps.length > 5)
+    throw new Error('Hear the accepted low-cut, level control, saturation, character compression, and cleanup in plan order.')
   const seen = new Set()
   let current = buffer
   let channels = null
@@ -37,7 +40,10 @@ export function renderAcceptedVocalChain(buffer, steps) {
     seen.add(step.role)
     if (step.role === 'CorrectiveTone') channels = renderVocalLowCut(current, validateLowCutSettings(step))
     else if (step.role === 'TransparentDynamics') channels = renderVocalLevelControl(current)
-    else throw new Error('This preview only includes an accepted low-cut and level control.')
+    else if (step.role === 'Saturation') channels = renderVocalSaturation(current)
+    else if (step.role === 'CharacterCompression') channels = renderVocalCharacterCompression(current)
+    else if (step.role === 'Cleanup') channels = renderVocalCleanup(current)
+    else throw new Error('This preview only includes an accepted low-cut, level control, saturation, character compression, and cleanup.')
     current = asBuffer(channels, buffer.sampleRate)
   }
   return channels
