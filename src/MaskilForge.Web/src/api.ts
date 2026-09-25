@@ -638,8 +638,12 @@ export interface VocalProcessingRecipe {
   sourceSha256: string
   processorId: string
   role: VocalProcessingRole
-  cutoffHertz: number
-  q: number
+  cutoffHertz?: number
+  q?: number
+  thresholdDecibels?: number
+  ratio?: number
+  attackMilliseconds?: number
+  releaseMilliseconds?: number
   acceptedUtc: string
 }
 
@@ -801,6 +805,7 @@ export interface ProjectCommand {
   sourceSha256?: string
   cutoffHertz?: number
   q?: number
+  recipeRole?: VocalProcessingRole
   proposalSignature?: string
 }
 

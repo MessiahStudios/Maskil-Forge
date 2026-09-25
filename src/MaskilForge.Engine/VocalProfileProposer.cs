@@ -67,8 +67,10 @@ public static class VocalProfileProposer
                     break;
             }
         }
-        if (project.VocalProcessingRecipes.Count > 0)
+        if (project.VocalProcessingRecipes.Any(item => item.Role == VocalProcessingRole.CorrectiveTone))
             Suggest(VocalProcessingRole.CorrectiveTone, "Keep Corrective Tone because a take already has accepted low-cut settings. Those settings remain unchanged.");
+        if (project.VocalProcessingRecipes.Any(item => item.Role == VocalProcessingRole.TransparentDynamics))
+            Suggest(VocalProcessingRole.TransparentDynamics, "Keep Transparent Level Control because a take already has accepted level-control settings. Those settings remain unchanged.");
         var jobs = VocalProcessingRoleCatalog.Roles.Where(role => reasons.ContainsKey(role.Id))
             .Select(role => new VocalProfileJob(role.Id, role.Name, reasons[role.Id].AsReadOnly(), role.Id == VocalProcessingRole.CorrectiveTone)).ToArray();
         var roles = jobs.Select(job => job.Role).ToArray();

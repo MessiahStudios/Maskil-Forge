@@ -75,7 +75,7 @@ onBeforeUnmount(discard)
           </ol>
         </details>
       </template>
-      <p>This is a plan preview. A Transparent Level Control processor is not available yet, so the player plays the original recording. Acceptance changes no audio or accepted take settings.</p>
+      <p>This is a plan preview. The player plays the original recording. Acceptance adds the job and does not change audio or accepted take settings. When the job is in the plan, compare the fixed level-control treatment on this take before accepting those settings.</p>
       <button v-if="guidance.hasChanges" type="button" :disabled="busy" @click="emit('accept', asset.id, guidance.sourceSignature)">Add suggested level-control job</button>
       <p>Accepting a job is undoable. Use Save to keep it with the song.</p>
     </div>

@@ -12,6 +12,7 @@ import { chordToneNames, voicingIssues } from './voicingValidation.js'
 import type { RegisteredPitch, VocalProductionDescriptor, VocalProcessingRole } from './api'
 import VocalProcessingChainEditor from './VocalProcessingChainEditor.vue'
 import VocalLowCutPreview from './VocalLowCutPreview.vue'
+import VocalLevelControlPreview from './VocalLevelControlPreview.vue'
 import VocalProfileProposal from './VocalProfileProposal.vue'
 import VocalEvidenceGuidance from './VocalEvidenceGuidance.vue'
 import Vst3DiscoveryPanel from './Vst3DiscoveryPanel.vue'
@@ -3351,12 +3352,23 @@ function acceptVocalLowCut(assetId: string, sourceSha256: string, cutoffHertz: n
   )
 }
 
-function clearVocalProcessingRecipe(assetId: string) {
+function acceptVocalLevelControl(assetId: string, sourceSha256: string) {
   if (!project.value) return
   return run(
-    () => projectsApi.command(project.value!.id, project.value!, { type: 'clear-vocal-processing-recipe', assetId }),
-    'Accepted low-cut settings cleared. Original audio is unchanged.',
-    'vocal-production.clear-low-cut',
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-level-control', assetId, sourceSha256 }),
+    'Level-control settings accepted. Save to keep them with the song. Original audio is unchanged.',
+    'vocal-production.accept-level-control',
+  )
+}
+
+function clearVocalProcessingRecipe(assetId: string, role: VocalProcessingRole = 'CorrectiveTone') {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'clear-vocal-processing-recipe', assetId, recipeRole: role }),
+    role === 'TransparentDynamics'
+      ? 'Accepted level-control settings cleared. Original audio is unchanged.'
+      : 'Accepted low-cut settings cleared. Original audio is unchanged.',
+    role === 'TransparentDynamics' ? 'vocal-production.clear-level-control' : 'vocal-production.clear-low-cut',
   )
 }
 
@@ -5675,8 +5687,14 @@ onBeforeUnmount(() => {
               <VocalLowCutPreview
                 :project-id="project.id" :asset="asset" :busy="busy"
                 :role-enabled="project.vocalProcessingChain?.roles.includes('CorrectiveTone') ?? false"
-                :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id)"
-                @accept="acceptVocalLowCut" @clear="clearVocalProcessingRecipe" @playing="stopInstrumentPreviews"
+                :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id && recipe.role === 'CorrectiveTone')"
+                @accept="acceptVocalLowCut" @clear="assetId => clearVocalProcessingRecipe(assetId, 'CorrectiveTone')" @playing="stopInstrumentPreviews"
+              />
+              <VocalLevelControlPreview
+                :project-id="project.id" :asset="asset" :busy="busy"
+                :role-enabled="project.vocalProcessingChain?.roles.includes('TransparentDynamics') ?? false"
+                :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id && recipe.role === 'TransparentDynamics')"
+                @accept="acceptVocalLevelControl" @clear="assetId => clearVocalProcessingRecipe(assetId, 'TransparentDynamics')" @playing="stopInstrumentPreviews"
               />
               <VocalEvidenceGuidance :project="project" :asset="asset" :busy="busy" @accept="acceptVocalEvidenceGuidance" @playing="stopInstrumentPreviews" />
               <form class="vocal-take-placement" @submit.prevent="setVocalTakePlacement(asset.id, $event)">

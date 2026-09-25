@@ -95,8 +95,8 @@ public sealed class SongProject
         _vocalProcessingRecipes = vocalProcessingRecipes?.ToList() ?? [];
         if (_vocalProcessingRecipes.Any(item => item is null))
             throw new ArgumentException("Accepted vocal processing recipes cannot contain null entries.", nameof(vocalProcessingRecipes));
-        if (_vocalProcessingRecipes.Select(item => item.AssetId).Distinct().Count() != _vocalProcessingRecipes.Count)
-            throw new ArgumentException("Each take may have only one accepted vocal processing recipe.");
+        if (_vocalProcessingRecipes.GroupBy(item => (item.AssetId, item.Role)).Any(group => group.Count() > 1))
+            throw new ArgumentException("Each take may have only one accepted recipe for a production role.");
         foreach (var recipe in _vocalProcessingRecipes) ValidateVocalProcessingRecipe(recipe);
         Key = key ?? MusicalKey.Default;
         EnsureUniqueIds();
@@ -158,16 +158,14 @@ public sealed class SongProject
     public void SetVocalProcessingChain(VocalProcessingChain chain)
     {
         ArgumentNullException.ThrowIfNull(chain);
-        if (_vocalProcessingRecipes.Count > 0 && !chain.Roles.Contains(VocalProcessingRole.CorrectiveTone))
-            throw new InvalidOperationException("Clear accepted low-cut settings from the takes before removing Corrective Tone.");
+        EnsureRecipesRemainInChain(chain.Roles, clearing: false);
         VocalProcessingChain = chain;
         Touch();
     }
 
     public VocalProcessingChain ClearVocalProcessingChain()
     {
-        if (_vocalProcessingRecipes.Count > 0)
-            throw new InvalidOperationException("Clear accepted low-cut settings from the takes before clearing production jobs.");
+        EnsureRecipesRemainInChain([], clearing: true);
         var chain = VocalProcessingChain
             ?? throw new InvalidOperationException("The project has no vocal processing chain to clear.");
         VocalProcessingChain = null;
@@ -179,19 +177,36 @@ public sealed class SongProject
     {
         ArgumentNullException.ThrowIfNull(recipe);
         ValidateVocalProcessingRecipe(recipe);
-        var index = _vocalProcessingRecipes.FindIndex(item => item.AssetId == recipe.AssetId);
+        var index = _vocalProcessingRecipes.FindIndex(item => item.AssetId == recipe.AssetId && item.Role == recipe.Role);
         if (index < 0) _vocalProcessingRecipes.Add(recipe);
         else _vocalProcessingRecipes[index] = recipe;
         Touch();
     }
 
-    public VocalProcessingRecipe ClearVocalProcessingRecipe(ProjectAssetId assetId)
+    public VocalProcessingRecipe ClearVocalProcessingRecipe(ProjectAssetId assetId, VocalProcessingRole role)
     {
-        var recipe = _vocalProcessingRecipes.SingleOrDefault(item => item.AssetId == assetId)
-            ?? throw new InvalidOperationException("This take has no accepted vocal processing settings.");
+        var recipe = _vocalProcessingRecipes.SingleOrDefault(item => item.AssetId == assetId && item.Role == role)
+            ?? throw new InvalidOperationException("This take has no accepted settings for that production job.");
         _vocalProcessingRecipes.Remove(recipe);
         Touch();
         return recipe;
+    }
+
+    private void EnsureRecipesRemainInChain(IReadOnlyList<VocalProcessingRole> roles, bool clearing)
+    {
+        var blocked = _vocalProcessingRecipes.Select(item => item.Role).Distinct().Where(role => !roles.Contains(role)).ToArray();
+        if (blocked.Length == 0) return;
+        if (blocked.Length == 1 && blocked[0] == VocalProcessingRole.CorrectiveTone)
+            throw new InvalidOperationException(clearing
+                ? "Clear accepted low-cut settings from the takes before clearing production jobs."
+                : "Clear accepted low-cut settings from the takes before removing Corrective Tone.");
+        if (blocked.Length == 1 && blocked[0] == VocalProcessingRole.TransparentDynamics)
+            throw new InvalidOperationException(clearing
+                ? "Clear accepted level-control settings from the takes before clearing production jobs."
+                : "Clear accepted level-control settings from the takes before removing Transparent Level Control.");
+        throw new InvalidOperationException(clearing
+            ? "Clear accepted vocal processing settings from the takes before clearing production jobs."
+            : "Clear accepted vocal processing settings from the takes before removing those production jobs.");
     }
 
     private void ValidateVocalProcessingRecipe(VocalProcessingRecipe recipe)
@@ -200,7 +215,9 @@ public sealed class SongProject
         if (asset is null || asset.Sha256 != recipe.SourceSha256)
             throw new ArgumentException("Accepted processing must reference the exact original vocal take.");
         if (VocalProcessingChain?.Roles.Contains(recipe.Role) != true)
-            throw new ArgumentException("Add Corrective Tone to the production plan before accepting the low-cut settings.");
+            throw new ArgumentException(recipe.Role == VocalProcessingRole.TransparentDynamics
+                ? "Add Transparent Level Control to the production plan before accepting the level-control settings."
+                : "Add Corrective Tone to the production plan before accepting the low-cut settings.");
     }
 
     public void SetVocalProductionIntent(VocalProductionIntent intent)

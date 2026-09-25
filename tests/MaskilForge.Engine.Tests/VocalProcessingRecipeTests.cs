@@ -256,4 +256,75 @@ public sealed class VocalProcessingRecipeTests
         Assert.Equal(recipe, Assert.Single(imported.Project.VocalProcessingRecipes));
         Assert.Equal(Source, imported.Assets[asset.Id]);
     }
+
+    [Fact]
+    public void LevelControl_CanShareATakeWithLowCutAndRestoresEachRecipe()
+    {
+        var (project, asset) = Fixture();
+        project.SetVocalProcessingChain(new VocalProcessingChain(
+            [VocalProcessingRole.CorrectiveTone, VocalProcessingRole.TransparentDynamics], DateTimeOffset.UtcNow));
+        var editor = new ProjectEditor(project);
+        editor.Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256));
+        editor.Execute(new AcceptVocalLevelControlCommand(asset.Id, asset.Sha256));
+        Assert.Equal(2, project.VocalProcessingRecipes.Count);
+        var level = project.VocalProcessingRecipes.Single(item => item.Role == VocalProcessingRole.TransparentDynamics);
+        Assert.Equal(VocalProcessingRecipe.LevelControlProcessorId, level.ProcessorId);
+        Assert.Equal(-18, level.ThresholdDecibels);
+        Assert.Equal(2, level.Ratio);
+        Assert.Equal(20, level.AttackMilliseconds);
+        Assert.Equal(120, level.ReleaseMilliseconds);
+        Assert.Null(level.CutoffHertz);
+        editor.Undo();
+        Assert.Equal(VocalProcessingRole.CorrectiveTone, Assert.Single(project.VocalProcessingRecipes).Role);
+        editor.Redo();
+        editor.Execute(new ClearVocalProcessingRecipeCommand(asset.Id, VocalProcessingRole.TransparentDynamics));
+        Assert.Equal(VocalProcessingRole.CorrectiveTone, Assert.Single(project.VocalProcessingRecipes).Role);
+        editor.Undo();
+        Assert.Equal(2, project.VocalProcessingRecipes.Count);
+        Assert.Throws<InvalidOperationException>(() => project.SetVocalProcessingChain(
+            new VocalProcessingChain([VocalProcessingRole.CorrectiveTone], DateTimeOffset.UtcNow)));
+        Assert.Throws<InvalidOperationException>(() => project.ClearVocalProcessingChain());
+        editor.Execute(new ClearVocalProcessingRecipeCommand(asset.Id, VocalProcessingRole.CorrectiveTone));
+        project.SetVocalProcessingChain(new VocalProcessingChain([VocalProcessingRole.TransparentDynamics], DateTimeOffset.UtcNow));
+        Assert.Equal(VocalProcessingRole.TransparentDynamics, Assert.Single(project.VocalProcessingRecipes).Role);
+    }
+
+    [Fact]
+    public void LevelControl_RejectsAMissingRoleAndDoesNotAlterLowCutJson()
+    {
+        var (project, asset) = Fixture();
+        var editor = new ProjectEditor(project);
+        Assert.Throws<ArgumentException>(() => editor.Execute(new AcceptVocalLevelControlCommand(asset.Id, asset.Sha256)));
+        Assert.False(editor.CanUndo);
+        editor.Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256));
+        var json = PortableProjectExporter.SerializeDocument(project);
+        Assert.DoesNotContain("thresholdDecibels", System.Text.Encoding.UTF8.GetString(json));
+        project.SetVocalProcessingChain(new VocalProcessingChain(
+            [VocalProcessingRole.CorrectiveTone, VocalProcessingRole.TransparentDynamics], DateTimeOffset.UtcNow));
+        editor.Execute(new AcceptVocalLevelControlCommand(asset.Id, asset.Sha256));
+        var document = JsonNode.Parse(PortableProjectExporter.SerializeDocument(project))!.AsObject();
+        var level = document["vocalProcessingRecipes"]!.AsArray().Single(item => item!["role"]!.GetValue<string>() == "TransparentDynamics")!;
+        level["thresholdDecibels"] = -12;
+        Assert.ThrowsAny<ArgumentException>(() => System.Text.Json.JsonSerializer.Deserialize<SongProject>(document.ToJsonString(), JsonOptions));
+    }
+
+    [Fact]
+    public void AcceptedLevelControl_IsRetainedByAProfileAndSurvivesSchema35Migration()
+    {
+        var (project, asset) = Fixture();
+        project.SetVocalProductionIntent(new VocalProductionIntent([VocalProductionDescriptor.Aggressive], "", DateTimeOffset.UtcNow));
+        project.SetVocalProcessingChain(new VocalProcessingChain(
+            [VocalProcessingRole.CorrectiveTone, VocalProcessingRole.TransparentDynamics], DateTimeOffset.UtcNow));
+        new ProjectEditor(project).Execute(new AcceptVocalLevelControlCommand(asset.Id, asset.Sha256));
+        var proposal = VocalProfileProposer.Propose(project);
+        Assert.Contains(proposal.Jobs.Single(job => job.Role == VocalProcessingRole.TransparentDynamics).Reasons, reason => reason.Contains("already has accepted"));
+        var document = JsonNode.Parse(PortableProjectExporter.SerializeDocument(project))!.AsObject();
+        document["schemaVersion"] = 35;
+        var oldProject = System.Text.Json.JsonSerializer.Deserialize<SongProject>(document.ToJsonString(), JsonOptions)!;
+        var imported = PortableProjectPackage.Inspect(PortableProjectPackage.Export(oldProject, new Dictionary<ProjectAssetId, byte[]> { [asset.Id] = Source }));
+        Assert.Equal(35, imported.SourceSchemaVersion);
+        Assert.Equal(SchemaVersion.Current, imported.Project.SchemaVersion);
+        Assert.Equal(VocalProcessingRecipe.LevelControlProcessorId, Assert.Single(imported.Project.VocalProcessingRecipes).ProcessorId);
+        Assert.Equal(Source, imported.Assets[asset.Id]);
+    }
 }
