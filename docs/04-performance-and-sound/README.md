@@ -239,6 +239,8 @@ Milestone 9.7 adds reviewed-loudness guidance while 9.6 awaits VST3 hosting. At 
 
 Milestone 9.8 realizes Transparent Level Control with processor `maskil.vocal.level-control.v1`. The fixed starting point eases a linked peak envelope above −18 dBFS at a 2:1 ratio, with a 20 ms attack and 120 ms release. Gain never exceeds 1, so quiet phrases are not boosted and no makeup gain or limiter is applied. Desktop Music prepares an original/processed comparison from the immutable take; both versions must be played before the fixed settings can be accepted. Schema v36 allows that recipe to share a take with an accepted low-cut, one recipe per role. Removing the job or clearing the plan requires clearing the matching accepted settings first. Profile proposals retain the job when a take already stores it. The comparison is not applied to transport or export, and there are no advanced controls in this slice.
 
+Milestone 9.9 adds a temporary preview of those accepted treatments in the current job order. Low-cut and level control are applied from the original take; other planned jobs are not heard. Reordering the plan changes the preview because the two treatments do not commute. The listening pass stores nothing and does not replace either recipe. Schema remains v36.
+
 Internally the host reasons in processing **roles**, not plugin dependencies:
 
 - Cleanup / Gate

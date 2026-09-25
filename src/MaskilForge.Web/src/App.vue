@@ -13,6 +13,7 @@ import type { RegisteredPitch, VocalProductionDescriptor, VocalProcessingRole } 
 import VocalProcessingChainEditor from './VocalProcessingChainEditor.vue'
 import VocalLowCutPreview from './VocalLowCutPreview.vue'
 import VocalLevelControlPreview from './VocalLevelControlPreview.vue'
+import VocalChainPreview from './VocalChainPreview.vue'
 import VocalProfileProposal from './VocalProfileProposal.vue'
 import VocalEvidenceGuidance from './VocalEvidenceGuidance.vue'
 import Vst3DiscoveryPanel from './Vst3DiscoveryPanel.vue'
@@ -5695,6 +5696,12 @@ onBeforeUnmount(() => {
                 :role-enabled="project.vocalProcessingChain?.roles.includes('TransparentDynamics') ?? false"
                 :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id && recipe.role === 'TransparentDynamics')"
                 @accept="acceptVocalLevelControl" @clear="assetId => clearVocalProcessingRecipe(assetId, 'TransparentDynamics')" @playing="stopInstrumentPreviews"
+              />
+              <VocalChainPreview
+                :project-id="project.id" :asset="asset" :busy="busy"
+                :chain-roles="project.vocalProcessingChain?.roles ?? []"
+                :recipes="project.vocalProcessingRecipes ?? []"
+                @playing="stopInstrumentPreviews"
               />
               <VocalEvidenceGuidance :project="project" :asset="asset" :busy="busy" @accept="acceptVocalEvidenceGuidance" @playing="stopInstrumentPreviews" />
               <form class="vocal-take-placement" @submit.prevent="setVocalTakePlacement(asset.id, $event)">

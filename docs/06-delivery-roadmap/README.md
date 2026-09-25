@@ -1427,6 +1427,14 @@ Schema v36 migrates earlier projects without changing existing recipes. Save, re
 
 **Deliverable:** an artist can hear a reviewable level-control treatment on their own take and reject it without losing the source or an accepted low-cut.
 
+### Milestone 9.9 — Accepted-treatment chain preview
+
+**Implemented:** Desktop Music can prepare one comparison that plays a saved original take through the low-cut and level-control recipes already accepted for that take. The treatments run in the current production-job order, so level control before the low-cut is a different preview from the low-cut before level control. Jobs without a built-in processor remain in the plan and are omitted. A recipe for another take, or one whose source digest no longer matches, is omitted.
+
+The comparison is temporary. It has no acceptance action, does not change stored recipes, and does not create a replacement recording. Closing it, changing the plan or accepted settings, leaving the take, or navigating away releases the prepared audio. Schema stays v36. Phone production controls stay hidden. Transport processing, rendered vocal export, and the remaining vocal processors are not included.
+
+**Deliverable:** an artist can hear the accepted vocal treatments together, in the order of the plan, and discard that listening pass without changing the song.
+
 ## Milestone 10 — AI director
 
 Expose tested engine functions as typed tools, add intent interpretation, structured musical and performance observations as reasoning inputs, plan preview, command validation, explanations, and conversational revision. Any direct audio-capable model interpretation is supplemental, carries confidence and provenance, and cannot replace structured observations or artist review. Vocal-production direction uses Milestone 9 intent, roles, and observations; it does not invent a plugin-shaped plan that the rest of the product cannot preview or undo.
