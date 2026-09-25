@@ -1,4 +1,4 @@
-export interface VocalChainStep { role: 'CorrectiveTone' | 'TransparentDynamics' | 'Saturation' | 'CharacterCompression' | 'Cleanup'; cutoffHertz?: number; q?: number }
+export interface VocalChainStep { role: 'CorrectiveTone' | 'TransparentDynamics' | 'Saturation' | 'CharacterCompression' | 'Cleanup' | 'SibilanceControl' | 'Space'; cutoffHertz?: number; q?: number }
 export interface VocalChainAsset { id: string; sha256: string; byteLength?: number }
 export interface VocalChainRecipe { assetId: string; role: string; sourceSha256: string; cutoffHertz?: number; q?: number }
 

@@ -3,8 +3,10 @@ import { renderVocalLevelControl } from './vocalLevelControl.js'
 import { renderVocalSaturation } from './vocalSaturation.js'
 import { renderVocalCharacterCompression } from './vocalCharacterCompression.js'
 import { renderVocalCleanup } from './vocalCleanup.js'
+import { renderVocalSibilance } from './vocalSibilance.js'
+import { renderVocalSpace } from './vocalSpace.js'
 
-const names = Object.freeze({ CorrectiveTone: 'Low-cut', TransparentDynamics: 'Level control', Saturation: 'Saturation', CharacterCompression: 'Character compression', Cleanup: 'Cleanup' })
+const names = Object.freeze({ CorrectiveTone: 'Low-cut', TransparentDynamics: 'Level control', Saturation: 'Saturation', CharacterCompression: 'Character compression', Cleanup: 'Cleanup', SibilanceControl: 'Sibilance control', Space: 'Space' })
 
 function asBuffer(channels, sampleRate) {
   return { sampleRate, length: channels[0].length, numberOfChannels: channels.length, getChannelData: index => channels[index] }
@@ -19,19 +21,19 @@ export function acceptedVocalChainSteps(chainRoles, recipes, asset) {
     const recipe = (recipes ?? []).find(item => item?.assetId === asset?.id && item.role === role && item.sourceSha256 === asset?.sha256)
     if (!recipe) continue
     if (role === 'CorrectiveTone') steps.push(Object.freeze({ role, cutoffHertz: recipe.cutoffHertz, q: recipe.q }))
-    else if (role === 'TransparentDynamics' || role === 'Saturation' || role === 'CharacterCompression' || role === 'Cleanup') steps.push(Object.freeze({ role }))
+    else if (role === 'TransparentDynamics' || role === 'Saturation' || role === 'CharacterCompression' || role === 'Cleanup' || role === 'SibilanceControl' || role === 'Space') steps.push(Object.freeze({ role }))
   }
   return Object.freeze(steps)
 }
 
 export function describeAcceptedVocalChain(steps) {
-  if (!steps?.length) return 'Accept a low-cut, level-control, saturation, character-compression, or cleanup treatment on this take to hear it here.'
+  if (!steps?.length) return 'Accept a built-in vocal treatment on this take to hear it here.'
   return steps.map(step => names[step.role]).join(' → ')
 }
 
 export function renderAcceptedVocalChain(buffer, steps) {
-  if (!Array.isArray(steps) || steps.length < 1 || steps.length > 5)
-    throw new Error('Hear the accepted low-cut, level control, saturation, character compression, and cleanup in plan order.')
+  if (!Array.isArray(steps) || steps.length < 1 || steps.length > 7)
+    throw new Error('Hear the accepted built-in vocal treatments in plan order.')
   const seen = new Set()
   let current = buffer
   let channels = null
@@ -43,7 +45,9 @@ export function renderAcceptedVocalChain(buffer, steps) {
     else if (step.role === 'Saturation') channels = renderVocalSaturation(current)
     else if (step.role === 'CharacterCompression') channels = renderVocalCharacterCompression(current)
     else if (step.role === 'Cleanup') channels = renderVocalCleanup(current)
-    else throw new Error('This preview only includes an accepted low-cut, level control, saturation, character compression, and cleanup.')
+    else if (step.role === 'SibilanceControl') channels = renderVocalSibilance(current)
+    else if (step.role === 'Space') channels = renderVocalSpace(current)
+    else throw new Error('This preview only includes the accepted built-in vocal treatments.')
     current = asBuffer(channels, buffer.sampleRate)
   }
   return channels

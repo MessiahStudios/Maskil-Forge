@@ -1214,6 +1214,10 @@ static void ApplyRequest(ProjectEditor editor, ProjectCommandRequest request)
             RequiredAssetId(request), request.SourceSha256 ?? throw new ArgumentException("The previewed source digest is required."))); break;
         case "accept-vocal-cleanup": editor.Execute(new AcceptVocalCleanupCommand(
             RequiredAssetId(request), request.SourceSha256 ?? throw new ArgumentException("The previewed source digest is required."))); break;
+        case "accept-vocal-sibilance": editor.Execute(new AcceptVocalSibilanceCommand(
+            RequiredAssetId(request), request.SourceSha256 ?? throw new ArgumentException("The previewed source digest is required."))); break;
+        case "accept-vocal-space": editor.Execute(new AcceptVocalSpaceCommand(
+            RequiredAssetId(request), request.SourceSha256 ?? throw new ArgumentException("The previewed source digest is required."))); break;
         case "clear-vocal-processing-recipe": editor.Execute(new ClearVocalProcessingRecipeCommand(
             RequiredAssetId(request), request.RecipeRole ?? VocalProcessingRole.CorrectiveTone)); break;
         case "remove-section": editor.Execute(new RemoveSectionCommand(RequiredSectionId(request))); break;

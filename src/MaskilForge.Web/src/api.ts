@@ -645,6 +645,9 @@ export interface VocalProcessingRecipe {
   attackMilliseconds?: number
   releaseMilliseconds?: number
   colorAmount?: number
+  delayMilliseconds?: number
+  feedback?: number
+  wetAmount?: number
   acceptedUtc: string
 }
 

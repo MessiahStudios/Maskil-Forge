@@ -11,6 +11,8 @@ public sealed record VocalProcessingRecipe
     public const string SaturationProcessorId = "maskil.vocal.saturation.v1";
     public const string CharacterCompressionProcessorId = "maskil.vocal.character-compression.v1";
     public const string CleanupProcessorId = "maskil.vocal.cleanup.v1";
+    public const string SibilanceProcessorId = "maskil.vocal.sibilance.v1";
+    public const string SpaceProcessorId = "maskil.vocal.space.v1";
     public const double LowCutHertz = 80;
     public const double LowCutQ = 0.7071067811865476;
     public const double LevelThresholdDecibels = -18;
@@ -26,11 +28,20 @@ public sealed record VocalProcessingRecipe
     public const double CleanupRatio = 4;
     public const double CleanupAttackMilliseconds = 10;
     public const double CleanupReleaseMilliseconds = 200;
+    public const double SibilanceHertz = 6000;
+    public const double SibilanceQ = 0.7071067811865476;
+    public const double SibilanceThresholdDecibels = -20;
+    public const double SibilanceRatio = 3;
+    public const double SibilanceAttackMilliseconds = 1;
+    public const double SibilanceReleaseMilliseconds = 40;
+    public const double SpaceDelayMilliseconds = 80;
+    public const double SpaceFeedback = 0.3;
+    public const double SpaceWetAmount = 0.15;
 
     public VocalProcessingRecipe(ProjectAssetId assetId, string sourceSha256, string processorId,
         VocalProcessingRole role, double? cutoffHertz, double? q, DateTimeOffset acceptedUtc,
         double? thresholdDecibels = null, double? ratio = null, double? attackMilliseconds = null, double? releaseMilliseconds = null,
-        double? colorAmount = null)
+        double? colorAmount = null, double? delayMilliseconds = null, double? feedback = null, double? wetAmount = null)
     {
         if (assetId.Value == Guid.Empty) throw new ArgumentException("A source take is required.", nameof(assetId));
         if (string.IsNullOrWhiteSpace(sourceSha256) || sourceSha256.Length != 64 || sourceSha256.Any(c => !Uri.IsHexDigit(c)))
@@ -40,8 +51,8 @@ public sealed record VocalProcessingRecipe
         {
             if (processorId != LowCutProcessorId && processorId != AdjustableLowCutProcessorId)
                 throw new ArgumentException("Choose a supported Corrective Tone processor.", nameof(processorId));
-            if (thresholdDecibels is not null || ratio is not null || attackMilliseconds is not null || releaseMilliseconds is not null || colorAmount is not null)
-                throw new ArgumentException("Low-cut settings do not include level-control or saturation parameters.", nameof(processorId));
+            if (thresholdDecibels is not null || ratio is not null || attackMilliseconds is not null || releaseMilliseconds is not null || colorAmount is not null || delayMilliseconds is not null || feedback is not null || wetAmount is not null)
+                throw new ArgumentException("Low-cut settings do not include level-control, saturation, or space parameters.", nameof(processorId));
             if (cutoffHertz is null || q is null)
                 throw new ArgumentException("Low-cut frequency and Q are required.", nameof(cutoffHertz));
             if (processorId == LowCutProcessorId && (cutoffHertz != LowCutHertz || q != LowCutQ))
@@ -52,8 +63,8 @@ public sealed record VocalProcessingRecipe
         {
             if (processorId != LevelControlProcessorId)
                 throw new ArgumentException("Choose the supported Transparent Level Control processor.", nameof(processorId));
-            if (cutoffHertz is not null || q is not null || colorAmount is not null)
-                throw new ArgumentException("Level-control settings do not include low-cut or saturation parameters.", nameof(processorId));
+            if (cutoffHertz is not null || q is not null || colorAmount is not null || delayMilliseconds is not null || feedback is not null || wetAmount is not null)
+                throw new ArgumentException("Level-control settings do not include low-cut, saturation, or space parameters.", nameof(processorId));
             if (thresholdDecibels != LevelThresholdDecibels || ratio != LevelRatio ||
                 attackMilliseconds != LevelAttackMilliseconds || releaseMilliseconds != LevelReleaseMilliseconds)
                 throw new ArgumentException("Version 1 preserves its fixed level-control starting point.", nameof(processorId));
@@ -63,8 +74,8 @@ public sealed record VocalProcessingRecipe
             if (processorId != SaturationProcessorId)
                 throw new ArgumentException("Choose the supported Saturation processor.", nameof(processorId));
             if (cutoffHertz is not null || q is not null || thresholdDecibels is not null || ratio is not null ||
-                attackMilliseconds is not null || releaseMilliseconds is not null)
-                throw new ArgumentException("Saturation settings do not include low-cut or level-control parameters.", nameof(processorId));
+                attackMilliseconds is not null || releaseMilliseconds is not null || delayMilliseconds is not null || feedback is not null || wetAmount is not null)
+                throw new ArgumentException("Saturation settings do not include low-cut, level-control, or space parameters.", nameof(processorId));
             if (colorAmount != SaturationColorAmount)
                 throw new ArgumentException("Version 1 preserves its fixed saturation starting point.", nameof(colorAmount));
         }
@@ -72,8 +83,8 @@ public sealed record VocalProcessingRecipe
         {
             if (processorId != CharacterCompressionProcessorId)
                 throw new ArgumentException("Choose the supported Character Compression processor.", nameof(processorId));
-            if (cutoffHertz is not null || q is not null || colorAmount is not null)
-                throw new ArgumentException("Character-compression settings do not include low-cut or saturation parameters.", nameof(processorId));
+            if (cutoffHertz is not null || q is not null || colorAmount is not null || delayMilliseconds is not null || feedback is not null || wetAmount is not null)
+                throw new ArgumentException("Character-compression settings do not include low-cut, saturation, or space parameters.", nameof(processorId));
             if (thresholdDecibels != CharacterThresholdDecibels || ratio != CharacterRatio ||
                 attackMilliseconds != CharacterAttackMilliseconds || releaseMilliseconds != CharacterReleaseMilliseconds)
                 throw new ArgumentException("Version 1 preserves its fixed character-compression starting point.", nameof(processorId));
@@ -82,11 +93,31 @@ public sealed record VocalProcessingRecipe
         {
             if (processorId != CleanupProcessorId)
                 throw new ArgumentException("Choose the supported Cleanup processor.", nameof(processorId));
-            if (cutoffHertz is not null || q is not null || colorAmount is not null)
-                throw new ArgumentException("Cleanup settings do not include low-cut or saturation parameters.", nameof(processorId));
+            if (cutoffHertz is not null || q is not null || colorAmount is not null || delayMilliseconds is not null || feedback is not null || wetAmount is not null)
+                throw new ArgumentException("Cleanup settings do not include low-cut, saturation, or space parameters.", nameof(processorId));
             if (thresholdDecibels != CleanupThresholdDecibels || ratio != CleanupRatio ||
                 attackMilliseconds != CleanupAttackMilliseconds || releaseMilliseconds != CleanupReleaseMilliseconds)
                 throw new ArgumentException("Version 1 preserves its fixed cleanup starting point.", nameof(processorId));
+        }
+        else if (role == VocalProcessingRole.SibilanceControl)
+        {
+            if (processorId != SibilanceProcessorId)
+                throw new ArgumentException("Choose the supported Sibilance Control processor.", nameof(processorId));
+            if (colorAmount is not null || delayMilliseconds is not null || feedback is not null || wetAmount is not null)
+                throw new ArgumentException("Sibilance settings do not include saturation or space parameters.", nameof(processorId));
+            if (cutoffHertz != SibilanceHertz || q != SibilanceQ || thresholdDecibels != SibilanceThresholdDecibels ||
+                ratio != SibilanceRatio || attackMilliseconds != SibilanceAttackMilliseconds || releaseMilliseconds != SibilanceReleaseMilliseconds)
+                throw new ArgumentException("Version 1 preserves its fixed sibilance starting point.", nameof(processorId));
+        }
+        else if (role == VocalProcessingRole.Space)
+        {
+            if (processorId != SpaceProcessorId)
+                throw new ArgumentException("Choose the supported Space processor.", nameof(processorId));
+            if (cutoffHertz is not null || q is not null || thresholdDecibels is not null || ratio is not null ||
+                attackMilliseconds is not null || releaseMilliseconds is not null || colorAmount is not null)
+                throw new ArgumentException("Space settings do not include low-cut, level-control, or saturation parameters.", nameof(processorId));
+            if (delayMilliseconds != SpaceDelayMilliseconds || feedback != SpaceFeedback || wetAmount != SpaceWetAmount)
+                throw new ArgumentException("Version 1 preserves its fixed space starting point.", nameof(processorId));
         }
         else throw new ArgumentException("Choose a production role that has a built-in processor.", nameof(role));
         AssetId = assetId;
@@ -100,6 +131,9 @@ public sealed record VocalProcessingRecipe
         AttackMilliseconds = attackMilliseconds;
         ReleaseMilliseconds = releaseMilliseconds;
         ColorAmount = colorAmount;
+        DelayMilliseconds = delayMilliseconds;
+        Feedback = feedback;
+        WetAmount = wetAmount;
         AcceptedUtc = acceptedUtc;
     }
 
@@ -125,7 +159,21 @@ public sealed record VocalProcessingRecipe
     public double? ReleaseMilliseconds { get; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public double? ColorAmount { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? DelayMilliseconds { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? Feedback { get; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? WetAmount { get; }
     public DateTimeOffset AcceptedUtc { get; }
+
+    public static VocalProcessingRecipe FixedSpace(ProjectAssetId assetId, string sourceSha256, DateTimeOffset acceptedUtc) =>
+        new(assetId, sourceSha256, SpaceProcessorId, VocalProcessingRole.Space, null, null, acceptedUtc,
+            delayMilliseconds: SpaceDelayMilliseconds, feedback: SpaceFeedback, wetAmount: SpaceWetAmount);
+
+    public static VocalProcessingRecipe FixedSibilance(ProjectAssetId assetId, string sourceSha256, DateTimeOffset acceptedUtc) =>
+        new(assetId, sourceSha256, SibilanceProcessorId, VocalProcessingRole.SibilanceControl, SibilanceHertz, SibilanceQ, acceptedUtc,
+            SibilanceThresholdDecibels, SibilanceRatio, SibilanceAttackMilliseconds, SibilanceReleaseMilliseconds);
 
     public static VocalProcessingRecipe FixedCleanup(ProjectAssetId assetId, string sourceSha256, DateTimeOffset acceptedUtc) =>
         new(assetId, sourceSha256, CleanupProcessorId, VocalProcessingRole.Cleanup, null, null, acceptedUtc,

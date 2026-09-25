@@ -216,6 +216,14 @@ public sealed class SongProject
             throw new InvalidOperationException(clearing
                 ? "Clear accepted cleanup settings from the takes before clearing production jobs."
                 : "Clear accepted cleanup settings from the takes before removing Cleanup.");
+        if (blocked.Length == 1 && blocked[0] == VocalProcessingRole.SibilanceControl)
+            throw new InvalidOperationException(clearing
+                ? "Clear accepted sibilance settings from the takes before clearing production jobs."
+                : "Clear accepted sibilance settings from the takes before removing Sibilance Control.");
+        if (blocked.Length == 1 && blocked[0] == VocalProcessingRole.Space)
+            throw new InvalidOperationException(clearing
+                ? "Clear accepted space settings from the takes before clearing production jobs."
+                : "Clear accepted space settings from the takes before removing Space.");
         throw new InvalidOperationException(clearing
             ? "Clear accepted vocal processing settings from the takes before clearing production jobs."
             : "Clear accepted vocal processing settings from the takes before removing those production jobs.");
@@ -233,6 +241,8 @@ public sealed class SongProject
                 VocalProcessingRole.Saturation => "Add Saturation / Color to the production plan before accepting the saturation settings.",
                 VocalProcessingRole.CharacterCompression => "Add Character Compression to the production plan before accepting the character-compression settings.",
                 VocalProcessingRole.Cleanup => "Add Cleanup to the production plan before accepting the cleanup settings.",
+                VocalProcessingRole.SibilanceControl => "Add Sibilance Control to the production plan before accepting the sibilance settings.",
+                VocalProcessingRole.Space => "Add Space to the production plan before accepting the space settings.",
                 _ => "Add Corrective Tone to the production plan before accepting the low-cut settings.",
             });
     }

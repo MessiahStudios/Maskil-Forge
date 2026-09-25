@@ -1465,6 +1465,26 @@ Schema stays v37. The recipe uses the existing per-role settings fields. Save, r
 
 **Deliverable:** an artist can hear a reviewable cleanup treatment on their own take and reject it without losing the source or the other accepted treatments.
 
+### Milestone 9.13 — Built-in sibilance control
+
+**Implemented:** Desktop Music can preview and accept a fixed Sibilance Control treatment on a saved original take. Processor `maskil.vocal.sibilance.v1` listens to a 6 kHz high-pass band. When that band passes −20 dBFS, the voice is eased at 3:1 for that moment, with a 1 ms attack and 40 ms release. A tone without that brightness stays put. Nothing is boosted, and no limiter is applied.
+
+The artist prepares a comparison, plays the original and processed versions, and explicitly accepts or discards. Acceptance stores the fixed settings against that take's asset ID and SHA-256. A take may keep this recipe beside the other accepted treatments; each role still has at most one recipe. Clearing it is undoable and does not remove the others. Removing Sibilance Control from the plan, or clearing the plan, requires clearing accepted sibilance settings first. A profile proposal keeps the job when a take already stores it. The accepted-treatment comparison includes it in the current job order.
+
+Schema stays v37. The recipe uses the existing per-role settings fields. Save, recovery, duplication, and asset-owning packages carry it and leave original bytes unchanged. There is no advanced control, transport processing, rendered vocal export, or VST substitution in this slice. Phone production controls stay hidden. Instrument catalog remains version 4.
+
+**Deliverable:** an artist can hear a reviewable sibilance treatment on their own take and reject it without losing the source or the other accepted treatments.
+
+### Milestone 9.14 — Built-in space
+
+**Implemented:** Desktop Music can preview and accept a fixed Space treatment on a saved original take. Processor `maskil.vocal.space.v1` returns a reflection 80 ms later at 0.15 of the voice, with a 0.3 repeat behind it. The dry sample is never reduced. If a reflection would leave the available range, only that added reflection is eased. The preview keeps the take's length, so a reflection past the end is not appended. Both channels use the same delay.
+
+The artist prepares a comparison, plays the original and processed versions, and explicitly accepts or discards. Acceptance stores the fixed settings against that take's asset ID and SHA-256. A take may keep this recipe beside the other accepted treatments; each role still has at most one recipe. Clearing it is undoable and does not remove the others. Removing Space from the plan, or clearing the plan, requires clearing accepted space settings first. A profile proposal keeps the job when a take already stores it. The accepted-treatment comparison includes it in the current job order.
+
+Schema v38 migrates earlier projects without changing existing recipes. Save, recovery, duplication, and asset-owning packages carry the recipe and leave original bytes unchanged. There is no advanced control, transport processing, rendered vocal export, or VST substitution in this slice. Phone production controls stay hidden. Instrument catalog remains version 4.
+
+**Deliverable:** an artist can hear a reviewable space treatment on their own take and reject it without losing the source or the other accepted treatments.
+
 ## Milestone 10 — AI director
 
 Expose tested engine functions as typed tools, add intent interpretation, structured musical and performance observations as reasoning inputs, plan preview, command validation, explanations, and conversational revision. Any direct audio-capable model interpretation is supplemental, carries confidence and provenance, and cannot replace structured observations or artist review. Vocal-production direction uses Milestone 9 intent, roles, and observations; it does not invent a plugin-shaped plan that the rest of the product cannot preview or undo.

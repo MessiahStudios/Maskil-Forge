@@ -53,7 +53,8 @@ internal sealed class ProjectMigrationPipeline(IEnumerable<IProjectMigration>? m
         new V33ToV34ProjectMigration(),
         new V34ToV35ProjectMigration(),
         new V35ToV36ProjectMigration(),
-        new V36ToV37ProjectMigration()
+        new V36ToV37ProjectMigration(),
+        new V37ToV38ProjectMigration()
     ]);
 
     public JsonObject Normalize(JsonObject project)
@@ -804,6 +805,18 @@ internal sealed class V36ToV37ProjectMigration : IProjectMigration
     public JsonObject Apply(JsonObject project)
     {
         // Existing low-cut and level-control recipes keep their settings. Saturation is absent until accepted.
+        project["schemaVersion"] = ToVersion;
+        return project;
+    }
+}
+
+internal sealed class V37ToV38ProjectMigration : IProjectMigration
+{
+    public int FromVersion => 37;
+    public int ToVersion => 38;
+    public JsonObject Apply(JsonObject project)
+    {
+        // Existing recipes keep their settings. Space is absent until accepted.
         project["schemaVersion"] = ToVersion;
         return project;
     }

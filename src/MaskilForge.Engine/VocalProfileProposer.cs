@@ -77,6 +77,10 @@ public static class VocalProfileProposer
             Suggest(VocalProcessingRole.CharacterCompression, "Keep Character Compression because a take already has accepted character-compression settings. Those settings remain unchanged.");
         if (project.VocalProcessingRecipes.Any(item => item.Role == VocalProcessingRole.Cleanup))
             Suggest(VocalProcessingRole.Cleanup, "Keep Cleanup because a take already has accepted cleanup settings. Those settings remain unchanged.");
+        if (project.VocalProcessingRecipes.Any(item => item.Role == VocalProcessingRole.SibilanceControl))
+            Suggest(VocalProcessingRole.SibilanceControl, "Keep Sibilance Control because a take already has accepted sibilance settings. Those settings remain unchanged.");
+        if (project.VocalProcessingRecipes.Any(item => item.Role == VocalProcessingRole.Space))
+            Suggest(VocalProcessingRole.Space, "Keep Space because a take already has accepted space settings. Those settings remain unchanged.");
         var jobs = VocalProcessingRoleCatalog.Roles.Where(role => reasons.ContainsKey(role.Id))
             .Select(role => new VocalProfileJob(role.Id, role.Name, reasons[role.Id].AsReadOnly(), role.Id == VocalProcessingRole.CorrectiveTone)).ToArray();
         var roles = jobs.Select(job => job.Role).ToArray();

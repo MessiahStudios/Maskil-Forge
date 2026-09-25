@@ -424,4 +424,67 @@ public sealed class VocalProcessingRecipeTests
         Assert.Throws<InvalidOperationException>(() => project.ClearVocalProcessingChain());
         Assert.Equal(SchemaVersion.Current.Value, JsonNode.Parse(PortableProjectExporter.SerializeDocument(project))!["schemaVersion"]!.GetValue<int>());
     }
+
+    [Fact]
+    public void Sibilance_StoresTheFixedBandAndBlocksPlanRemoval()
+    {
+        var (project, asset) = Fixture();
+        project.SetVocalProductionIntent(new VocalProductionIntent([VocalProductionDescriptor.Clean], "", DateTimeOffset.UtcNow));
+        project.SetVocalProcessingChain(new VocalProcessingChain([VocalProcessingRole.SibilanceControl], DateTimeOffset.UtcNow));
+        var editor = new ProjectEditor(project);
+        editor.Execute(new AcceptVocalSibilanceCommand(asset.Id, asset.Sha256));
+        var sibilance = Assert.Single(project.VocalProcessingRecipes);
+        Assert.Equal(VocalProcessingRecipe.SibilanceProcessorId, sibilance.ProcessorId);
+        Assert.Equal(6000, sibilance.CutoffHertz);
+        Assert.Equal(VocalProcessingRecipe.SibilanceQ, sibilance.Q);
+        Assert.Equal(-20, sibilance.ThresholdDecibels);
+        Assert.Equal(3, sibilance.Ratio);
+        Assert.Equal(1, sibilance.AttackMilliseconds);
+        Assert.Equal(40, sibilance.ReleaseMilliseconds);
+        Assert.Null(sibilance.ColorAmount);
+        var proposal = VocalProfileProposer.Propose(project);
+        Assert.Contains(proposal.Jobs.Single(job => job.Role == VocalProcessingRole.SibilanceControl).Reasons, reason => reason.Contains("already has accepted"));
+        Assert.Throws<InvalidOperationException>(() => project.ClearVocalProcessingChain());
+        editor.Execute(new ClearVocalProcessingRecipeCommand(asset.Id, VocalProcessingRole.SibilanceControl));
+        project.ClearVocalProcessingChain();
+        Assert.Null(project.VocalProcessingChain);
+    }
+
+    [Fact]
+    public void Space_StoresTheFixedReflectionAndSurvivesSchema37Migration()
+    {
+        var (project, asset) = Fixture();
+        project.SetVocalProductionIntent(new VocalProductionIntent([VocalProductionDescriptor.Clean], "", DateTimeOffset.UtcNow));
+        project.SetVocalProcessingChain(new VocalProcessingChain(
+            [VocalProcessingRole.CorrectiveTone, VocalProcessingRole.Space], DateTimeOffset.UtcNow));
+        var editor = new ProjectEditor(project);
+        editor.Execute(new AcceptVocalLowCutCommand(asset.Id, asset.Sha256));
+        editor.Execute(new AcceptVocalSpaceCommand(asset.Id, asset.Sha256));
+        var space = project.VocalProcessingRecipes.Single(item => item.Role == VocalProcessingRole.Space);
+        Assert.Equal(VocalProcessingRecipe.SpaceProcessorId, space.ProcessorId);
+        Assert.Equal(80, space.DelayMilliseconds);
+        Assert.Equal(0.3, space.Feedback);
+        Assert.Equal(0.15, space.WetAmount);
+        Assert.Null(space.CutoffHertz);
+        Assert.Null(space.ColorAmount);
+        var proposal = VocalProfileProposer.Propose(project);
+        Assert.Contains(proposal.Jobs.Single(job => job.Role == VocalProcessingRole.Space).Reasons, reason => reason.Contains("already has accepted"));
+        Assert.Throws<InvalidOperationException>(() => project.ClearVocalProcessingChain());
+        var json = System.Text.Encoding.UTF8.GetString(PortableProjectExporter.SerializeDocument(project));
+        Assert.Contains("delayMilliseconds", json);
+        Assert.Contains("wetAmount", json);
+        Assert.DoesNotContain("\"delayMilliseconds\":null", json);
+        var document = JsonNode.Parse(json)!.AsObject();
+        document["schemaVersion"] = 37;
+        document["vocalProcessingRecipes"]!.AsArray().Remove(
+            document["vocalProcessingRecipes"]!.AsArray().Single(item => item!["role"]!.GetValue<string>() == "Space"));
+        var oldProject = System.Text.Json.JsonSerializer.Deserialize<SongProject>(document.ToJsonString(), JsonOptions)!;
+        var imported = PortableProjectPackage.Inspect(PortableProjectPackage.Export(oldProject, new Dictionary<ProjectAssetId, byte[]> { [asset.Id] = Source }));
+        Assert.Equal(37, imported.SourceSchemaVersion);
+        Assert.Equal(SchemaVersion.Current, imported.Project.SchemaVersion);
+        Assert.Equal(VocalProcessingRecipe.LowCutProcessorId, Assert.Single(imported.Project.VocalProcessingRecipes).ProcessorId);
+        var altered = JsonNode.Parse(json)!.AsObject();
+        altered["vocalProcessingRecipes"]!.AsArray().Single(item => item!["role"]!.GetValue<string>() == "Space")!["wetAmount"] = 0.4;
+        Assert.ThrowsAny<ArgumentException>(() => System.Text.Json.JsonSerializer.Deserialize<SongProject>(altered.ToJsonString(), JsonOptions));
+    }
 }

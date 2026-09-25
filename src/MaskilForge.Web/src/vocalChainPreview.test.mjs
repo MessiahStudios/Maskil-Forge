@@ -16,7 +16,7 @@ test('accepted chain steps follow plan order and ignore other jobs and other tak
   const steps = acceptedVocalChainSteps(['Space', 'TransparentDynamics', 'CorrectiveTone'], [lowCut, level, { ...level, assetId: 'other' }], asset)
   assert.deepEqual(steps.map(step => step.role), ['TransparentDynamics', 'CorrectiveTone'])
   assert.equal(describeAcceptedVocalChain(steps), 'Level control → Low-cut')
-  assert.equal(describeAcceptedVocalChain([]), 'Accept a low-cut, level-control, saturation, character-compression, or cleanup treatment on this take to hear it here.')
+  assert.equal(describeAcceptedVocalChain([]), 'Accept a built-in vocal treatment on this take to hear it here.')
 })
 
 test('chain order changes a low tone because level control and the low-cut do not commute', () => {
@@ -51,6 +51,6 @@ test('accepted saturation follows the plan and does not commute with level contr
 test('chain preview rejects an empty plan and an unknown treatment', () => {
   const source = buffer([new Float32Array([.1, .1])])
   assert.throws(() => renderAcceptedVocalChain(source, []), /plan order/)
-  assert.throws(() => renderAcceptedVocalChain(source, [{ role: 'Space' }]), /cleanup/)
+  assert.throws(() => renderAcceptedVocalChain(source, [{ role: 'Output' }]), /built-in vocal treatments/)
   assert.deepEqual(acceptedVocalChainSteps(['CorrectiveTone', 'CorrectiveTone'], [lowCut], asset).map(step => step.role), ['CorrectiveTone'])
 })

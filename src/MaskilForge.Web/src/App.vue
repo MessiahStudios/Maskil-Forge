@@ -16,6 +16,8 @@ import VocalLevelControlPreview from './VocalLevelControlPreview.vue'
 import VocalSaturationPreview from './VocalSaturationPreview.vue'
 import VocalCharacterCompressionPreview from './VocalCharacterCompressionPreview.vue'
 import VocalCleanupPreview from './VocalCleanupPreview.vue'
+import VocalSibilancePreview from './VocalSibilancePreview.vue'
+import VocalSpacePreview from './VocalSpacePreview.vue'
 import VocalChainPreview from './VocalChainPreview.vue'
 import VocalProfileProposal from './VocalProfileProposal.vue'
 import VocalEvidenceGuidance from './VocalEvidenceGuidance.vue'
@@ -3392,6 +3394,24 @@ function acceptVocalCleanup(assetId: string, sourceSha256: string) {
   )
 }
 
+function acceptVocalSibilance(assetId: string, sourceSha256: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-sibilance', assetId, sourceSha256 }),
+    'Sibilance settings accepted. Save to keep them with the song. Original audio is unchanged.',
+    'vocal-production.accept-sibilance',
+  )
+}
+
+function acceptVocalSpace(assetId: string, sourceSha256: string) {
+  if (!project.value) return
+  return run(
+    () => projectsApi.command(project.value!.id, project.value!, { type: 'accept-vocal-space', assetId, sourceSha256 }),
+    'Space settings accepted. Save to keep them with the song. Original audio is unchanged.',
+    'vocal-production.accept-space',
+  )
+}
+
 function clearVocalProcessingRecipe(assetId: string, role: VocalProcessingRole = 'CorrectiveTone') {
   if (!project.value) return
   const cleared = role === 'TransparentDynamics'
@@ -3402,7 +3422,11 @@ function clearVocalProcessingRecipe(assetId: string, role: VocalProcessingRole =
         ? 'Accepted character-compression settings cleared. Original audio is unchanged.'
         : role === 'Cleanup'
           ? 'Accepted cleanup settings cleared. Original audio is unchanged.'
-          : 'Accepted low-cut settings cleared. Original audio is unchanged.'
+          : role === 'SibilanceControl'
+            ? 'Accepted sibilance settings cleared. Original audio is unchanged.'
+            : role === 'Space'
+              ? 'Accepted space settings cleared. Original audio is unchanged.'
+              : 'Accepted low-cut settings cleared. Original audio is unchanged.'
   const action = role === 'TransparentDynamics'
     ? 'vocal-production.clear-level-control'
     : role === 'Saturation'
@@ -3411,7 +3435,11 @@ function clearVocalProcessingRecipe(assetId: string, role: VocalProcessingRole =
         ? 'vocal-production.clear-character-compression'
         : role === 'Cleanup'
           ? 'vocal-production.clear-cleanup'
-          : 'vocal-production.clear-low-cut'
+          : role === 'SibilanceControl'
+            ? 'vocal-production.clear-sibilance'
+            : role === 'Space'
+              ? 'vocal-production.clear-space'
+              : 'vocal-production.clear-low-cut'
   return run(
     () => projectsApi.command(project.value!.id, project.value!, { type: 'clear-vocal-processing-recipe', assetId, recipeRole: role }),
     cleared,
@@ -5760,6 +5788,18 @@ onBeforeUnmount(() => {
                 :role-enabled="project.vocalProcessingChain?.roles.includes('Cleanup') ?? false"
                 :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id && recipe.role === 'Cleanup')"
                 @accept="acceptVocalCleanup" @clear="assetId => clearVocalProcessingRecipe(assetId, 'Cleanup')" @playing="stopInstrumentPreviews"
+              />
+              <VocalSibilancePreview
+                :project-id="project.id" :asset="asset" :busy="busy"
+                :role-enabled="project.vocalProcessingChain?.roles.includes('SibilanceControl') ?? false"
+                :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id && recipe.role === 'SibilanceControl')"
+                @accept="acceptVocalSibilance" @clear="assetId => clearVocalProcessingRecipe(assetId, 'SibilanceControl')" @playing="stopInstrumentPreviews"
+              />
+              <VocalSpacePreview
+                :project-id="project.id" :asset="asset" :busy="busy"
+                :role-enabled="project.vocalProcessingChain?.roles.includes('Space') ?? false"
+                :recipe="project.vocalProcessingRecipes?.find(recipe => recipe.assetId === asset.id && recipe.role === 'Space')"
+                @accept="acceptVocalSpace" @clear="assetId => clearVocalProcessingRecipe(assetId, 'Space')" @playing="stopInstrumentPreviews"
               />
               <VocalChainPreview
                 :project-id="project.id" :asset="asset" :busy="busy"
