@@ -4784,7 +4784,7 @@ onBeforeUnmount(() => {
               type="button"
               class="secondary"
               :disabled="!roughVocalSupport.supported || microphonePreflightState === 'checking' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'counting-in' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
-              @click="checkRoughVocalMicrophone">
+              @click="checkRoughVocalMicrophone()">
               {{ microphonePreflightState === 'checking' ? 'Checking microphone…' : microphonePreflightState === 'ready' ? 'Check again' : 'Check microphone' }}
             </button>
             <button
@@ -5896,7 +5896,7 @@ onBeforeUnmount(() => {
               type="button"
               class="secondary"
               :disabled="!roughVocalSupport.supported || microphonePreflightState === 'checking' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'counting-in' || roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'saving'"
-              @click="checkRoughVocalMicrophone">
+              @click="checkRoughVocalMicrophone()">
               {{ microphonePreflightState === 'checking' ? 'Checking microphone…' : microphonePreflightState === 'ready' ? 'Check again' : 'Check microphone' }}
             </button>
             <button
