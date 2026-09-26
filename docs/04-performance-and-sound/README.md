@@ -36,7 +36,7 @@ Maskil Forge must not:
 
 Keep the original recording, extracted observations, edited gesture data, retargeted instrumental performance, and production settings separate. Correction, re-targeting, and production changes should be possible without discarding the source take.
 
-The first implemented boundary is a microphone preflight rather than a recording shortcut. It checks secure-browser support only after an explicit artist action, confirms a live input, and immediately closes the test stream without recording, uploading, or saving sound. Recording waits for an external-asset lifecycle that protects original takes through backup, recovery, portable transfer, Trash, and permanent deletion.
+The first implemented boundary is a microphone preflight rather than a recording shortcut. When the local workspace is ready, and again from Check microphone, it confirms a live input and immediately closes the test stream without recording, uploading, or saving sound. Recording waits for an external-asset lifecycle that protects original takes through backup, recovery, portable transfer, Trash, and permanent deletion.
 
 Schema v22 adds the first durable half of that lifecycle: a path-free manifest can identify an original vocal asset by stable ID, media type, byte length, SHA-256 digest, and creation time. The manifest intentionally contains neither the audio bytes nor analysis or processing data. Legacy JSON portability refuses non-empty manifests rather than exporting broken media references.
 
@@ -180,6 +180,10 @@ Introduce renderers incrementally:
 
 Song logic must not depend on any renderer. VSTs, SoundFonts, DAWs, and possible future neural renderers may produce sound—including processing applied to the artist's recorded vocal—but they must not own the composition logic or stand in for the singer.
 
+Milestone 8.12 lets a Mac play arrangement preview through the system General MIDI bank when `gs_instruments.dls` is present. The host streams that file only to the local browser, and the existing SoundFont preview uses it for the current tab. The song is unchanged. Schema remains v39.
+
+Milestone 8.11 keeps renderer ID `maskil-browser-preview-v1` and adds a few overtones to the pitched guide voices, with a softer piano and guitar decay. Drum kit and the neutral fallback stay single tones. The preview panel states that these voices are guides, that a device-local General MIDI bank is the sampled preview, and that inspected VST instruments do not play audio yet. Schema remains v39.
+
 Slice 8.1 completes the first rendering step with renderer ID `maskil-browser-preview-v1`. Section audition and full-song transport preserve musical-part ownership so a shared note assigned to two parts produces two intentional voices rather than being collapsed. All twelve version-4 catalog instruments receive explicit Web Audio oscillator, envelope, and filter guide voices; drum kit uses a short pitch-drop hit, and an unassigned or future unknown instrument uses the neutral sine voice. The UI names the active guide voices before playback and remote activity logs identify the renderer.
 
 Slice 8.2 adds renderer ID `maskil-soundfont-preview-v1`. Desktop Music accepts an artist-selected SF2, SF3, or DLS bank and plays section auditions and full-song transport through that bank with SpessaSynth's Web Audio worklet. The renderer consumes the same inspectable one-based General MIDI channel and program maps used by export, converting them to zero-based synth values; drum kit remains channel 10 without a program, while unassigned or future instruments use Acoustic Grand Piano on the unassigned channel as an audible fallback. Shared notes remain part-owned before scheduling.
@@ -250,6 +254,8 @@ Milestone 9.12 realizes Cleanup with processor `maskil.vocal.cleanup.v1`. Gaps b
 Milestone 9.13 realizes Sibilance Control with processor `maskil.vocal.sibilance.v1`. A 6 kHz high-pass band is watched, and the voice is eased at 3:1 once that band passes −20 dBFS, with a 1 ms attack and 40 ms release. A tone without that brightness stays put. Nothing is boosted, and no limiter is applied. Desktop Music prepares an original/processed comparison from the immutable take; both versions must be played before the fixed settings can be accepted. Schema remains v37 because the recipe uses the existing per-role fields. Removing the job or clearing the plan requires clearing the matching accepted settings first. Profile proposals retain the job when a take already stores it. The chain preview hears it in plan order. The comparison is not applied to transport or export, and there are no advanced controls in this slice.
 
 Milestone 9.18 plays the top written note at each moment as a rehearsal line at the song tempo. Overlapping notes keep the highest pitch. Playback stops at one minute, and a count-in or recording stops it immediately. The tone is not recorded or saved, and it does not become the lead vocal. An empty song explains that the guide will not invent a melody. Schema remains v39.
+
+Milestone 9.19 scores a stored pitch correction when the singer has marked that frame inaccurate. The original frame stays on the take. An inaccurate frame with no stored correction is left unscored. Unreviewed frames still use the saved frequency. Schema remains v39.
 
 Milestone 9.17 compares saved pitch frames on one take with the notes written in the song. The same note in another octave counts as a match. Moments beside those notes are described as above or below, and moments between written notes are left unscored. The review can play the original from an example. It is not stored, and it does not tune the take or create notes. Schema remains v39.
 

@@ -676,7 +676,9 @@ Begin the human-performance path without prematurely creating unmanaged audio as
 
 Keep rough-take recording unavailable until original audio joins the same explicit backup, recovery, portable export, Trash, and permanent-deletion lifecycle expected of project data. This readiness result is transient UI state and changes neither the Song Graph nor the saved project.
 
-**Deliverable:** an artist can confirm that a phone or computer is ready for future rough vocal capture without Maskil Forge silently opening a microphone or creating audio it cannot yet protect.
+The same check now runs once when the workspace is ready, so permission is settled before a song is open. Check microphone still repeats it. The test stream closes immediately. Nothing is recorded or saved.
+
+**Deliverable:** an artist can confirm that a phone or computer is ready for future rough vocal capture without Maskil Forge recording audio it cannot yet protect.
 
 ### Milestone 6.2 — Path-free audio asset manifest
 
@@ -826,7 +828,7 @@ Desktop Music can preview the sketch and explicitly accept it. Acceptance adds `
 
 Expose saved original-vocal takes on the desktop Music workspace so the studio screen can play, analyze, review, correct, and promote the same host-owned recordings phone Review already owns. Recording remains an explicit MediaRecorder action against the current saved revision. The evidence inspector, artist verdicts, corrections, and gesture snapshots use the existing APIs and schema v27 collections; this slice does not bump schema, place takes on the timeline, or create notes.
 
-Desktop Music lands on this take studio, then the existing pitch-gesture sketch. Phone Review stays the capture companion and still does not create notes. Activity logs keep the same take and observation identity rules: no audio bytes, frequencies, or microphone labels.
+Desktop Music lands on this take studio, then the existing pitch-gesture sketch. The song journey marks Music once the song has approved playable notes or a saved original take. Placed syllables still count from the earlier lyric path. Phone Review stays the capture companion and still does not create notes. Activity logs keep the same take and observation identity rules: no audio bytes, frequencies, or microphone labels.
 
 **Deliverable:** an artist can inspect and promote a saved rough take on the studio screen, then explicitly sketch notes from pitch gestures, without turning desktop into a miniature DAW or moving take placement into the Song Graph.
 
@@ -1327,6 +1329,22 @@ This slice does not activate any bus, call `setActive`, configure `IAudioProcess
 
 **Deliverable:** an artist can inspect the declared audio topology of one trusted installed VST3 component while distinguishing initialization evidence from audio-processing compatibility. The next dependency is processor interface discovery and bounded processing setup before any silent-buffer processing.
 
+### Milestone 8.11 — Steadier built-in guide voices
+
+**Implemented:** The built-in arrangement preview keeps renderer `maskil-browser-preview-v1` and gives pitched catalog instruments a few extra overtones, with a softer decay on piano and guitar. Bass and strings no longer rely on one raw square or saw wave. Drum kit remains the short pitch-drop hit, and an unassigned note remains the neutral sine. Playback still names the guide voices. The preview panel says these tones are guides, that an SF2, SF3, or DLS bank on this device is the sampled General MIDI preview, and that installed VST instruments do not play audio yet.
+
+This slice loads no samples, bundles no bank, processes no vocal, and does not activate a plugin. Schema remains v39. Catalog remains version 4. Phone Music stays hidden. Milestone 9.6 still waits until a VST3 component can process audio.
+
+**Deliverable:** an artist can hear a clearer guide for the written arrangement, and can see that a device sound bank is the authentic instrument preview available today.
+
+### Milestone 8.12 — This computer’s General MIDI instruments
+
+**Implemented:** On a Mac, Desktop Music can play arrangement preview through the General MIDI bank already installed with the system, `gs_instruments.dls`, when that file is present and within 8 MB. The local project service streams it only to a loopback request. The browser loads it into the existing device-local SoundFont preview for the current tab. The bytes are not copied into the song, a package, or recovery. The artist can still choose a different SF2, SF3, or DLS file, or return to the built-in guides. Held chord notes remain held: the bank changes the tone, not the written rhythm.
+
+This slice does not bundle a bank, host a VST instrument, or process a vocal. Schema remains v39. Catalog remains version 4. Phone Music stays hidden.
+
+**Deliverable:** an artist on a Mac can hear sampled General MIDI instruments without hunting for a sound bank, and can still tell that sound from the notes they wrote.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.
@@ -1505,7 +1523,7 @@ Schema remains v39. No recipe, asset, or lead-vocal field changes. Phone Music s
 
 **Implemented:** Desktop Music can compare the saved pitch frames on one take with the notes written in the song. A sung moment that matches a written note, including the same note in another octave, sits with the melody. A moment beside those notes is reported as above or below. A moment that falls between written notes is counted and not scored. The review can play the original from an example moment. Closing the check discards it.
 
-The check does not tune, create notes, change the lead-vocal choice, or write a result into the song. It uses the built-in pitch frames already saved for that take. Artist corrections are not applied. Schema remains v39. Phone Music stays hidden. Instrument catalog remains version 4. Lyric highlighting, punch-in, and comping remain later work.
+The check does not tune, create notes, change the lead-vocal choice, or write a result into the song. It uses the built-in pitch frames already saved for that take. Milestone 9.19 uses a stored pitch correction when the singer has marked that frame inaccurate. Schema remains v39. Phone Music stays hidden. Instrument catalog remains version 4. Lyric highlighting, punch-in, and comping remain later work.
 
 **Deliverable:** an artist can hear whether a take sits with the notes they wrote, and the recording stays unchanged.
 
@@ -1516,6 +1534,14 @@ The check does not tune, create notes, change the lead-vocal choice, or write a 
 Schema remains v39. Phone Music stays hidden. Instrument catalog remains version 4. Lyric highlighting, punch-in, and comping remain later work.
 
 **Deliverable:** an artist can hear the line they mean to sing before recording, and that tone never becomes the vocal.
+
+### Milestone 9.19 — Melody check respects a stored pitch correction
+
+**Implemented:** The melody check still compares one take with the written notes and still discards its result. A frame the singer has marked accurate, and a frame with no review, uses the original saved frequency. A frame marked inaccurate uses the stored corrected frequency when that correction exists. A marked frame with no stored correction is left unscored. The original pitch frame stays on the take. The recording is not tuned, and the check is not saved.
+
+Schema remains v39. Phone Music stays hidden. Instrument catalog remains version 4.
+
+**Deliverable:** an artist who has already corrected a mistaken pitch reading can hear the melody check use that correction, while the analyzer’s original measurement remains available.
 
 ## Milestone 10 — AI director
 

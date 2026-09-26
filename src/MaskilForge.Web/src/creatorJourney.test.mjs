@@ -47,3 +47,9 @@ test('harmony and arrangement require coverage across the whole song', () => {
   assert.equal(progress.harmony, true)
   assert.equal(progress.arrangement, true)
 })
+
+test('music starts from playable notes or a saved vocal, not only syllable timing', () => {
+  assert.equal(creatorProgress(project({ noteEvents: [{}] })).music, true)
+  assert.equal(creatorProgress(project({ assets: [{ kind: 'OriginalVocalTake' }] })).music, true)
+  assert.equal(creatorProgress(project({ assets: [{ kind: 'Other' }] })).music, false)
+})

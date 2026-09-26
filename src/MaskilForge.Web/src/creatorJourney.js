@@ -15,7 +15,9 @@ export function creatorProgress(project) {
     idea: Boolean(project),
     words: Boolean(project?.rawLyricDraft.trim()) || lines.some(line => line.text.trim()),
     shape: Boolean(project?.sections.length),
-    music: lines.some(line => line.syllablePlacements.length || line.rhythmCandidates.length),
+    music: lines.some(line => line.syllablePlacements.length || line.rhythmCandidates.length)
+      || Boolean(project?.noteEvents?.length)
+      || Boolean(project?.assets?.some(asset => asset.kind === 'OriginalVocalTake')),
     harmony: sections.length > 0 && sections.every(section => section.harmony.length),
     arrangement: sections.length > 0 && sections.every(section => sectionIdsWithRoles.has(section.id)),
   }

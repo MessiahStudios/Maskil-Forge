@@ -16,6 +16,9 @@ test('every catalog instrument receives an explicit preview voice', () => {
   assert.deepEqual(mapped.map(item => item.instrumentProfileId), catalogIds)
   assert.equal(new Set(mapped.map(item => `${item.oscillatorType}:${item.attackSeconds}:${item.filterFrequencyHz}:${item.pitchDrop}`)).size, catalogIds.length)
   assert.equal(previewVoiceForInstrument('drum-kit').pitchDrop, true)
+  assert.deepEqual(previewVoiceForInstrument('piano').partials?.map(partial => partial.multiplier), [1, 2, 4])
+  assert.equal(previewVoiceForInstrument('electric-bass').oscillatorType, 'sine')
+  assert.equal(previewVoiceForInstrument(null).partials, undefined)
 })
 
 test('unassigned and unknown instruments remain audible through the neutral voice', () => {

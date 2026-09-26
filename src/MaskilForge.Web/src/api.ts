@@ -677,7 +677,8 @@ export interface VocalMelodyCheck {
   belowMelody: number
   unaligned: number
   summary: string
-  examples: Array<{ startMilliseconds: number; sungMidi: number; writtenMidi: number; relation: VocalMelodyRelation }>
+  examples: Array<{ startMilliseconds: number; sungMidi: number; writtenMidi: number; relation: VocalMelodyRelation; artistCorrected: boolean }>
+  correctedMoments: number
 }
 
 export interface VocalEvidenceGuidance {
@@ -952,6 +953,8 @@ export const projectsApi = {
     }),
   discoverVst3: (signal?: AbortSignal) => request<Vst3DiscoveryResult>('/api/host/vst3-discovery', { method: 'POST', signal }),
   health: () => request<WorkspaceHealth>('/api/health'),
+  systemGeneralMidi: () => request<{ available: boolean; displayName: string; byteLength: number }>('/api/host/system-general-midi'),
+  systemGeneralMidiBank: () => requestBlob('/api/host/system-general-midi/bank'),
   instrumentProfiles: () => request<InstrumentProfileCatalog>('/api/instrument-profiles'),
   vocalProcessingRoles: () => request<VocalProcessingRoleCatalog>('/api/vocal-processing-roles'),
   vocalMelodyCheck: (project: SongProject, assetId: string) => request<VocalMelodyCheck>(`/api/projects/${project.id}/vocal-melody-check`, {

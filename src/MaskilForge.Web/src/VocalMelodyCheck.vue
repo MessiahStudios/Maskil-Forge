@@ -69,12 +69,13 @@ onBeforeUnmount(discard)
     <p v-if="error" role="alert">{{ error }}</p>
     <div v-if="check" class="melody-review">
       <p role="status">{{ check.summary }}</p>
-      <p>Saved pitch frames only. Artist corrections are not applied. A moment between written notes is reported and not scored.</p>
+      <p>A reviewed accurate frame uses its saved pitch. A frame marked inaccurate uses the stored correction when one exists. The original measurement stays on the take. A moment between written notes is reported and not scored.</p>
       <template v-if="check.examples.length">
         <label>Listen to the original<audio ref="player" controls preload="metadata" :src="projectsApi.originalVocalTakeUrl(project.id, asset.id)" :aria-label="`Melody check original for ${asset.name}`" @loadedmetadata="ready = true" @playing="playing" @error="ready = false; error = 'The original recording could not be loaded.'"></audio></label>
         <ol>
           <li v-for="moment in check.examples" :key="`${moment.startMilliseconds}-${moment.sungMidi}`">
             <strong>{{ seconds(moment.startMilliseconds) }} s · {{ relationLabel[moment.relation] }}</strong>
+            <small v-if="moment.artistCorrected">Uses the stored pitch correction. The original measurement stays on the take.</small>
             <button type="button" :disabled="busy || !ready" @click="listen(moment.startMilliseconds)">Listen from {{ seconds(moment.startMilliseconds) }} s</button>
           </li>
         </ol>

@@ -1,5 +1,11 @@
 export type PreviewOscillatorType = 'sine' | 'square' | 'sawtooth' | 'triangle'
 
+export interface PreviewPartial {
+  multiplier: number
+  gain: number
+  oscillatorType?: PreviewOscillatorType
+}
+
 export interface PreviewVoice {
   instrumentProfileId: string | null
   name: string
@@ -9,6 +15,7 @@ export interface PreviewVoice {
   sustainLevel: number
   filterFrequencyHz: number
   pitchDrop: boolean
+  partials?: PreviewPartial[]
 }
 
 export const builtInPreviewRendererId: 'maskil-browser-preview-v1'

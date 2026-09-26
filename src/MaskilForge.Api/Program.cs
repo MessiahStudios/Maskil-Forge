@@ -64,6 +64,21 @@ app.MapGet("/api/health", () => Results.Ok(new WorkspaceHealthResponse(
     app.Environment.IsDevelopment())));
 
 app.MapGet("/api/instrument-profiles", () => Results.Ok(InstrumentProfileCatalogLoader.Current));
+app.MapGet("/api/host/system-general-midi", (HttpContext context) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    if (!NativePluginAccess.IsLocalRequest(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
+    var bank = SystemGeneralMidiBank.Locate();
+    return Results.Ok(new SystemGeneralMidiResponse(bank is not null, bank is null ? "" : SystemGeneralMidiBank.DisplayName, bank?.Length ?? 0));
+});
+app.MapGet("/api/host/system-general-midi/bank", (HttpContext context) =>
+{
+    context.Response.Headers.CacheControl = "no-store";
+    if (!NativePluginAccess.IsLocalRequest(context)) return Results.StatusCode(StatusCodes.Status403Forbidden);
+    var bank = SystemGeneralMidiBank.Locate();
+    if (bank is null) return Results.NotFound();
+    return Results.File(bank.FullName, "application/octet-stream", SystemGeneralMidiBank.FileName);
+});
 app.MapPost("/api/host/vst3-discovery", async (Vst3Discovery discovery, Vst3NativeCheck nativeCheck, HttpContext context, CancellationToken cancellationToken) =>
 {
     context.Response.Headers.CacheControl = "no-store";
@@ -1584,6 +1599,8 @@ public sealed record ProjectCommandRequest(
     double? Q = null,
     VocalProcessingRole? RecipeRole = null);
 public sealed record ApiError(string Error, string? Code = null, string? RecoveryCopyFileName = null);
+public sealed record SystemGeneralMidiResponse(bool Available, string DisplayName, long ByteLength);
+
 public sealed record WorkspaceHealthResponse(
     string Status,
     string Persistence,

@@ -287,7 +287,7 @@ const partAudition = new PartAudition()
 const playbackTransport = new PlaybackTransport()
 const soundFontRenderer = new SoundFontRenderer()
 const previewRendererChoice = ref<'built-in' | 'soundfont'>('built-in')
-const soundFontState = reactive({ busy: false, bankName: '', bankSize: 0, message: 'No device-local sound bank loaded.' })
+const soundFontState = reactive({ busy: false, bankName: '', bankSize: 0, message: 'No device-local sound bank loaded.', systemBankName: '', systemBankSize: 0 })
 const activePreviewRendererName = computed(() => previewRendererChoice.value === 'soundfont' && soundFontState.bankName
   ? soundFontRendererName
   : builtInPreviewRendererName)
@@ -871,11 +871,18 @@ async function refreshDeviceLyricCaptures() {
   }
 }
 
-async function checkRoughVocalMicrophone() {
+let microphoneSetupRequested = false
+function ensureMicrophoneReady() {
+  if (microphoneSetupRequested || microphonePreflightState.value === 'checking' || microphonePreflightState.value === 'ready') return
+  microphoneSetupRequested = true
+  void checkRoughVocalMicrophone({ announce: false })
+}
+async function checkRoughVocalMicrophone(options?: { announce?: boolean }) {
+  const announce = options?.announce !== false
   if (!roughVocalSupport.supported) {
     microphonePreflightState.value = 'failed'
     microphonePreflightMessage.value = roughVocalSupport.reason
-    status.value = roughVocalSupport.reason
+    if (announce) status.value = roughVocalSupport.reason
     return
   }
 
@@ -889,12 +896,12 @@ async function checkRoughVocalMicrophone() {
     microphonePreflightState.value = 'ready'
     microphonePreflightLabel.value = result.label
     microphonePreflightMessage.value = 'Microphone access is ready. The test stream is closed and no audio was recorded or saved.'
-    status.value = 'Microphone ready for a future rough vocal take. No audio was recorded or saved.'
+    if (announce) status.value = 'Microphone ready for a future rough vocal take. No audio was recorded or saved.'
     activityLog.write('success', 'vocal.preflight', 'Microphone readiness confirmed and the test stream was closed.', { trackCount: result.trackCount })
   } catch (error) {
     microphonePreflightState.value = 'failed'
     microphonePreflightMessage.value = microphonePreflightFailure(error)
-    status.value = microphonePreflightMessage.value
+    if (announce) status.value = microphonePreflightMessage.value
     activityLog.write('warning', 'vocal.preflight', microphonePreflightMessage.value, {
       reason: error instanceof DOMException || error instanceof Error ? error.name : 'UnknownError',
     })
@@ -2727,6 +2734,40 @@ function stopPreviewPlaybackForRendererChange() {
   stopPartAudition(partWasPlaying ? 'Playback stopped because the preview renderer changed.' : '')
   stopTransport(transportWasPlaying ? 'Playback stopped because the preview renderer changed.' : '')
 }
+async function refreshSystemGeneralMidi() {
+  try {
+    const bank = await projectsApi.systemGeneralMidi()
+    soundFontState.systemBankName = bank.available ? bank.displayName : ''
+    soundFontState.systemBankSize = bank.available ? bank.byteLength : 0
+  } catch {
+    soundFontState.systemBankName = ''
+    soundFontState.systemBankSize = 0
+  }
+}
+async function useSystemGeneralMidi() {
+  if (!soundFontState.systemBankName || soundFontState.busy) return
+  stopPreviewPlaybackForRendererChange()
+  soundFontState.busy = true
+  soundFontState.message = `Loading ${soundFontState.systemBankName}…`
+  activityLog.write('info', 'renderer.soundfont.load', 'This computer’s General MIDI instruments were requested.')
+  try {
+    const blob = await projectsApi.systemGeneralMidiBank()
+    const file = new File([blob], 'gs_instruments.dls')
+    const bank = await soundFontRenderer.load(file)
+    soundFontState.bankName = soundFontState.systemBankName
+    soundFontState.bankSize = bank.size
+    previewRendererChoice.value = 'soundfont'
+    soundFontState.message = `${soundFontState.systemBankName} (${formatSoundBankSize(bank.size)}) is ready for this tab. Held chords stay held: this changes the instrument tone, not the written rhythm.`
+    activityLog.write('success', 'renderer.soundfont.load', 'This computer’s General MIDI instruments are ready.', { rendererId: soundFontRendererId, size: bank.size, kind: bank.kind })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'This computer’s General MIDI instruments could not be loaded.'
+    soundFontState.message = message
+    if (!soundFontState.bankName) previewRendererChoice.value = 'built-in'
+    activityLog.write('error', 'renderer.soundfont.load', message)
+  } finally {
+    soundFontState.busy = false
+  }
+}
 async function selectSoundBank(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -4304,6 +4345,10 @@ onMounted(async () => {
     view.value = 'recovery'
     status.value = `${recoveryCount.value} protected song recover${recoveryCount.value === 1 ? 'y' : 'ies'} found.`
   }
+  if (workspaceConnection.value === 'ready') {
+    ensureMicrophoneReady()
+    void refreshSystemGeneralMidi()
+  }
 })
 onBeforeUnmount(() => {
   stopChordAudition()
@@ -4350,6 +4395,7 @@ onBeforeUnmount(() => {
       <p v-if="workspaceConnection === 'unavailable'" class="offline-home-note">The local project service still owns your song library. You can write in a browser-owned lyric capture or review explicitly cached song saves below; reconnect before changing a host-owned song.</p>
       <p v-else-if="workspaceConnection === 'checking'" class="offline-home-note checking-home-note">Checking the local project service before opening project actions…</p>
       <p v-else class="status home-status" role="status">{{ status }}</p>
+      <p v-if="microphonePreflightMessage" class="status home-status microphone-preflight-status" :class="{ unavailable: microphonePreflightState === 'failed', ready: microphonePreflightState === 'ready' }" role="status">{{ microphonePreflightMessage }}</p>
       <section class="device-capture-library" aria-labelledby="device-capture-library-title">
         <div class="device-capture-heading">
           <div><p class="eyebrow">Browser-owned words</p><h2 id="device-capture-library-title">Capture lyrics on this device</h2><p>{{ deviceLyricCaptureDetail }} These captures are editable without the local project service, but they are not synchronized or part of the saved-song library until you explicitly add them.</p></div>
@@ -5477,8 +5523,9 @@ onBeforeUnmount(() => {
           <div>
             <span class="eyebrow">Device-local sound source</span>
             <h3 id="renderer-setup-title">Preview renderer</h3>
-            <p>Keep the built-in guide voices, or load an SF2, SF3, or DLS General MIDI bank from this device. Bank bytes stay in this browser tab: they are not uploaded, copied into the project, or written into the Song Graph.</p>
+            <p>The built-in voices are synthesized guides, so they sound electronic. Use this Mac’s General MIDI instruments, or load an SF2, SF3, or DLS bank, to hear sampled tones. The bank stays in this browser tab and is not written into the song. Held chord notes stay held. Installed VST instruments can be inspected, and they do not play audio yet.</p>
           </div>
+          <button v-if="soundFontState.systemBankName" type="button" :disabled="busy || soundFontState.busy" @click="useSystemGeneralMidi">{{ soundFontState.busy ? 'Loading instruments…' : `Use ${soundFontState.systemBankName}` }}</button>
           <label class="soundfont-file">Load sound bank
             <input type="file" accept=".sf2,.sf3,.dls" :disabled="busy || soundFontState.busy" @change="selectSoundBank" />
           </label>

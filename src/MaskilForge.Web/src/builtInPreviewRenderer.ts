@@ -27,14 +27,13 @@ export function scheduleBuiltInPreviewVoice(
   const releaseStart = noteEnd - envelope.releaseSeconds
   const level = baseLevel * (0.45 + 0.55 * (note.velocity / 127))
 
-  const oscillator = context.createOscillator()
   const filter = context.createBiquadFilter()
   const gain = context.createGain()
-  oscillator.type = voice.oscillatorType
   const frequency = 440 * 2 ** ((note.midi - 69) / 12)
-  oscillator.frequency.setValueAtTime(voice.pitchDrop ? Math.max(90, frequency * 2) : frequency, noteStart)
-  if (voice.pitchDrop)
-    oscillator.frequency.exponentialRampToValueAtTime(Math.max(45, frequency / 2), Math.min(noteEnd, noteStart + 0.08))
+  const partials = voice.partials?.length
+    ? voice.partials
+    : [{ multiplier: 1, gain: 1, oscillatorType: voice.oscillatorType }]
+  const partialGainTotal = partials.reduce((sum, partial) => sum + partial.gain, 0) || 1
   filter.type = 'lowpass'
   filter.frequency.setValueAtTime(voice.filterFrequencyHz, noteStart)
   filter.Q.setValueAtTime(voice.pitchDrop ? 0.5 : 0.8, noteStart)
@@ -43,14 +42,37 @@ export function scheduleBuiltInPreviewVoice(
   if (releaseStart > attackEnd)
     gain.gain.linearRampToValueAtTime(level * voice.sustainLevel, releaseStart)
   gain.gain.linearRampToValueAtTime(0, noteEnd)
-  oscillator.connect(filter).connect(gain).connect(context.destination)
-  oscillator.start(noteStart)
-  oscillator.stop(noteEnd + 0.01)
+  filter.connect(gain).connect(context.destination)
+
+  const oscillators = partials.map(partial => {
+    const oscillator = context.createOscillator()
+    const partialGain = context.createGain()
+    const partialFrequency = Math.max(20, frequency * partial.multiplier)
+    oscillator.type = partial.oscillatorType ?? voice.oscillatorType
+    oscillator.frequency.setValueAtTime(
+      voice.pitchDrop && partial.multiplier === 1 ? Math.max(90, partialFrequency * 2) : partialFrequency,
+      noteStart,
+    )
+    if (voice.pitchDrop && partial.multiplier === 1)
+      oscillator.frequency.exponentialRampToValueAtTime(Math.max(45, partialFrequency / 2), Math.min(noteEnd, noteStart + 0.08))
+    partialGain.gain.setValueAtTime(partial.gain / partialGainTotal, noteStart)
+    oscillator.connect(partialGain).connect(filter)
+    oscillator.start(noteStart)
+    oscillator.stop(noteEnd + 0.01)
+    return { oscillator, partialGain }
+  })
 
   return {
-    stop: () => { try { oscillator.stop() } catch { /* already stopped */ } },
+    stop: () => {
+      for (const item of oscillators) {
+        try { item.oscillator.stop() } catch { /* already stopped */ }
+      }
+    },
     disconnect: () => {
-      oscillator.disconnect()
+      for (const item of oscillators) {
+        item.oscillator.disconnect()
+        item.partialGain.disconnect()
+      }
       filter.disconnect()
       gain.disconnect()
     },
