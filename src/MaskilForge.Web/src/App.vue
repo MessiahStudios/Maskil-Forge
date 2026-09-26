@@ -21,6 +21,7 @@ import VocalSpacePreview from './VocalSpacePreview.vue'
 import VocalChainPreview from './VocalChainPreview.vue'
 import VocalProfileProposal from './VocalProfileProposal.vue'
 import VocalEvidenceGuidance from './VocalEvidenceGuidance.vue'
+import VocalMelodyCheck from './VocalMelodyCheck.vue'
 import Vst3DiscoveryPanel from './Vst3DiscoveryPanel.vue'
 import { ChordAudition } from './chordAudition'
 import { PartAudition, type ScheduledNote } from './partAudition'
@@ -42,6 +43,7 @@ import { isPortableProjectPackage, portableExportFileName, portableImportLimit, 
 import { midiExportFileName } from './exportFileName.js'
 import { beginRoughVocalCapture, formatRoughVocalBytes, formatRoughVocalDuration, roughVocalMaximumByteLength, roughVocalMaximumDurationMs, type CapturedRoughVocal, type RoughVocalCaptureSession } from './roughVocalCapture.js'
 import { playVocalCountIn } from './vocalCountIn.js'
+import { guideLineFromNotes, midiFromSpelling, playVocalGuideLine } from './vocalGuideLine.js'
 import { analyzeSavedVocalTake, loudnessAnalyzerId, loudnessObservationKind } from './loudnessAnalysis.js'
 import { analyzeSavedVocalTakePitch, pitchAnalyzerId, pitchObservationKind } from './pitchAnalysis.js'
 import { analyzeSavedVocalTakeOnsets, onsetAnalyzerId, onsetObservationKind } from './onsetAnalysis.js'
@@ -73,6 +75,8 @@ const microphonePreflightLabel = ref('')
 const microphonePreflightMessage = ref('')
 const roughVocalCaptureState = ref<'idle' | 'requesting' | 'counting-in' | 'recording' | 'review' | 'saving' | 'saved' | 'failed'>('idle')
 const vocalCountInEnabled = ref(true)
+const vocalGuidePlaying = ref(false)
+const vocalGuideMessage = ref('')
 const roughVocalCaptureMessage = ref('')
 const pendingRoughVocal = ref<(CapturedRoughVocal & { projectId: string; url: string }) | null>(null)
 const roughVocalRemovalTarget = ref<{ asset: ProjectAsset; takeNumber: number } | null>(null)
@@ -92,6 +96,8 @@ const observationCorrectionDrafts = reactive<Record<string, Record<string, strin
 let roughVocalCaptureSession: RoughVocalCaptureSession | null = null
 let roughVocalAutoStopTimer: number | undefined
 let vocalCountInAbort: AbortController | null = null
+let vocalGuideToken = 0
+let stopActiveVocalGuide: (() => void) | null = null
 const offlineReviewProject = ref<BrowserProjectRecord | null>(null)
 const trashedProjects = ref<TrashedProjectSummary[]>([])
 const libraryBusy = ref(true)
@@ -3513,7 +3519,54 @@ function clearVocalProcessingRecipe(assetId: string, role: VocalProcessingRole =
   )
 }
 
-function stopInstrumentPreviews() { stopChordAudition(); stopPartAudition(); stopTransport() }
+function stopVocalGuide(report = false) {
+  vocalGuideToken++
+  stopActiveVocalGuide?.()
+  stopActiveVocalGuide = null
+  vocalGuidePlaying.value = false
+  if (report) vocalGuideMessage.value = 'Guide stopped. Nothing was saved.'
+}
+
+function stopInstrumentPreviews() { stopVocalGuide(); stopChordAudition(); stopPartAudition(); stopTransport() }
+
+async function hearVocalGuide() {
+  if (!project.value || vocalGuidePlaying.value) return
+  stopInstrumentPreviews()
+  const tempo = Number(project.value.timeline.tempoMap.events[0].beatsPerMinute)
+  const ticksPerQuarterNote = project.value.timeline.ticksPerQuarterNote
+  let built
+  try {
+    built = guideLineFromNotes(project.value.noteEvents.map(note => ({
+      midi: midiFromSpelling(note.pitch.letter, note.pitch.accidental, note.pitch.octave),
+      startTick: note.startTick,
+      durationTicks: note.durationTicks,
+    })), tempo, ticksPerQuarterNote)
+  } catch (error) {
+    vocalGuideMessage.value = error instanceof Error ? error.message : 'The written notes could not be played.'
+    return
+  }
+  if (!built.line.length) {
+    vocalGuideMessage.value = 'Write the notes you want to sing. This guide does not invent a melody.'
+    return
+  }
+  try {
+    const token = ++vocalGuideToken
+    const playback = playVocalGuideLine(built.line)
+    stopActiveVocalGuide = playback.stop
+    vocalGuidePlaying.value = true
+    vocalGuideMessage.value = built.trimmed
+      ? 'Playing the first minute of the top written line. This rehearsal tone is not your vocal and is not saved.'
+      : 'Playing the top written line at this song’s tempo. This rehearsal tone is not your vocal and is not saved.'
+    await playback.done
+    if (vocalGuideToken === token) {
+      stopActiveVocalGuide = null
+      vocalGuidePlaying.value = false
+    }
+  } catch (error) {
+    vocalGuidePlaying.value = false
+    vocalGuideMessage.value = error instanceof Error ? error.message : 'The rehearsal line could not be played.'
+  }
+}
 
 function setVocalProcessingChain(roles: VocalProcessingRole[]) {
   if (!project.value) return
@@ -4697,7 +4750,9 @@ onBeforeUnmount(() => {
             </button>
             <button v-else type="button" class="danger recording-stop" @click="roughVocalCaptureState === 'counting-in' ? cancelVocalCountIn() : stopRoughVocalRecording(false)">{{ roughVocalCaptureState === 'counting-in' ? 'Cancel count-in' : 'Stop recording' }}</button>
             <label class="count-in-choice"><input type="checkbox" v-model="vocalCountInEnabled" :disabled="roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'counting-in' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'"> Count me in</label>
+            <button type="button" class="secondary" :disabled="roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'counting-in' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="vocalGuidePlaying ? stopVocalGuide(true) : hearVocalGuide()">{{ vocalGuidePlaying ? 'Stop guide' : 'Hear the line' }}</button>
           </div>
+          <p v-if="vocalGuideMessage" class="microphone-preflight-status" role="status">{{ vocalGuideMessage }}</p>
           <section v-if="pendingRoughVocal" class="rough-vocal-review" aria-labelledby="rough-vocal-review-title">
             <div>
               <p class="eyebrow">Temporary take</p>
@@ -5806,7 +5861,9 @@ onBeforeUnmount(() => {
             </button>
             <button v-else type="button" class="danger recording-stop" @click="roughVocalCaptureState === 'counting-in' ? cancelVocalCountIn() : stopRoughVocalRecording(false)">{{ roughVocalCaptureState === 'counting-in' ? 'Cancel count-in' : 'Stop recording' }}</button>
             <label class="count-in-choice"><input type="checkbox" v-model="vocalCountInEnabled" :disabled="roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'counting-in' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'"> Count me in</label>
+            <button type="button" class="secondary" :disabled="roughVocalCaptureState === 'requesting' || roughVocalCaptureState === 'counting-in' || roughVocalCaptureState === 'recording' || roughVocalCaptureState === 'saving'" @click="vocalGuidePlaying ? stopVocalGuide(true) : hearVocalGuide()">{{ vocalGuidePlaying ? 'Stop guide' : 'Hear the line' }}</button>
           </div>
+          <p v-if="vocalGuideMessage" class="microphone-preflight-status" role="status">{{ vocalGuideMessage }}</p>
           <section v-if="pendingRoughVocal" class="rough-vocal-review" aria-labelledby="desktop-rough-vocal-review-title">
             <div>
               <p class="eyebrow">Temporary take</p>
@@ -5886,6 +5943,7 @@ onBeforeUnmount(() => {
                 @playing="stopInstrumentPreviews"
               />
               <VocalEvidenceGuidance :project="project" :asset="asset" :busy="busy" @accept="acceptVocalEvidenceGuidance" @playing="stopInstrumentPreviews" />
+              <VocalMelodyCheck :project="project" :asset="asset" :busy="busy" @playing="stopInstrumentPreviews" />
               <form class="vocal-take-placement" @submit.prevent="setVocalTakePlacement(asset.id, $event)">
                 <p>{{ vocalTakePlacementLabel(asset.id) }}. Changing this start does not move notes you already accepted.</p>
                 <label>Bar<input name="bar" type="number" min="1" :value="vocalTakePlacement(asset.id)?.start.bar ?? 1" required :disabled="busy" :aria-label="`${asset.name} start bar`"></label>

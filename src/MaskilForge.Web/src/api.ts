@@ -667,6 +667,19 @@ export interface VocalProfileProposal {
   hasChanges: boolean
 }
 
+export type VocalMelodyRelation = 'With' | 'Above' | 'Below'
+
+export interface VocalMelodyCheck {
+  assetId: string
+  sungMoments: number
+  withMelody: number
+  aboveMelody: number
+  belowMelody: number
+  unaligned: number
+  summary: string
+  examples: Array<{ startMilliseconds: number; sungMidi: number; writtenMidi: number; relation: VocalMelodyRelation }>
+}
+
 export interface VocalEvidenceGuidance {
   sourceSignature: string
   assetId: string
@@ -941,6 +954,9 @@ export const projectsApi = {
   health: () => request<WorkspaceHealth>('/api/health'),
   instrumentProfiles: () => request<InstrumentProfileCatalog>('/api/instrument-profiles'),
   vocalProcessingRoles: () => request<VocalProcessingRoleCatalog>('/api/vocal-processing-roles'),
+  vocalMelodyCheck: (project: SongProject, assetId: string) => request<VocalMelodyCheck>(`/api/projects/${project.id}/vocal-melody-check`, {
+    method: 'POST', body: JSON.stringify({ project, assetId }),
+  }),
   vocalEvidenceGuidance: (project: SongProject, assetId: string) => request<VocalEvidenceGuidance>(`/api/projects/${project.id}/vocal-evidence-guidance`, {
     method: 'POST', body: JSON.stringify({ project, assetId }),
   }),

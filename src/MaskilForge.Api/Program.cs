@@ -825,6 +825,19 @@ app.MapPost("/api/projects/{id}/instrument-performance-sketch", async (string id
     }
 });
 
+app.MapPost("/api/projects/{id}/vocal-melody-check", async (string id, VocalMelodyCheckRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
+{
+    if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
+    if (request.Project.Id != projectId) return Results.BadRequest(new ApiError("Route and project IDs must match."));
+    try
+    {
+        var result = await workspace.UseAsync(projectId, null,
+            _ => VocalMelodyChecker.Check(request.Project, request.AssetId), cancellationToken);
+        return result is null ? Results.NotFound(new ApiError("Project not found.")) : Results.Ok(result);
+    }
+    catch (Exception exception) when (exception is ArgumentException or KeyNotFoundException) { return Validation(exception); }
+});
+
 app.MapPost("/api/projects/{id}/vocal-evidence-guidance", async (string id, VocalEvidenceGuidanceRequest request, ProjectWorkspace workspace, CancellationToken cancellationToken) =>
 {
     if (!ProjectId.TryParse(id, out var projectId)) return Results.BadRequest(new ApiError("Invalid project ID."));
@@ -1476,6 +1489,7 @@ public sealed record LoudnessGestureNoteSketchRequest(SongProject Project, Proje
 public sealed record LoudnessGestureExpressionSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record InstrumentPerformanceSketchRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record VocalProfileProposalRequest(SongProject Project);
+public sealed record VocalMelodyCheckRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record VocalEvidenceGuidanceRequest(SongProject Project, ProjectAssetId AssetId);
 public sealed record LowEndSupportProposalRequest(SongProject Project, SectionId SectionId);
 public sealed record PulseProposalRequest(SongProject Project, SectionId SectionId);

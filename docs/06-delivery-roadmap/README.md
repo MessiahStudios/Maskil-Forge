@@ -1501,6 +1501,22 @@ Schema remains v39. No recipe, asset, or lead-vocal field changes. Phone Music s
 
 **Deliverable:** an artist can hear when to start singing, and the saved take contains only the performance.
 
+### Milestone 9.17 — Melody check
+
+**Implemented:** Desktop Music can compare the saved pitch frames on one take with the notes written in the song. A sung moment that matches a written note, including the same note in another octave, sits with the melody. A moment beside those notes is reported as above or below. A moment that falls between written notes is counted and not scored. The review can play the original from an example moment. Closing the check discards it.
+
+The check does not tune, create notes, change the lead-vocal choice, or write a result into the song. It uses the built-in pitch frames already saved for that take. Artist corrections are not applied. Schema remains v39. Phone Music stays hidden. Instrument catalog remains version 4. Lyric highlighting, punch-in, and comping remain later work.
+
+**Deliverable:** an artist can hear whether a take sits with the notes they wrote, and the recording stays unchanged.
+
+### Milestone 9.18 — Rehearsal line
+
+**Implemented:** Desktop and phone recording can play the top written note at each moment, at the song’s tempo, before a take begins. Overlapping notes keep the highest one, so the singer hears one line rather than the whole arrangement. Playback stops at one minute. Starting a count-in or recording stops the guide. The tone is not recorded, not saved, and not the lead vocal. When the song has no notes, the guide says so and does not invent a melody.
+
+Schema remains v39. Phone Music stays hidden. Instrument catalog remains version 4. Lyric highlighting, punch-in, and comping remain later work.
+
+**Deliverable:** an artist can hear the line they mean to sing before recording, and that tone never becomes the vocal.
+
 ## Milestone 10 — AI director
 
 Expose tested engine functions as typed tools, add intent interpretation, structured musical and performance observations as reasoning inputs, plan preview, command validation, explanations, and conversational revision. Any direct audio-capable model interpretation is supplemental, carries confidence and provenance, and cannot replace structured observations or artist review. Vocal-production direction uses Milestone 9 intent, roles, and observations; it does not invent a plugin-shaped plan that the rest of the product cannot preview or undo.
