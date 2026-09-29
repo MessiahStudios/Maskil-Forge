@@ -1345,6 +1345,18 @@ This slice does not bundle a bank, host a VST instrument, or process a vocal. Sc
 
 **Deliverable:** an artist on a Mac can hear sampled General MIDI instruments without hunting for a sound bank, and can still tell that sound from the notes they wrote.
 
+### Milestone 8.13 — Artist-installed VST and VST3 discovery
+
+**Implemented:** Plugin discovery lists both classic VST (`.vst`) and VST3 (`.vst3`) in the standard local folders. Each candidate is labeled with its format. The native module, factory, and audio-bus checks stay limited to VST3 bundles. A VST candidate is listed and is not sent to the VST3 worker. Maskil Forge does not download, bundle, or license these plugins. The artist installs them. A scan does not play audio and does not change the song. Schema remains v39.
+
+**Deliverable:** an artist who downloaded a guitar, bass, or other instrument as VST, VST3, or both can see that installation, and can see that Maskil Forge expects them to supply the package.
+
+### Milestone 8.14 — Load an installed VST3 when the artist asks
+
+**Implemented:** On a local Mac, each reported VST3 audio module can be loaded in the short-lived native worker. The worker connects the component and its controller when the plugin provides both, activates the main audio buses and the event input, prepares the processor, and renders one second of stereo audio at 44.1 kHz. An instrument receives one MIDI note. An effect receives a short test tone on its audio input. The artist can play that preview in the browser. The preview is not stored in the song, does not replace Play, and does not select a production role. A classic VST bundle remains listed and is not sent to this worker. MIDI export remains the handoff for notes that should continue in a DAW. A bounced stem of plugin audio is not produced here. Schema remains v39.
+
+**Deliverable:** an artist can load an installed vocal plugin or instrument and hear that plugin, while the song and its built-in guide stay intact.
+
 ## Milestone 9 — Human vocal production
 
 Build guide vocals, lyric highlighting, take management, punch-in, comping, pitch/timing feedback, harmony guides, and non-destructive vocal effects. Production settings remain reviewable. The recorded, artist-chosen take is the lead vocal; guidance and processing assist that singer rather than generating a replacement.

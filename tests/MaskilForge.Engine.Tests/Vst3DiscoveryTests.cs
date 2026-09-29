@@ -24,15 +24,25 @@ public sealed class Vst3DiscoveryTests : IDisposable
         FileAt("Vendor/声.VST3");
         FileAt("Vendor/Synth.vst3/Contents/inside.vst3");
         FileAt("ignored.dll");
-        FileAt("ignored.vst");
+        FileAt("Bass.vst");
+        Directory.CreateDirectory(Path.Combine(_directory, "Guitar.vst"));
         var scan = await Scanner().ScanAsync();
         var location = Assert.Single(scan.Locations);
         Assert.Equal("Complete", location.Status);
-        Assert.Equal(2, location.Candidates.Count);
-        Assert.Contains(location.Candidates, candidate => candidate is { Name: "声.VST3", RelativePath: "Vendor/声.VST3", Kind: "File" });
-        Assert.Contains(location.Candidates, candidate => candidate is { Name: "Synth.vst3", RelativePath: "Vendor/Synth.vst3", Kind: "Bundle" });
+        Assert.Equal(4, location.Candidates.Count);
+        Assert.Contains(location.Candidates, candidate => candidate is { Name: "声.VST3", RelativePath: "Vendor/声.VST3", Kind: "File", Format: "VST3" });
+        Assert.Contains(location.Candidates, candidate => candidate is { Name: "Synth.vst3", RelativePath: "Vendor/Synth.vst3", Kind: "Bundle", Format: "VST3" });
+        Assert.Contains(location.Candidates, candidate => candidate is { Name: "Bass.vst", RelativePath: "Bass.vst", Kind: "File", Format: "VST" });
+        Assert.Contains(location.Candidates, candidate => candidate is { Name: "Guitar.vst", RelativePath: "Guitar.vst", Kind: "Bundle", Format: "VST" });
         Assert.DoesNotContain(_directory, JsonSerializer.Serialize(scan));
         Assert.Equal("Not executable plugin data. Discovery must not load this file.", File.ReadAllText(Path.Combine(_directory, "Vendor/声.VST3")));
+    }
+
+    [Fact]
+    public async Task LegacyVstBundles_AreExcludedFromTheVst3NativeCheck()
+    {
+        Directory.CreateDirectory(Path.Combine(_directory, "Guitar.vst"));
+        Assert.Null(await Scanner().ResolveNativeCandidateAsync("Fixture", "Guitar.vst", default));
     }
 
     [Fact]
@@ -116,9 +126,9 @@ public sealed class Vst3DiscoveryTests : IDisposable
     }
 
     [Theory]
-    [InlineData("Windows", 4, "Programs/Common/VST3")]
-    [InlineData("macOS", 3, "Library/Audio/Plug-Ins/VST3")]
-    [InlineData("Linux", 6, ".vst3")]
+    [InlineData("Windows", 7, "Programs/Common/VST3")]
+    [InlineData("macOS", 5, "Library/Audio/Plug-Ins/VST3")]
+    [InlineData("Linux", 8, ".vst3")]
     public void PlatformLocations_PreferTheUserFolderAndKeepHostPathsSeparate(string platform, int count, string userSuffix)
     {
         var host = new Vst3HostPaths(platform, Path.Combine(_directory, "home"), Path.Combine(_directory, "local"),
@@ -137,6 +147,6 @@ public sealed class Vst3DiscoveryTests : IDisposable
         Assert.Empty(Vst3SearchLocations.Resolve(new("Windows", "", "", "", "", "")));
         Assert.Empty(Vst3SearchLocations.Resolve(new("Unsupported", _directory, _directory, _directory, _directory, _directory)));
         var locations = Vst3SearchLocations.Resolve(new("Windows", "", "", _directory, _directory, ""));
-        Assert.Single(locations);
+        Assert.Equal(new[] { "System", "System VST" }, locations.Select(item => item.Name));
     }
 }

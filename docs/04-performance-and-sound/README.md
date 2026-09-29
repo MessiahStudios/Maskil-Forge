@@ -204,6 +204,10 @@ Milestone 8.8 provides an explicit local macOS native module check in a separate
 
 Milestone 8.9 adds bounded runtime factory-class enumeration in the same isolated lifecycle. Milestone 8.10 lets the artist select one returned audio-module class for component creation, initialization with a minimal host application, audio input/output bus inspection, termination, release, and module cleanup. These are temporary runtime findings. No bus is activated, no processing setup or audio-buffer call occurs, and no plugin is assigned to a song or production role. External processor substitution still awaits a real audio-processing host.
 
+Milestone 8.13 extends the same read-only scan to classic VST bundles and files beside VST3. The artist supplies those plugins; Maskil Forge does not ship instrument packages. VST candidates stay out of the VST3 worker.
+
+Milestone 8.14 loads one requested VST3 audio module in that worker and returns a one-second stereo preview. Instruments receive a MIDI note. Effects receive a test tone. The browser can play the result. Play for the arrangement remains the built-in guides or a General MIDI bank. MIDI export remains the note handoff to a DAW. A missing plugin keeps the part and the built-in path.
+
 ## Human vocal workflow
 
 The lead-vocal path is a singer's workflow, not a vocal-generation workflow:

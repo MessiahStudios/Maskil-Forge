@@ -3,7 +3,7 @@ namespace MaskilForge.Infrastructure;
 public sealed record Vst3SearchLocation(string Name, string Hint, string Path);
 public sealed record Vst3HostPaths(string Platform, string UserHome, string LocalAppData,
     string CommonProgramFiles, string CommonProgramFilesX86, string ApplicationDirectory);
-public sealed record Vst3Candidate(string Name, string RelativePath, string Kind, Vst3MetadataInspection Metadata, Vst3BinaryInspection Binary);
+public sealed record Vst3Candidate(string Name, string RelativePath, string Kind, Vst3MetadataInspection Metadata, Vst3BinaryInspection Binary, string Format = "VST3");
 public sealed record Vst3LocationResult(string Name, string Hint, string Status,
     IReadOnlyList<string> Issues, IReadOnlyList<Vst3Candidate> Candidates);
 public sealed record Vst3DiscoveryResult(string Platform, DateTimeOffset ScannedUtc,
@@ -34,17 +34,25 @@ public static class Vst3SearchLocations
                 Add("System", "%CommonProgramFiles%/VST3", host.CommonProgramFiles, "VST3");
                 if (!string.Equals(host.CommonProgramFiles, host.CommonProgramFilesX86, StringComparison.OrdinalIgnoreCase))
                     Add("System (x86)", "%CommonProgramFiles(x86)%/VST3", host.CommonProgramFilesX86, "VST3");
+                Add("Current user VST", "%LOCALAPPDATA%/VST", host.LocalAppData, "VST");
+                Add("System VST", "%CommonProgramFiles%/VST2", host.CommonProgramFiles, "VST2");
+                if (!string.Equals(host.CommonProgramFiles, host.CommonProgramFilesX86, StringComparison.OrdinalIgnoreCase))
+                    Add("System VST (x86)", "%CommonProgramFiles(x86)%/VST2", host.CommonProgramFilesX86, "VST2");
                 Add("Maskil host", "Host application/VST3", host.ApplicationDirectory, "VST3");
                 break;
             case "macOS":
                 Add("Current user", "~/Library/Audio/Plug-Ins/VST3", host.UserHome, "Library", "Audio", "Plug-Ins", "VST3");
                 Add("System", "/Library/Audio/Plug-Ins/VST3", "/Library/Audio/Plug-Ins/VST3");
+                Add("Current user VST", "~/Library/Audio/Plug-Ins/VST", host.UserHome, "Library", "Audio", "Plug-Ins", "VST");
+                Add("System VST", "/Library/Audio/Plug-Ins/VST", "/Library/Audio/Plug-Ins/VST");
                 Add("Maskil host", "Host application/VST3", host.ApplicationDirectory, "VST3");
                 break;
             case "Linux":
                 Add("Current user", "~/.vst3", host.UserHome, ".vst3");
                 foreach (var path in new[] { "/usr/lib64/vst3", "/usr/lib/vst3", "/usr/local/lib64/vst3", "/usr/local/lib/vst3" })
                     Add($"System ({path})", path, path);
+                Add("Current user VST", "~/.vst", host.UserHome, ".vst");
+                Add("System VST", "/usr/lib/vst", "/usr/lib/vst");
                 Add("Maskil host", "Host application/vst3", host.ApplicationDirectory, "vst3");
                 break;
         }
@@ -101,7 +109,7 @@ public sealed class Vst3Discovery
         var scan = await ScanAsync(cancellationToken);
         var location = _locations.SingleOrDefault(item => item.Name == locationName);
         var candidate = scan.Locations.SingleOrDefault(item => item.Name == locationName)?.Candidates
-            .SingleOrDefault(item => item.RelativePath == relativePath && item.Kind == "Bundle");
+            .SingleOrDefault(item => item.RelativePath == relativePath && item.Kind == "Bundle" && item.Format == "VST3");
         if (location is null || candidate is null) return null;
         var path = location.Path;
         foreach (var segment in new[] { "" }.Concat(candidate.RelativePath.Split('/')))
@@ -147,12 +155,15 @@ public sealed class Vst3Discovery
                         var attributes = File.GetAttributes(path);
                         if (attributes.HasFlag(FileAttributes.ReparsePoint)) { issues.Add("LinkedEntry"); continue; }
                         var isDirectory = attributes.HasFlag(FileAttributes.Directory);
-                        if (Path.GetExtension(path).Equals(".vst3", StringComparison.OrdinalIgnoreCase))
+                        var extension = Path.GetExtension(path);
+                        var format = extension.Equals(".vst3", StringComparison.OrdinalIgnoreCase) ? "VST3"
+                            : extension.Equals(".vst", StringComparison.OrdinalIgnoreCase) ? "VST" : null;
+                        if (format is not null)
                         {
                             if (candidates.Count == _limits.MaxCandidates) { issues.Add("CandidateLimit"); stopped = true; break; }
                             candidates.Add(new(Path.GetFileName(path), Path.GetRelativePath(location.Path, path).Replace('\\', '/'),
                                 isDirectory ? "Bundle" : "File", isDirectory ? metadata.Read(path, cancellationToken) : new("NotApplicable"),
-                                binaries.Inspect(path, isDirectory, cancellationToken)));
+                                binaries.Inspect(path, isDirectory, cancellationToken), format));
                             continue; // Inspect only known manifest/binary paths; never enumerate bundle internals.
                         }
                         if (isDirectory)

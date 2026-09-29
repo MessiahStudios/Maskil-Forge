@@ -11,6 +11,9 @@ public sealed record Vst3NativeFactoryCheckResult(string Status, string LastComp
 public sealed record Vst3NativeComponentCheckResult(string Status, string LastCompletedStage, DateTimeOffset CheckedUtc,
     string ClassId, IReadOnlyList<Vst3AudioBus> Buses, string? BinarySource = null, string? BinarySha256 = null,
     string? PlistSha256 = null, int? ExitCode = null);
+public sealed record Vst3PreviewResult(string Status, string LastCompletedStage, DateTimeOffset CheckedUtc,
+    string ClassId, int Frames, int SampleRate, int Peak, bool ControllerConnected, string? AudioWavBase64,
+    string? BinarySource = null, string? BinarySha256 = null, string? PlistSha256 = null, int? ExitCode = null);
 
 public sealed class Vst3NativeCheck(Vst3Discovery discovery)
 {
@@ -90,6 +93,57 @@ public sealed class Vst3NativeCheck(Vst3Discovery discovery)
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { return Empty("CandidateUnavailable"); }
         finally { _gate.Release(); }
+    }
+
+    public async Task<Vst3PreviewResult> RenderPreviewAsync(Vst3NativeComponentCheckRequest request, CancellationToken cancellationToken = default)
+    {
+        var classId = request.ClassId ?? string.Empty;
+        Vst3PreviewResult Empty(string status) => new(status, "NotStarted", DateTimeOffset.UtcNow, classId, 0, 0, 0, false, null);
+        if (classId.Length != 32 || !classId.All(Uri.IsHexDigit)) return Empty("InvalidClassId");
+        if (!IsAvailable) return Empty("WorkerUnavailable");
+        if (!await _gate.WaitAsync(0, cancellationToken)) return Empty("Busy");
+        var directory = Path.Combine(Path.GetTempPath(), $"maskil-vst3-preview-{Guid.NewGuid():N}");
+        try
+        {
+            var resolved = await discovery.ResolveNativeCandidateAsync(request.Location, request.RelativePath, cancellationToken);
+            if (resolved is null) return Empty("CandidateUnavailable");
+            var (bundle, candidate) = resolved.Value;
+            var declaration = candidate.Binary.MacExecutable;
+            if (declaration?.Status != "Available" || declaration.Sha256 != request.ExpectedPlistSha256) return Empty("RescanRequired");
+            var source = $"Contents/MacOS/{declaration.Executable}";
+            if (!candidate.Binary.Files.Any(file => file.Source == source && file.Status == "Recognized" &&
+                file.Format == "Mach-O" && file.HostMatch == "Match")) return Empty("HeaderNotMatched");
+            var binary = Path.Combine(bundle, source);
+            var before = await Digest(binary, cancellationToken);
+            if (before is null) return Empty("BinaryTooLarge");
+            var refreshed = new Vst3BinaryPreflight("macOS", candidate.Binary.HostArchitecture).Inspect(bundle, true, cancellationToken);
+            if (refreshed.MacExecutable != declaration || !refreshed.Files.Any(file => file.Source == source && file.HostMatch == "Match"))
+                return Empty("RescanRequired");
+            Directory.CreateDirectory(directory);
+            var wavePath = Path.Combine(directory, "preview.wav");
+            var outcome = await new Vst3PreviewProcess().RunAsync(WorkerPath, bundle, binary, classId, wavePath, cancellationToken);
+            var status = outcome.Status;
+            if (!cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    var after = new Vst3BinaryPreflight("macOS", candidate.Binary.HostArchitecture).Inspect(bundle, true, cancellationToken);
+                    if (after.MacExecutable != declaration || !after.Files.Any(file => file.Source == source && file.HostMatch == "Match") ||
+                        await Digest(binary, cancellationToken) != before) status = "SourceChanged";
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { status = "SourceChanged"; }
+            }
+            var audio = status == "Completed" && outcome.Wave is not null ? Convert.ToBase64String(outcome.Wave) : null;
+            return new(status, outcome.LastCompletedStage, DateTimeOffset.UtcNow, outcome.ClassId, outcome.Frames, outcome.SampleRate,
+                outcome.Peak, outcome.ControllerConnected, audio, source, before, declaration.Sha256, outcome.ExitCode);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { return Empty("CandidateUnavailable"); }
+        finally
+        {
+            try { if (Directory.Exists(directory)) Directory.Delete(directory, true); }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException) { }
+            _gate.Release();
+        }
     }
 
     public async Task<Vst3NativeCheckResult> CheckAsync(Vst3NativeCheckRequest request, CancellationToken cancellationToken = default)

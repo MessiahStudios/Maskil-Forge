@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { projectsApi, type Vst3DiscoveryResult, type Vst3NativeCheckResult, type Vst3NativeFactoryCheckResult, type Vst3NativeComponentCheckResult, type Vst3NativeFactoryClass } from './api'
+import Vst3LoadPreview from './Vst3LoadPreview.vue'
 
 type Candidate = Vst3DiscoveryResult['locations'][number]['candidates'][number]
 const props = defineProps<{ location: string; candidate: Candidate }>()
@@ -108,8 +109,8 @@ onBeforeUnmount(clear)
     </div>
     <div v-if="factoryResult" role="status">
       <p>{{ factoryResult.status === 'Completed' ? 'Factory class enumeration completed.' : (factoryStatuses[factoryResult.status] ?? factoryResult.status) }} Last completed stage: {{ stages[factoryResult.lastCompletedStage] ?? factoryResult.lastCompletedStage }}</p>
-      <p v-if="factoryResult.status === 'Completed'">{{ factoryResult.classes.length }} classes were returned by the native factory. No component instance was created.</p>
-      <ul v-if="factoryResult.status === 'Completed'" aria-label="Native factory classes"><li v-for="pluginClass in factoryResult.classes" :key="pluginClass.id"><strong>{{ pluginClass.name }}</strong><span>{{ pluginClass.category }} · Class ID: {{ pluginClass.id }}</span><button v-if="pluginClass.category === 'Audio Module Class'" type="button" :disabled="!!componentBusyClassId" @click="inspectComponent(pluginClass)">{{ componentBusyClassId === pluginClass.id ? 'Inspecting audio buses…' : 'Inspect audio buses' }}</button></li></ul>
+      <p v-if="factoryResult.status === 'Completed'">{{ factoryResult.classes.length }} classes were returned by the native factory. Enumeration itself creates no component. Load starts a separate one-second render.</p>
+      <ul v-if="factoryResult.status === 'Completed'" aria-label="Native factory classes"><li v-for="pluginClass in factoryResult.classes" :key="pluginClass.id"><strong>{{ pluginClass.name }}</strong><span>{{ pluginClass.category }} · Class ID: {{ pluginClass.id }}</span><button v-if="pluginClass.category === 'Audio Module Class'" type="button" :disabled="!!componentBusyClassId" @click="inspectComponent(pluginClass)">{{ componentBusyClassId === pluginClass.id ? 'Inspecting audio buses…' : 'Inspect audio buses' }}</button><Vst3LoadPreview v-if="pluginClass.category === 'Audio Module Class'" :location="location" :candidate="candidate" :class-id="pluginClass.id" :class-name="pluginClass.name" /></li></ul>
       <p>Class declarations are runtime evidence from this executable. They do not prove processor behavior, audio compatibility, licensing, or a suitable production role.</p>
     </div>
     <div v-if="componentResult" role="status">

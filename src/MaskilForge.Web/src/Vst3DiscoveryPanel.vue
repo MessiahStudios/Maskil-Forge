@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { projectsApi, type Vst3DiscoveryResult } from './api'
 import { reviewPluginInventory, type ArchitectureFilter } from './pluginInventoryReview.js'
+import Vst3LoadPreview from './Vst3LoadPreview.vue'
 import Vst3NativeCheck from './Vst3NativeCheck.vue'
 
 const result = ref<Vst3DiscoveryResult | null>(null)
@@ -57,10 +58,11 @@ onBeforeUnmount(() => clear())
 </script>
 
 <template>
-  <details class="vst3-discovery" aria-label="VST3 discovery on the Maskil host" @toggle="event => { if (!(event.target as HTMLDetailsElement).open) clear() }">
-    <summary>Find VST3 plugins on the host</summary>
-    <p>Check the computer running the Maskil Forge project service. If you opened this page from another device, that device's plugins are outside this scan. A DAW does not need to be installed.</p>
-    <p>Discovery lists .vst3 files and bundles in standard local folders without loading them. On a local macOS host, you can separately request a native module check. Finding a candidate does not verify its compatibility, license, or the instruments and effects inside it.</p>
+  <details class="vst3-discovery" aria-label="VST and VST3 discovery on the Maskil host" @toggle="event => { if (!(event.target as HTMLDetailsElement).open) clear() }">
+    <summary>Find VST and VST3 plugins on the host</summary>
+    <p>Maskil Forge does not include instrument or effect packages. Download the VST or VST3 plugins you want, under their own terms, and install them on this computer. A missing plugin leaves the part, the built-in vocal job, and the guide or General MIDI tone in place.</p>
+    <p>On this Mac, an installed VST3 audio module can be loaded when you ask. An instrument renders a one-second note. An effect renders a one-second tone through its processor. The song itself is unchanged. Export MIDI when you want the same notes in a DAW. A bounced stem of the plugin mix is a later handoff.</p>
+    <p>Check the computer running the Maskil Forge project service. If you opened this page from another device, that device's plugins are outside this scan. A classic VST bundle is listed so you can see it. Load the VST3 copy of that plugin when one is installed.</p>
     <p>When a bundle supplies an optional metadata file, its reported name, vendor, version, and classes appear below. These declarations have not been checked against the plugin's code.</p>
     <div class="discovery-actions">
       <button type="button" :disabled="loading" @click="scan">{{ loading ? 'Checking plugin folders…' : 'Check plugin folders' }}</button>
@@ -68,7 +70,7 @@ onBeforeUnmount(() => clear())
     </div>
     <p v-if="error" role="alert">{{ error }}</p>
     <div v-if="result" class="discovery-results">
-      <p role="status">Showing {{ inventory.visibleCount }} of {{ inventory.totalCount }} VST3 candidates found on the {{ result.platform }} host. Full plugin compatibility remains unverified.</p>
+      <p role="status">Showing {{ inventory.visibleCount }} of {{ inventory.totalCount }} VST and VST3 candidates found on the {{ result.platform }} host. A VST3 audio module can be loaded below. Full compatibility stays unverified, and Play still uses the guide or General MIDI bank.</p>
       <p>Checked {{ new Date(result.scannedUtc).toLocaleString() }}. Check again after installing or removing plugins.</p>
       <div class="inventory-filters" role="search" aria-label="Filter discovered plugins">
         <label>Search plugins<input v-model="query" type="search" maxlength="256" placeholder="Name, vendor, version, class, or location" /></label>
@@ -103,7 +105,8 @@ onBeforeUnmount(() => clear())
         <ul v-if="location.rows.length">
           <li v-for="{ candidate, key, repeatedClassCount } in location.rows" :key="key">
             <strong>{{ candidate.name }}</strong>
-            <span>{{ candidate.kind === 'Bundle' ? 'Bundle' : 'File' }} · Unverified</span>
+            <span>{{ candidate.format === 'VST' ? 'VST' : 'VST3' }} · {{ candidate.kind === 'Bundle' ? 'Bundle' : 'File' }} · Unverified</span>
+            <span v-if="candidate.format === 'VST'">Listed for this computer. Maskil loads the VST3 copy when that format is installed. The part can still leave as MIDI.</span>
             <small>{{ candidate.relativePath }}</small>
             <span v-if="repeatedClassCount">{{ repeatedClassCount }} reported class {{ repeatedClassCount === 1 ? 'ID also occurs' : 'IDs also occur' }} in other candidates. Review “Repeated reported class IDs” above.</span>
             <span>{{ metadataStatuses[candidate.metadata.status] ?? candidate.metadata.status }}</span>
@@ -129,7 +132,7 @@ onBeforeUnmount(() => clear())
               </ul>
               <p>This compares header format and CPU only. It does not validate the complete binary, VST entry points, OS version, dependencies, signatures, licensing, or playback. Emulation and hybrid Windows/Arm loading are not inferred. The header check does not load plugin code.</p>
             </details>
-            <Vst3NativeCheck v-if="result.nativeCheckAvailable" :location="location.name" :candidate="candidate" />
+            <Vst3NativeCheck v-if="result.nativeCheckAvailable && candidate.kind === 'Bundle' && candidate.format !== 'VST'" :location="location.name" :candidate="candidate" />
             <details v-if="candidate.metadata.module" class="plugin-metadata" :aria-label="`Reported metadata for ${candidate.relativePath}`">
               <summary>Reported plugin details</summary>
               <dl>
@@ -145,6 +148,7 @@ onBeforeUnmount(() => clear())
                   <span>Vendor: {{ pluginClass.vendor ?? 'Not reported' }} · Version: {{ pluginClass.version ?? 'Not reported' }}</span>
                   <span v-if="pluginClass.subCategories.length">Reported categories: {{ pluginClass.subCategories.join(' · ') }}</span>
                   <small>Class ID: {{ pluginClass.id }} · SDK: {{ pluginClass.sdkVersion ?? 'Not reported' }}</small>
+                  <Vst3LoadPreview v-if="result.nativeCheckAvailable && candidate.format !== 'VST' && pluginClass.category === 'Audio Module Class'" :location="location.name" :candidate="candidate" :class-id="pluginClass.id" :class-name="pluginClass.name" />
                 </li>
               </ul>
               <small>Metadata source: {{ candidate.metadata.source }}</small>
@@ -154,7 +158,7 @@ onBeforeUnmount(() => clear())
           </li>
         </ul>
         <p v-else-if="location.totalCount">No candidates in this folder match the current filters.</p>
-        <p v-else-if="location.status === 'Complete'">No .vst3 candidates in this folder.</p>
+        <p v-else-if="location.status === 'Complete'">No VST or VST3 candidates in this folder.</p>
       </section>
       <p>Metadata inspection supports UTF-8 JSON with comments and trailing commas; other JSON5 syntax may be reported as unsupported. At most 64 manifest files are read per scan. Missing details do not prevent a candidate from being listed.</p>
       <p>Binary checks inspect bounded headers for at most 128 candidates per scan. macOS executable names can come from a bounded XML Info.plist; its digest identifies those declaration bytes, not executable integrity. Reported metadata and binary-header findings remain separate; neither selects a renderer.</p>

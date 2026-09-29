@@ -916,7 +916,7 @@ export interface Vst3DiscoveryResult {
     status: string
     issues: string[]
     candidates: {
-      name: string; relativePath: string; kind: string; metadata: Vst3MetadataInspection
+      name: string; relativePath: string; kind: string; format?: string; metadata: Vst3MetadataInspection
       binary: {
         hostPlatform: string; hostArchitecture: string; status: string
         macExecutable?: { status: string; executable: string | null; source: string; sha256: string | null } | null
@@ -937,6 +937,9 @@ export interface Vst3AudioBus {
   defaultActive: boolean; controlVoltage: boolean
 }
 export interface Vst3NativeComponentCheckResult extends Vst3NativeCheckResult { classId: string; buses: Vst3AudioBus[] }
+export interface Vst3PreviewResult extends Vst3NativeCheckResult {
+  classId: string; frames: number; sampleRate: number; peak: number; controllerConnected: boolean; audioWavBase64: string | null
+}
 
 export const projectsApi = {
   checkNativeVst3: (location: string, relativePath: string, expectedPlistSha256: string, signal?: AbortSignal) =>
@@ -949,6 +952,10 @@ export const projectsApi = {
     }),
   checkNativeVst3Component: (location: string, relativePath: string, expectedPlistSha256: string, classId: string, signal?: AbortSignal) =>
     request<Vst3NativeComponentCheckResult>('/api/host/vst3-native-component-check', {
+      method: 'POST', body: JSON.stringify({ location, relativePath, expectedPlistSha256, classId }), signal,
+    }),
+  renderVst3Preview: (location: string, relativePath: string, expectedPlistSha256: string, classId: string, signal?: AbortSignal) =>
+    request<Vst3PreviewResult>('/api/host/vst3-preview', {
       method: 'POST', body: JSON.stringify({ location, relativePath, expectedPlistSha256, classId }), signal,
     }),
   discoverVst3: (signal?: AbortSignal) => request<Vst3DiscoveryResult>('/api/host/vst3-discovery', { method: 'POST', signal }),
